@@ -1,0 +1,260 @@
+
+
+"use client"
+
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { api } from "@/lib/trpc"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+
+type UserModalProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user?: {
+    id: string
+    name?: string | null
+    email: string
+    roleId: string
+    isActive: boolean
+  }
+  onSuccess?: () => void
+}
+
+export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProps) {
+  const [formData, setFormData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    password: "",
+    roleId: user?.roleId || "",
+    isActive: user?.isActive ?? true
+  })
+
+  const utils = api.useUtils()
+
+  // Fetch roles for the dropdown
+  const { data: roles = [] } = api.role.getAll.useQuery()
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        password: "",
+        roleId: user.roleId || "",
+        isActive: user.isActive
+      })
+    } else {
+      resetForm()
+    }
+  }, [user, open])
+
+  const createMutation = api.user.create.useMutation({
+    onSuccess: () => {
+      toast.success("Utilisateur created successfully!")
+      utils.user.getAll.invalidate()
+      onOpenChange(false)
+      onSuccess?.()
+      resetForm()
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to create de l'utilisateur")
+    }
+  })
+
+  const updateMutation = api.user.update.useMutation({
+    onSuccess: () => {
+      toast.success("Utilisateur updated successfully!")
+      utils.user.getAll.invalidate()
+      onOpenChange(false)
+      onSuccess?.()
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to update de l'utilisateur")
+    }
+  })
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      roleId: "",
+      isActive: true
+    })
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Basic validation
+    if (!formData.name) {
+      toast.error("Le nom est requis")
+      return
+    }
+    if (!formData.email) {
+      toast.error("L'email est requis")
+      return
+    }
+    if (!formData.roleId) {
+      toast.error("Le rôle est requis")
+      return
+    }
+
+    if (user) {
+      // Update existing user
+      updateMutation.mutate({
+        id: user.id,
+        name: formData.name,
+        email: formData.email,
+        roleId: formData.roleId,
+        isActive: formData.isActive
+      })
+    } else {
+      // Create new user
+      if (!formData.password) {
+        toast.error("Le mot de passe est requis pour créer un nouvel utilisateur")
+        return
+      }
+      if (formData.password.length < 6) {
+        toast.error("Le mot de passe doit contenir au moins 6 caractères")
+        return
+      }
+      createMutation.mutate({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        roleId: formData.roleId,
+      })
+    }
+  }
+
+  const isLoading = createMutation.isPending || updateMutation.isPending
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{user ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</DialogTitle>
+          <DialogDescription>
+            {user
+              ? "Modifiez les informations de l'utilisateur"
+              : "Ajoutez un nouvel utilisateur au système"}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            {/* Name */}
+            <div className="grid gap-2">
+              <Label htmlFor="name">
+                Full name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Jean Dupont"
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Email */}
+            <div className="grid gap-2">
+              <Label htmlFor="email">
+                Email <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="jean.dupont@example.com"
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Password - only for new users */}
+            {!user && (
+              <div className="grid gap-2">
+                <Label htmlFor="password">
+                  Password <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Min. 6 caractères"
+                  disabled={isLoading}
+                />
+              </div>
+            )}
+
+            {/* Role */}
+            <div className="grid gap-2">
+              <Label htmlFor="role">
+                Role <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.roleId}
+                onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                disabled={isLoading}
+              >
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Select un rôle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles?.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Active Status - only for edit */}
+            {user && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="isActive">Status du compte</Label>
+                  <p className="text-sm text-muted-foreground">
+                    L'utilisateur peut se connecter au système
+                  </p>
+                </div>
+                <Switch
+                  id="isActive"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, isActive: checked })
+                  }
+                  disabled={isLoading}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {user ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
