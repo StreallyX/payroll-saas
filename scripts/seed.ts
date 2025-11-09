@@ -250,31 +250,41 @@ async function main() {
 
   // Create sample agencies
   const agencies = [
-    {
-      name: "Acme Corporation",
-      contactEmail: "contact@acme.com",
-      contactPhone: "+1-555-0101",
-      address: "123 Business St, City, State 12345",
-      status: "active",
-      tenantId: tenant.id,
-    },
-    {
-      name: "Tech Solutions Inc",
-      contactEmail: "info@techsolutions.com", 
-      contactPhone: "+1-555-0102",
-      address: "456 Innovation Ave, City, State 12346",
-      status: "active",
-      tenantId: tenant.id,
-    },
-    {
-      name: "Global Services LLC",
-      contactEmail: "hello@globalservices.com",
-      contactPhone: "+1-555-0103", 
-      address: "789 Enterprise Blvd, City, State 12347",
-      status: "active",
-      tenantId: tenant.id,
-    },
-  ]
+  {
+    name: "Acme Corporation",
+    contactEmail: "contact@acme.com",
+    contactPhone: "+1-555-0101",
+    address1: "123 Business St",
+    city: "City",
+    state: "State",
+    postCode: "12345",
+    status: "active",
+    tenantId: tenant.id,
+  },
+  {
+    name: "Tech Solutions Inc",
+    contactEmail: "info@techsolutions.com",
+    contactPhone: "+1-555-0102",
+    address1: "456 Innovation Ave",
+    city: "City",
+    state: "State",
+    postCode: "12346",
+    status: "active",
+    tenantId: tenant.id,
+  },
+  {
+    name: "Global Services LLC",
+    contactEmail: "hello@globalservices.com",
+    contactPhone: "+1-555-0103",
+    address1: "789 Enterprise Blvd",
+    city: "City",
+    state: "State",
+    postCode: "12347",
+    status: "active",
+    tenantId: tenant.id,
+  },
+]
+
 
   const createdAgencies = []
   for (const agency of agencies) {
@@ -286,24 +296,26 @@ async function main() {
   console.log("✅ Agencies created:", createdAgencies.length)
 
   // Create sample payroll partners
-  const payrollPartners = [
-    {
-      name: "PayPro Services",
-      contactEmail: "support@paypro.com",
-      contactPhone: "+1-555-0201",
-      address: "321 Payroll Plaza, City, State 12350",
-      status: "active",
-      tenantId: tenant.id,
-    },
-    {
-      name: "QuickPayroll Inc",
-      contactEmail: "contact@quickpayroll.com",
-      contactPhone: "+1-555-0202", 
-      address: "654 Finance Street, City, State 12351",
-      status: "active", 
-      tenantId: tenant.id,
-    },
-  ]
+const payrollPartners = [
+  {
+    name: "PayPro Services",
+    contactEmail: "support@paypro.com",
+    contactPhone: "+1-555-0201",
+    address: "321 Payroll Plaza, City, State 12350", // ✅ ici
+    status: "active",
+    tenantId: tenant.id,
+  },
+  {
+    name: "QuickPayroll Inc",
+    contactEmail: "contact@quickpayroll.com",
+    contactPhone: "+1-555-0202",
+    address: "654 Finance Street, City, State 12351", // ✅ ici
+    status: "active",
+    tenantId: tenant.id,
+  },
+]
+
+
 
   const createdPayrollPartners = []
   for (const partner of payrollPartners) {
