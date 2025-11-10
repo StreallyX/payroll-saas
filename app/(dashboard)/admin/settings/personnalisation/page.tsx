@@ -21,6 +21,12 @@ export default function CustomizationPage() {
   const [logoUrl, setLogoUrl] = useState("")
   const [primaryColor, setPrimaryColor] = useState("#3b82f6")
   const [accentColor, setAccentColor] = useState("#10b981")
+  const [backgroundColor, setBackgroundColor] = useState("#ffffff")
+  const [sidebarBgColor, setSidebarBgColor] = useState("#1e293b")
+  const [headerBgColor, setHeaderBgColor] = useState("#ffffff")
+  const [sidebarTextColor, setSidebarTextColor] = useState("#ffffff")
+  const [headerTextColor, setHeaderTextColor] = useState("#1e293b")
+
   
   // Sync with tenant data
   useEffect(() => {
@@ -29,6 +35,11 @@ export default function CustomizationPage() {
       setLogoUrl(tenant.logoUrl || "")
       setPrimaryColor(tenant.primaryColor || "#3b82f6")
       setAccentColor(tenant.accentColor || "#10b981")
+      setBackgroundColor(tenant.backgroundColor || "#ffffff")
+      setSidebarTextColor(tenant.sidebarTextColor || "#ffffff")
+      setSidebarBgColor(tenant.sidebarBgColor || "#1e293b")
+      setHeaderBgColor(tenant.headerBgColor || "#ffffff")
+      setHeaderTextColor(tenant.headerTextColor || "#1e293b")
     }
   }, [tenant])
 
@@ -72,6 +83,11 @@ export default function CustomizationPage() {
       logoUrl: logoUrl || null,
       primaryColor,
       accentColor,
+      backgroundColor,
+      sidebarBgColor,
+      sidebarTextColor,
+      headerBgColor,
+      headerTextColor,
     })
   }
 
@@ -217,6 +233,71 @@ export default function CustomizationPage() {
             <p className="text-sm text-muted-foreground">
               Used for secondary elements, highlights and success states
             </p>
+          </div>
+
+          {/* Background Color */}
+          <div className="space-y-2">
+            <Label htmlFor="backgroundColor">Background Color</Label>
+            <div className="flex gap-4 items-center">
+              <Input
+                id="backgroundColor"
+                type="color"
+                value={backgroundColor}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                disabled={isLoading}
+                className="w-20 h-12 cursor-pointer"
+              />
+              <Input
+                value={backgroundColor}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                placeholder="#ffffff"
+                disabled={isLoading}
+                className="flex-1"
+              />
+              <div 
+                className="h-12 w-20 rounded border"
+                style={{ backgroundColor: backgroundColor }}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Used for application background, page headers and surfaces.
+            </p>
+          </div>
+
+          {/* Sidebar Background */}
+          <div className="space-y-2">
+            <Label>Sidebar Background</Label>
+            <div className="flex gap-4 items-center">
+              <Input type="color" className="w-20 h-12 cursor-pointer" value={sidebarBgColor} onChange={(e)=>setSidebarBgColor(e.target.value)} disabled={isLoading}/>
+              <Input value={sidebarBgColor} onChange={(e)=>setSidebarBgColor(e.target.value)} disabled={isLoading}/>
+            </div>
+          </div>
+
+          {/* Sidebar Text */}
+          <div className="space-y-2">
+            <Label>Sidebar Text</Label>
+            <div className="flex gap-4 items-center">
+              <Input type="color" className="w-20 h-12 cursor-pointer" value={sidebarTextColor} onChange={(e)=>setSidebarTextColor(e.target.value)} disabled={isLoading}/>
+              <Input value={sidebarTextColor} onChange={(e)=>setSidebarTextColor(e.target.value)} disabled={isLoading}/>
+            </div>
+          </div>
+
+          {/* Header Background */}
+          <div className="space-y-2">
+            <Label>Header Background</Label>
+            <div className="flex gap-4 items-center">
+              <Input type="color" className="w-20 h-12 cursor-pointer" value={headerBgColor} onChange={(e)=>setHeaderBgColor(e.target.value)} disabled={isLoading}/>
+              <Input value={headerBgColor} onChange={(e)=>setHeaderBgColor(e.target.value)} disabled={isLoading}/>
+            </div>
+          </div>
+
+          {/* Header Text */}
+          <div className="space-y-2">
+            <Label>Header Text</Label>
+            <div className="flex gap-4 items-center">
+              <Input type="color" className="w-20 h-12 cursor-pointer" value={headerTextColor} onChange={(e)=>setHeaderTextColor(e.target.value)} disabled={isLoading}/>
+              <Input value={headerTextColor} onChange={(e)=>setHeaderTextColor(e.target.value)} disabled={isLoading}/>
+            </div>
           </div>
 
           {/* Actions */}

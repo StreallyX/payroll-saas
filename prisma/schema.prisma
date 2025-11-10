@@ -17,6 +17,11 @@ model Tenant {
   logoUrl      String?
   primaryColor String?   @default("#3b82f6") // Default blue
   accentColor  String?   @default("#10b981") // Default green
+  backgroundColor String? @default("#f8fafc") // Default dashboard background (gris clair)
+  sidebarBgColor  String? @default("#ffffff")
+  sidebarTextColor String? @default("#111827") // Gray-900
+  headerBgColor   String? @default("#ffffff")
+  headerTextColor String? @default("#111827")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

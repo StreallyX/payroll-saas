@@ -19,6 +19,7 @@ async function main() {
         logoUrl: null,
         primaryColor: "#3b82f6",
         accentColor: "#10b981",
+        backgroundColor: "#0f172a",
       },
     })
   }

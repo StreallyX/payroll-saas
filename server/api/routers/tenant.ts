@@ -16,6 +16,11 @@ export const tenantRouter = createTRPCRouter({
           logoUrl: true,
           primaryColor: true,
           accentColor: true,
+          backgroundColor: true,
+          sidebarBgColor: true,
+          sidebarTextColor: true,
+          headerBgColor: true,
+          headerTextColor: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -25,11 +30,16 @@ export const tenantRouter = createTRPCRouter({
   // Update tenant settings (restricted to admins only)
   updateSettings: adminProcedure
     .input(z.object({
-      name: z.string().min(1, "Le nom de l'organisation est requis").optional(),
-      logoUrl: z.string().url("L'URL du logo doit être valide").optional().nullable(),
-      primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "La couleur primaire doit être au format hexadécimal (#RRGGBB)").optional(),
-      accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "La couleur d'accent doit être au format hexadécimal (#RRGGBB)").optional(),
-    }))
+        name: z.string().min(1).optional(),
+        logoUrl: z.string().url().optional().nullable(),
+        primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(), // ✅ NEW
+        sidebarBgColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        sidebarTextColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        headerBgColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        headerTextColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      }))
     .mutation(async ({ ctx, input }) => {
       // Get current tenant data for audit log
       const currentTenant = await ctx.prisma.tenant.findUnique({
@@ -76,6 +86,11 @@ export const tenantRouter = createTRPCRouter({
         data: {
           primaryColor: "#3b82f6", // Default blue
           accentColor: "#10b981",  // Default green
+          backgroundColor: "#ffffff",
+          sidebarBgColor: "#ffffff",
+          sidebarTextColor: "#111827",
+          headerBgColor: "#ffffff",
+          headerTextColor: "#111827",
         },
       })
 
@@ -91,6 +106,7 @@ export const tenantRouter = createTRPCRouter({
         metadata: {
           primaryColor: "#3b82f6",
           accentColor: "#10b981",
+          backgroundColor: "#ffffff",
           action: "reset_colors"
         },
         tenantId: ctx.tenantId,

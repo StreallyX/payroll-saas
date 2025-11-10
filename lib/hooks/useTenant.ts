@@ -9,6 +9,11 @@ export interface TenantSettings {
   logoUrl: string | null
   primaryColor: string | null
   accentColor: string | null
+  backgroundColor: string | null
+  sidebarBgColor: string | null
+  sidebarTextColor: string | null
+  headerBgColor: string | null
+  headerTextColor: string | null
 }
 
 interface TenantContextType {

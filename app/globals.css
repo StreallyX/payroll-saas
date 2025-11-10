@@ -33,6 +33,11 @@
     --ring: 222.2 84% 4.9%;
  
     --radius: 0.5rem;
+
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-text: 222 47% 11%;
+    --header-bg: 0 0% 100%;
+    --header-text: 222 47% 11%;
   }
  
   .dark {
