@@ -1,4 +1,3 @@
-
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
@@ -7,25 +6,41 @@ export default withAuth(
     const { pathname } = req.nextUrl
     const token = req.nextauth.token
 
-    // Public paths and API routes that don't require middleware processing
+    // 🔹 Exclure les routes publiques / API
     if (
-      pathname === "/login" || 
-      pathname === "/register" || 
-      pathname.startsWith("/api/auth") || 
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname.startsWith("/api/auth") ||
       pathname.startsWith("/api/signup") ||
-      pathname.startsWith("/api/trpc")  // Exclude tRPC API calls from middleware
+      pathname.startsWith("/api/trpc")
     ) {
       return NextResponse.next()
     }
 
-    // If user is not authenticated, redirect to login
+    // 🔹 Si pas connecté → redirige vers /login
     if (!token) {
-      return NextResponse.redirect(new URL("/login", req.url))
+      return NextResponse.redirect(new URL("/unauthorized", req.url))
     }
 
     const roleName = token.roleName as string
+    const isSuperAdmin = token.isSuperAdmin as boolean
 
-    // Role-based redirects for root path
+    // 🟥 SUPERADMIN — accès réservé
+    if (isSuperAdmin) {
+      // Redirige la racine vers /superadmin
+      if (pathname === "/") {
+        return NextResponse.redirect(new URL("/superadmin", req.url))
+      }
+
+      // Autorise uniquement les routes /superadmin/*
+      if (!pathname.startsWith("/superadmin")) {
+        return NextResponse.redirect(new URL("/superadmin", req.url))
+      }
+
+      return NextResponse.next()
+    }
+
+    // 🟦 UTILISATEURS CLASSIQUES (tenant)
     if (pathname === "/") {
       switch (roleName) {
         case "admin":
@@ -41,17 +56,16 @@ export default withAuth(
       }
     }
 
-    // Role-based route protection
+    // 🧩 Protection par rôle (empêche accès croisé)
     const roleRoutes = {
       admin: "/admin",
-      agency: "/agency", 
+      agency: "/agency",
       payroll_partner: "/payroll",
-      contractor: "/contractor"
+      contractor: "/contractor",
     }
 
     const userRoute = roleRoutes[roleName as keyof typeof roleRoutes]
-    
-    // Check if user is accessing the correct route for their role
+
     if (userRoute && !pathname.startsWith(userRoute)) {
       return NextResponse.redirect(new URL(userRoute, req.url))
     }
@@ -62,19 +76,19 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl
-        
-        // Allow access to public paths and API routes
+
+        // Routes publiques / API
         if (
-          pathname === "/login" || 
-          pathname === "/register" || 
-          pathname.startsWith("/api/auth") || 
+          pathname === "/login" ||
+          pathname === "/register" ||
+          pathname.startsWith("/api/auth") ||
           pathname.startsWith("/api/signup") ||
-          pathname.startsWith("/api/trpc")  // Allow tRPC API calls
+          pathname.startsWith("/api/trpc")
         ) {
           return true
         }
-        
-        // Require token for all other paths
+
+        // Require auth for everything else
         return !!token
       },
     },
@@ -83,13 +97,10 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (images, etc.)
-     */
+    // ✅ Inclure toutes les routes dynamiques SAUF les fichiers statiques
     "/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg).*)",
+
+    // ✅ Protection explicite du SuperAdmin
+    "/superadmin/:path*",
   ],
 }

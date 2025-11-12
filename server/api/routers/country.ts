@@ -54,7 +54,7 @@ export const countryRouter = createTRPCRouter({
         metadata: {
           code: country.code,
         },
-        tenantId: ctx.session.user.tenantId,
+        tenantId: ctx.session.user.tenantId ?? undefined,
       })
 
       return country
@@ -92,7 +92,7 @@ export const countryRouter = createTRPCRouter({
         metadata: {
           updatedFields: data,
         },
-        tenantId: ctx.session.user.tenantId,
+        tenantId: ctx.session.user.tenantId ?? undefined,
       })
 
       return country
@@ -129,7 +129,7 @@ export const countryRouter = createTRPCRouter({
         metadata: {
           code: country.code,
         },
-        tenantId: ctx.session.user.tenantId,
+        tenantId: ctx.session.user.tenantId ?? undefined,
       })
 
       return { success: true }
