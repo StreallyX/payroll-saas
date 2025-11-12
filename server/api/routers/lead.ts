@@ -217,7 +217,7 @@ export const leadRouter = createTRPCRouter({
       action: AuditAction.EXPORT,
       entityType: AuditEntityType.LEAD,
       metadata: { format: "CSV" },
-      tenantId: ctx.session?.user?.tenantId
+      tenantId: ctx.session.user.tenantId ?? undefined,
     })
 
     return { success: true, message: "Leads exported successfully" }

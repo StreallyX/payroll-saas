@@ -56,7 +56,7 @@ export const currencyRouter = createTRPCRouter({
           code: currency.code,
           symbol: currency.symbol,
         },
-        tenantId: ctx.session.user.tenantId,
+        tenantId: ctx.session.user.tenantId ?? undefined,
       })
 
       return currency
@@ -95,7 +95,8 @@ export const currencyRouter = createTRPCRouter({
         metadata: {
           updatedFields: data,
         },
-        tenantId: ctx.session.user.tenantId,
+        tenantId: ctx.session.user.tenantId ?? undefined,
+
       })
 
       return currency
@@ -132,7 +133,7 @@ export const currencyRouter = createTRPCRouter({
         metadata: {
           code: currency.code,
         },
-        tenantId: ctx.session.user.tenantId,
+        tenantId: ctx.session.user.tenantId ?? undefined,
       })
 
       return { success: true }
