@@ -144,6 +144,9 @@ export default function LoginPage() {
             <CardContent className="pt-4">
               <h3 className="font-medium text-gray-900 mb-2">Demo Credentials</h3>
               <div className="space-y-1 text-sm text-gray-600">
+                <p className="text-red-600 font-semibold">
+                  <strong>SuperAdmin:</strong> superadmin@platform.com / SuperAdmin123!
+                </p>
                 <p><strong>Admin:</strong> admin@demo.com / password123</p>
                 <p><strong>Agency:</strong> agency@demo.com / password123</p>
                 <p><strong>Payroll:</strong> payroll@demo.com / password123</p>

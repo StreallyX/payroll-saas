@@ -2,10 +2,46 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
 
+
 const prisma = new PrismaClient()
+
+// === SuperAdmin Seed Function ===
+async function createSuperAdmin(prisma: PrismaClient) {
+  const superAdminEmail = "superadmin@platform.com";
+  const superAdminPassword = "SuperAdmin123!";
+
+  const existing = await prisma.superAdmin.findUnique({
+    where: { email: superAdminEmail },
+  });
+
+  if (existing) {
+    console.log("✅ SuperAdmin already exists");
+    return;
+  }
+
+  const hashed = await bcrypt.hash(superAdminPassword, 10);
+  await prisma.superAdmin.create({
+    data: {
+      email: superAdminEmail,
+      name: "Platform SuperAdmin",
+      passwordHash: hashed,
+      isActive: true,
+    },
+  });
+
+  console.log("✅ SuperAdmin created:");
+  console.log(`   Email: ${superAdminEmail}`);
+  console.log(`   Password: ${superAdminPassword}`);
+  console.log("   ⚠️ CHANGE THIS PASSWORD IN PRODUCTION!");
+}
+
 
 async function main() {
   console.log("🌱 Starting database seed...")
+
+  console.log("👉 Prisma models:", Object.keys(new PrismaClient()));
+
+  await createSuperAdmin(prisma);
 
   // Create tenant
   let tenant = await prisma.tenant.findFirst({

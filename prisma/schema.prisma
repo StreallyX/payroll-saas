@@ -12,18 +12,19 @@ datasource db {
 
 // Multi-Tenant Core Models
 model Tenant {
-  id           String    @id @default(cuid())
-  name         String
-  logoUrl      String?
-  primaryColor String?   @default("#3b82f6") // Default blue
-  accentColor  String?   @default("#10b981") // Default green
-  backgroundColor String? @default("#f8fafc") // Default dashboard background (gris clair)
-  sidebarBgColor  String? @default("#ffffff")
-  sidebarTextColor String? @default("#111827") // Gray-900
-  headerBgColor   String? @default("#ffffff")
-  headerTextColor String? @default("#111827")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  logoUrl          String?
+  primaryColor     String?   @default("#3b82f6")
+  accentColor      String?   @default("#10b981")
+  backgroundColor  String?   @default("#f8fafc")
+  sidebarBgColor   String?   @default("#ffffff")
+  sidebarTextColor String?   @default("#111827")
+  headerBgColor    String?   @default("#ffffff")
+  headerTextColor  String?   @default("#111827")
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relations
   users           User[]
@@ -43,6 +44,7 @@ model Tenant {
 
   @@map("tenants")
 }
+
 
 model User {
   id           String    @id @default(cuid())
@@ -588,27 +590,26 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   // Who performed the action
-  userId      String
-  userName    String   // Cached for performance
-  userRole    String   // Cached for performance
+  userId      String?    // ✅ facultatif
+  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  userName    String
+  userRole    String
 
   // What action was performed
-  action      String   // CREATE, UPDATE, DELETE, EXPORT, GENERATE, etc.
-  entityType  String   // LEAD, CONTRACT, AGENCY, USER, etc.
-  entityId    String?  // ID of the entity affected
-  entityName  String?  // Name/title of the entity for display
+  action      String
+  entityType  String
+  entityId    String?
+  entityName  String?
 
   // Details
-  description String   // Human-readable description
-  metadata    Json?    // Additional data (before/after, etc.)
+  description String
+  metadata    Json?
 
   // Context
   ipAddress   String?
   userAgent   String?
   tenantId    String?
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([entityType])
@@ -616,4 +617,17 @@ model AuditLog {
   @@index([createdAt])
   @@index([tenantId])
   @@map("audit_logs")
+}
+
+
+model SuperAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("super_admins")
 }
