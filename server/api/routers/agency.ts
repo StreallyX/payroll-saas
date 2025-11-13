@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createTRPCRouter, tenantProcedure } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { sanitizeData } from "@/lib/utils"
 
 export const agencyRouter = createTRPCRouter({
   // Get all agencies for tenant
@@ -73,7 +74,7 @@ export const agencyRouter = createTRPCRouter({
       name: z.string().min(1),
       contactPhone: z.string().optional(),
       alternateContactPhone: z.string().optional(),
-      contactEmail: z.string().email(),
+      contactEmail: z.union([z.string().email(), z.literal(""), z.undefined()]).optional(),
       primaryContactName: z.string().optional(),
       primaryContactJobTitle: z.string().optional(),
       fax: z.string().optional(),
@@ -99,9 +100,13 @@ export const agencyRouter = createTRPCRouter({
       status: z.enum(["active", "inactive", "suspended"]).default("active"),
     }))
     .mutation(async ({ ctx, input }) => {
+      const cleanData = sanitizeData(input)
+
+      // 🩹 On s'assure que name est bien une string (Zod garantit déjà qu'elle existe)
       const agency = await ctx.prisma.agency.create({
         data: {
-          ...input,
+          ...(cleanData as any), // on "force" le type nettoyé
+          name: input.name, // garanti non undefined
           tenantId: ctx.tenantId,
         },
       })
@@ -130,7 +135,7 @@ export const agencyRouter = createTRPCRouter({
       name: z.string().min(1).optional(),
       contactPhone: z.string().optional(),
       alternateContactPhone: z.string().optional(),
-      contactEmail: z.string().email().optional(),
+      contactEmail: z.union([z.string().email(), z.literal(""), z.undefined()]).optional(),
       primaryContactName: z.string().optional(),
       primaryContactJobTitle: z.string().optional(),
       fax: z.string().optional(),
@@ -158,13 +163,16 @@ export const agencyRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input
 
+      const cleanData = sanitizeData(updateData)
+
       const agency = await ctx.prisma.agency.update({
         where: { 
           id,
           tenantId: ctx.tenantId,
         },
-        data: updateData,
+        data: cleanData,
       })
+
 
       // Audit log
       await createAuditLog({
