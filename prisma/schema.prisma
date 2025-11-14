@@ -52,15 +52,16 @@ model Tenant {
 // USER (DEEL-Like)
 // =============================================================
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String
-  name         String?
-  email        String
-  passwordHash String
-  roleId       String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  tenantId           String
+  name               String?
+  email              String
+  passwordHash       String
+  mustChangePassword Boolean  @default(true)
+  roleId             String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // ENTITY ATTACHMENTS
   agencyId         String?
@@ -68,17 +69,18 @@ model User {
   companyId        String?
 
   // RELATIONS
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role            Role            @relation(fields: [roleId], references: [id])
-  agency          Agency?         @relation("AgencyUsers", fields: [agencyId], references: [id])
-  payrollPartner  PayrollPartner? @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
-  company         Company?        @relation("CompanyUsers", fields: [companyId], references: [id])
-  contractor      Contractor?
-  accounts        Account[]
-  sessions        Session[]
-  auditLogs       AuditLog[]
-  tasksAssignedTo Task[]          @relation("TasksAssignedTo")
-  tasksAssignedBy Task[]          @relation("TasksAssignedBy")
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role                Role                 @relation(fields: [roleId], references: [id])
+  agency              Agency?              @relation("AgencyUsers", fields: [agencyId], references: [id])
+  payrollPartner      PayrollPartner?      @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
+  company             Company?             @relation("CompanyUsers", fields: [companyId], references: [id])
+  contractor          Contractor?
+  accounts            Account[]
+  sessions            Session[]
+  auditLogs           AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+  tasksAssignedTo     Task[]               @relation("TasksAssignedTo")
+  tasksAssignedBy     Task[]               @relation("TasksAssignedBy")
 
   @@unique([tenantId, email])
   @@map("users")
@@ -628,4 +630,15 @@ model SuperAdmin {
   updatedAt    DateTime @updatedAt
 
   @@map("super_admins")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
