@@ -1,9 +1,11 @@
-// MUST be at the VERY TOP before any import
+// MUST be at the TOP
 export const config = {
   matcher: [
-    "/((?!api/auth|auth|api/trpc|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)",
+    "/((?!api/auth|api/auth|auth|api/trpc|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)",
   ],
 };
+
+
 
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
@@ -13,33 +15,38 @@ export default withAuth(
     const token = req.nextauth.token;
     const { pathname } = req.nextUrl;
 
-    // 🔥 NEW PUBLIC ROUTES
     const publicRoutes = [
       "/auth/login",
       "/auth/signin",
       "/auth/set-password",
     ];
 
-    if (publicRoutes.some(r => pathname.startsWith(r))) {
+    if (publicRoutes.some((r) => pathname.startsWith(r))) {
       return NextResponse.next();
     }
 
-    // Not authenticated → redirect to /auth/login
     if (!token) {
       return NextResponse.redirect(new URL("/auth/login", req.url));
     }
 
-    // Must change password before accessing the app
+    // 🔥 Must change password but token is NULL
     if (!token.isSuperAdmin && token.mustChangePassword) {
-      const resetToken = token.passwordResetToken;
+      if (!token.passwordResetToken) {
+        // ⬅️ Redirect to API route that regenerates a token
+        return NextResponse.redirect(
+          new URL(`/api/auth/generate-reset-token?userId=${token.id}`, req.url)
+        );
+      }
+
+      // Already has a token → go to set-password
       if (!pathname.startsWith("/auth/set-password")) {
         return NextResponse.redirect(
-          new URL(`/auth/set-password?token=${resetToken}`, req.url)
+          new URL(`/auth/set-password?token=${token.passwordResetToken}`, req.url)
         );
       }
     }
 
-    // SuperAdmin isolation
+    // SUPERADMIN isolation
     if (token.isSuperAdmin) {
       if (!pathname.startsWith("/superadmin")) {
         return NextResponse.redirect(new URL("/superadmin", req.url));
@@ -47,7 +54,7 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    // RBAC: enforce homePath
+    // NORMAL USER HOME PATH
     const homePath = token.homePath ?? "/dashboard";
 
     if (pathname === "/") {

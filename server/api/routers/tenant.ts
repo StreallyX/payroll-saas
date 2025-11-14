@@ -10,7 +10,7 @@ import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
 import bcrypt from "bcryptjs"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE, TENANT_ADMIN_DEFAULT_PERMISSIONS } from "../../rbac/permissions"
 
 export const tenantRouter = createTRPCRouter({
 
@@ -185,6 +185,7 @@ export const tenantRouter = createTRPCRouter({
         })
 
         const rolesNames = ["admin", "agency", "contractor", "payroll_partner"]
+        
         const roles = await Promise.all(
           rolesNames.map((name) =>
             prisma.role.create({ data: { tenantId: tenant.id, name } })
@@ -192,6 +193,21 @@ export const tenantRouter = createTRPCRouter({
         )
 
         const adminRole = roles.find((r) => r.name === "admin")!
+        // 1. Load all permissions from DB
+        const allPermissions = await prisma.permission.findMany({
+          where: {
+            key: { in: TENANT_ADMIN_DEFAULT_PERMISSIONS }
+          }
+        });
+
+        // 2. Create rolePermissions using permissionId
+        await prisma.rolePermission.createMany({
+          data: allPermissions.map((p) => ({
+            roleId: adminRole.id,
+            permissionId: p.id,
+          })),
+        });
+
         const passwordHash = await bcrypt.hash(input.adminPassword, 10)
 
         const user = await prisma.user.create({

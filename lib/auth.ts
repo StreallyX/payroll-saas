@@ -4,6 +4,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./db";
 import bcrypt from "bcryptjs";
 
+// ⭐ IMPORT SUPERADMIN PERMISSIONS
+import { SUPERADMIN_PERMISSIONS } from "@/server/rbac/permissions";
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
@@ -22,7 +25,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // SUPERADMIN LOGIN
+        // 🔵 SUPERADMIN LOGIN
         const superAdmin = await prisma.superAdmin.findUnique({
           where: { email: credentials.email, isActive: true },
         });
@@ -41,7 +44,7 @@ export const authOptions: NextAuthOptions = {
           };
         }
 
-        // TENANT USER LOGIN
+        // 🟢 TENANT USER LOGIN
         const user = await prisma.user.findFirst({
           where: { email: credentials.email, isActive: true },
           include: { role: true },
@@ -75,7 +78,11 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
 
   callbacks: {
+    // ---------------------------
+    // 🔥 JWT CALLBACK
+    // ---------------------------
     async jwt({ token, user }) {
+      // 1) First login: copy from authorize()
       if (user) {
         token.id = user.id;
         token.roleName = user.roleName;
@@ -85,38 +92,46 @@ export const authOptions: NextAuthOptions = {
         token.mustChangePassword = user.mustChangePassword;
         token.homePath = user.homePath;
         token.passwordResetToken = user.passwordResetToken ?? null;
+      }
 
-        if (user.isSuperAdmin) {
-          const allPermissions = await prisma.permission.findMany({
-            select: { key: true },
-          });
+      // 2) SUPERADMIN → skip DB reload
+      if (token.isSuperAdmin) {
+        token.permissions = SUPERADMIN_PERMISSIONS;
+        return token;
+      }
 
-          token.permissions = allPermissions.map((p) => p.key);
-          return token;
-        }
+      // 3) Always reload user from DB
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id },
+          include: {
+            role: {
+              include: {
+                rolePermissions: { include: { permission: true } }
+              }
+            }
+          }
+        });
 
-        if (user.roleId) {
-          const dbUser = await prisma.user.findFirst({
-            where: { id: user.id },
-            include: {
-              role: {
-                include: {
-                  rolePermissions: {
-                    include: { permission: true },
-                  },
-                },
-              },
-            },
-          });
+        if (dbUser) {
+          token.mustChangePassword = dbUser.mustChangePassword;
+
+          // 🔥 FIX CRUCIAL : reset le token si mustChangePassword = false
+          if (!dbUser.mustChangePassword) {
+            token.passwordResetToken = null;
+          }
 
           token.permissions =
-            dbUser?.role?.rolePermissions?.map((rp) => rp.permission.key) ?? [];
+            dbUser.role?.rolePermissions?.map(rp => rp.permission.key) ?? [];
         }
       }
 
       return token;
     },
 
+    // ---------------------------
+    // 🔵 SESSION CALLBACK
+    // ---------------------------
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
@@ -127,13 +142,17 @@ export const authOptions: NextAuthOptions = {
         session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.homePath = token.homePath as string;
         session.user.passwordResetToken = token.passwordResetToken as string | null;
+
+        // 🔥 IMPORTANT
         session.user.permissions = token.permissions ?? [];
       }
 
       return session;
     },
 
-    // 🚀 FIX REDIRECTION NEXTAUTH
+    // ---------------------------
+    // 🚀 REDIRECT FIX
+    // ---------------------------
     async redirect({ url, baseUrl }) {
       if (url.includes("/api/auth/signin")) {
         return `${baseUrl}/auth/login`;

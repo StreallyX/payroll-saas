@@ -10,6 +10,7 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Lock } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 export default function SetPasswordPage() {
   const params = useSearchParams();
@@ -53,7 +54,8 @@ export default function SetPasswordPage() {
         password,
       });
 
-      router.push("/login?passwordSet=1");
+    await signOut({ callbackUrl: "/auth/login?passwordSet=1" });
+    return;
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {

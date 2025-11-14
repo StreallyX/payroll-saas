@@ -136,10 +136,10 @@ export const PERMISSION_TREE = {
       delete: "onboarding.questions.delete",
     },
     responses: {
-      view: "onboarding.responses.view",        // admin list contractors
-      viewOwn: "onboarding.responses.view_own", // contractor sees their own responses
-      submit: "onboarding.responses.submit",    // contractor submits answers
-      review: "onboarding.responses.review",    // admin approves/rejects
+      view: "onboarding.responses.view",
+      viewOwn: "onboarding.responses.view_own",
+      submit: "onboarding.responses.submit",
+      review: "onboarding.responses.review",
     },
   },
 
@@ -184,3 +184,169 @@ export const PERMISSION_TREE = {
     },
   },
 } as const;
+
+
+// ---------------------------------------------------------------
+// 🔥 Extract SuperAdmin permissions dynamically
+// ---------------------------------------------------------------
+function extractSuperAdminPermissions(tree: any): string[] {
+  const result: string[] = []
+
+  if (typeof tree === "string") {
+    result.push(tree)
+    return result
+  }
+
+  if (typeof tree === "object") {
+    for (const key in tree) {
+      result.push(...extractSuperAdminPermissions(tree[key]))
+    }
+  }
+
+  return result
+}
+
+
+
+// 🔥 Doit absolument être exporté
+export const SUPERADMIN_PERMISSIONS = extractSuperAdminPermissions(PERMISSION_TREE.superadmin)
+
+// ---------------------------------------------------------------
+// 📌 Default permissions for Tenant Admin
+// ---------------------------------------------------------------
+
+export const TENANT_ADMIN_DEFAULT_PERMISSIONS: string[] = [
+  // 🔷 Tenant Management
+  "tenant.view",
+  "tenant.update",
+  "tenant.branding.update",
+  "tenant.billing.view",
+  "tenant.billing.update",
+  "tenant.roles.view",
+  "tenant.roles.create",
+  "tenant.roles.update",
+  "tenant.roles.delete",
+  "tenant.users.invite",
+  "tenant.users.create",
+  "tenant.users.view",
+  "tenant.users.update",
+  "tenant.users.disable",
+  "tenant.users.delete",
+
+  // 🏢 Companies
+  "companies.view",
+  "companies.create",
+  "companies.update",
+  "companies.delete",
+
+  // 🏬 Agencies
+  "agencies.view",
+  "agencies.create",
+  "agencies.update",
+  "agencies.delete",
+  "agencies.assign_contractor",
+  "agencies.manage_team",
+  "agencies.notes.add",
+  "agencies.notes.view",
+
+  // 👷 Contractors
+  "contractors.view",
+  "contractors.create",
+  "contractors.update",
+  "contractors.delete",
+  "contractors.documents.upload",
+  "contractors.documents.view",
+  "contractors.documents.delete",
+  "contractors.onboarding.start",
+  "contractors.onboarding.update",
+  "contractors.onboarding.review",
+  "contractors.onboarding.validate",
+  "contractors.assign_to_agency",
+  "contractors.change_status",
+
+  // 📄 Contracts
+  "contracts.view",
+  "contracts.create",
+  "contracts.update",
+  "contracts.delete",
+  "contracts.send",
+  "contracts.approve",
+  "contracts.reject",
+  "contracts.upload_pdf",
+  "contracts.download_pdf",
+  "contracts.generate_reference",
+
+  // 🧾 Invoices
+  "invoices.view",
+  "invoices.create",
+  "invoices.update",
+  "invoices.delete",
+  "invoices.send",
+  "invoices.mark_paid",
+  "invoices.export",
+
+  // 💰 Payroll
+  "payroll.view",
+  "payroll.generate",
+  "payroll.update",
+  "payroll.send",
+  "payroll.mark_paid",
+  "payroll.create",
+  "payroll.delete",
+
+  // 📑 Payslips
+  "payslip.view",
+  "payslip.generate",
+  "payslip.update",
+  "payslip.send",
+  "payslip.mark_paid",
+  "payslip.create",
+  "payslip.delete",
+
+  // 🏦 Banks
+  "banks.view",
+  "banks.create",
+  "banks.update",
+  "banks.delete",
+
+  // ⚙️ Settings
+  "settings.view",
+  "settings.update",
+
+  // 🧩 Onboarding Templates and Responses
+  "onboarding.templates.view",
+  "onboarding.templates.create",
+  "onboarding.templates.update",
+  "onboarding.templates.delete",
+  "onboarding.questions.add",
+  "onboarding.questions.update",
+  "onboarding.questions.delete",
+  "onboarding.responses.view",
+  "onboarding.responses.submit",
+  "onboarding.responses.review",
+
+  // 📄 Document Types
+  "document_types.view",
+  "document_types.create",
+  "document_types.update",
+  "document_types.delete",
+
+  // 📋 Tasks
+  "tasks.view",
+  "tasks.create",
+  "tasks.update",
+  "tasks.delete",
+  "tasks.assign",
+  "tasks.complete",
+
+  // 📈 Leads
+  "leads.view",
+  "leads.create",
+  "leads.update",
+  "leads.delete",
+  "leads.export",
+
+  // 📜 Audit Logs
+  "audit_logs.view",
+]
+

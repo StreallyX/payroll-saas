@@ -4,9 +4,10 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { getServerSession } from "next-auth";
 import superjson from "superjson";
 import { ZodError } from "zod";
-import { authOptions } from "../../lib/auth";
-import { prisma } from "../../lib/db";
-import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { headers, cookies } from "next/headers";
+import { SUPERADMIN_PERMISSIONS } from "@/server/rbac/permissions";
 
 /* -------------------------------------------------------------
  * 1) CONTEXT TYPE
@@ -14,52 +15,71 @@ import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 export type TRPCContext = {
   prisma: typeof prisma;
-  session: {
-    user: {
-      id: string;
-      tenantId: string;
-      roleId: string | null;
-      roleName: string;
-      permissions: string[];
-      agencyId: string | null;
-      payrollPartnerId: string | null;
-      companyId: string | null;
-      name?: string | null;
-      email?: string | null;
-    };
-    expires: string;
-  } | null;
-  tenantId?: string;
+  session: any | null;
+  tenantId?: string | null;
 };
 
-
 /* -------------------------------------------------------------
- * 2) CONTEXT CREATION
+ * 2) NEW CONTEXT CREATION — FIX SUPERADMIN + SESSION
  * ------------------------------------------------------------- */
 
-export const createTRPCContext = async (
-  opts: CreateNextContextOptions
-): Promise<TRPCContext> => {
-  const { req, res } = opts;
+export async function createTRPCContext(opts: { req: Request }): Promise<TRPCContext> {
+  // ⭐ NECESSARY FIX FOR NEXTAUTH + APP ROUTER
+  const session = await getServerSession({
+    ...authOptions,
+    req: {
+      headers: Object.fromEntries(headers()),
+      cookies: Object.fromEntries(
+        cookies()
+          .getAll()
+          .map(c => [c.name, c.value])
+      ),
+    },
+  });
 
-  const session = await getServerSession(req, res, authOptions);
-
+  // No session → public access
   if (!session?.user?.id) {
-    return { prisma, session: null };
+    return { prisma, session: null, tenantId: null };
   }
 
+  // ⭐ SUPERADMIN FIX → does not exist in prisma.user
+  if (session.user.isSuperAdmin) {
+    return {
+      prisma,
+      session: {
+        ...session,
+        user: {
+          ...session.user,
+          permissions: SUPERADMIN_PERMISSIONS,
+          tenantId: null,
+          roleName: "superadmin",
+          roleId: null,
+          agencyId: null,
+          payrollPartnerId: null,
+          companyId: null,
+        },
+      },
+      tenantId: null,
+    };
+  }
+
+  // Regular tenant user → load from DB
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
-      role: { include: { rolePermissions: { include: { permission: true } } } },
+      role: {
+        include: {
+          rolePermissions: { include: { permission: true } },
+        },
+      },
     },
   });
 
   if (!dbUser) {
-    return { prisma, session: null };
+    return { prisma, session: null, tenantId: null };
   }
 
-  const permissions = dbUser.role.rolePermissions.map((rp) => rp.permission.key);
+  const permissions = dbUser.role.rolePermissions.map(p => p.permission.key);
 
   return {
     prisma,
@@ -68,16 +88,17 @@ export const createTRPCContext = async (
       user: {
         ...session.user,
         tenantId: dbUser.tenantId,
-        roleName: dbUser.role.name,
         roleId: dbUser.roleId,
+        roleName: dbUser.role.name,
         permissions,
         agencyId: dbUser.agencyId,
         payrollPartnerId: dbUser.payrollPartnerId,
         companyId: dbUser.companyId,
       },
     },
+    tenantId: dbUser.tenantId,
   };
-};
+}
 
 /* -------------------------------------------------------------
  * 3) TRPC INIT
@@ -90,8 +111,7 @@ const t = initTRPC.context<TRPCContext>().create({
       ...shape,
       data: {
         ...shape.data,
-        zodError:
-          error.cause instanceof ZodError ? error.cause.flatten() : null,
+        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
     };
   },
@@ -101,65 +121,45 @@ export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 
 /* -------------------------------------------------------------
- * 4) MIDDLEWARES (corrects & typés)
+ * 4) MIDDLEWARES
  * ------------------------------------------------------------- */
 
-// 🔐 Auth required
+// Require login
 const requireAuth = t.middleware(({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
 
-  return next({
-    ctx: {
-      ...ctx,
-      session: ctx.session, // session now guaranteed
-    },
-  });
+  return next();
 });
 
-// 🏢 Tenant required
+// Require tenant
 const requireTenant = t.middleware(({ ctx, next }) => {
-  const tenantId = ctx.session!.user.tenantId;
-
-  if (!tenantId) {
+  if (!ctx.session?.user?.tenantId) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Tenant context required",
+      message: "Tenant required",
     });
   }
 
   return next({
-    ctx: {
-      ...ctx,
-      tenantId,
-    },
+    ctx: { ...ctx, tenantId: ctx.session.user.tenantId },
   });
 });
 
-// 🛂 Permission required
+// Permission check
 export const requirePermission = (permission: string) =>
   t.middleware(({ ctx, next }) => {
-    const perms = ctx.session!.user.permissions;
-
-    if (!perms.includes(permission)) {
+    if (!ctx.session!.user.permissions.includes(permission)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: `Missing permission: ${permission}`,
+        message: `Missing permission ${permission}`,
       });
     }
 
     return next();
   });
 
-/* -------------------------------------------------------------
- * 5) FINAL PROCEDURES (les bons, pas de pièges)
- * ------------------------------------------------------------- */
-
 export const protectedProcedure = t.procedure.use(requireAuth);
-
 export const tenantProcedure = protectedProcedure.use(requireTenant);
-
-// ⚠️ IMPORTANT : hasPermission doit retourner un MIDDLEWARE
-export const hasPermission = (permission: string) =>
-  requirePermission(permission);
+export const hasPermission = (permission: string) => requirePermission(permission);
