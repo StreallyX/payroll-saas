@@ -1,80 +1,85 @@
-import { initTRPC, TRPCError } from '@trpc/server'
-import { getServerSession } from 'next-auth'
-import superjson from 'superjson'
-import { ZodError } from 'zod'
-import { authOptions } from '../../lib/auth'
-import { prisma } from '../../lib/db'
-import { type CreateNextContextOptions } from '@trpc/server/adapters/next'
+// src/server/api/trpc.ts
+
+import { initTRPC, TRPCError } from "@trpc/server";
+import { getServerSession } from "next-auth";
+import superjson from "superjson";
+import { ZodError } from "zod";
+import { authOptions } from "../../lib/auth";
+import { prisma } from "../../lib/db";
+import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 /* -------------------------------------------------------------
- * TYPES - CONTEXTE AUTHENTIFIÉ
+ * 1) CONTEXT TYPE
  * ------------------------------------------------------------- */
 
-type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>
-
-type AuthenticatedContext = {
-  session: NonNullable<TRPCContext["session"]>
-  prisma: typeof prisma
-  tenantId?: string
-}
+export type TRPCContext = {
+  prisma: typeof prisma;
+  session: {
+    user: {
+      id: string;
+      tenantId: string;
+      role: string;
+      permissions: string[];
+      agencyId: string | null;
+      payrollPartnerId: string | null;
+      companyId: string | null;
+      name?: string | null;
+      email?: string | null;
+    };
+    expires: string;
+  } | null;
+  tenantId?: string;
+};
 
 /* -------------------------------------------------------------
- * 1. CONTEXT CREATION
+ * 2) CONTEXT CREATION
  * ------------------------------------------------------------- */
 
-export const createTRPCContext = async (opts: CreateNextContextOptions) => {
-  const { req, res } = opts
+export const createTRPCContext = async (
+  opts: CreateNextContextOptions
+): Promise<TRPCContext> => {
+  const { req, res } = opts;
 
-  const session = await getServerSession(req, res, authOptions)
+  const session = await getServerSession(req, res, authOptions);
 
-  // If no session → context without user
   if (!session?.user?.id) {
-    return { session: null, prisma }
+    return { prisma, session: null };
   }
 
-  // Fetch the full user with role & permissions
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
-      role: {
-        include: {
-          rolePermissions: { include: { permission: true } },
-        },
-      },
+      role: { include: { rolePermissions: { include: { permission: true } } } },
     },
-  })
+  });
 
   if (!dbUser) {
-    return { session: null, prisma }
+    return { prisma, session: null };
   }
 
-  // Extract permissions
   const permissions = dbUser.role.rolePermissions.map(
     (rp) => rp.permission.key
-  )
-
-  // Enriched session object
-  const enrichedSession = {
-    ...session,
-    user: {
-      ...session.user,
-      tenantId: dbUser.tenantId,
-      role: dbUser.role.name,
-      permissions,
-      agencyId: dbUser.agencyId ?? null,
-      payrollPartnerId: dbUser.payrollPartnerId ?? null,
-      companyId: dbUser.companyId ?? null,
-    },
-  }
+  );
 
   return {
     prisma,
-    session: enrichedSession,
-  }
-}
+    session: {
+      ...session,
+      user: {
+        ...session.user,
+        tenantId: dbUser.tenantId,
+        role: dbUser.role.name,
+        permissions,
+        agencyId: dbUser.agencyId,
+        payrollPartnerId: dbUser.payrollPartnerId,
+        companyId: dbUser.companyId,
+      },
+    },
+  };
+};
 
 /* -------------------------------------------------------------
- * 2. INITIALIZE TRPC
+ * 3) TRPC INIT
  * ------------------------------------------------------------- */
 
 const t = initTRPC.context<TRPCContext>().create({
@@ -87,44 +92,40 @@ const t = initTRPC.context<TRPCContext>().create({
         zodError:
           error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
-    }
+    };
   },
-})
+});
 
-export const createTRPCRouter = t.router
-export const publicProcedure = t.procedure
+export const createTRPCRouter = t.router;
+export const publicProcedure = t.procedure;
 
 /* -------------------------------------------------------------
- * 3. AUTH MIDDLEWARES
+ * 4) MIDDLEWARES (correct, sans erreur)
  * ------------------------------------------------------------- */
 
-// Require authentication
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+// 🔐 1) Required auth
+const requireAuth = t.middleware(({ ctx, next }) => {
   if (!ctx.session || !ctx.session.user) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' })
-  }
-
-  // Force TS: session cannot be null anymore
-  const authCtx: AuthenticatedContext = {
-    ...ctx,
-    session: ctx.session,
+    throw new TRPCError({ code: "UNAUTHORIZED" });
   }
 
   return next({
-    ctx: authCtx,
-  })
-})
+    ctx: {
+      ...ctx,
+      session: ctx.session, // session non-null
+    },
+  });
+});
 
-
-// Require tenant isolation
-export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
-  const tenantId = ctx.session.user.tenantId
+// 🏢 2) Required tenant
+const requireTenant = t.middleware(({ ctx, next }) => {
+  const tenantId = ctx.session!.user.tenantId;
 
   if (!tenantId) {
     throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Tenant context required',
-    })
+      code: "FORBIDDEN",
+      message: "Tenant context required",
+    });
   }
 
   return next({
@@ -132,19 +133,31 @@ export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
       ...ctx,
       tenantId,
     },
-  })
-})
+  });
+});
 
+// 🛂 3) Required permission
+const requirePermission = (permission: string) =>
+  t.middleware(({ ctx, next }) => {
+    const perms = ctx.session!.user.permissions;
 
-// Require Permission (DEEL-style RBAC)
-export const hasPermission = (permission: string) =>
-  tenantProcedure.use(({ ctx, next }) => {
-    if (!ctx.session.user.permissions.includes(permission)) {
+    if (!perms.includes(permission)) {
       throw new TRPCError({
-        code: 'FORBIDDEN',
+        code: "FORBIDDEN",
         message: `Missing permission: ${permission}`,
-      })
+      });
     }
 
-    return next()
-  })
+    return next();
+  });
+
+/* -------------------------------------------------------------
+ * 5) FINAL PROCEDURES (SANS ERREURS)
+ * ------------------------------------------------------------- */
+
+export const protectedProcedure = t.procedure.use(requireAuth);
+
+export const tenantProcedure = protectedProcedure.use(requireTenant);
+
+export const hasPermission = (permission: string) =>
+  tenantProcedure.use(requirePermission(permission));
