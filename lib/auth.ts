@@ -55,7 +55,13 @@ export const authOptions: NextAuthOptions = {
           roleName: user.role.name,
           mustChangePassword: user.mustChangePassword,
           isSuperAdmin: false,
-          homePath: user.role.homePath, // 🔥 dynamique
+          homePath: user.role.homePath,
+          passwordResetToken: user.mustChangePassword
+            ? (await prisma.passwordResetToken.findFirst({
+                where: { userId: user.id },
+                orderBy: { expiresAt: "desc" },
+              }))?.token ?? null
+            : null,
         };
       },
     }),
@@ -73,6 +79,7 @@ export const authOptions: NextAuthOptions = {
         token.isSuperAdmin = user.isSuperAdmin;
         token.mustChangePassword = user.mustChangePassword;
         token.homePath = user.homePath;
+        token.passwordResetToken = user.passwordResetToken ?? token.passwordResetToken ?? null;
       }
       return token;
     },
@@ -85,6 +92,7 @@ export const authOptions: NextAuthOptions = {
         session.user.isSuperAdmin = token.isSuperAdmin as boolean;
         session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.homePath = token.homePath as string;
+        session.user.passwordResetToken = token.passwordResetToken as string | null;
       }
       return session;
     },

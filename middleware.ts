@@ -14,9 +14,15 @@ export default withAuth(
     if (!token) return NextResponse.redirect(new URL("/login", req.url));
 
     // 🔥 MUST CHANGE PASSWORD → redirection forcée
-    if (!token.isSuperAdmin && token.mustChangePassword && !pathname.startsWith("/auth/set-password")) {
-      return NextResponse.redirect(new URL("/auth/set-password", req.url));
+    if (!token.isSuperAdmin && token.mustChangePassword) {
+      const resetToken = token.passwordResetToken;
+      if (!pathname.startsWith("/auth/set-password")) {
+        return NextResponse.redirect(
+          new URL(`/auth/set-password?token=${resetToken}`, req.url)
+        );
+      }
     }
+
 
     // 🔥 SUPERADMIN ISOLÉ
     if (token.isSuperAdmin) {

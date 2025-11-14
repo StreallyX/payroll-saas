@@ -24,6 +24,7 @@ declare module "next-auth" {
       // 🔥 Ajouts indispensables
       mustChangePassword: boolean;
       homePath: string;
+      passwordResetToken?: string | null;
     };
   }
 
@@ -45,6 +46,7 @@ declare module "next-auth" {
     // 🔥 Ajouts indispensables
     mustChangePassword: boolean;
     homePath: string;
+    passwordResetToken?: string | null;
   }
 }
 
