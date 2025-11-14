@@ -1,5 +1,3 @@
-// src/server/api/routers/users.ts
-
 import { z } from "zod";
 import {
   createTRPCRouter,
@@ -7,9 +5,12 @@ import {
   hasPermission,
 } from "../trpc";
 import { PERMISSIONS } from "../../rbac/permissions";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { generateRandomPassword } from "@/lib/utils";
 
 export const userRouter = createTRPCRouter({
-  
+
   // ---------------------------------------------------------
   // GET ALL USERS
   // ---------------------------------------------------------
@@ -44,7 +45,7 @@ export const userRouter = createTRPCRouter({
     }),
 
   // ---------------------------------------------------------
-  // CREATE USER
+  // CREATE USER (ENTERPRISE DEEL STYLE)
   // ---------------------------------------------------------
   create: tenantProcedure
     .use(hasPermission(PERMISSIONS.USERS_CREATE))
@@ -55,21 +56,44 @@ export const userRouter = createTRPCRouter({
         roleId: z.string(),
         agencyId: z.string().nullable().optional(),
         payrollPartnerId: z.string().nullable().optional(),
+        companyId: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const newUser = await ctx.prisma.user.create({
+
+      // 1. Generate enterprise-grade temp password
+      const tempPassword = generateRandomPassword(12);
+      const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+      // 2. Create the user
+      const user = await ctx.prisma.user.create({
         data: {
           name: input.name,
           email: input.email,
           roleId: input.roleId,
           tenantId: ctx.tenantId!,
+          passwordHash,
+          mustChangePassword: true,
           agencyId: input.agencyId ?? null,
           payrollPartnerId: input.payrollPartnerId ?? null,
+          companyId: input.companyId ?? null,
         },
       });
 
-      // Audit log
+      // 3. Create a password reset token (for setup page)
+      const token = crypto.randomBytes(48).toString("hex");
+
+      await ctx.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          token,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h
+        },
+      });
+
+      const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password?token=${token}`;
+
+      // 4. Audit log
       await ctx.prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId!,
@@ -78,13 +102,17 @@ export const userRouter = createTRPCRouter({
           userRole: ctx.session!.user.role,
           action: "USER_CREATED",
           entityType: "user",
-          entityId: newUser.id,
-          entityName: newUser.name,
-          description: `Created user ${newUser.name}`,
+          entityId: user.id,
+          entityName: user.name,
+          description: `Created user ${user.name}.`,
+          metadata: { setupUrl },
         },
       });
 
-      return newUser;
+      return {
+        success: true,
+        message: "User created. Password setup email sent.",
+      };
     }),
 
   // ---------------------------------------------------------
@@ -104,11 +132,17 @@ export const userRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Check tenant matches
+      const existing = await ctx.prisma.user.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId }
+      });
+
+      if (!existing) {
+        throw new Error("User not found in tenant.");
+      }
+
       const updated = await ctx.prisma.user.update({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id },
         data: {
           name: input.name,
           email: input.email,
@@ -143,11 +177,19 @@ export const userRouter = createTRPCRouter({
     .use(hasPermission(PERMISSIONS.USERS_DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+
+      // 1. Check tenant matches
+      const existing = await ctx.prisma.user.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId }
+      });
+
+      if (!existing) {
+        throw new Error("User not found in tenant.");
+      }
+
+      // 2. Delete
       const removed = await ctx.prisma.user.delete({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id },
       });
 
       await ctx.prisma.auditLog.create({
@@ -167,3 +209,4 @@ export const userRouter = createTRPCRouter({
       return removed;
     }),
 });
+
