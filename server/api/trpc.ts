@@ -57,9 +57,7 @@ export const createTRPCContext = async (
     return { prisma, session: null };
   }
 
-  const permissions = dbUser.role.rolePermissions.map(
-    (rp) => rp.permission.key
-  );
+  const permissions = dbUser.role.rolePermissions.map((rp) => rp.permission.key);
 
   return {
     prisma,
@@ -100,24 +98,24 @@ export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 
 /* -------------------------------------------------------------
- * 4) MIDDLEWARES (correct, sans erreur)
+ * 4) MIDDLEWARES (corrects & typés)
  * ------------------------------------------------------------- */
 
-// 🔐 1) Required auth
+// 🔐 Auth required
 const requireAuth = t.middleware(({ ctx, next }) => {
-  if (!ctx.session || !ctx.session.user) {
+  if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
 
   return next({
     ctx: {
       ...ctx,
-      session: ctx.session, // session non-null
+      session: ctx.session, // session now guaranteed
     },
   });
 });
 
-// 🏢 2) Required tenant
+// 🏢 Tenant required
 const requireTenant = t.middleware(({ ctx, next }) => {
   const tenantId = ctx.session!.user.tenantId;
 
@@ -136,8 +134,8 @@ const requireTenant = t.middleware(({ ctx, next }) => {
   });
 });
 
-// 🛂 3) Required permission
-const requirePermission = (permission: string) =>
+// 🛂 Permission required
+export const requirePermission = (permission: string) =>
   t.middleware(({ ctx, next }) => {
     const perms = ctx.session!.user.permissions;
 
@@ -152,12 +150,13 @@ const requirePermission = (permission: string) =>
   });
 
 /* -------------------------------------------------------------
- * 5) FINAL PROCEDURES (SANS ERREURS)
+ * 5) FINAL PROCEDURES (les bons, pas de pièges)
  * ------------------------------------------------------------- */
 
 export const protectedProcedure = t.procedure.use(requireAuth);
 
 export const tenantProcedure = protectedProcedure.use(requireTenant);
 
+// ⚠️ IMPORTANT : hasPermission doit retourner un MIDDLEWARE
 export const hasPermission = (permission: string) =>
-  tenantProcedure.use(requirePermission(permission));
+  requirePermission(permission);
