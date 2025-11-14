@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -14,11 +15,9 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
+        if (!credentials?.email || !credentials?.password) return null;
 
-        // 🧠 Étape 1 : Vérifie si c’est un SuperAdmin
+        // 🔹 SUPERADMIN LOGIN
         const superAdmin = await prisma.superAdmin.findUnique({
           where: { email: credentials.email, isActive: true },
         });
@@ -28,24 +27,19 @@ export const authOptions: NextAuthOptions = {
             id: superAdmin.id,
             email: superAdmin.email,
             name: superAdmin.name,
+            isSuperAdmin: true,
+            mustChangePassword: false,
             tenantId: null,
             roleId: null,
             roleName: "superadmin",
-            tenant: null,
-            isSuperAdmin: true,
+            homePath: "/superadmin",
           };
         }
 
-        // 🧠 Étape 2 : Sinon, utilisateur classique (lié à un tenant)
+        // 🔹 TENANT USER LOGIN
         const user = await prisma.user.findFirst({
-          where: {
-            email: credentials.email,
-            isActive: true,
-          },
-          include: {
-            tenant: true,
-            role: true,
-          },
+          where: { email: credentials.email, isActive: true },
+          include: { role: true },
         });
 
         if (!user || !bcrypt.compareSync(credentials.password, user.passwordHash)) {
@@ -59,42 +53,42 @@ export const authOptions: NextAuthOptions = {
           tenantId: user.tenantId,
           roleId: user.roleId,
           roleName: user.role.name,
-          tenant: user.tenant,
+          mustChangePassword: user.mustChangePassword,
           isSuperAdmin: false,
+          homePath: user.role.homePath, // 🔥 dynamique
         };
       },
     }),
   ],
 
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
 
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.tenantId = user.tenantId;
-        token.roleId = user.roleId;
+        token.id = user.id;
         token.roleName = user.roleName;
-        token.tenant = user.tenant;
+        token.roleId = user.roleId;
+        token.tenantId = user.tenantId;
         token.isSuperAdmin = user.isSuperAdmin;
+        token.mustChangePassword = user.mustChangePassword;
+        token.homePath = user.homePath;
       }
       return token;
     },
     async session({ session, token }) {
-      if (session?.user) {
-        session.user.id = token.sub!;
-        session.user.tenantId = token.tenantId as string | null;
-        session.user.roleId = token.roleId as string | null;
+      if (session.user) {
+        session.user.id = token.id as string;
         session.user.roleName = token.roleName as string;
-        session.user.tenant = token.tenant as any;
+        session.user.roleId = token.roleId as string;
+        session.user.tenantId = token.tenantId as string | null;
         session.user.isSuperAdmin = token.isSuperAdmin as boolean;
+        session.user.mustChangePassword = token.mustChangePassword as boolean;
+        session.user.homePath = token.homePath as string;
       }
       return session;
     },
   },
 
-  pages: {
-    signIn: "/login",
-  },
+  pages: { signIn: "/login" },
 };

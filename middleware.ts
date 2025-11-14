@@ -1,106 +1,55 @@
-import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    const { pathname } = req.nextUrl
-    const token = req.nextauth.token
+    const token = req.nextauth.token;
+    const { pathname } = req.nextUrl;
 
-    // 🔹 Exclure les routes publiques / API
-    if (
-      pathname === "/login" ||
-      pathname === "/register" ||
-      pathname.startsWith("/api/auth") ||
-      pathname.startsWith("/api/signup") ||
-      pathname.startsWith("/api/trpc")
-    ) {
-      return NextResponse.next()
+    // 📌 Routes publiques
+    const publicPaths = ["/login", "/register", "/auth/set-password"];
+    if (publicPaths.includes(pathname)) return NextResponse.next();
+
+    // 📌 Si pas loggé → login
+    if (!token) return NextResponse.redirect(new URL("/login", req.url));
+
+    // 🔥 MUST CHANGE PASSWORD → redirection forcée
+    if (!token.isSuperAdmin && token.mustChangePassword && !pathname.startsWith("/auth/set-password")) {
+      return NextResponse.redirect(new URL("/auth/set-password", req.url));
     }
 
-    // 🔹 Si pas connecté → redirige vers /login
-    if (!token) {
-      return NextResponse.redirect(new URL("/unauthorized", req.url))
-    }
-
-    const roleName = token.roleName as string
-    const isSuperAdmin = token.isSuperAdmin as boolean
-
-    // 🟥 SUPERADMIN — accès réservé
-    if (isSuperAdmin) {
-      // Redirige la racine vers /superadmin
-      if (pathname === "/") {
-        return NextResponse.redirect(new URL("/superadmin", req.url))
-      }
-
-      // Autorise uniquement les routes /superadmin/*
+    // 🔥 SUPERADMIN ISOLÉ
+    if (token.isSuperAdmin) {
       if (!pathname.startsWith("/superadmin")) {
-        return NextResponse.redirect(new URL("/superadmin", req.url))
+        return NextResponse.redirect(new URL("/superadmin", req.url));
       }
-
-      return NextResponse.next()
+      return NextResponse.next();
     }
 
-    // 🟦 UTILISATEURS CLASSIQUES (tenant)
+    // 🔥 RBAC DYNAMIQUE : HOME PATH venant de Prisma
+    const homePath = token.homePath as string;
+
+    // Si l’utilisateur va sur "/" → redirect vers sa home dynamique
     if (pathname === "/") {
-      switch (roleName) {
-        case "admin":
-          return NextResponse.redirect(new URL("/admin", req.url))
-        case "agency":
-          return NextResponse.redirect(new URL("/agency", req.url))
-        case "payroll_partner":
-          return NextResponse.redirect(new URL("/payroll", req.url))
-        case "contractor":
-          return NextResponse.redirect(new URL("/contractor", req.url))
-        default:
-          return NextResponse.redirect(new URL("/login", req.url))
-      }
+      return NextResponse.redirect(new URL(homePath, req.url));
     }
 
-    // 🧩 Protection par rôle (empêche accès croisé)
-    const roleRoutes = {
-      admin: "/admin",
-      agency: "/agency",
-      payroll_partner: "/payroll",
-      contractor: "/contractor",
+    // 🔥 Protection des sections : un rôle ne peut sortir de sa zone
+    if (!pathname.startsWith(homePath)) {
+      return NextResponse.redirect(new URL(homePath, req.url));
     }
 
-    const userRoute = roleRoutes[roleName as keyof typeof roleRoutes]
-
-    if (userRoute && !pathname.startsWith(userRoute)) {
-      return NextResponse.redirect(new URL(userRoute, req.url))
-    }
-
-    return NextResponse.next()
+    return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl
-
-        // Routes publiques / API
-        if (
-          pathname === "/login" ||
-          pathname === "/register" ||
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/signup") ||
-          pathname.startsWith("/api/trpc")
-        ) {
-          return true
-        }
-
-        // Require auth for everything else
-        return !!token
-      },
+      authorized: ({ token }) => !!token,
     },
   }
-)
+);
 
 export const config = {
   matcher: [
-    // ✅ Inclure toutes les routes dynamiques SAUF les fichiers statiques
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg).*)",
-
-    // ✅ Protection explicite du SuperAdmin
-    "/superadmin/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)",
   ],
-}
+};

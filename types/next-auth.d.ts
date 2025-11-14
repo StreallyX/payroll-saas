@@ -6,9 +6,11 @@ declare module "next-auth" {
       id: string;
       name?: string | null;
       email?: string | null;
-      tenantId: string | null; // 👈 devient optionnel
-      roleId: string | null;   // 👈 devient optionnel
+
+      tenantId: string | null;
+      roleId: string | null;
       roleName: string;
+
       tenant?: {
         id: string;
         name: string;
@@ -16,7 +18,12 @@ declare module "next-auth" {
         primaryColor?: string | null;
         accentColor?: string | null;
       } | null;
-      isSuperAdmin: boolean; // 👈 nouveau flag
+
+      isSuperAdmin: boolean;
+
+      // 🔥 Ajouts indispensables
+      mustChangePassword: boolean;
+      homePath: string;
     };
   }
 
@@ -24,6 +31,7 @@ declare module "next-auth" {
     tenantId: string | null;
     roleId: string | null;
     roleName: string;
+
     tenant?: {
       id: string;
       name: string;
@@ -31,7 +39,12 @@ declare module "next-auth" {
       primaryColor?: string | null;
       accentColor?: string | null;
     } | null;
+
     isSuperAdmin: boolean;
+
+    // 🔥 Ajouts indispensables
+    mustChangePassword: boolean;
+    homePath: string;
   }
 }
 
@@ -40,6 +53,7 @@ declare module "next-auth/jwt" {
     tenantId: string | null;
     roleId: string | null;
     roleName: string;
+
     tenant?: {
       id: string;
       name: string;
@@ -47,6 +61,11 @@ declare module "next-auth/jwt" {
       primaryColor?: string | null;
       accentColor?: string | null;
     } | null;
+
     isSuperAdmin: boolean;
+
+    // 🔥 Ajouts indispensables
+    mustChangePassword: boolean;
+    homePath: string;
   }
 }
