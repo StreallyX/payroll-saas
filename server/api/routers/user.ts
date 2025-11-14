@@ -1,13 +1,21 @@
-
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  tenantProcedure,
+  hasPermission,
+} from "../trpc"
 import bcrypt from "bcryptjs"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PERMISSIONS } from "@/server/rbac/permissions"
 
 export const userRouter = createTRPCRouter({
-  // Get all users for tenant
-  getAll: tenantProcedure
+
+  // 🔍 Get all users
+  getAll: protectedProcedure
+    .use(tenantProcedure)
+    .use(hasPermission(PERMISSIONS.USERS_VIEW))
     .query(async ({ ctx }) => {
       return ctx.prisma.user.findMany({
         where: { tenantId: ctx.tenantId },
@@ -19,8 +27,10 @@ export const userRouter = createTRPCRouter({
       })
     }),
 
-  // Get user by ID
-  getById: tenantProcedure
+  // 🔎 Get user by ID
+  getById: protectedProcedure
+    .use(tenantProcedure)
+    .use(hasPermission(PERMISSIONS.USERS_VIEW))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.user.findFirst({
@@ -36,8 +46,10 @@ export const userRouter = createTRPCRouter({
       })
     }),
 
-  // Create user
-  create: tenantProcedure
+  // ➕ Create user
+  create: protectedProcedure
+    .use(tenantProcedure)
+    .use(hasPermission(PERMISSIONS.USERS_CREATE))
     .input(z.object({
       name: z.string().min(1),
       email: z.string().email(),
@@ -45,7 +57,7 @@ export const userRouter = createTRPCRouter({
       roleId: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Check if user already exists in this tenant
+
       const existingUser = await ctx.prisma.user.findFirst({
         where: {
           email: input.email,
@@ -57,7 +69,6 @@ export const userRouter = createTRPCRouter({
         throw new Error("User with this email already exists")
       }
 
-      // Hash password
       const passwordHash = bcrypt.hashSync(input.password, 10)
 
       const newUser = await ctx.prisma.user.create({
@@ -73,7 +84,6 @@ export const userRouter = createTRPCRouter({
         },
       })
 
-      // Create audit log
       await createAuditLog({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name || "Unknown",
@@ -92,8 +102,10 @@ export const userRouter = createTRPCRouter({
       return newUser
     }),
 
-  // Update user
-  update: tenantProcedure
+  // ✏️ Update user
+  update: protectedProcedure
+    .use(tenantProcedure)
+    .use(hasPermission(PERMISSIONS.USERS_UPDATE))
     .input(z.object({
       id: z.string(),
       name: z.string().min(1).optional(),
@@ -102,9 +114,9 @@ export const userRouter = createTRPCRouter({
       isActive: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+
       const { id, ...updateData } = input
 
-      // Get current user data for audit log
       const currentUser = await ctx.prisma.user.findFirst({
         where: { id, tenantId: ctx.tenantId },
         select: { name: true, email: true },
@@ -121,7 +133,6 @@ export const userRouter = createTRPCRouter({
         },
       })
 
-      // Create audit log
       await createAuditLog({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name || "Unknown",
@@ -139,11 +150,13 @@ export const userRouter = createTRPCRouter({
       return updatedUser
     }),
 
-  // Delete user
-  delete: tenantProcedure
+  // ❌ Delete user
+  delete: protectedProcedure
+    .use(tenantProcedure)
+    .use(hasPermission(PERMISSIONS.USERS_DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get user data before deletion for audit log
+
       const userToDelete = await ctx.prisma.user.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         select: { name: true, email: true },
@@ -156,7 +169,6 @@ export const userRouter = createTRPCRouter({
         },
       })
 
-      // Create audit log
       await createAuditLog({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name || "Unknown",
@@ -174,8 +186,10 @@ export const userRouter = createTRPCRouter({
       return deletedUser
     }),
 
-  // Get roles for dropdown
-  getRoles: tenantProcedure
+  // 🔽 Get roles
+  getRoles: protectedProcedure
+    .use(tenantProcedure)
+    .use(hasPermission(PERMISSIONS.ROLES_VIEW))
     .query(async ({ ctx }) => {
       return ctx.prisma.role.findMany({
         where: { tenantId: ctx.tenantId },
