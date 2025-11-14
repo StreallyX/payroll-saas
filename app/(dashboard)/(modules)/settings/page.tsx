@@ -12,56 +12,56 @@ export default function SettingsPage() {
       title: "White-Label Branding",
       description: "Customize logo and theme colors",
       icon: Palette,
-      href: "/admin/settings/white-label",
+      href: "/modules/settings/white-label",
       color: "text-pink-600 bg-pink-100"
     },
     {
       title: "Manage Users",
       description: "User accounts and permissions",
       icon: Users,
-      href: "/admin/users",
+      href: "/modules/users",
       color: "text-blue-600 bg-blue-100"
     },
     {
       title: "Document Types",
       description: "Configure document types",
       icon: FileType,
-      href: "/admin/settings/document-types",
+      href: "/modules/settings/document-types",
       color: "text-purple-600 bg-purple-100"
     },
     {
       title: "Master Onboarding",
       description: "Onboarding templates and workflows",
       icon: ListChecks,
-      href: "/admin/settings/master-onboarding",
+      href: "/modules/settings/master-onboarding",
       color: "text-green-600 bg-green-100"
     },
     {
       title: "Payroll Partners",
       description: "Manage payroll service providers",
       icon: DollarSign,
-      href: "/admin/payroll-partners",
+      href: "/modules/payroll-partners",
       color: "text-orange-600 bg-orange-100"
     },
     {
       title: "Companies",
       description: "Company and organization management",
       icon: Layers,
-      href: "/admin/settings/companies",
+      href: "/modules/settings/companies",
       color: "text-indigo-600 bg-indigo-100"
     },
     {
       title: "Roles",
       description: "User roles and permissions",
       icon: UserCog,
-      href: "/admin/settings/roles",
+      href: "/modules/settings/roles",
       color: "text-red-600 bg-red-100"
     },
     {
       title: "Countries",
       description: "Country and region settings",
       icon: Globe,
-      href: "/admin/settings/countries",
+      href: "/modules/settings/countries",
       color: "text-teal-600 bg-teal-100"
     }
   ]

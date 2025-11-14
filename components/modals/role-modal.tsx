@@ -134,7 +134,7 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
       })
       
       // Update permissions
-      if (selectedPermissions.length > 0 || roleDetails?.rolePermissions?.length > 0) {
+      if (selectedPermissions.length > 0 || (roleDetails?.rolePermissions?.length ?? 0) > 0) {
         await assignPermissionsMutation.mutateAsync({
           roleId: role.id,
           permissionIds: selectedPermissions

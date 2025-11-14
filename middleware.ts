@@ -9,6 +9,7 @@ export const config = {
 
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { getFirstAccessibleRoute } from "@/lib/routing/dynamic-router";
 
 export default withAuth(
   function middleware(req) {
@@ -54,15 +55,28 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    // NORMAL USER HOME PATH
-    const homePath = token.homePath ?? "/dashboard";
-
+    // DYNAMIC ROUTING based on permissions
+    const permissions = (token.permissions as string[]) || [];
+    
+    // Redirect from root to first accessible route
     if (pathname === "/") {
-      return NextResponse.redirect(new URL(homePath, req.url));
+      const firstRoute = getFirstAccessibleRoute(permissions);
+      return NextResponse.redirect(new URL(firstRoute, req.url));
     }
 
-    if (!pathname.startsWith(homePath)) {
-      return NextResponse.redirect(new URL(homePath, req.url));
+    // Redirect from /dashboard to first accessible route if user has limited permissions
+    if (pathname === "/dashboard") {
+      const firstRoute = getFirstAccessibleRoute(permissions);
+      // Only redirect if dashboard is not the first accessible route
+      // This allows users with many permissions to see the dashboard
+      if (firstRoute !== "/dashboard" && permissions.length > 0) {
+        const hasSpecificModule = permissions.some(p => 
+          !p.includes('.view') || p.split('.').length > 2
+        );
+        if (!hasSpecificModule) {
+          return NextResponse.redirect(new URL(firstRoute, req.url));
+        }
+      }
     }
 
     return NextResponse.next();

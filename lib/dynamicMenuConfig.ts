@@ -15,6 +15,8 @@ export interface MenuItem {
   permissions?: string[]
   requireAll?: boolean
   submenu?: MenuItem[]
+  badge?: string | number
+  badgeVariant?: "default" | "secondary" | "destructive" | "outline"
 }
 
 /**
@@ -27,77 +29,79 @@ export interface MenuItem {
 export const dynamicMenuConfig: MenuItem[] = [
   { 
     label: "Dashboard", 
-    href: "/admin", 
+    href: "/dashboard", 
     icon: LayoutDashboard,
     description: "System overview and analytics",
     // No permission required - everyone can see dashboard
   },
   { 
     label: "Manage Contracts", 
-    href: "/admin/contracts", 
+    href: "/modules/contracts", 
     icon: FileText,
     description: "Contract management and tracking",
     permission: "contracts.view"
   },
   { 
     label: "Manage Onboarding", 
-    href: "/admin/onboarding", 
+    href: "/modules/onboarding", 
     icon: ClipboardList,
     description: "Onboarding processes and workflows",
     permission: "onboarding.responses.view"
   },
   { 
     label: "My Tasks", 
-    href: "/admin/tasks", 
+    href: "/modules/tasks", 
     icon: CheckSquare,
     description: "Your assigned tasks and to-dos",
-    permission: "tasks.view"
+    permission: "tasks.view",
+    badge: "3", // Example: 3 pending tasks
+    badgeVariant: "default"
   },
   { 
     label: "Manage Agency/Clients", 
-    href: "/admin/agencies", 
+    href: "/modules/agencies", 
     icon: Building2,
     description: "Client agencies and companies",
     permission: "agencies.view"
   },
   { 
     label: "Manage Contractors", 
-    href: "/admin/contractors", 
+    href: "/modules/contractors", 
     icon: UserCheck,
     description: "Contractor profiles and status",
     permission: "contractors.view"
   },
   { 
     label: "Leads", 
-    href: "/admin/leads", 
+    href: "/modules/leads", 
     icon: TrendingUp,
     description: "Sales leads and prospects",
     permission: "leads.view"
   },
   { 
     label: "Manage Invoices", 
-    href: "/admin/invoices", 
+    href: "/modules/invoices", 
     icon: Receipt,
     description: "Invoice management",
     permission: "invoices.view",
     submenu: [
       {
         label: "Agency Invoices",
-        href: "/admin/invoices/agency",
+        href: "/modules/invoices/agency",
         icon: Building2,
         description: "Agency billing and invoices",
         permission: "invoices.view"
       },
       {
         label: "Contractor Invoices",
-        href: "/admin/invoices/contractor",
+        href: "/modules/invoices/contractor",
         icon: UserCheck,
         description: "Contractor billing and invoices",
         permission: "invoices.view"
       },
       {
         label: "Payroll Partner Invoices",
-        href: "/admin/invoices/payroll-partner",
+        href: "/modules/invoices/payroll-partner",
         icon: DollarSign,
         description: "Payroll partner invoices",
         permission: "invoices.view"
@@ -106,14 +110,14 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
   { 
     label: "Payslips", 
-    href: "/admin/payslips", 
+    href: "/modules/payslips", 
     icon: FileText,
     description: "Employee payslip management",
     permission: "payslip.view"
   },
   { 
     label: "Settings", 
-    href: "/admin/settings", 
+    href: "/modules/settings", 
     icon: Settings,
     description: "System configuration",
     permissions: [
@@ -125,70 +129,70 @@ export const dynamicMenuConfig: MenuItem[] = [
     submenu: [
       {
         label: "Manage Users",
-        href: "/admin/users",
+        href: "/modules/users",
         icon: Users,
         description: "User accounts and permissions",
         permission: "tenant.users.view"
       },
       {
         label: "Manage Document Type",
-        href: "/admin/settings/document-types",
+        href: "/modules/settings/document-types",
         icon: FileType,
         description: "Document type configuration",
         permission: "settings.view"
       },
       {
         label: "Master Onboarding",
-        href: "/admin/settings/master-onboarding",
+        href: "/modules/settings/master-onboarding",
         icon: ListChecks,
         description: "Onboarding templates and workflows",
         permission: "onboarding.templates.view"
       },
       {
         label: "Payroll Partners",
-        href: "/admin/payroll-partners",
+        href: "/modules/payroll-partners",
         icon: DollarSign,
         description: "Payroll service providers",
         permission: "settings.view"
       },
       {
         label: "Manage Companies",
-        href: "/admin/settings/companies",
+        href: "/modules/settings/companies",
         icon: Layers,
         description: "Company and organization management",
         permission: "companies.view"
       },
       {
         label: "Manage Banks",
-        href: "/admin/settings/banks",
+        href: "/modules/settings/banks",
         icon: Landmark,
         description: "Bank accounts management",
         permission: "banks.view"
       },
       {
         label: "Manage Currencies",
-        href: "/admin/settings/currencies",
+        href: "/modules/settings/currencies",
         icon: Coins,
         description: "Currency configuration",
         permission: "settings.view"
       },
       {
         label: "Manage Roles",
-        href: "/admin/settings/roles",
+        href: "/modules/settings/roles",
         icon: UserCog,
         description: "User roles and permissions",
         permission: "tenant.roles.view"
       },
       {
         label: "Customization",
-        href: "/admin/settings/personnalisation",
+        href: "/modules/settings/tenant",
         icon: Palette,
         description: "Platform logo and colors",
         permission: "tenant.branding.update"
       },
       {
         label: "Manage Country",
-        href: "/admin/settings/countries",
+        href: "/modules/settings/countries",
         icon: Globe,
         description: "Country and region settings",
         permission: "settings.view"
@@ -197,21 +201,21 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
   { 
     label: "Report", 
-    href: "/admin/report", 
+    href: "/modules/reports", 
     icon: BarChart3,
     description: "Analytics and reporting",
     permission: "audit_logs.view",
     submenu: [
       {
         label: "Overview",
-        href: "/admin/report",
+        href: "/modules/reports",
         icon: BarChart3,
         description: "Report overview",
         permission: "audit_logs.view"
       },
       {
         label: "Activity Logs",
-        href: "/admin/report/activity-logs",
+        href: "/modules/reports/activity-logs",
         icon: ListChecks,
         description: "Track all user actions",
         permission: "audit_logs.view"
