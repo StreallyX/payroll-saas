@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, FileDown, Pencil, Trash2, Building2, Users, FileText } from "lucide-react"
+import { Search, Plus, FileDown, Pencil, Trash2, Building2, Users, FileText, Eye  } from "lucide-react"
 import { 
   Table,
   TableBody,
@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
 import { AgencyModal } from "@/components/modals/agency-modal"
 import { useToast } from "@/hooks/use-toast"
+import { AgencyViewModal } from "@/components/modals/agency-view-modal"
 
 export default function AgenciesPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -30,6 +31,9 @@ export default function AgenciesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingAgency, setEditingAgency] = useState<any>(null)
   const { toast } = useToast()
+  const [viewOpen, setViewOpen] = useState(false)
+  const [viewingAgency, setViewingAgency] = useState<any>(null)
+
 
   // Fetch agencies
   const { data: agencies, isLoading, refetch } = api.agency.getAll.useQuery()
@@ -226,6 +230,16 @@ export default function AgenciesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
+                              setViewingAgency(agency)
+                              setViewOpen(true)
+                            }}
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
                               setEditingAgency(agency)
                               setModalOpen(true)
                             }}
@@ -269,6 +283,14 @@ export default function AgenciesPage() {
         }}
         agency={editingAgency}
         onSuccess={() => refetch()}
+      />
+      <AgencyViewModal
+        open={viewOpen}
+        onOpenChange={(open) => {
+          setViewOpen(open)
+          if (!open) setViewingAgency(null)
+        }}
+        agency={viewingAgency}
       />
     </div>
   )

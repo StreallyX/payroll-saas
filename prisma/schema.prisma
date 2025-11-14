@@ -61,6 +61,7 @@ model User {
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   role            Role         @relation(fields: [roleId], references: [id])
   contractor      Contractor?
+  agency          Agency? 
   accounts        Account[]
   sessions        Session[]
   auditLogs       AuditLog[]
@@ -150,6 +151,7 @@ model Company {
 model Agency {
   id                       String   @id @default(cuid())
   tenantId                 String
+  userId                   String?  @unique
   
   // Contact Details
   name                     String
@@ -184,6 +186,7 @@ model Agency {
 
   // Relations
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   country     Country?    @relation("AgencyCountry", fields: [countryId], references: [id])
   contractors Contractor[]
   contracts   Contract[]
