@@ -1,4 +1,6 @@
+// /seed/00-permissions.ts
 import { PrismaClient } from "@prisma/client"
+
 export const prisma = new PrismaClient()
 
 // 📌 MASTER LIST OF ALL PERMISSIONS
@@ -18,6 +20,7 @@ export const PERMISSIONS = [
   "tenant.users.update",
   "tenant.users.disable",
   "tenant.users.delete",
+  "tenant.users.create",
 
   // --- AGENCIES ---
   "agencies.view",
@@ -29,11 +32,19 @@ export const PERMISSIONS = [
   "agencies.notes.add",
   "agencies.notes.view",
 
+  // --- COMPANIES ---
+  "companies.view",
+  "companies.create",
+  "companies.update",
+  "companies.delete",
+
   // --- CONTRACTORS ---
   "contractors.view",
   "contractors.create",
   "contractors.update",
   "contractors.delete",
+  "contractors.assign_to_agency",
+  "contractors.change_status",
 
   "contractors.documents.upload",
   "contractors.documents.view",
@@ -43,9 +54,6 @@ export const PERMISSIONS = [
   "contractors.onboarding.update",
   "contractors.onboarding.review",
   "contractors.onboarding.validate",
-
-  "contractors.assign_to_agency",
-  "contractors.change_status",
 
   // --- CONTRACTS ---
   "contracts.view",
@@ -66,17 +74,27 @@ export const PERMISSIONS = [
   "invoices.create",
   "invoices.update",
   "invoices.delete",
-
   "invoices.send",
   "invoices.mark_paid",
   "invoices.export",
 
   // --- PAYROLL ---
   "payroll.view",
-  "payroll.generate",
+  "payroll.create",
   "payroll.update",
+  "payroll.delete",
+  "payroll.generate",
   "payroll.send",
   "payroll.mark_paid",
+
+  // --- PAYSLIP ---
+  "payslip.view",
+  "payslip.create",
+  "payslip.update",
+  "payslip.send",
+  "payslip.mark_paid",
+  "payslip.delete",
+  "payslip.generate",
 
   // --- BANKS ---
   "banks.view",
@@ -98,11 +116,10 @@ export const PERMISSIONS = [
   "onboarding.questions.update",
   "onboarding.questions.delete",
 
-  // --- DOCUMENT TYPES ---
-  "document_types.view",
-  "document_types.create",
-  "document_types.update",
-  "document_types.delete",
+  "onboarding.responses.view",
+  "onboarding.responses.view_own",
+  "onboarding.responses.submit",
+  "onboarding.responses.review",
 
   // --- TASKS ---
   "tasks.view",
@@ -117,6 +134,7 @@ export const PERMISSIONS = [
   "leads.create",
   "leads.update",
   "leads.delete",
+  "leads.export",
 
   // --- AUDIT ---
   "audit_logs.view",
@@ -126,6 +144,7 @@ export const PERMISSIONS = [
   "superadmin.tenants.suspend",
   "superadmin.tenants.delete",
   "superadmin.users.create",
+  "superadmin.users.update",
   "superadmin.users.delete",
 ]
 
@@ -143,5 +162,5 @@ export async function seedPermissions() {
     })
   }
 
-  console.log(`✅ ${PERMISSIONS.length} permissions inserted.`)
+  console.log(`✅ Permissions inserted: ${PERMISSIONS.length}`)
 }

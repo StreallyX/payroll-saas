@@ -1,70 +1,67 @@
-
-
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
-import { createAuditLog } from "@/lib/audit"
-import { AuditAction, AuditEntityType } from "@/lib/types"
+import { z } from "zod";
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+import { createAuditLog } from "@/lib/audit";
+import { AuditAction, AuditEntityType } from "@/lib/types";
+import { PERMISSION_TREE } from "../../rbac/permissions";
 
 export const taskRouter = createTRPCRouter({
-  // Get all tasks for tenant
+
+  // -------------------------------------------------------
+  // GET ALL TASKS
+  // -------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
         where: { tenantId: ctx.tenantId },
         include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true },
-          },
-          assignerUser: {
-            select: { id: true, name: true, email: true },
-          },
+          assignedUser: { select: { id: true, name: true, email: true } },
+          assignerUser: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
-      })
+      });
     }),
 
-  // Get task by ID
+  // -------------------------------------------------------
+  // GET BY ID
+  // -------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.task.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true },
-          },
-          assignerUser: {
-            select: { id: true, name: true, email: true },
-          },
+          assignedUser: { select: { id: true, name: true, email: true } },
+          assignerUser: { select: { id: true, name: true, email: true } },
         },
-      })
+      });
     }),
 
-  // Get tasks assigned to current user
+  // -------------------------------------------------------
+  // GET MY TASKS
+  // -------------------------------------------------------
   getMyTasks: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
         where: { 
           tenantId: ctx.tenantId,
-          assignedTo: ctx.session?.user?.id,
+          assignedTo: ctx.session!.user.id,
         },
         include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true },
-          },
-          assignerUser: {
-            select: { id: true, name: true, email: true },
-          },
+          assignedUser: { select: { id: true, name: true, email: true } },
+          assignerUser: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
-      })
+      });
     }),
 
-  // Create task
+  // -------------------------------------------------------
+  // CREATE TASK
+  // -------------------------------------------------------
   create: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.create))
     .input(z.object({
       title: z.string().min(1),
       description: z.string().optional(),
@@ -76,24 +73,19 @@ export const taskRouter = createTRPCRouter({
       const task = await ctx.prisma.task.create({
         data: {
           ...input,
-          assignedBy: ctx.session?.user?.id || "",
+          assignedBy: ctx.session!.user.id,
           tenantId: ctx.tenantId,
         },
         include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true },
-          },
-          assignerUser: {
-            select: { id: true, name: true, email: true },
-          },
+          assignedUser: { select: { id: true, name: true, email: true } },
+          assignerUser: { select: { id: true, name: true, email: true } },
         },
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.TASK,
         entityId: task.id,
@@ -103,13 +95,16 @@ export const taskRouter = createTRPCRouter({
           assignedTo: task.assignedTo,
         },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return task
+      return task;
     }),
 
-  // Update task
+  // -------------------------------------------------------
+  // UPDATE TASK
+  // -------------------------------------------------------
   update: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.update))
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
@@ -122,115 +117,94 @@ export const taskRouter = createTRPCRouter({
       completedAt: z.date().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input
+
+      const { id, ...updateData } = input;
 
       const task = await ctx.prisma.task.update({
-        where: { 
-          id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id, tenantId: ctx.tenantId },
         data: updateData,
         include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true },
-          },
-          assignerUser: {
-            select: { id: true, name: true, email: true },
-          },
+          assignedUser: { select: { id: true, name: true, email: true } },
+          assignerUser: { select: { id: true, name: true, email: true } },
         },
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.TASK,
         entityId: task.id,
         entityName: task.title,
-        metadata: {
-          updatedFields: updateData,
-        },
+        metadata: { updates: updateData },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return task
+      return task;
     }),
 
-  // Delete task
+  // -------------------------------------------------------
+  // DELETE TASK
+  // -------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get task details before deleting
-      const task = await ctx.prisma.task.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-      })
 
-      if (!task) {
-        throw new Error("Task not found")
-      }
+      const task = await ctx.prisma.task.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      });
+
+      if (!task) throw new Error("Task not found");
 
       const result = await ctx.prisma.task.delete({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-      })
+        where: { id: input.id },
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.TASK,
         entityId: input.id,
         entityName: task.title,
-        metadata: {
-          priority: task.priority,
-        },
+        metadata: { priority: task.priority },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return result
+      return result;
     }),
 
-  // Toggle task completion
+  // -------------------------------------------------------
+  // TOGGLE COMPLETE
+  // -------------------------------------------------------
   toggleComplete: tenantProcedure
-    .input(z.object({ 
+    .use(hasPermission(PERMISSION_TREE.tasks.complete))
+    .input(z.object({
       id: z.string(),
       isCompleted: z.boolean(),
     }))
     .mutation(async ({ ctx, input }) => {
+
       const task = await ctx.prisma.task.update({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         data: {
           isCompleted: input.isCompleted,
           status: input.isCompleted ? "completed" : "pending",
           completedAt: input.isCompleted ? new Date() : null,
         },
         include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true },
-          },
-          assignerUser: {
-            select: { id: true, name: true, email: true },
-          },
+          assignedUser: { select: { id: true, name: true, email: true } },
+          assignerUser: { select: { id: true, name: true, email: true } },
         },
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.TASK,
         entityId: task.id,
@@ -239,47 +213,38 @@ export const taskRouter = createTRPCRouter({
           action: input.isCompleted ? "completed" : "reopened",
         },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return task
+      return task;
     }),
 
-  // Get task statistics
+  // -------------------------------------------------------
+  // STATS
+  // -------------------------------------------------------
   getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tasks.view))
     .query(async ({ ctx }) => {
-      const totalTasks = await ctx.prisma.task.count({
+
+      const total = await ctx.prisma.task.count({
         where: { tenantId: ctx.tenantId },
-      })
+      });
 
-      const pendingTasks = await ctx.prisma.task.count({
+      const pending = await ctx.prisma.task.count({
+        where: { tenantId: ctx.tenantId, status: "pending" },
+      });
+
+      const completed = await ctx.prisma.task.count({
+        where: { tenantId: ctx.tenantId, status: "completed" },
+      });
+
+      const overdue = await ctx.prisma.task.count({
         where: { 
           tenantId: ctx.tenantId,
           status: "pending",
+          dueDate: { lt: new Date() },
         },
-      })
+      });
 
-      const completedTasks = await ctx.prisma.task.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "completed",
-        },
-      })
-
-      const overdueTasks = await ctx.prisma.task.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "pending",
-          dueDate: {
-            lt: new Date(),
-          },
-        },
-      })
-
-      return {
-        total: totalTasks,
-        pending: pendingTasks,
-        completed: completedTasks,
-        overdue: overdueTasks,
-      }
+      return { total, pending, completed, overdue };
     }),
-})
+});

@@ -1,45 +1,47 @@
+// /seed/01-roles.ts
 import { PrismaClient } from "@prisma/client"
 import { PERMISSIONS } from "./00-permissions"
 
 export const prisma = new PrismaClient()
 
+// -------------------------------------------------------------
+// MASTER DEFAULT ROLES (tenant roles)
+// -------------------------------------------------------------
 export const DEFAULT_ROLES = [
   {
     name: "admin",
-    permissions: PERMISSIONS, // admin has ALL permissions
+    homePath: "/admin",
+    permissions: PERMISSIONS, // full access
   },
-  {
-    name: "finance_manager",
-    permissions: PERMISSIONS.filter(p =>
-      p.startsWith("invoices.") ||
-      p.startsWith("payroll.") ||
-      p.startsWith("banks.") ||
-      p.startsWith("contracts.view")
-    ),
-  },
+
   {
     name: "hr_manager",
+    homePath: "/hr",
     permissions: PERMISSIONS.filter(p =>
       p.startsWith("contractors.") ||
       p.startsWith("agencies.") ||
-      p.startsWith("onboarding.")
+      p.startsWith("onboarding.") ||
+      p === "companies.view" ||
+      p === "tasks.view" ||
+      p === "tasks.create" ||
+      p === "tasks.assign"
     ),
   },
+
   {
-    name: "recruiter",
+    name: "finance_manager",
+    homePath: "/finance",
     permissions: PERMISSIONS.filter(p =>
-      p.startsWith("contractors.") ||
-      p.startsWith("leads.")
+      p.startsWith("invoices.") ||
+      p.startsWith("banks.") ||
+      p.startsWith("payroll.") ||
+      p === "contracts.view"
     ),
   },
-  {
-    name: "viewer",
-    permissions: PERMISSIONS.filter(p =>
-      p.endsWith(".view")
-    ),
-  },
+
   {
     name: "agency_owner",
+    homePath: "/agency",
     permissions: PERMISSIONS.filter(p =>
       p.startsWith("agencies.") ||
       p.startsWith("contractors.") ||
@@ -47,8 +49,49 @@ export const DEFAULT_ROLES = [
       p.endsWith(".view")
     ),
   },
+
+  {
+    name: "payroll_manager",
+    homePath: "/payroll",
+    permissions: PERMISSIONS.filter(p =>
+      p.startsWith("payroll.") ||
+      p.startsWith("contracts.view") ||
+      p.startsWith("invoices.view") ||
+      p.startsWith("payslip.")
+    ),
+  },
+
+  {
+    name: "recruiter",
+    homePath: "/recruitment",
+    permissions: PERMISSIONS.filter(p =>
+      p.startsWith("contractors.") ||
+      p.startsWith("leads.")
+    ),
+  },
+
+  {
+    name: "contractor",
+    homePath: "/contractor",
+    permissions: [
+      "onboarding.responses.view_own",
+      "onboarding.responses.submit",
+      "contracts.view",
+      "payslip.view",
+      "payslip.download",
+    ].filter(Boolean),
+  },
+
+  {
+    name: "viewer",
+    homePath: "/dashboard",
+    permissions: PERMISSIONS.filter(p => p.endsWith(".view")),
+  },
 ]
 
+// -------------------------------------------------------------
+// ROLE SEEDER FUNCTION
+// -------------------------------------------------------------
 export async function seedDefaultRoles(tenantId: string) {
   console.log("👉 Seeding default roles...")
 
@@ -60,10 +103,13 @@ export async function seedDefaultRoles(tenantId: string) {
           name: role.name,
         },
       },
-      update: {},
+      update: {
+        homePath: role.homePath, // ensure homePath is always correct
+      },
       create: {
         tenantId,
         name: role.name,
+        homePath: role.homePath,
       },
     })
 
@@ -88,5 +134,5 @@ export async function seedDefaultRoles(tenantId: string) {
     }
   }
 
-  console.log("✅ Default roles created.")
+  console.log("✅ Default roles created & permissions assigned.")
 }

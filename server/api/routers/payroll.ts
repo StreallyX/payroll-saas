@@ -1,12 +1,21 @@
+import { z } from "zod";
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission,
+} from "../trpc";
 
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
-import { createAuditLog } from "@/lib/audit"
-import { AuditAction, AuditEntityType } from "@/lib/types"
+import { createAuditLog } from "@/lib/audit";
+import { AuditAction, AuditEntityType } from "@/lib/types";
+import { PERMISSION_TREE } from "../../rbac/permissions";
 
 export const payrollRouter = createTRPCRouter({
-  // Get all payroll partners for tenant
+
+  // -------------------------------------------------------
+  // GET ALL PAYROLL PARTNERS
+  // -------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.payroll.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.payrollPartner.findMany({
         where: { tenantId: ctx.tenantId },
@@ -21,20 +30,21 @@ export const payrollRouter = createTRPCRouter({
               },
             },
           },
-          _count: {
-            select: { contracts: true },
-          },
+          _count: { select: { contracts: true } },
         },
         orderBy: { createdAt: "desc" },
-      })
+      });
     }),
 
-  // Get payroll partner by ID
+  // -------------------------------------------------------
+  // GET BY ID
+  // -------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.payroll.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.payrollPartner.findFirst({
-        where: { 
+        where: {
           id: input.id,
           tenantId: ctx.tenantId,
         },
@@ -51,31 +61,35 @@ export const payrollRouter = createTRPCRouter({
             },
           },
         },
-      })
+      });
     }),
 
-  // Create payroll partner
+  // -------------------------------------------------------
+  // CREATE PAYROLL PARTNER
+  // -------------------------------------------------------
   create: tenantProcedure
-    .input(z.object({
-      name: z.string().min(1),
-      contactEmail: z.string().email(),
-      contactPhone: z.string().optional(),
-      address: z.string().optional(),
-      status: z.enum(["active", "inactive", "suspended"]).default("active"),
-    }))
+    .use(hasPermission(PERMISSION_TREE.payroll.create))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        contactEmail: z.string().email(),
+        contactPhone: z.string().optional(),
+        address: z.string().optional(),
+        status: z.enum(["active", "inactive", "suspended"]).default("active"),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const partner = await ctx.prisma.payrollPartner.create({
         data: {
           ...input,
           tenantId: ctx.tenantId,
         },
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.PAYROLL_PARTNER,
         entityId: partner.id,
@@ -85,116 +99,108 @@ export const payrollRouter = createTRPCRouter({
           status: partner.status,
         },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return partner
+      return partner;
     }),
 
-  // Update payroll partner
+  // -------------------------------------------------------
+  // UPDATE PAYROLL PARTNER
+  // -------------------------------------------------------
   update: tenantProcedure
-    .input(z.object({
-      id: z.string(),
-      name: z.string().min(1).optional(),
-      contactEmail: z.string().email().optional(),
-      contactPhone: z.string().optional(),
-      address: z.string().optional(),
-      status: z.enum(["active", "inactive", "suspended"]).optional(),
-    }))
+    .use(hasPermission(PERMISSION_TREE.payroll.update))
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        contactEmail: z.string().email().optional(),
+        contactPhone: z.string().optional(),
+        address: z.string().optional(),
+        status: z.enum(["active", "inactive", "suspended"]).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input
+      const { id, ...updateData } = input;
 
       const partner = await ctx.prisma.payrollPartner.update({
-        where: { 
+        where: {
           id,
           tenantId: ctx.tenantId,
         },
         data: updateData,
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.PAYROLL_PARTNER,
         entityId: partner.id,
         entityName: partner.name,
-        metadata: {
-          updatedFields: updateData,
-        },
+        metadata: { updatedFields: updateData },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return partner
+      return partner;
     }),
 
-  // Delete payroll partner
+  // -------------------------------------------------------
+  // DELETE PAYROLL PARTNER
+  // -------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.payroll.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get partner details before deleting
       const partner = await ctx.prisma.payrollPartner.findFirst({
-        where: { 
+        where: {
           id: input.id,
           tenantId: ctx.tenantId,
         },
-      })
+      });
 
-      if (!partner) {
-        throw new Error("Payroll partner not found")
-      }
+      if (!partner) throw new Error("Payroll partner not found");
 
-      const result = await ctx.prisma.payrollPartner.delete({
-        where: { 
+      const deleted = await ctx.prisma.payrollPartner.delete({
+        where: {
           id: input.id,
           tenantId: ctx.tenantId,
         },
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.PAYROLL_PARTNER,
         entityId: input.id,
         entityName: partner.name,
-        metadata: {
-          email: partner.contactEmail,
-        },
+        metadata: { email: partner.contactEmail },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return result
+      return deleted;
     }),
 
-  // Get payroll partner statistics
+  // -------------------------------------------------------
+  // STATS
+  // -------------------------------------------------------
   getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.payroll.view))
     .query(async ({ ctx }) => {
-      const totalPartners = await ctx.prisma.payrollPartner.count({
+      const total = await ctx.prisma.payrollPartner.count({
         where: { tenantId: ctx.tenantId },
-      })
+      });
 
-      const activePartners = await ctx.prisma.payrollPartner.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "active",
-        },
-      })
+      const active = await ctx.prisma.payrollPartner.count({
+        where: { tenantId: ctx.tenantId, status: "active" },
+      });
 
-      const inactivePartners = await ctx.prisma.payrollPartner.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "inactive",
-        },
-      })
+      const inactive = await ctx.prisma.payrollPartner.count({
+        where: { tenantId: ctx.tenantId, status: "inactive" },
+      });
 
-      return {
-        total: totalPartners,
-        active: activePartners,
-        inactive: inactivePartners,
-      }
+      return { total, active, inactive };
     }),
-})
+});

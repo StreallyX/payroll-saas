@@ -18,7 +18,8 @@ export type TRPCContext = {
     user: {
       id: string;
       tenantId: string;
-      role: string;
+      roleId: string | null;
+      roleName: string;
       permissions: string[];
       agencyId: string | null;
       payrollPartnerId: string | null;
@@ -30,6 +31,7 @@ export type TRPCContext = {
   } | null;
   tenantId?: string;
 };
+
 
 /* -------------------------------------------------------------
  * 2) CONTEXT CREATION
@@ -66,7 +68,8 @@ export const createTRPCContext = async (
       user: {
         ...session.user,
         tenantId: dbUser.tenantId,
-        role: dbUser.role.name,
+        roleName: dbUser.role.name,
+        roleId: dbUser.roleId,
         permissions,
         agencyId: dbUser.agencyId,
         payrollPartnerId: dbUser.payrollPartnerId,

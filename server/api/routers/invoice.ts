@@ -1,12 +1,16 @@
-
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 
 export const invoiceRouter = createTRPCRouter({
-  // Get all invoices for tenant
+
+  // ---------------------------------------------------------
+  // GET ALL
+  // ---------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.invoice.findMany({
         where: { tenantId: ctx.tenantId },
@@ -27,24 +31,20 @@ export const invoiceRouter = createTRPCRouter({
       })
     }),
 
-  // Get invoice by ID
+  // ---------------------------------------------------------
+  // GET BY ID
+  // ---------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.invoice.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           contract: {
             include: {
               agency: true,
-              contractor: {
-                include: {
-                  user: true,
-                },
-              },
+              contractor: { include: { user: true } },
               payrollPartner: true,
             },
           },
@@ -52,15 +52,15 @@ export const invoiceRouter = createTRPCRouter({
       })
     }),
 
-  // Get invoices by contract ID
+  // ---------------------------------------------------------
+  // GET BY CONTRACT
+  // ---------------------------------------------------------
   getByContractId: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
     .input(z.object({ contractId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.invoice.findMany({
-        where: { 
-          contractId: input.contractId,
-          tenantId: ctx.tenantId,
-        },
+        where: { contractId: input.contractId, tenantId: ctx.tenantId },
         include: {
           contract: {
             include: {
@@ -74,12 +74,14 @@ export const invoiceRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: { createdAt: "desc" },
       })
     }),
 
-  // Create invoice
+  // ---------------------------------------------------------
+  // CREATE
+  // ---------------------------------------------------------
   create: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.create))
     .input(z.object({
       contractId: z.string(),
       amount: z.number().positive(),
@@ -88,11 +90,9 @@ export const invoiceRouter = createTRPCRouter({
       status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]).default("draft"),
     }))
     .mutation(async ({ ctx, input }) => {
+
       const invoice = await ctx.prisma.invoice.create({
-        data: {
-          ...input,
-          tenantId: ctx.tenantId,
-        },
+        data: { ...input, tenantId: ctx.tenantId },
         include: {
           contract: {
             include: {
@@ -108,28 +108,30 @@ export const invoiceRouter = createTRPCRouter({
         },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
         entityName: invoice.invoiceRef || `Invoice-${invoice.id.slice(0, 8)}`,
+        tenantId: ctx.tenantId,
         metadata: {
           amount: invoice.amount,
           status: invoice.status,
           contractId: invoice.contractId,
         },
-        tenantId: ctx.tenantId,
       })
 
       return invoice
     }),
 
-  // Update invoice
+  // ---------------------------------------------------------
+  // UPDATE
+  // ---------------------------------------------------------
   update: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       amount: z.number().positive().optional(),
@@ -139,13 +141,11 @@ export const invoiceRouter = createTRPCRouter({
       paidAt: z.date().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+
       const { id, ...updateData } = input
 
       const invoice = await ctx.prisma.invoice.update({
-        where: { 
-          id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id, tenantId: ctx.tenantId },
         data: updateData,
         include: {
           contract: {
@@ -162,85 +162,74 @@ export const invoiceRouter = createTRPCRouter({
         },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
         entityName: invoice.invoiceRef || `Invoice-${invoice.id.slice(0, 8)}`,
-        metadata: {
-          updatedFields: updateData,
-        },
         tenantId: ctx.tenantId,
+        metadata: { updatedFields: updateData },
       })
 
       return invoice
     }),
 
-  // Delete invoice
+  // ---------------------------------------------------------
+  // DELETE
+  // ---------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get invoice details before deleting
+
       const invoice = await ctx.prisma.invoice.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
 
-      if (!invoice) {
-        throw new Error("Invoice not found")
-      }
+      if (!invoice) throw new Error("Invoice not found")
 
-      const result = await ctx.prisma.invoice.delete({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+      await ctx.prisma.invoice.delete({
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.INVOICE,
         entityId: input.id,
         entityName: invoice.invoiceRef || `Invoice-${invoice.id.slice(0, 8)}`,
+        tenantId: ctx.tenantId,
         metadata: {
           amount: invoice.amount,
           status: invoice.status,
         },
-        tenantId: ctx.tenantId,
       })
 
-      return result
+      return { success: true }
     }),
 
-  // Get invoice statistics
+  // ---------------------------------------------------------
+  // STATS
+  // ---------------------------------------------------------
   getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
     .query(async ({ ctx }) => {
-      const totalInvoices = await ctx.prisma.invoice.count({
+
+      const total = await ctx.prisma.invoice.count({
         where: { tenantId: ctx.tenantId },
       })
 
-      const paidInvoices = await ctx.prisma.invoice.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "paid",
-        },
+      const paid = await ctx.prisma.invoice.count({
+        where: { tenantId: ctx.tenantId, status: "paid" },
       })
 
-      const overdueInvoices = await ctx.prisma.invoice.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "overdue",
-        },
+      const overdue = await ctx.prisma.invoice.count({
+        where: { tenantId: ctx.tenantId, status: "overdue" },
       })
 
       const totalAmount = await ctx.prisma.invoice.aggregate({
@@ -249,19 +238,16 @@ export const invoiceRouter = createTRPCRouter({
       })
 
       const paidAmount = await ctx.prisma.invoice.aggregate({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "paid",
-        },
+        where: { tenantId: ctx.tenantId, status: "paid" },
         _sum: { amount: true },
       })
 
       return {
-        total: totalInvoices,
-        paid: paidInvoices,
-        overdue: overdueInvoices,
-        totalAmount: Number(totalAmount._sum.amount || 0),
-        paidAmount: Number(paidAmount._sum.amount || 0),
+        total,
+        paid,
+        overdue,
+        totalAmount: Number(totalAmount._sum.amount ?? 0),
+        paidAmount: Number(paidAmount._sum.amount ?? 0),
       }
     }),
 })

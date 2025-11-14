@@ -4,7 +4,7 @@ import {
   tenantProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSIONS } from "../../rbac/permissions";
+import { PERMISSION_TREE } from "../../rbac/permissions";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
@@ -15,7 +15,7 @@ export const userRouter = createTRPCRouter({
   // GET ALL USERS
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSIONS.USERS_VIEW))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.user.findMany({
         where: { tenantId: ctx.tenantId },
@@ -30,7 +30,7 @@ export const userRouter = createTRPCRouter({
   // GET ONE USER
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSIONS.USERS_VIEW))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.user.findFirst({
@@ -48,7 +48,7 @@ export const userRouter = createTRPCRouter({
   // CREATE USER (ENTERPRISE DEEL STYLE)
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSIONS.USERS_CREATE))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.create))
     .input(
       z.object({
         name: z.string().min(2),
@@ -99,7 +99,7 @@ export const userRouter = createTRPCRouter({
           tenantId: ctx.tenantId!,
           userId: ctx.session!.user.id,
           userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.role,
+          userRole: ctx.session!.user.roleName,
           action: "USER_CREATED",
           entityType: "user",
           entityId: user.id,
@@ -119,7 +119,7 @@ export const userRouter = createTRPCRouter({
   // UPDATE USER
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSIONS.USERS_UPDATE))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(
       z.object({
         id: z.string(),
@@ -158,7 +158,7 @@ export const userRouter = createTRPCRouter({
           tenantId: ctx.tenantId!,
           userId: ctx.session!.user.id,
           userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.role,
+          userRole: ctx.session!.user.roleName,
           action: "USER_UPDATED",
           entityType: "user",
           entityId: updated.id,
@@ -174,7 +174,7 @@ export const userRouter = createTRPCRouter({
   // DELETE USER
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSIONS.USERS_DELETE))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -197,7 +197,7 @@ export const userRouter = createTRPCRouter({
           tenantId: ctx.tenantId!,
           userId: ctx.session!.user.id,
           userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.role,
+          userRole: ctx.session!.user.roleName,
           action: "USER_DELETED",
           entityType: "user",
           entityId: removed.id,

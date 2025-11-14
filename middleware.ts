@@ -1,3 +1,10 @@
+// MUST be at the VERY TOP before any import
+export const config = {
+  matcher: [
+    "/((?!api/auth|auth|api/trpc|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)",
+  ],
+};
+
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
@@ -6,14 +13,23 @@ export default withAuth(
     const token = req.nextauth.token;
     const { pathname } = req.nextUrl;
 
-    // 📌 Routes publiques
-    const publicPaths = ["/login", "/register", "/auth/set-password"];
-    if (publicPaths.includes(pathname)) return NextResponse.next();
+    // 🔥 NEW PUBLIC ROUTES
+    const publicRoutes = [
+      "/auth/login",
+      "/auth/signin",
+      "/auth/set-password",
+    ];
 
-    // 📌 Si pas loggé → login
-    if (!token) return NextResponse.redirect(new URL("/login", req.url));
+    if (publicRoutes.some(r => pathname.startsWith(r))) {
+      return NextResponse.next();
+    }
 
-    // 🔥 MUST CHANGE PASSWORD → redirection forcée
+    // Not authenticated → redirect to /auth/login
+    if (!token) {
+      return NextResponse.redirect(new URL("/auth/login", req.url));
+    }
+
+    // Must change password before accessing the app
     if (!token.isSuperAdmin && token.mustChangePassword) {
       const resetToken = token.passwordResetToken;
       if (!pathname.startsWith("/auth/set-password")) {
@@ -23,8 +39,7 @@ export default withAuth(
       }
     }
 
-
-    // 🔥 SUPERADMIN ISOLÉ
+    // SuperAdmin isolation
     if (token.isSuperAdmin) {
       if (!pathname.startsWith("/superadmin")) {
         return NextResponse.redirect(new URL("/superadmin", req.url));
@@ -32,15 +47,13 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    // 🔥 RBAC DYNAMIQUE : HOME PATH venant de Prisma
-    const homePath = token.homePath as string;
+    // RBAC: enforce homePath
+    const homePath = token.homePath ?? "/dashboard";
 
-    // Si l’utilisateur va sur "/" → redirect vers sa home dynamique
     if (pathname === "/") {
       return NextResponse.redirect(new URL(homePath, req.url));
     }
 
-    // 🔥 Protection des sections : un rôle ne peut sortir de sa zone
     if (!pathname.startsWith(homePath)) {
       return NextResponse.redirect(new URL(homePath, req.url));
     }
@@ -48,14 +61,6 @@ export default withAuth(
     return NextResponse.next();
   },
   {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
+    callbacks: { authorized: ({ token }) => !!token },
   }
 );
-
-export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)",
-  ],
-};

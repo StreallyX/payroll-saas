@@ -1,39 +1,49 @@
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, adminProcedure, protectedProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  protectedProcedure,
+  hasPermission,
+} from "../trpc"
+
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
 import bcrypt from "bcryptjs"
-import { Prisma } from "@prisma/client"
-
-// ==========================================
-// 🌍 TENANT ADMIN ROUTES (pour admins internes)
-// ==========================================
+import { PERMISSION_TREE } from "../../rbac/permissions"
 
 export const tenantRouter = createTRPCRouter({
-  // 🟢 Obtenir les infos du tenant courant
-  getCurrent: tenantProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.tenant.findUnique({
-      where: { id: ctx.tenantId },
-      select: {
-        id: true,
-        name: true,
-        logoUrl: true,
-        primaryColor: true,
-        accentColor: true,
-        backgroundColor: true,
-        sidebarBgColor: true,
-        sidebarTextColor: true,
-        headerBgColor: true,
-        headerTextColor: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
-  }),
 
-  // 🟦 Mise à jour des paramètres du tenant (Admin)
-  updateSettings: adminProcedure
+  // -------------------------------------------------------
+  // 🟢 GET CURRENT TENANT
+  // -------------------------------------------------------
+  getCurrent: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .query(async ({ ctx }) => {
+      return ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: {
+          id: true,
+          name: true,
+          logoUrl: true,
+          primaryColor: true,
+          accentColor: true,
+          backgroundColor: true,
+          sidebarBgColor: true,
+          sidebarTextColor: true,
+          headerBgColor: true,
+          headerTextColor: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+    }),
+
+  // -------------------------------------------------------
+  // 🟦 UPDATE TENANT SETTINGS
+  // -------------------------------------------------------
+  updateSettings: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
     .input(
       z.object({
         name: z.string().min(1).optional(),
@@ -48,127 +58,121 @@ export const tenantRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const currentTenant = await ctx.prisma.tenant.findUnique({
+      const before = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
         select: { name: true },
       })
 
-      const updatedTenant = await ctx.prisma.tenant.update({
+      const updated = await ctx.prisma.tenant.update({
         where: { id: ctx.tenantId },
         data: input,
       })
 
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.TENANT,
         entityId: ctx.tenantId,
-        entityName: currentTenant?.name || "Tenant",
+        entityName: before?.name || "Tenant",
         metadata: { changes: input },
         tenantId: ctx.tenantId,
       })
 
-      return updatedTenant
+      return updated
     }),
 
-  // 🟧 Réinitialisation des couleurs du tenant
-  resetColors: adminProcedure.mutation(async ({ ctx }) => {
-    const currentTenant = await ctx.prisma.tenant.findUnique({
-      where: { id: ctx.tenantId },
-      select: { name: true },
-    })
+  // -------------------------------------------------------
+  // 🟧 RESET COLORS
+  // -------------------------------------------------------
+  resetColors: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .mutation(async ({ ctx }) => {
 
-    const updatedTenant = await ctx.prisma.tenant.update({
-      where: { id: ctx.tenantId },
-      data: {
-        primaryColor: "#3b82f6",
-        accentColor: "#10b981",
-        backgroundColor: "#ffffff",
-        sidebarBgColor: "#ffffff",
-        sidebarTextColor: "#111827",
-        headerBgColor: "#ffffff",
-        headerTextColor: "#111827",
-      },
-    })
+      const before = await ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: { name: true },
+      })
 
-    await createAuditLog({
-      userId: ctx.session.user.id,
-      userName: ctx.session.user.name || "Unknown",
-      userRole: ctx.session.user.roleName || "Unknown",
-      action: AuditAction.UPDATE,
-      entityType: AuditEntityType.TENANT,
-      entityId: ctx.tenantId,
-      entityName: currentTenant?.name || "Tenant",
-      metadata: { action: "reset_colors" },
-      tenantId: ctx.tenantId,
-    })
+      const updated = await ctx.prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          primaryColor: "#3b82f6",
+          accentColor: "#10b981",
+          backgroundColor: "#ffffff",
+          sidebarBgColor: "#ffffff",
+          sidebarTextColor: "#111827",
+          headerBgColor: "#ffffff",
+          headerTextColor: "#111827",
+        },
+      })
 
-    return updatedTenant
-  }),
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        entityName: before?.name || "Tenant",
+        metadata: { action: "reset_colors" },
+        tenantId: ctx.tenantId,
+      })
 
-  // ==========================================
-  // 🔐 SUPERADMIN-ONLY ROUTES
-  // ==========================================
+      return updated
+    }),
 
-  // 📊 Liste optimisée des tenants
-  getAllForSuperAdmin: protectedProcedure.query(async ({ ctx }) => {
-    if (!ctx.session?.user?.isSuperAdmin) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "SuperAdmin access required" })
-    }
+  // -------------------------------------------------------
+  // 🔐 SUPERADMIN ONLY (RBAC)
+  // -------------------------------------------------------
 
-    const tenants = await ctx.prisma.tenant.findMany({
-      include: {
-        _count: {
-          select: {
-            users: true,
-            contracts: true,
-            invoices: true,
+  // 📊 LIST TENANTS
+  getAllForSuperAdmin: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.create))
+    .query(async ({ ctx }) => {
+
+      const tenants = await ctx.prisma.tenant.findMany({
+        include: {
+          _count: {
+            select: { users: true, contracts: true, invoices: true },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+        orderBy: { createdAt: "desc" },
+      })
 
-    return tenants.map((t) => ({
-      id: t.id,
-      name: t.name,
-      createdAt: t.createdAt,
-      userCount: t._count.users,
-      contractCount: t._count.contracts,
-      invoiceCount: t._count.invoices,
-      isActive: (t as any).isActive ?? true,
-    }))
-  }),
+      return tenants.map((t) => ({
+        id: t.id,
+        name: t.name,
+        createdAt: t.createdAt,
+        userCount: t._count.users,
+        contractCount: t._count.contracts,
+        invoiceCount: t._count.invoices,
+        isActive: t.isActive,
+      }))
+    }),
 
-  // 🏗️ Créer un tenant + admin
+  // 🏗️ CREATE TENANT + ADMIN
   createTenantWithAdmin: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.create))
     .input(
       z.object({
         tenantName: z.string().min(2),
-        primaryColor: z.string().optional().default("#3b82f6"),
-        accentColor: z.string().optional().default("#10b981"),
+        primaryColor: z.string().default("#3b82f6"),
+        accentColor: z.string().default("#10b981"),
         adminName: z.string().min(2),
         adminEmail: z.string().email(),
         adminPassword: z.string().min(8),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (!ctx.session?.user?.isSuperAdmin) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "SuperAdmin access required" })
-      }
 
-      const existingUser = await ctx.prisma.user.findFirst({
+      const exists = await ctx.prisma.user.findFirst({
         where: { email: input.adminEmail },
       })
 
-      if (existingUser) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "Cet email est déjà utilisé par un autre compte",
-        })
-      }
+      if (exists)
+        throw new TRPCError({ code: "CONFLICT", message: "Email already used." })
 
       const result = await ctx.prisma.$transaction(async (prisma) => {
         const tenant = await prisma.tenant.create({
@@ -180,13 +184,10 @@ export const tenantRouter = createTRPCRouter({
           },
         })
 
-        // Crée les 4 rôles de base
-        const roleNames = ["admin", "agency", "contractor", "payroll_partner"]
+        const rolesNames = ["admin", "agency", "contractor", "payroll_partner"]
         const roles = await Promise.all(
-          roleNames.map((name) =>
-            prisma.role.create({
-              data: { tenantId: tenant.id, name },
-            })
+          rolesNames.map((name) =>
+            prisma.role.create({ data: { tenantId: tenant.id, name } })
           )
         )
 
@@ -204,19 +205,16 @@ export const tenantRouter = createTRPCRouter({
           },
         })
 
-        // ✅ Audit log
-        await prisma.auditLog.create({
-          data: {
-            ...(ctx.session.user?.isSuperAdmin ? {} : { userId: ctx.session.user?.id }),
-            userName: ctx.session.user?.name ?? "SuperAdmin",
-            userRole: "superadmin",
-            action: "CREATE",
-            entityType: "TENANT",
-            entityId: tenant.id,
-            entityName: tenant.name,
-            description: `Tenant créé avec admin ${input.adminEmail}`,
-            tenantId: tenant.id,
-          } as Prisma.AuditLogUncheckedCreateInput, // ✅ le cast propre
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name!,
+          userRole: "superadmin",
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.TENANT,
+          entityId: tenant.id,
+          entityName: tenant.name,
+          description: `Tenant créé avec admin ${input.adminEmail}`,
+          tenantId: tenant.id,
         })
 
         return { tenant, user }
@@ -225,61 +223,51 @@ export const tenantRouter = createTRPCRouter({
       return result
     }),
 
-  // ⚙️ Activer / Désactiver un tenant
+  // ⚙️ UPDATE TENANT STATUS
   updateTenantStatus: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.suspend))
     .input(z.object({ tenantId: z.string(), isActive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      if (!ctx.session?.user?.isSuperAdmin) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "SuperAdmin access required" })
-      }
 
       const tenant = await ctx.prisma.tenant.update({
         where: { id: input.tenantId },
-        data: { isActive: input.isActive, updatedAt: new Date() },
+        data: { isActive: input.isActive },
       })
 
-      await ctx.prisma.auditLog.create({
-        data: {
-          ...(ctx.session.user?.isSuperAdmin ? {} : { userId: ctx.session.user?.id }),
-          userName: ctx.session.user?.name ?? "SuperAdmin",
-          userRole: "superadmin",
-          action: input.isActive ? "ACTIVATE" : "DEACTIVATE",
-          entityType: "TENANT",
-          entityId: tenant.id,
-          entityName: tenant.name,
-          description: `Tenant ${input.isActive ? "activé" : "désactivé"}`,
-          tenantId: tenant.id,
-        } as Prisma.AuditLogUncheckedCreateInput,
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: "superadmin",
+        action: input.isActive ? AuditAction.ACTIVATE : AuditAction.DEACTIVATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: tenant.id,
+        entityName: tenant.name,
+        tenantId: tenant.id,
       })
 
       return tenant
     }),
 
-  // 🗑️ Désactivation logique (soft delete)
+  // 🗑️ SOFT DELETE TENANT
   deleteTenant: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.delete))
     .input(z.object({ tenantId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      if (!ctx.session?.user?.isSuperAdmin) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "SuperAdmin access required" })
-      }
 
       const tenant = await ctx.prisma.tenant.update({
         where: { id: input.tenantId },
-        data: { isActive: false, updatedAt: new Date() },
+        data: { isActive: false },
       })
 
-      await ctx.prisma.auditLog.create({
-        data: {
-          ...(ctx.session.user?.isSuperAdmin ? {} : { userId: ctx.session.user?.id }),
-          userName: ctx.session.user?.name ?? "SuperAdmin",
-          userRole: "superadmin",
-          action: "DELETE",
-          entityType: "TENANT",
-          entityId: tenant.id,
-          entityName: tenant.name,
-          description: "Tenant désactivé (soft delete)",
-          tenantId: tenant.id,
-        } as Prisma.AuditLogUncheckedCreateInput,
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: "superadmin",
+        action: AuditAction.DELETE,
+        entityType: AuditEntityType.TENANT,
+        entityId: tenant.id,
+        entityName: tenant.name,
+        tenantId: tenant.id,
       })
 
       return tenant

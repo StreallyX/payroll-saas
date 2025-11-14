@@ -7,6 +7,11 @@ import bcrypt from "bcryptjs";
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
+  pages: {
+    signIn: "/auth/login",
+    error: "/auth/login",
+  },
+
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -17,7 +22,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 🔹 SUPERADMIN LOGIN
+        // SUPERADMIN LOGIN
         const superAdmin = await prisma.superAdmin.findUnique({
           where: { email: credentials.email, isActive: true },
         });
@@ -36,7 +41,7 @@ export const authOptions: NextAuthOptions = {
           };
         }
 
-        // 🔹 TENANT USER LOGIN
+        // TENANT USER LOGIN
         const user = await prisma.user.findFirst({
           where: { email: credentials.email, isActive: true },
           include: { role: true },
@@ -79,10 +84,39 @@ export const authOptions: NextAuthOptions = {
         token.isSuperAdmin = user.isSuperAdmin;
         token.mustChangePassword = user.mustChangePassword;
         token.homePath = user.homePath;
-        token.passwordResetToken = user.passwordResetToken ?? token.passwordResetToken ?? null;
+        token.passwordResetToken = user.passwordResetToken ?? null;
+
+        if (user.isSuperAdmin) {
+          const allPermissions = await prisma.permission.findMany({
+            select: { key: true },
+          });
+
+          token.permissions = allPermissions.map((p) => p.key);
+          return token;
+        }
+
+        if (user.roleId) {
+          const dbUser = await prisma.user.findFirst({
+            where: { id: user.id },
+            include: {
+              role: {
+                include: {
+                  rolePermissions: {
+                    include: { permission: true },
+                  },
+                },
+              },
+            },
+          });
+
+          token.permissions =
+            dbUser?.role?.rolePermissions?.map((rp) => rp.permission.key) ?? [];
+        }
       }
+
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
@@ -93,10 +127,20 @@ export const authOptions: NextAuthOptions = {
         session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.homePath = token.homePath as string;
         session.user.passwordResetToken = token.passwordResetToken as string | null;
+        session.user.permissions = token.permissions ?? [];
       }
+
       return session;
     },
-  },
 
-  pages: { signIn: "/login" },
+    // 🚀 FIX REDIRECTION NEXTAUTH
+    async redirect({ url, baseUrl }) {
+      if (url.includes("/api/auth/signin")) {
+        return `${baseUrl}/auth/login`;
+      }
+
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      return url;
+    },
+  },
 };

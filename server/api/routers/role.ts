@@ -1,191 +1,186 @@
-
-
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, adminProcedure } from "../trpc"
-import { createAuditLog } from "@/lib/audit"
-import { AuditAction, AuditEntityType } from "@/lib/types"
+import { z } from "zod";
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+import { createAuditLog } from "@/lib/audit";
+import { AuditAction, AuditEntityType } from "@/lib/types";
+import { PERMISSION_TREE } from "../../rbac/permissions";
 
 export const roleRouter = createTRPCRouter({
-  // Get all roles for tenant
+
+  // -------------------------------------------------------
+  // GET ALL ROLES
+  // -------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.role.findMany({
         where: { tenantId: ctx.tenantId },
         include: {
-          _count: {
-            select: { users: true }
-          }
+          _count: { select: { users: true } },
         },
         orderBy: { name: "asc" },
-      })
+      });
     }),
 
-  // Get role by ID
+  // -------------------------------------------------------
+  // GET BY ID
+  // -------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.role.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
-          _count: {
-            select: { users: true }
-          }
+          _count: { select: { users: true } },
         },
-      })
+      });
     }),
 
-  // Create role
-  create: adminProcedure
+  // -------------------------------------------------------
+  // CREATE ROLE
+  // -------------------------------------------------------
+  create: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.create))
     .input(z.object({
       name: z.string().min(1),
       description: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Check if role with this name already exists
-      const existingRole = await ctx.prisma.role.findFirst({
-        where: {
-          name: input.name,
-          tenantId: ctx.tenantId,
-        },
-      })
 
-      if (existingRole) {
-        throw new Error("Un rôle avec ce nom existe déjà")
+      const existing = await ctx.prisma.role.findFirst({
+        where: { name: input.name, tenantId: ctx.tenantId },
+      });
+
+      if (existing) {
+        throw new Error("A role with this name already exists.");
       }
 
-      const newRole = await ctx.prisma.role.create({
+      const role = await ctx.prisma.role.create({
         data: {
           name: input.name,
           tenantId: ctx.tenantId,
         },
-      })
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.ROLE,
-        entityId: newRole.id,
-        entityName: newRole.name,
-        metadata: {
-          name: newRole.name,
-        },
+        entityId: role.id,
+        entityName: role.name,
+        metadata: { name: role.name },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return newRole
+      return role;
     }),
 
-  // Update role
-  update: adminProcedure
+  // -------------------------------------------------------
+  // UPDATE ROLE
+  // -------------------------------------------------------
+  update: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.update))
     .input(z.object({
       id: z.string(),
       name: z.string().min(1).optional(),
+      description: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input
 
-      // Get current role data for audit log
-      const currentRole = await ctx.prisma.role.findFirst({
+      const { id, ...updates } = input;
+
+      const oldRole = await ctx.prisma.role.findFirst({
         where: { id, tenantId: ctx.tenantId },
         select: { name: true },
-      })
+      });
+
+      if (!oldRole) throw new Error("Role not found");
 
       const updatedRole = await ctx.prisma.role.update({
-        where: { 
-          id,
-        },
-        data: updateData,
-      })
+        where: { id },
+        data: updates,
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.ROLE,
         entityId: updatedRole.id,
-        entityName: currentRole?.name || "Role",
-        metadata: {
-          changes: updateData,
-        },
+        entityName: oldRole.name,
+        metadata: { changes: updates },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return updatedRole
+      return updatedRole;
     }),
 
-  // Delete role
-  delete: adminProcedure
+  // -------------------------------------------------------
+  // DELETE ROLE
+  // -------------------------------------------------------
+  delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get role data before deletion for audit log
-      const roleToDelete = await ctx.prisma.role.findFirst({
+
+      const role = await ctx.prisma.role.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         select: { name: true },
-      })
+      });
 
-      // Check if role has users
-      const userCount = await ctx.prisma.user.count({
+      if (!role) throw new Error("Role not found");
+
+      const countUsers = await ctx.prisma.user.count({
         where: { roleId: input.id },
-      })
+      });
 
-      if (userCount > 0) {
-        throw new Error(`Ce rôle ne peut pas être supprimé car ${userCount} utilisateur(s) l'utilisent encore`)
+      if (countUsers > 0) {
+        throw new Error(`This role cannot be deleted because ${countUsers} user(s) still use it.`);
       }
 
-      const deletedRole = await ctx.prisma.role.delete({
-        where: { 
-          id: input.id,
-        },
-      })
+      const deleted = await ctx.prisma.role.delete({
+        where: { id: input.id },
+      });
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.ROLE,
         entityId: input.id,
-        entityName: roleToDelete?.name || "Role",
-        metadata: {
-          name: roleToDelete?.name,
-        },
+        entityName: role.name,
+        metadata: { name: role.name },
         tenantId: ctx.tenantId,
-      })
+      });
 
-      return deletedRole
+      return deleted;
     }),
 
-  // Get stats
+  // -------------------------------------------------------
+  // STATS
+  // -------------------------------------------------------
   getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.role.count({
         where: { tenantId: ctx.tenantId },
-      })
+      });
 
       const withUsers = await ctx.prisma.role.count({
         where: {
           tenantId: ctx.tenantId,
-          users: {
-            some: {}
-          }
+          users: { some: {} },
         },
-      })
-
-      const withoutUsers = total - withUsers
+      });
 
       return {
         total,
         withUsers,
-        withoutUsers,
-      }
+        withoutUsers: total - withUsers,
+      };
     }),
-})
+});
