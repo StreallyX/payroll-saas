@@ -18,6 +18,8 @@ import { documentTypeRouter } from "./routers/documentType"
 import { taskRouter } from "./routers/task"
 import { onboardingRouter } from "./routers/onboarding"
 import { payslipRouter } from "./routers/payslip"
+import { authRouter } from "./routers/auth";
+
 
 /**
  * This is the primary router for your server.
@@ -26,6 +28,7 @@ import { payslipRouter } from "./routers/payslip"
 export const appRouter = createTRPCRouter({
   user: userRouter,
   agency: agencyRouter,
+  auth: authRouter,
   contractor: contractorRouter,
   payroll: payrollRouter,
   contract: contractRouter,
