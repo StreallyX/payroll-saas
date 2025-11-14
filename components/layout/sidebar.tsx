@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
-import { getMenuForRole, MenuItem } from "@/lib/menuConfig"
+import { getDynamicMenu, MenuItem } from "@/lib/dynamicMenuConfig"
 import { useTenant } from "@/lib/hooks/useTenant"
 import { 
   ChevronLeft, 
@@ -34,9 +34,12 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     if (onMobileClose) onMobileClose()
   }, [pathname])
 
-  if (!session?.user?.roleName) return null
+  if (!session?.user) return null
 
-  const menuItems = getMenuForRole(session.user.roleName)
+  // Get dynamic menu based on user permissions
+  const userPermissions = session.user.permissions || []
+  const isSuperAdmin = session.user.isSuperAdmin || false
+  const menuItems = getDynamicMenu(userPermissions, isSuperAdmin)
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({

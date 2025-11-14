@@ -16,6 +16,11 @@ export const roleRouter = createTRPCRouter({
         where: { tenantId: ctx.tenantId },
         include: {
           _count: { select: { users: true } },
+          rolePermissions: {
+            include: {
+              permission: true
+            }
+          }
         },
         orderBy: { name: "asc" },
       });
@@ -32,6 +37,19 @@ export const roleRouter = createTRPCRouter({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           _count: { select: { users: true } },
+          rolePermissions: {
+            include: {
+              permission: true
+            }
+          },
+          users: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isActive: true
+            }
+          }
         },
       });
     }),
@@ -43,7 +61,8 @@ export const roleRouter = createTRPCRouter({
     .use(hasPermission(PERMISSION_TREE.tenant.roles.create))
     .input(z.object({
       name: z.string().min(1),
-      description: z.string().optional(),
+      homePath: z.string().default("/admin"),
+      permissionIds: z.array(z.string()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
 
@@ -58,9 +77,20 @@ export const roleRouter = createTRPCRouter({
       const role = await ctx.prisma.role.create({
         data: {
           name: input.name,
+          homePath: input.homePath,
           tenantId: ctx.tenantId,
         },
       });
+
+      // Assign permissions if provided
+      if (input.permissionIds && input.permissionIds.length > 0) {
+        await ctx.prisma.rolePermission.createMany({
+          data: input.permissionIds.map(permissionId => ({
+            roleId: role.id,
+            permissionId
+          }))
+        });
+      }
 
       await createAuditLog({
         userId: ctx.session!.user.id,
@@ -70,7 +100,7 @@ export const roleRouter = createTRPCRouter({
         entityType: AuditEntityType.ROLE,
         entityId: role.id,
         entityName: role.name,
-        metadata: { name: role.name },
+        metadata: { name: role.name, permissionIds: input.permissionIds },
         tenantId: ctx.tenantId,
       });
 
@@ -85,7 +115,7 @@ export const roleRouter = createTRPCRouter({
     .input(z.object({
       id: z.string(),
       name: z.string().min(1).optional(),
-      description: z.string().optional(),
+      homePath: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
 
@@ -158,6 +188,69 @@ export const roleRouter = createTRPCRouter({
       });
 
       return deleted;
+    }),
+
+  // -------------------------------------------------------
+  // ASSIGN PERMISSIONS TO ROLE
+  // -------------------------------------------------------
+  assignPermissions: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.update))
+    .input(z.object({
+      roleId: z.string(),
+      permissionIds: z.array(z.string()),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const role = await ctx.prisma.role.findFirst({
+        where: { id: input.roleId, tenantId: ctx.tenantId },
+      });
+
+      if (!role) throw new Error("Role not found");
+
+      // Remove existing permissions
+      await ctx.prisma.rolePermission.deleteMany({
+        where: { roleId: input.roleId },
+      });
+
+      // Add new permissions
+      if (input.permissionIds.length > 0) {
+        await ctx.prisma.rolePermission.createMany({
+          data: input.permissionIds.map(permissionId => ({
+            roleId: input.roleId,
+            permissionId
+          }))
+        });
+      }
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.ROLE,
+        entityId: input.roleId,
+        entityName: role.name,
+        metadata: { permissionIds: input.permissionIds },
+        tenantId: ctx.tenantId,
+      });
+
+      return { success: true };
+    }),
+
+  // -------------------------------------------------------
+  // GET ROLE PERMISSIONS
+  // -------------------------------------------------------
+  getPermissions: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
+    .input(z.object({ roleId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const rolePermissions = await ctx.prisma.rolePermission.findMany({
+        where: { roleId: input.roleId },
+        include: {
+          permission: true
+        }
+      });
+
+      return rolePermissions.map(rp => rp.permission);
     }),
 
   // -------------------------------------------------------

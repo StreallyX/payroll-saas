@@ -14,6 +14,7 @@ import { bankRouter } from "./routers/bank"
 import { currencyRouter } from "./routers/currency"
 import { countryRouter } from "./routers/country"
 import { roleRouter } from "./routers/role"
+import { permissionRouter } from "./routers/permission"
 import { documentTypeRouter } from "./routers/documentType"
 import { taskRouter } from "./routers/task"
 import { onboardingRouter } from "./routers/onboarding"
@@ -41,6 +42,7 @@ export const appRouter = createTRPCRouter({
   currency: currencyRouter,
   country: countryRouter,
   role: roleRouter,
+  permission: permissionRouter,
   documentType: documentTypeRouter,
   task: taskRouter,
   onboarding: onboardingRouter,

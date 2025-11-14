@@ -126,18 +126,20 @@ export default function ManageRolesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nom du rôle</TableHead>
-              <TableHead>Nombre d'utilisateurs</TableHead>
-              <TableHead>Date de création</TableHead>
+              <TableHead>Role Name</TableHead>
+              <TableHead>Users</TableHead>
+              <TableHead>Permissions</TableHead>
+              <TableHead>Home Path</TableHead>
+              <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredRoles?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <div className="text-gray-500">
-                    {searchTerm ? "Aucun rôle trouvé." : "Aucun rôle configuré."}
+                    {searchTerm ? "No roles found." : "No roles configured."}
                   </div>
                 </TableCell>
               </TableRow>
@@ -152,10 +154,20 @@ export default function ManageRolesPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {role?._count?.users || 0} utilisateurs
+                      <Users className="h-3 w-3 mr-1" />
+                      {role?._count?.users || 0}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-gray-500">
+                  <TableCell>
+                    <Badge variant="secondary">
+                      <Shield className="h-3 w-3 mr-1" />
+                      {role?.rolePermissions?.length || 0}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-gray-600 text-sm">
+                    {role?.homePath || "/admin"}
+                  </TableCell>
+                  <TableCell className="text-gray-500 text-sm">
                     {new Date(role?.createdAt || "").toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
