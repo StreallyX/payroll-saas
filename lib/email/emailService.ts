@@ -537,6 +537,3 @@ class EmailService {
 
 // Singleton instance
 export const emailService = new EmailService();
-
-// Re-export queueManager for the function
-import { queueManager } from '../queue';
