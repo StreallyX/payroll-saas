@@ -20,7 +20,7 @@ export function RouteGuard({
   requiredPermission,
   requiredPermissions = [],
   requireAll = false,
-  fallbackPath = "/dashboard",
+  fallbackPath = "/home",
 }: RouteGuardProps) {
   const router = useRouter();
   const pathname = usePathname();

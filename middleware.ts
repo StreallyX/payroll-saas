@@ -65,11 +65,11 @@ export default withAuth(
     }
 
     // Redirect from /dashboard to first accessible route if user has limited permissions
-    if (pathname === "/dashboard") {
+    if (pathname === "/home") {
       const firstRoute = getFirstAccessibleRoute(permissions);
       // Only redirect if dashboard is not the first accessible route
       // This allows users with many permissions to see the dashboard
-      if (firstRoute !== "/dashboard" && permissions.length > 0) {
+      if (firstRoute !== "/home" && permissions.length > 0) {
         const hasSpecificModule = permissions.some(p => 
           !p.includes('.view') || p.split('.').length > 2
         );

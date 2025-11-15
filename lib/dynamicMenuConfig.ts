@@ -29,7 +29,7 @@ export interface MenuItem {
 export const dynamicMenuConfig: MenuItem[] = [
   { 
     label: "Dashboard", 
-    href: "/dashboard", 
+    href: "/home", 
     icon: LayoutDashboard,
     description: "System overview and analytics",
     // No permission required - everyone can see dashboard

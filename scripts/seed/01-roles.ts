@@ -84,7 +84,7 @@ export const DEFAULT_ROLES = [
 
   {
     name: "viewer",
-    homePath: "/dashboard",
+    homePath: "/home",
     permissions: PERMISSIONS.filter(p => p.endsWith(".view")),
   },
 ]

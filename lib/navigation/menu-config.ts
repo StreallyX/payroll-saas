@@ -21,7 +21,7 @@ export const MENU_CONFIG: MenuItem[] = [
   {
     id: "dashboard",
     label: "Dashboard",
-    href: "/dashboard",
+    href: "/home",
     icon: "LayoutDashboard",
     description: "Overview and analytics",
   },

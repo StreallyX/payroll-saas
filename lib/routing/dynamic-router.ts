@@ -4,7 +4,7 @@ import { PERMISSION_TREE } from "@/server/rbac/permissions";
 // Définition des routes avec leurs permissions requises
 export const ROUTES_CONFIG = [
   // Dashboard
-  { path: "/dashboard", permission: null, label: "Dashboard", icon: "LayoutDashboard" },
+  { path: "/home", permission: null, label: "Dashboard", icon: "LayoutDashboard" },
   
   // Users & Teams
   { path: "/modules/users", permission: PERMISSION_TREE.tenant.users.view, label: "Users", icon: "Users", category: "Team" },
@@ -52,7 +52,7 @@ export const ROUTES_CONFIG = [
 export function getFirstAccessibleRoute(permissions: string[]): string {
   // Si pas de permissions, rediriger vers dashboard
   if (!permissions || permissions.length === 0) {
-    return "/dashboard";
+    return "/home";
   }
 
   // Trouver la première route accessible
@@ -63,7 +63,7 @@ export function getFirstAccessibleRoute(permissions: string[]): string {
   }
 
   // Par défaut, dashboard
-  return "/dashboard";
+  return "/home";
 }
 
 /**
