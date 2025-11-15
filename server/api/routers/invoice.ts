@@ -5,6 +5,8 @@ import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
 import { generateInvoiceNumber, calculateDueDate, InvoiceStatus } from "@/lib/types/invoices"
+import { Prisma } from "@prisma/client"
+
 
 export const invoiceRouter = createTRPCRouter({
 
@@ -235,7 +237,7 @@ export const invoiceRouter = createTRPCRouter({
         action: AuditAction.CREATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        entityName: invoice.invoiceNumber,
+        entityName: invoice.invoiceNumber ?? undefined,
         tenantId: ctx.tenantId,
         metadata: {
           amount: invoice.amount,
@@ -291,7 +293,7 @@ export const invoiceRouter = createTRPCRouter({
       if (updateData.amount !== undefined || updateData.taxAmount !== undefined) {
         const newAmount = updateData.amount ?? Number(existingInvoice.amount)
         const newTax = updateData.taxAmount ?? Number(existingInvoice.taxAmount)
-        totalAmount = newAmount + newTax
+        totalAmount = new Prisma.Decimal(newAmount).plus(new Prisma.Decimal(newTax))
       }
 
       // Update invoice
@@ -343,7 +345,7 @@ export const invoiceRouter = createTRPCRouter({
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        entityName: invoice.invoiceNumber,
+        entityName: invoice.invoiceNumber ?? undefined,
         tenantId: ctx.tenantId,
         metadata: { updatedFields: updateData },
       })
@@ -384,7 +386,7 @@ export const invoiceRouter = createTRPCRouter({
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        entityName: invoice.invoiceNumber,
+        entityName: invoice.invoiceNumber ?? undefined,
         tenantId: ctx.tenantId,
         description: `Changed invoice status to ${input.status}`,
       })
@@ -422,7 +424,7 @@ export const invoiceRouter = createTRPCRouter({
         action: AuditAction.DELETE,
         entityType: AuditEntityType.INVOICE,
         entityId: input.id,
-        entityName: invoice.invoiceNumber,
+        entityName: invoice.invoiceNumber ?? undefined,
         tenantId: ctx.tenantId,
         metadata: {
           amount: invoice.amount,
@@ -554,7 +556,7 @@ export const invoiceRouter = createTRPCRouter({
         action: AuditAction.CREATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        entityName: invoice.invoiceNumber,
+        entityName: invoice.invoiceNumber ?? undefined,
         tenantId: ctx.tenantId,
         description: `Auto-generated invoice from contract`,
       })
