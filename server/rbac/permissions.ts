@@ -169,6 +169,7 @@ export const PERMISSION_TREE = {
 
   audit: {
     view: "audit_logs.view",
+    export: "audit_logs.export",
   },
 
   superadmin: {

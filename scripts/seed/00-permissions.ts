@@ -138,6 +138,7 @@ export const PERMISSIONS = [
 
   // --- AUDIT ---
   "audit_logs.view",
+  "audit_logs.export",
 
   // --- SUPERADMIN ---
   "superadmin.tenants.create",
