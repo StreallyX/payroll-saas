@@ -16,26 +16,40 @@ The platform now supports **real production services** with **automatic fallback
 
 ---
 
-## 🔴 Redis / Background Jobs
+## 🔴 Redis / Background Jobs (BullMQ)
 
 ### Option 1: Upstash Redis (Recommended for Production/Serverless)
 
 **Why Upstash?**
-- Serverless-friendly (REST API)
-- No connection pooling issues
-- Works with Next.js Edge Runtime
+- Serverless-friendly
+- Global edge network
+- Works with Next.js and Vercel
 - Free tier available
+- No connection pooling issues
+
+**⚠️ IMPORTANT: BullMQ requires TCP endpoint, not REST API**
 
 **Setup:**
 1. Create account at https://console.upstash.com/
 2. Create a Redis database
-3. Copy REST URL and Token
-4. Add to `.env`:
+3. Get **TCP endpoint** (required for BullMQ):
+   - Go to your database → **Redis Connect** → **ioredis**
+   - Copy the connection URL: `rediss://default:<password>@<host>:<port>`
+4. (Optional) Get REST API credentials for future use:
+   - Go to **REST API** tab
+   - Copy REST URL and Token
+5. Add to `.env`:
 
 ```bash
+# ✅ REQUIRED FOR BULLMQ: TCP Endpoint
+UPSTASH_REDIS_URL="rediss://default:YOUR_PASSWORD@your-redis.upstash.io:6380"
+
+# Optional: REST API (for future features)
 UPSTASH_REDIS_REST_URL="https://your-redis-instance.upstash.io"
 UPSTASH_REDIS_REST_TOKEN="your-upstash-rest-token"
 ```
+
+**Note**: Upstash provides BOTH TCP and REST endpoints. BullMQ (our queue system) requires the TCP endpoint via ioredis, not the REST API.
 
 ### Option 2: Traditional Redis (Local Development)
 
@@ -49,10 +63,8 @@ sudo apt-get install redis-server  # Ubuntu
 # Start Redis
 redis-server
 
-# Configure in .env
-REDIS_HOST="localhost"
-REDIS_PORT="6379"
-REDIS_PASSWORD=""  # Optional
+# Configure in .env - Use UPSTASH_REDIS_URL format
+UPSTASH_REDIS_URL="redis://localhost:6379"
 ```
 
 ### Fallback Behavior
@@ -191,7 +203,10 @@ If no SMS provider is configured:
 **Minimal setup for production:**
 
 ```bash
-# 1. Upstash Redis (Background Jobs)
+# 1. Upstash Redis (Background Jobs) - TCP ENDPOINT REQUIRED
+UPSTASH_REDIS_URL="rediss://default:PASSWORD@your-redis.upstash.io:6380"
+
+# Optional: REST API (for future features)
 UPSTASH_REDIS_REST_URL="https://your-redis.upstash.io"
 UPSTASH_REDIS_REST_TOKEN="your-token"
 
@@ -218,8 +233,7 @@ TWILIO_PHONE_NUMBER="+1234567890"
 
 **Option B: With local Redis**
 ```bash
-REDIS_HOST="localhost"
-REDIS_PORT="6379"
+UPSTASH_REDIS_URL="redis://localhost:6379"
 # EMAIL_PROVIDER defaults to "mock"
 # SMS_PROVIDER defaults to "mock"
 ```

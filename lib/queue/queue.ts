@@ -2,10 +2,15 @@
 /**
  * Background Job Queue System using BullMQ
  * Handles asynchronous task processing
- * Supports both Upstash Redis REST API and traditional Redis
+ * Uses Upstash Redis via TCP endpoint (compatible with BullMQ)
+ * 
+ * IMPORTANT: BullMQ requires a TCP Redis connection (via ioredis)
+ * Get your Upstash TCP endpoint from: https://console.upstash.com/
+ * Format: rediss://default:<password>@<host>:<port>
  */
 
 import { Queue, Worker, Job, QueueEvents, ConnectionOptions } from 'bullmq';
+import IORedis from 'ioredis';
 import { logger } from '../logging';
 import { serviceConfig } from '../config/serviceConfig';
 
@@ -32,59 +37,59 @@ export interface JobResult {
 }
 
 /**
- * Get Redis connection configuration
- * Supports Upstash Redis REST API or traditional Redis
+ * Get Redis connection for BullMQ using Upstash TCP endpoint
+ * Returns IORedis instance or null if not configured
+ * 
+ * BullMQ requires TCP connection, not REST API
+ * - UPSTASH_REDIS_URL: TCP endpoint (rediss://...) - REQUIRED for BullMQ
+ * - UPSTASH_REDIS_REST_URL/TOKEN: REST API only - NOT compatible with BullMQ
  */
-function getRedisConnection(): ConnectionOptions | null {
-  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  // Check if Upstash is configured
-  if (upstashUrl && upstashToken) {
-    // For Upstash REST API, we need to use ioredis with custom settings
-    // Extract host and port from URL
-    const url = new URL(upstashUrl);
-    const config: ConnectionOptions = {
-      host: url.hostname,
-      port: url.port ? parseInt(url.port) : 443,
-      password: upstashToken,
-      tls: url.protocol === 'https:' ? {} : undefined,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      // Upstash-specific settings
-      family: 0, // Use both IPv4 and IPv6
-    };
-    
-    logger.debug('Using Upstash Redis configuration', {
-      host: config.host,
-      port: config.port,
-    });
-    
-    return config;
+function getRedisConnection(): IORedis | null {
+  // First, try Upstash TCP endpoint (recommended)
+  const upstashUrl = process.env.UPSTASH_REDIS_URL;
+  
+  if (upstashUrl) {
+    try {
+      // Upstash URL format: rediss://default:<password>@<host>:<port>
+      const connection = new IORedis(upstashUrl, {
+        maxRetriesPerRequest: null, // Required for BullMQ
+        enableReadyCheck: false,
+        family: 0, // Use both IPv4 and IPv6
+      });
+      
+      logger.info('✅ Connected to Upstash Redis via TCP endpoint for BullMQ', {
+        endpoint: upstashUrl.substring(0, 30) + '...',
+      });
+      
+      return connection;
+    } catch (error) {
+      logger.error('Failed to create Upstash Redis connection', { error });
+      return null;
+    }
   }
 
-  // Fall back to traditional Redis
-  const redisHost = process.env.REDIS_HOST;
-  const redisPort = process.env.REDIS_PORT;
-
-  if (redisHost || redisPort) {
-    const config: ConnectionOptions = {
-      host: redisHost || 'localhost',
-      port: parseInt(redisPort || '6379'),
-      password: process.env.REDIS_PASSWORD,
-      maxRetriesPerRequest: null,
-    };
-    
-    logger.debug('Using traditional Redis configuration', {
-      host: config.host,
-      port: config.port,
-    });
-    
-    return config;
+  // Check if user has REST credentials but not TCP endpoint
+  const restUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const restToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (restUrl || restToken) {
+    logger.warn(
+      '⚠️  UPSTASH_REDIS_REST_URL/TOKEN detected, but BullMQ requires TCP endpoint.\n' +
+      '   Please add UPSTASH_REDIS_URL (TCP endpoint) from your Upstash Console:\n' +
+      '   https://console.upstash.com/ → Your Database → Redis Connect → ioredis\n' +
+      '   Format: rediss://default:<password>@<host>:<port>\n' +
+      '   Queue system is DISABLED until TCP endpoint is configured.'
+    );
+    return null;
   }
 
   // No Redis configuration found
-  logger.warn('No Redis configuration found. Queue system will be disabled.');
+  logger.warn(
+    '⚠️  No Upstash Redis configuration found.\n' +
+    '   Set UPSTASH_REDIS_URL to enable BullMQ queue system.\n' +
+    '   Get it from: https://console.upstash.com/ → Your Database → Redis Connect → ioredis\n' +
+    '   Queue system will be disabled - operations will run synchronously.'
+  );
   return null;
 }
 
