@@ -30,22 +30,37 @@ model Tenant {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users                 User[]
-  roles                 Role[]
-  companies             Company[]
-  agencies              Agency[]
-  contractors           Contractor[]
-  payrollPartners       PayrollPartner[]
-  contracts             Contract[]
-  invoices              Invoice[]
-  banks                 Bank[]
-  documentTypes         DocumentType[]
-  leads                 Lead[]
-  tasks                 Task[]
-  onboardingTemplates   OnboardingTemplate[]
-  payslips              Payslip[]
-  auditLogs             AuditLog[]
-  webhookSubscriptions  WebhookSubscription[]
+  users                User[]
+  roles                Role[]
+  companies            Company[]
+  agencies             Agency[]
+  contractors          Contractor[]
+  payrollPartners      PayrollPartner[]
+  contracts            Contract[]
+  invoices             Invoice[]
+  banks                Bank[]
+  documentTypes        DocumentType[]
+  leads                Lead[]
+  tasks                Task[]
+  onboardingTemplates  OnboardingTemplate[]
+  payslips             Payslip[]
+  auditLogs            AuditLog[]
+  webhookSubscriptions WebhookSubscription[]
+
+  // PHASE 2 RELATIONS
+  payments          Payment[]
+  paymentMethods    PaymentMethod[]
+  expenses          Expense[]
+  timesheets        Timesheet[]
+  approvalWorkflows ApprovalWorkflow[]
+  documents         Document[]
+  comments          Comment[]
+  tags              Tag[]
+  tagAssignments    TagAssignment[]
+  customFields      CustomField[]
+  customFieldValues CustomFieldValue[]
+  userActivities    UserActivity[]
+  apiKeys           ApiKey[]
 
   @@map("tenants")
 }
@@ -70,22 +85,51 @@ model User {
   payrollPartnerId String?
   companyId        String?
 
+  // PROFILE INFORMATION (Phase 2)
+  profilePictureUrl String?
+  phone             String?
+  timezone          String? @default("UTC")
+  language          String? @default("en")
+
+  // AUTHENTICATION & SECURITY (Phase 2)
+  emailVerified    Boolean   @default(false)
+  lastLoginAt      DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+
+  // PREFERENCES (Phase 2)
+  preferences Json? // JSON object for flexible preferences
+
+  // METADATA (Phase 2)
+  lastActivityAt DateTime?
+
   // RELATIONS
-  tenant                   Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role                     Role                       @relation(fields: [roleId], references: [id])
-  agency                   Agency?                    @relation("AgencyUsers", fields: [agencyId], references: [id])
-  payrollPartner           PayrollPartner?            @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
-  company                  Company?                   @relation("CompanyUsers", fields: [companyId], references: [id])
-  contractor               Contractor?
-  accounts                 Account[]
-  sessions                 Session[]
-  auditLogs                AuditLog[]
-  passwordResetTokens      PasswordResetToken[]
-  tasksAssignedTo          Task[]                     @relation("TasksAssignedTo")
-  tasksAssignedBy          Task[]                     @relation("TasksAssignedBy")
-  notificationPreferences  NotificationPreference[]
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role                    Role                     @relation(fields: [roleId], references: [id])
+  agency                  Agency?                  @relation("AgencyUsers", fields: [agencyId], references: [id])
+  payrollPartner          PayrollPartner?          @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
+  company                 Company?                 @relation("CompanyUsers", fields: [companyId], references: [id])
+  contractor              Contractor?
+  accounts                Account[]
+  sessions                Session[]
+  auditLogs               AuditLog[]
+  passwordResetTokens     PasswordResetToken[]
+  tasksAssignedTo         Task[]                   @relation("TasksAssignedTo")
+  tasksAssignedBy         Task[]                   @relation("TasksAssignedBy")
+  notificationPreferences NotificationPreference[]
+
+  // PHASE 2 RELATIONS
+  activities        UserActivity[]
+  apiKeys           ApiKey[]
+  comments          Comment[]
+  customFieldValues CustomFieldValue[]
 
   @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+  @@index([roleId])
+  @@index([isActive])
+  @@index([lastLoginAt])
   @@map("users")
 }
 
@@ -255,6 +299,10 @@ model Contractor {
   payslips            Payslip[]
   onboardingResponses OnboardingResponse[]
 
+  // PHASE 2 RELATIONS
+  expenses   Expense[]
+  timesheets Timesheet[]
+
   @@map("contractors")
 }
 
@@ -341,11 +389,19 @@ model Contract {
   statusHistory   ContractStatusHistory[]
   notifications   ContractNotification[]
 
+  // PHASE 2 RELATIONS
+  expenses   Expense[]
+  timesheets Timesheet[]
+
   @@index([tenantId])
   @@index([agencyId])
   @@index([contractorId])
+  @@index([companyId])
+  @@index([payrollPartnerId])
   @@index([status])
   @@index([workflowStatus])
+  @@index([startDate])
+  @@index([endDate])
   @@map("contracts")
 }
 
@@ -422,8 +478,8 @@ model Invoice {
   totalAmount Decimal @default(0) @db.Decimal(10, 2)
 
   // Dates
-  issueDate DateTime @default(now())
-  dueDate   DateTime @default(now())
+  issueDate DateTime  @default(now())
+  dueDate   DateTime  @default(now())
   paidDate  DateTime?
   sentDate  DateTime?
 
@@ -443,9 +499,16 @@ model Invoice {
   contract  Contract          @relation(fields: [contractId], references: [id])
   lineItems InvoiceLineItem[]
 
+  // PHASE 2 RELATIONS
+  payments   Payment[]
+  timesheets Timesheet[]
+
   @@index([tenantId])
   @@index([contractId])
   @@index([status])
+  @@index([invoiceNumber])
+  @@index([issueDate])
+  @@index([dueDate])
   @@map("invoices")
 }
 
@@ -772,23 +835,23 @@ model WebhookSubscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deliveryLogs     WebhookDelivery[]
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveryLogs WebhookDelivery[]
 
   @@map("webhook_subscriptions")
 }
 
 model WebhookDelivery {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   subscriptionId String
   event          String
   payload        Json
   statusCode     Int?
   response       String?
   success        Boolean
-  attempt        Int      @default(1)
+  attempt        Int       @default(1)
   deliveredAt    DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
@@ -823,17 +886,17 @@ model PermissionAudit {
 // EMAIL & SMS TRACKING
 // =============================================================
 model EmailLog {
-  id          String   @id @default(cuid())
-  tenantId    String?
-  to          String
-  from        String
-  subject     String
-  template    String?
-  status      String // QUEUED, SENT, FAILED, BOUNCED
-  messageId   String?
-  error       String?
-  sentAt      DateTime?
-  createdAt   DateTime @default(now())
+  id        String    @id @default(cuid())
+  tenantId  String?
+  to        String
+  from      String
+  subject   String
+  template  String?
+  status    String // QUEUED, SENT, FAILED, BOUNCED
+  messageId String?
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([tenantId])
   @@index([status])
@@ -842,17 +905,17 @@ model EmailLog {
 }
 
 model SMSLog {
-  id          String   @id @default(cuid())
-  tenantId    String?
-  to          String
-  from        String
-  message     String
-  template    String?
-  status      String // QUEUED, SENT, FAILED, DELIVERED
-  messageId   String?
-  error       String?
-  sentAt      DateTime?
-  createdAt   DateTime @default(now())
+  id        String    @id @default(cuid())
+  tenantId  String?
+  to        String
+  from      String
+  message   String
+  template  String?
+  status    String // QUEUED, SENT, FAILED, DELIVERED
+  messageId String?
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([tenantId])
   @@index([status])
@@ -882,19 +945,19 @@ model NotificationPreference {
 // SCHEDULED JOBS
 // =============================================================
 model ScheduledJob {
-  id           String   @id @default(cuid())
-  tenantId     String?
-  name         String
-  type         String // PAYROLL, INVOICE, REPORT, CLEANUP, etc.
-  schedule     String // Cron expression
-  isActive     Boolean  @default(true)
-  lastRunAt    DateTime?
-  nextRunAt    DateTime?
-  lastStatus   String? // SUCCESS, FAILED
-  lastError    String?
-  config       Json? // Job-specific configuration
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id         String    @id @default(cuid())
+  tenantId   String?
+  name       String
+  type       String // PAYROLL, INVOICE, REPORT, CLEANUP, etc.
+  schedule   String // Cron expression
+  isActive   Boolean   @default(true)
+  lastRunAt  DateTime?
+  nextRunAt  DateTime?
+  lastStatus String? // SUCCESS, FAILED
+  lastError  String?
+  config     Json? // Job-specific configuration
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([tenantId])
   @@index([isActive])
@@ -916,4 +979,685 @@ model SystemConfig {
 
   @@index([category])
   @@map("system_configs")
+}
+
+// =============================================================
+// PHASE 2: PAYMENT SYSTEM
+// =============================================================
+
+enum PaymentMethodType {
+  BANK_ACCOUNT
+  CREDIT_CARD
+  DEBIT_CARD
+  PAYPAL
+  STRIPE
+  WISE
+  REVOLUT
+  OTHER
+}
+
+model Payment {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // What is being paid
+  invoiceId    String?
+  expenseId    String?
+  payrollRunId String? // For future payroll processing
+
+  // Payment details
+  amount          Decimal @db.Decimal(12, 2)
+  currency        String
+  status          String // pending, processing, completed, failed, refunded
+  paymentMethod   String // bank_transfer, credit_card, paypal, stripe, etc.
+  paymentMethodId String? // Reference to PaymentMethod table
+
+  // Transaction details
+  transactionId   String? // External payment gateway transaction ID
+  referenceNumber String? // Internal reference
+
+  // Dates
+  scheduledDate DateTime?
+  processedDate DateTime?
+  completedDate DateTime?
+
+  // Additional info
+  description String? @db.Text
+  notes       String? @db.Text
+  metadata    Json? // Flexible data storage
+
+  // Failure handling
+  failureReason String? @db.Text
+  retryCount    Int     @default(0)
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice          Invoice?       @relation(fields: [invoiceId], references: [id])
+  expense          Expense?       @relation(fields: [expenseId], references: [id])
+  paymentMethodRel PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([expenseId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model PaymentMethod {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Owner (polymorphic)
+  ownerId   String // User, Company, or Agency ID
+  ownerType String // "user", "company", "agency"
+
+  // Method details
+  type      PaymentMethodType
+  isDefault Boolean           @default(false)
+
+  // Bank account details (if applicable)
+  bankName          String?
+  accountHolderName String?
+  accountNumber     String? // Encrypted
+  routingNumber     String? // Encrypted
+  swiftCode         String?
+  iban              String?
+
+  // Card details (if applicable) - Store tokenized version
+  cardLast4      String?
+  cardBrand      String? // Visa, Mastercard, etc.
+  cardExpMonth   Int?
+  cardExpYear    Int?
+  cardholderName String?
+
+  // External gateway reference
+  gatewayType  String? // stripe, paypal, etc.
+  gatewayToken String? // Token from payment gateway
+
+  // Status
+  isActive   Boolean   @default(true)
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@index([tenantId])
+  @@index([ownerId, ownerType])
+  @@index([isDefault])
+  @@map("payment_methods")
+}
+
+// =============================================================
+// PHASE 2: EXPENSE MANAGEMENT
+// =============================================================
+
+model Expense {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Who submitted
+  submittedById String
+  contractorId  String?
+  contractId    String?
+
+  // Expense details
+  title       String
+  description String? @db.Text
+  amount      Decimal @db.Decimal(10, 2)
+  currency    String
+  category    String // travel, meals, equipment, software, etc.
+
+  // Receipt/Documentation
+  receiptUrl      String?
+  receiptFileName String?
+
+  // Dates
+  expenseDate DateTime
+  submittedAt DateTime @default(now())
+
+  // Approval workflow
+  status             String // draft, submitted, approved, rejected, paid
+  approvalWorkflowId String?
+  approvedById       String?
+  approvedAt         DateTime?
+  rejectionReason    String?   @db.Text
+
+  // Payment tracking
+  paidAt DateTime?
+
+  // Additional info
+  notes    String? @db.Text
+  metadata Json?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractor       Contractor?       @relation(fields: [contractorId], references: [id])
+  contract         Contract?         @relation(fields: [contractId], references: [id])
+  approvalWorkflow ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id])
+  payments         Payment[]
+  comments         Comment[]
+
+  @@index([tenantId])
+  @@index([submittedById])
+  @@index([contractorId])
+  @@index([status])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// =============================================================
+// PHASE 2: TIME TRACKING
+// =============================================================
+
+model Timesheet {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Who and what
+  contractorId String
+  contractId   String?
+
+  // Period
+  startDate DateTime
+  endDate   DateTime
+
+  // Status
+  status             String // draft, submitted, approved, rejected, invoiced
+  approvalWorkflowId String?
+  approvedById       String?
+  approvedAt         DateTime?
+  rejectionReason    String?   @db.Text
+
+  // Totals (calculated from entries)
+  totalHours  Decimal  @db.Decimal(10, 2)
+  totalAmount Decimal? @db.Decimal(10, 2)
+
+  // Invoice linkage
+  invoiceId String?
+
+  // Dates
+  submittedAt DateTime?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractor       Contractor        @relation(fields: [contractorId], references: [id])
+  contract         Contract?         @relation(fields: [contractId], references: [id])
+  entries          TimesheetEntry[]
+  approvalWorkflow ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id])
+  invoice          Invoice?          @relation(fields: [invoiceId], references: [id])
+  comments         Comment[]
+
+  @@index([tenantId])
+  @@index([contractorId])
+  @@index([contractId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("timesheets")
+}
+
+model TimesheetEntry {
+  id          String @id @default(cuid())
+  timesheetId String
+
+  // Work details
+  date        DateTime
+  hours       Decimal  @db.Decimal(5, 2)
+  description String?  @db.Text
+
+  // Optional project/task tracking
+  projectName String?
+  taskName    String?
+
+  // Rates (if applicable)
+  rate   Decimal? @db.Decimal(10, 2)
+  amount Decimal? @db.Decimal(10, 2)
+
+  // Break times
+  breakHours Decimal? @db.Decimal(5, 2)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  @@index([timesheetId])
+  @@index([date])
+  @@map("timesheet_entries")
+}
+
+// =============================================================
+// PHASE 2: APPROVAL WORKFLOWS
+// =============================================================
+
+model ApprovalWorkflow {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // What entity is being approved (polymorphic)
+  entityType String // expense, timesheet, contract, etc.
+  entityId   String
+
+  // Workflow configuration
+  workflowType String // single_approver, multi_step, parallel, etc.
+
+  // Current status
+  status           String // pending, in_progress, approved, rejected, cancelled
+  currentStepOrder Int    @default(1)
+
+  // Final decision
+  finalDecision   String? // approved, rejected
+  finalDecisionAt DateTime?
+  finalDecisionBy String?
+
+  // Dates
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  // Metadata
+  metadata Json?
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  steps      ApprovalStep[]
+  expenses   Expense[]
+  timesheets Timesheet[]
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("approval_workflows")
+}
+
+model ApprovalStep {
+  id         String @id @default(cuid())
+  workflowId String
+
+  // Step configuration
+  stepOrder Int
+  stepName  String
+
+  // Approver
+  approverId   String
+  approverType String // user, role, any_of_role
+
+  // Status
+  status     String // pending, approved, rejected, skipped
+  decision   String? // approve, reject
+  decisionAt DateTime?
+  comments   String?   @db.Text
+
+  // Rules
+  isRequired Boolean @default(true)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workflow ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([status])
+  @@map("approval_steps")
+}
+
+// =============================================================
+// PHASE 2: DOCUMENT MANAGEMENT
+// =============================================================
+
+model Document {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Entity association (polymorphic)
+  entityType String? // contract, invoice, expense, user, etc.
+  entityId   String?
+
+  // File details
+  name        String
+  description String? @db.Text
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+
+  // Categorization
+  category String? // contract, invoice, receipt, id_document, etc.
+
+  // Version control
+  version          Int     @default(1)
+  isLatestVersion  Boolean @default(true)
+  parentDocumentId String?
+
+  // Access control
+  visibility String @default("private") // private, tenant, public
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Signature tracking
+  requiresSignature Boolean   @default(false)
+  isSigned          Boolean   @default(false)
+  signedAt          DateTime?
+  signedBy          String?
+
+  // Upload info
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentDocument Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id], onDelete: SetNull)
+  versions       Document[] @relation("DocumentVersions")
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([category])
+  @@index([uploadedAt])
+  @@map("documents")
+}
+
+// =============================================================
+// PHASE 2: COMMENTS SYSTEM
+// =============================================================
+
+model Comment {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Entity association (polymorphic)
+  entityType String // contract, invoice, expense, timesheet, document, etc.
+  entityId   String
+
+  // Comment details
+  content String @db.Text
+
+  // Reply/Thread support
+  parentCommentId String?
+
+  // Status
+  isEdited  Boolean @default(false)
+  isDeleted Boolean @default(false)
+
+  // Author
+  authorId   String
+  authorName String // Denormalized for deleted users
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentComment Comment?   @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies       Comment[]  @relation("CommentReplies")
+  expense       Expense?   @relation(fields: [expenseId], references: [id])
+  expenseId     String?
+  timesheet     Timesheet? @relation(fields: [timesheetId], references: [id])
+  timesheetId   String?
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("comments")
+}
+
+// =============================================================
+// PHASE 2: TAGGING SYSTEM
+// =============================================================
+
+model Tag {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Tag details
+  name        String
+  slug        String
+  color       String? // Hex color code
+  description String? @db.Text
+
+  // Categorization
+  category String? // For grouping tags
+
+  // Usage tracking
+  usageCount Int @default(0)
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignments TagAssignment[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("tags")
+}
+
+model TagAssignment {
+  id       String @id @default(cuid())
+  tenantId String
+  tagId    String
+
+  // Entity association (polymorphic)
+  entityType String // contract, invoice, expense, document, etc.
+  entityId   String
+
+  // Audit
+  assignedById String
+  assignedAt   DateTime @default(now())
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, entityType, entityId])
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@map("tag_assignments")
+}
+
+// =============================================================
+// PHASE 2: CUSTOM FIELDS
+// =============================================================
+
+model CustomField {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Field definition
+  name      String
+  key       String // machine-readable key
+  fieldType String // text, number, date, boolean, select, multi_select
+
+  // Entity type this field applies to
+  entityType String // contract, invoice, expense, etc.
+
+  // Configuration
+  isRequired Boolean @default(false)
+  isActive   Boolean @default(true)
+
+  // Options (for select/multi_select types)
+  options Json? // Array of options
+
+  // Validation
+  validationRules Json? // Custom validation rules
+
+  // Display
+  order       Int     @default(0)
+  placeholder String?
+  helpText    String?
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  values CustomFieldValue[]
+
+  @@unique([tenantId, entityType, key])
+  @@index([tenantId])
+  @@index([entityType])
+  @@map("custom_fields")
+}
+
+model CustomFieldValue {
+  id            String @id @default(cuid())
+  tenantId      String
+  customFieldId String
+
+  // Entity association
+  entityType String
+  entityId   String
+
+  // Value storage
+  textValue    String?   @db.Text
+  numberValue  Decimal?  @db.Decimal(20, 6)
+  dateValue    DateTime?
+  booleanValue Boolean?
+  jsonValue    Json? // For complex types
+
+  // Audit
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  // Relations
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  creator     User        @relation(fields: [createdById], references: [id])
+
+  @@unique([customFieldId, entityType, entityId])
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@map("custom_field_values")
+}
+
+// =============================================================
+// PHASE 2: USER ACTIVITY TRACKING
+// =============================================================
+
+model UserActivity {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  // Activity details
+  action     String // viewed, created, updated, deleted, exported, etc.
+  entityType String // contract, invoice, user, etc.
+  entityId   String?
+  entityName String? // Denormalized for quick display
+
+  // Description
+  description String
+
+  // Additional context
+  metadata Json?
+
+  // Session info
+  ipAddress String?
+  userAgent String?
+
+  // Timestamp
+  occurredAt DateTime @default(now())
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([occurredAt])
+  @@map("user_activities")
+}
+
+// =============================================================
+// PHASE 2: API KEY MANAGEMENT
+// =============================================================
+
+model ApiKey {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Key details
+  name        String
+  description String? @db.Text
+  key         String  @unique // Hashed API key
+  keyPrefix   String // First 8 chars for display (e.g., "sk_live_")
+
+  // Permissions
+  scopes String[] // Array of allowed scopes/permissions
+
+  // Usage limits
+  rateLimit  Int? // Requests per hour
+  usageCount Int       @default(0)
+  lastUsedAt DateTime?
+
+  // Status
+  isActive  Boolean   @default(true)
+  expiresAt DateTime?
+
+  // IP restrictions
+  allowedIPs String[] // Array of allowed IP addresses
+
+  // Metadata
+  metadata Json?
+
+  // Audit
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  revokedAt   DateTime?
+  revokedById String?
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdById], references: [id])
+
+  @@index([tenantId])
+  @@index([keyPrefix])
+  @@index([isActive])
+  @@map("api_keys")
 }

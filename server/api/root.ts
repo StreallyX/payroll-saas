@@ -25,6 +25,19 @@ import { analyticsRouter } from "./routers/analytics";
 import { webhookRouter } from "./routers/webhook";
 import { permissionAuditRouter } from "./routers/admin/permissionAudit";
 
+// PHASE 2 ROUTERS
+import { paymentRouter } from "./routers/payment";
+import { paymentMethodRouter } from "./routers/paymentMethod";
+import { expenseRouter } from "./routers/expense";
+import { timesheetRouter } from "./routers/timesheet";
+import { approvalWorkflowRouter } from "./routers/approvalWorkflow";
+import { documentRouter } from "./routers/document";
+import { commentRouter } from "./routers/comment";
+import { tagRouter } from "./routers/tag";
+import { customFieldRouter } from "./routers/customField";
+import { userActivityRouter } from "./routers/userActivity";
+import { apiKeyRouter } from "./routers/apiKey";
+
 
 /**
  * This is the primary router for your server.
@@ -55,6 +68,19 @@ export const appRouter = createTRPCRouter({
   analytics: analyticsRouter,
   webhook: webhookRouter,
   permissionAudit: permissionAuditRouter,
+  
+  // PHASE 2 ROUTERS
+  payment: paymentRouter,
+  paymentMethod: paymentMethodRouter,
+  expense: expenseRouter,
+  timesheet: timesheetRouter,
+  approvalWorkflow: approvalWorkflowRouter,
+  document: documentRouter,
+  comment: commentRouter,
+  tag: tagRouter,
+  customField: customFieldRouter,
+  userActivity: userActivityRouter,
+  apiKey: apiKeyRouter,
 })
 
 // export type definition of API
