@@ -17,7 +17,7 @@ export default function AgencyInvoicesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<any>(null)
   const { toast: showToast } = useToast()
-
+  
   // Fetch invoices
   const { data: invoices, isLoading, refetch } = api.invoice.getAll.useQuery()
   
@@ -32,6 +32,7 @@ export default function AgencyInvoicesPage() {
       default: return "bg-gray-100 text-gray-700"
     }
   }
+  const rows = invoices?.invoices ?? [];
 
   if (isLoading) {
     return <LoadingState message="Loading invoices..." />
@@ -94,71 +95,69 @@ export default function AgencyInvoicesPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>All Agency Invoices</CardTitle></CardHeader>
-        <CardContent>
-          {!invoices || invoices.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No invoices found</p>
-              <Button onClick={() => {
-                setEditingInvoice(null)
-                setModalOpen(true)
-              }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Invoice
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice Number</TableHead>
-                    <TableHead>Contract</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead className="hidden md:table-cell">Date</TableHead>
-                    <TableHead className="hidden lg:table-cell">Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map((inv: any) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.invoiceNumber || "N/A"}</TableCell>
-                      <TableCell>{inv.contract?.title || "N/A"}</TableCell>
-                      <TableCell className="font-semibold">${inv.amount?.toString() || "0"}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : "N/A"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(inv.status)} variant="secondary">
-                          {inv.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            setEditingInvoice(inv)
-                            setModalOpen(true)
-                          }}
-                        >
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <CardContent>
+      {rows.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500 mb-4">No invoices found</p>
+          <Button onClick={() => {
+            setEditingInvoice(null)
+            setModalOpen(true)
+          }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Your First Invoice
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Invoice Number</TableHead>
+                <TableHead>Contract</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead className="hidden md:table-cell">Date</TableHead>
+                <TableHead className="hidden lg:table-cell">Due Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((inv: any) => (
+                <TableRow key={inv.id}>
+                  <TableCell className="font-medium">{inv.invoiceNumber || "N/A"}</TableCell>
+                  <TableCell>{inv.contract?.title || "N/A"}</TableCell>
+                  <TableCell className="font-semibold">${inv.amount?.toString() || "0"}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : "N/A"}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(inv.status)} variant="secondary">
+                      {inv.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setEditingInvoice(inv)
+                        setModalOpen(true)
+                      }}
+                    >
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </CardContent>
+
 
       {/* Invoice Modal */}
       <InvoiceModal
