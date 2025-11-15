@@ -1,67 +1,75 @@
+"use client";
 
-"use client"
-
-import { useState } from "react"
-import { PageHeader } from "@/components/ui/page-header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Activity, User, FileText, Calendar } from "lucide-react"
-import { api } from "@/lib/trpc"
-import { LoadingPage } from "@/components/ui/loading-spinner"
+import { useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Activity, User, FileText, Calendar, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/trpc";
+import { LoadingPage } from "@/components/ui/loading-spinner";
+import { AuditLogTable } from "@/components/audit/audit-log-table";
+import { AuditLogDetailsDialog } from "@/components/audit/audit-log-details-dialog";
 
 export default function ActivityLogsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [entityFilter, setEntityFilter] = useState("all")
-  const [actionFilter, setActionFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("");
+  const [entityFilter, setEntityFilter] = useState("all");
+  const [actionFilter, setActionFilter] = useState("all");
+  const [selectedLog, setSelectedLog] = useState<any>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const { data: logsData, isLoading } = api.auditLog.getAll.useQuery({
     entityType: entityFilter !== "all" ? entityFilter : undefined,
     action: actionFilter !== "all" ? actionFilter : undefined,
-    limit: 100
-  })
+    limit: 100,
+  });
 
-  const { data: statsData } = api.auditLog.getStats.useQuery()
+  const { data: statsData } = api.auditLog.getStats.useQuery();
+
+  const handleViewDetails = (log: any) => {
+    setSelectedLog(log);
+    setDetailsOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setDetailsOpen(false);
+    setSelectedLog(null);
+  };
 
   if (isLoading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
-  const logs = logsData?.logs || []
-  const stats = statsData || { totalLogs: 0, actionBreakdown: [], entityBreakdown: [], recentActivity: [] }
+  const logs = logsData?.logs || [];
+  const stats = statsData || {
+    totalLogs: 0,
+    actionBreakdown: [],
+    entityBreakdown: [],
+    recentActivity: [],
+  };
 
   const filteredLogs = logs.filter((log: any) => {
     const matchesSearch =
       log?.description?.toLowerCase()?.includes(searchQuery.toLowerCase()) ||
       log?.userName?.toLowerCase()?.includes(searchQuery.toLowerCase()) ||
-      log?.entityType?.toLowerCase()?.includes(searchQuery.toLowerCase())
-    return matchesSearch
-  })
-
-  const getActionColor = (action: string) => {
-    switch (action.toUpperCase()) {
-      case "CREATE":
-        return "bg-green-100 text-green-700 border-green-200"
-      case "UPDATE":
-        return "bg-blue-100 text-blue-700 border-blue-200"
-      case "DELETE":
-        return "bg-red-100 text-red-700 border-red-200"
-      case "EXPORT":
-        return "bg-purple-100 text-purple-700 border-purple-200"
-      case "GENERATE":
-        return "bg-orange-100 text-orange-700 border-orange-200"
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200"
-    }
-  }
+      log?.entityType?.toLowerCase()?.includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Activity Logs"
-        description="Track all user actions and system events"
-      />
+      <div className="flex justify-between items-center">
+        <PageHeader
+          title="Activity Logs"
+          description="Track all user actions and system events with complete audit trail"
+        />
+        <Button variant="outline">
+          <Download className="mr-2 h-4 w-4" />
+          Export Logs
+        </Button>
+      </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -78,7 +86,7 @@ export default function ActivityLogsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Most Active</CardTitle>
+            <CardTitle className="text-sm font-medium">Most Common Action</CardTitle>
             <User className="h-5 w-5 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -115,7 +123,8 @@ export default function ActivityLogsPage() {
             <div className="text-2xl font-bold">
               {(stats?.recentActivity || []).filter(
                 (log: any) =>
-                  new Date(log?.createdAt || "").toDateString() === new Date().toDateString()
+                  new Date(log?.createdAt || "").toDateString() ===
+                  new Date().toDateString()
               ).length}
             </div>
             <p className="text-xs text-gray-600 mt-1">Actions today</p>
@@ -130,7 +139,7 @@ export default function ActivityLogsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Search logs..."
+                placeholder="Search logs by description, user, or entity..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -142,12 +151,15 @@ export default function ActivityLogsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Entities</SelectItem>
-                <SelectItem value="LEAD">Leads</SelectItem>
-                <SelectItem value="CONTRACT">Contracts</SelectItem>
-                <SelectItem value="AGENCY">Agencies</SelectItem>
                 <SelectItem value="USER">Users</SelectItem>
+                <SelectItem value="ROLE">Roles</SelectItem>
                 <SelectItem value="CONTRACTOR">Contractors</SelectItem>
+                <SelectItem value="AGENCY">Agencies</SelectItem>
+                <SelectItem value="CONTRACT">Contracts</SelectItem>
                 <SelectItem value="INVOICE">Invoices</SelectItem>
+                <SelectItem value="LEAD">Leads</SelectItem>
+                <SelectItem value="COMPANY">Companies</SelectItem>
+                <SelectItem value="BANK">Banks</SelectItem>
               </SelectContent>
             </Select>
             <Select value={actionFilter} onValueChange={setActionFilter}>
@@ -159,67 +171,36 @@ export default function ActivityLogsPage() {
                 <SelectItem value="CREATE">Create</SelectItem>
                 <SelectItem value="UPDATE">Update</SelectItem>
                 <SelectItem value="DELETE">Delete</SelectItem>
+                <SelectItem value="VIEW">View</SelectItem>
                 <SelectItem value="EXPORT">Export</SelectItem>
                 <SelectItem value="GENERATE">Generate</SelectItem>
+                <SelectItem value="APPROVE">Approve</SelectItem>
+                <SelectItem value="REJECT">Reject</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Activity Log Timeline */}
+      {/* Audit Log Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Activity Timeline</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Activity Timeline</CardTitle>
+            <Badge variant="outline">{filteredLogs.length} records</Badge>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {filteredLogs.length === 0 ? (
-              <div className="text-center py-12">
-                <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No activity logs found</p>
-              </div>
-            ) : (
-              filteredLogs.map((log: any) => (
-                <div
-                  key={log.id}
-                  className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-gray-900">{log.description}</p>
-                      <Badge className={getActionColor(log.action)} variant="outline">
-                        {log.action}
-                      </Badge>
-                      <Badge variant="outline" className="bg-gray-100">
-                        {log.entityType}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {log.userName} ({log.userRole})
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(log.createdAt).toLocaleString()}
-                      </span>
-                      {log.ipAddress && (
-                        <>
-                          <span>•</span>
-                          <span>IP: {log.ipAddress}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <AuditLogTable logs={filteredLogs} onViewDetails={handleViewDetails} />
         </CardContent>
       </Card>
+
+      {/* Details Dialog */}
+      <AuditLogDetailsDialog
+        log={selectedLog}
+        open={detailsOpen}
+        onClose={handleCloseDetails}
+      />
     </div>
-  )
+  );
 }

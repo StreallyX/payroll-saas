@@ -219,6 +219,13 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: ListChecks,
         description: "Track all user actions",
         permission: "audit_logs.view"
+      },
+      {
+        label: "Analytics",
+        href: "/analytics",
+        icon: PieChart,
+        description: "Business intelligence and insights",
+        permission: "audit_logs.view"
       }
     ]
   },

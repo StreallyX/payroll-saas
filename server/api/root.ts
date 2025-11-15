@@ -21,6 +21,7 @@ import { onboardingRouter } from "./routers/onboarding"
 import { payslipRouter } from "./routers/payslip"
 import { authRouter } from "./routers/auth";
 import { dashboardRouter } from "./routers/dashboard";
+import { analyticsRouter } from "./routers/analytics";
 
 
 /**
@@ -49,6 +50,7 @@ export const appRouter = createTRPCRouter({
   onboarding: onboardingRouter,
   payslip: payslipRouter,
   dashboard: dashboardRouter,
+  analytics: analyticsRouter,
 })
 
 // export type definition of API
