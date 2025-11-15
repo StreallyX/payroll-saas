@@ -20,6 +20,7 @@ import { taskRouter } from "./routers/task"
 import { onboardingRouter } from "./routers/onboarding"
 import { payslipRouter } from "./routers/payslip"
 import { authRouter } from "./routers/auth";
+import { dashboardRouter } from "./routers/dashboard";
 
 
 /**
@@ -47,6 +48,7 @@ export const appRouter = createTRPCRouter({
   task: taskRouter,
   onboarding: onboardingRouter,
   payslip: payslipRouter,
+  dashboard: dashboardRouter,
 })
 
 // export type definition of API

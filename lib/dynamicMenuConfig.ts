@@ -36,21 +36,21 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
   { 
     label: "Manage Contracts", 
-    href: "/modules/contracts", 
+    href: "/contracts", 
     icon: FileText,
     description: "Contract management and tracking",
     permission: "contracts.view"
   },
   { 
     label: "Manage Onboarding", 
-    href: "/modules/onboarding", 
+    href: "/onboarding", 
     icon: ClipboardList,
     description: "Onboarding processes and workflows",
     permission: "onboarding.responses.view"
   },
   { 
     label: "My Tasks", 
-    href: "/modules/tasks", 
+    href: "/tasks", 
     icon: CheckSquare,
     description: "Your assigned tasks and to-dos",
     permission: "tasks.view",
@@ -59,49 +59,49 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
   { 
     label: "Manage Agency/Clients", 
-    href: "/modules/agencies", 
+    href: "/agencies", 
     icon: Building2,
     description: "Client agencies and companies",
     permission: "agencies.view"
   },
   { 
     label: "Manage Contractors", 
-    href: "/modules/contractors", 
+    href: "/contractors", 
     icon: UserCheck,
     description: "Contractor profiles and status",
     permission: "contractors.view"
   },
   { 
     label: "Leads", 
-    href: "/modules/leads", 
+    href: "/leads", 
     icon: TrendingUp,
     description: "Sales leads and prospects",
     permission: "leads.view"
   },
   { 
     label: "Manage Invoices", 
-    href: "/modules/invoices", 
+    href: "/invoices", 
     icon: Receipt,
     description: "Invoice management",
     permission: "invoices.view",
     submenu: [
       {
         label: "Agency Invoices",
-        href: "/modules/invoices/agency",
+        href: "/invoices/agency",
         icon: Building2,
         description: "Agency billing and invoices",
         permission: "invoices.view"
       },
       {
         label: "Contractor Invoices",
-        href: "/modules/invoices/contractor",
+        href: "/invoices/contractor",
         icon: UserCheck,
         description: "Contractor billing and invoices",
         permission: "invoices.view"
       },
       {
         label: "Payroll Partner Invoices",
-        href: "/modules/invoices/payroll-partner",
+        href: "/invoices/payroll-partner",
         icon: DollarSign,
         description: "Payroll partner invoices",
         permission: "invoices.view"
@@ -110,14 +110,14 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
   { 
     label: "Payslips", 
-    href: "/modules/payslips", 
+    href: "/payslips", 
     icon: FileText,
     description: "Employee payslip management",
     permission: "payslip.view"
   },
   { 
     label: "Settings", 
-    href: "/modules/settings", 
+    href: "/settings", 
     icon: Settings,
     description: "System configuration",
     permissions: [
@@ -129,70 +129,70 @@ export const dynamicMenuConfig: MenuItem[] = [
     submenu: [
       {
         label: "Manage Users",
-        href: "/modules/users",
+        href: "/users",
         icon: Users,
         description: "User accounts and permissions",
         permission: "tenant.users.view"
       },
       {
         label: "Manage Document Type",
-        href: "/modules/settings/document-types",
+        href: "/settings/document-types",
         icon: FileType,
         description: "Document type configuration",
         permission: "settings.view"
       },
       {
         label: "Master Onboarding",
-        href: "/modules/settings/master-onboarding",
+        href: "/settings/master-onboarding",
         icon: ListChecks,
         description: "Onboarding templates and workflows",
         permission: "onboarding.templates.view"
       },
       {
         label: "Payroll Partners",
-        href: "/modules/payroll-partners",
+        href: "/payroll-partners",
         icon: DollarSign,
         description: "Payroll service providers",
         permission: "settings.view"
       },
       {
         label: "Manage Companies",
-        href: "/modules/settings/companies",
+        href: "/settings/companies",
         icon: Layers,
         description: "Company and organization management",
         permission: "companies.view"
       },
       {
         label: "Manage Banks",
-        href: "/modules/settings/banks",
+        href: "/settings/banks",
         icon: Landmark,
         description: "Bank accounts management",
         permission: "banks.view"
       },
       {
         label: "Manage Currencies",
-        href: "/modules/settings/currencies",
+        href: "/settings/currencies",
         icon: Coins,
         description: "Currency configuration",
         permission: "settings.view"
       },
       {
         label: "Manage Roles",
-        href: "/modules/settings/roles",
+        href: "/settings/roles",
         icon: UserCog,
         description: "User roles and permissions",
         permission: "tenant.roles.view"
       },
       {
         label: "Customization",
-        href: "/modules/settings/tenant",
+        href: "/settings/tenant",
         icon: Palette,
         description: "Platform logo and colors",
         permission: "tenant.branding.update"
       },
       {
         label: "Manage Country",
-        href: "/modules/settings/countries",
+        href: "/settings/countries",
         icon: Globe,
         description: "Country and region settings",
         permission: "settings.view"
@@ -201,21 +201,21 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
   { 
     label: "Report", 
-    href: "/modules/reports", 
+    href: "/reports", 
     icon: BarChart3,
     description: "Analytics and reporting",
     permission: "audit_logs.view",
     submenu: [
       {
         label: "Overview",
-        href: "/modules/reports",
+        href: "/reports",
         icon: BarChart3,
         description: "Report overview",
         permission: "audit_logs.view"
       },
       {
         label: "Activity Logs",
-        href: "/modules/reports/activity-logs",
+        href: "/reports/activity-logs",
         icon: ListChecks,
         description: "Track all user actions",
         permission: "audit_logs.view"
