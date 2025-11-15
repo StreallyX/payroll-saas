@@ -75,7 +75,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // CREATE PAYMENT METHOD
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({
       ownerId: z.string(),
       ownerType: z.enum(["user", "company", "agency"]),
@@ -127,7 +127,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // UPDATE PAYMENT METHOD
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({
       id: z.string(),
       isDefault: z.boolean().optional(),
@@ -181,7 +181,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // DELETE PAYMENT METHOD
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
@@ -206,7 +206,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // SET AS DEFAULT
   // ---------------------------------------------------------
   setDefault: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
@@ -248,7 +248,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // VERIFY PAYMENT METHOD
   // ---------------------------------------------------------
   verify: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({

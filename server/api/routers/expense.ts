@@ -150,7 +150,7 @@ export const expenseRouter = createTRPCRouter({
   // CREATE EXPENSE
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       contractorId: z.string().optional(),
       contractId: z.string().optional(),
@@ -186,7 +186,7 @@ export const expenseRouter = createTRPCRouter({
   // UPDATE EXPENSE
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
@@ -236,7 +236,7 @@ export const expenseRouter = createTRPCRouter({
   // DELETE EXPENSE
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const expense = await ctx.prisma.expense.findFirst({
@@ -268,7 +268,7 @@ export const expenseRouter = createTRPCRouter({
   // SUBMIT EXPENSE FOR APPROVAL
   // ---------------------------------------------------------
   submit: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const expense = await ctx.prisma.expense.findFirst({
@@ -318,7 +318,7 @@ export const expenseRouter = createTRPCRouter({
   // APPROVE EXPENSE
   // ---------------------------------------------------------
   approve: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       notes: z.string().optional(),
@@ -374,7 +374,7 @@ export const expenseRouter = createTRPCRouter({
   // REJECT EXPENSE
   // ---------------------------------------------------------
   reject: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       reason: z.string(),

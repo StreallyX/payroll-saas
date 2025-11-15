@@ -67,7 +67,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -103,7 +103,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   cancel: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const workflow = await ctx.prisma.approvalWorkflow.findFirst({

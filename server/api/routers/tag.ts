@@ -33,7 +33,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       name: z.string().min(1),
       slug: z.string().min(1),
@@ -52,7 +52,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -75,7 +75,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const tag = await ctx.prisma.tag.findFirst({
@@ -90,7 +90,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   assignToEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       tagId: z.string(),
       entityType: z.string(),
@@ -124,7 +124,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   removeFromEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       tagId: z.string(),
       entityType: z.string(),

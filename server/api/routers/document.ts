@@ -69,7 +69,7 @@ export const documentRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       name: z.string(),
       description: z.string().optional(),
@@ -94,7 +94,7 @@ export const documentRouter = createTRPCRouter({
     }),
 
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -116,7 +116,7 @@ export const documentRouter = createTRPCRouter({
     }),
 
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const document = await ctx.prisma.document.findFirst({
@@ -131,7 +131,7 @@ export const documentRouter = createTRPCRouter({
     }),
 
   createVersion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({
       parentDocumentId: z.string(),
       fileUrl: z.string(),
@@ -174,7 +174,7 @@ export const documentRouter = createTRPCRouter({
     }),
 
   sign: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.manage))
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const document = await ctx.prisma.document.findFirst({

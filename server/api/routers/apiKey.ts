@@ -14,7 +14,7 @@ import bcrypt from "bcryptjs";
 
 export const apiKeyRouter = createTRPCRouter({
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({
       isActive: z.boolean().optional(),
     }).optional())
@@ -53,7 +53,7 @@ export const apiKeyRouter = createTRPCRouter({
     }),
 
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
@@ -89,7 +89,7 @@ export const apiKeyRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({
       name: z.string().min(1),
       description: z.string().optional(),
@@ -131,7 +131,7 @@ export const apiKeyRouter = createTRPCRouter({
     }),
 
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -182,7 +182,7 @@ export const apiKeyRouter = createTRPCRouter({
     }),
 
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
@@ -204,7 +204,7 @@ export const apiKeyRouter = createTRPCRouter({
     }),
 
   revoke: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
@@ -245,7 +245,7 @@ export const apiKeyRouter = createTRPCRouter({
     }),
 
   regenerate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.manage))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({

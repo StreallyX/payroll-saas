@@ -132,7 +132,7 @@ export const paymentRouter = createTRPCRouter({
   // CREATE PAYMENT
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       invoiceId: z.string().optional(),
       expenseId: z.string().optional(),
@@ -188,7 +188,7 @@ export const paymentRouter = createTRPCRouter({
   // UPDATE PAYMENT
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
@@ -232,7 +232,7 @@ export const paymentRouter = createTRPCRouter({
   // DELETE PAYMENT
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
@@ -264,7 +264,7 @@ export const paymentRouter = createTRPCRouter({
   // PROCESS PAYMENT
   // ---------------------------------------------------------
   process: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
@@ -302,7 +302,7 @@ export const paymentRouter = createTRPCRouter({
   // REFUND PAYMENT
   // ---------------------------------------------------------
   refund: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.manage))
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       reason: z.string(),
