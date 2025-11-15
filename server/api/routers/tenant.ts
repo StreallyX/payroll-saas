@@ -33,6 +33,7 @@ export const tenantRouter = createTRPCRouter({
           sidebarTextColor: true,
           headerBgColor: true,
           headerTextColor: true,
+          customFont: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -55,6 +56,7 @@ export const tenantRouter = createTRPCRouter({
         sidebarTextColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
         headerBgColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
         headerTextColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        customFont: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1209,5 +1211,283 @@ export const tenantRouter = createTRPCRouter({
       })
 
       return updated
+    }),
+
+  // -------------------------------------------------------
+  // 📄 LEGAL DOCUMENTS (TERMS & PRIVACY)
+  // -------------------------------------------------------
+  getLegalDocuments: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .query(async ({ ctx }) => {
+      const tenant = await ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: {
+          termsOfService: true,
+          termsVersion: true,
+          privacyPolicy: true,
+          privacyPolicyVersion: true,
+        },
+      })
+
+      return tenant
+    }),
+
+  updateLegalDocuments: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .input(
+      z.object({
+        termsOfService: z.string().optional(),
+        termsVersion: z.string().optional(),
+        privacyPolicy: z.string().optional(),
+        privacyPolicyVersion: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await ctx.prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: input,
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        entityName: "Legal Documents",
+        description: "Updated legal documents",
+        metadata: {
+          hasTerms: !!input.termsOfService,
+          hasPrivacy: !!input.privacyPolicy,
+        },
+        tenantId: ctx.tenantId,
+      })
+
+      return updated
+    }),
+
+  // -------------------------------------------------------
+  // 🎨 LOGIN PAGE BRANDING
+  // -------------------------------------------------------
+  getLoginBranding: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .query(async ({ ctx }) => {
+      const tenant = await ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: {
+          loginPageConfig: true,
+        },
+      })
+
+      return tenant?.loginPageConfig || null
+    }),
+
+  updateLoginBranding: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .input(
+      z.object({
+        backgroundImage: z.string().url().optional().nullable(),
+        welcomeMessage: z.string().optional().nullable(),
+        customCss: z.string().optional().nullable(),
+        showLogo: z.boolean().optional(),
+        logoPosition: z.enum(["top", "center", "left"]).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await ctx.prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          loginPageConfig: input as any,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        entityName: "Login Page Branding",
+        description: "Updated login page branding",
+        metadata: input,
+        tenantId: ctx.tenantId,
+      })
+
+      return updated
+    }),
+
+  // -------------------------------------------------------
+  // 🧭 NAVIGATION MENU CONFIG
+  // -------------------------------------------------------
+  getNavigationConfig: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .query(async ({ ctx }) => {
+      const tenant = await ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: {
+          navigationConfig: true,
+        },
+      })
+
+      return tenant?.navigationConfig || null
+    }),
+
+  updateNavigationConfig: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .input(z.any()) // Accept any JSON structure for navigation config
+    .mutation(async ({ ctx, input }) => {
+      const updated = await ctx.prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          navigationConfig: input,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        entityName: "Navigation Config",
+        description: "Updated navigation menu configuration",
+        tenantId: ctx.tenantId,
+      })
+
+      return updated
+    }),
+
+  // -------------------------------------------------------
+  // 📧 EMAIL DOMAIN CONFIG
+  // -------------------------------------------------------
+  updateEmailDomain: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .input(
+      z.object({
+        customEmailDomain: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await ctx.prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          customEmailDomain: input.customEmailDomain,
+          emailDomainVerified: false, // Reset verification status
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        entityName: "Email Domain",
+        description: `Updated email domain to ${input.customEmailDomain}`,
+        metadata: input,
+        tenantId: ctx.tenantId,
+      })
+
+      return updated
+    }),
+
+  verifyEmailDomain: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .mutation(async ({ ctx }) => {
+      // TODO: Implement actual DNS/email verification
+      const updated = await ctx.prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          emailDomainVerified: true,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: ctx.tenantId,
+        entityName: "Email Domain",
+        description: "Verified email domain",
+        tenantId: ctx.tenantId,
+      })
+
+      return updated
+    }),
+
+  // -------------------------------------------------------
+  // 📝 PDF TEMPLATE UPDATE & DELETE
+  // -------------------------------------------------------
+  updatePDFTemplate: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.templates.pdf.update))
+    .input(
+      z.object({
+        id: z.string(),
+        displayName: z.string().optional(),
+        description: z.string().optional(),
+        template: z.string().optional(),
+        headerHtml: z.string().optional(),
+        footerHtml: z.string().optional(),
+        pageSize: z.string().optional(),
+        orientation: z.string().optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input
+
+      const template = await ctx.prisma.pDFTemplate.update({
+        where: {
+          id,
+          tenantId: ctx.tenantId,
+        },
+        data,
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.TENANT,
+        entityId: template.id,
+        entityName: "PDF Template",
+        description: `Updated PDF template: ${template.displayName}`,
+        tenantId: ctx.tenantId,
+      })
+
+      return template
+    }),
+
+  deletePDFTemplate: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.templates.pdf.delete))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const template = await ctx.prisma.pDFTemplate.delete({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name!,
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.DELETE,
+        entityType: AuditEntityType.TENANT,
+        entityId: template.id,
+        entityName: "PDF Template",
+        description: `Deleted PDF template: ${template.displayName}`,
+        tenantId: ctx.tenantId,
+      })
+
+      return template
     }),
 })
