@@ -445,6 +445,3 @@ class SMSService {
 
 // Singleton instance
 export const smsService = new SMSService();
-
-// Re-export queueManager for the function
-import { queueManager } from '../queue';
