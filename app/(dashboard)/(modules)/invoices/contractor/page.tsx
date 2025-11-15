@@ -26,14 +26,17 @@ export default function ContractorInvoicesPage() {
 
   // Fetch all invoices
   const { data: allInvoices, isLoading, refetch } = api.invoice.getAll.useQuery()
+
+  const rows = allInvoices?.invoices ?? [];
   
   // Fetch stats
   const { data: stats } = api.invoice.getStats.useQuery()
 
   // Filter only contractor invoices
-  const contractorInvoices = allInvoices?.filter(invoice => 
-    invoice.contract.contractor !== null
-  )
+  const contractorInvoices = rows.filter(
+    invoice => invoice.contract?.contractor !== null
+  );
+
 
   // Delete mutation
   const deleteMutation = api.invoice.delete.useMutation({
