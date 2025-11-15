@@ -22,6 +22,8 @@ import { payslipRouter } from "./routers/payslip"
 import { authRouter } from "./routers/auth";
 import { dashboardRouter } from "./routers/dashboard";
 import { analyticsRouter } from "./routers/analytics";
+import { webhookRouter } from "./routers/webhook";
+import { permissionAuditRouter } from "./routers/admin/permissionAudit";
 
 
 /**
@@ -51,6 +53,8 @@ export const appRouter = createTRPCRouter({
   payslip: payslipRouter,
   dashboard: dashboardRouter,
   analytics: analyticsRouter,
+  webhook: webhookRouter,
+  permissionAudit: permissionAuditRouter,
 })
 
 // export type definition of API

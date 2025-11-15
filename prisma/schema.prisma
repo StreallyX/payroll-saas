@@ -30,21 +30,22 @@ model Tenant {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users               User[]
-  roles               Role[]
-  companies           Company[]
-  agencies            Agency[]
-  contractors         Contractor[]
-  payrollPartners     PayrollPartner[]
-  contracts           Contract[]
-  invoices            Invoice[]
-  banks               Bank[]
-  documentTypes       DocumentType[]
-  leads               Lead[]
-  tasks               Task[]
-  onboardingTemplates OnboardingTemplate[]
-  payslips            Payslip[]
-  auditLogs           AuditLog[]
+  users                 User[]
+  roles                 Role[]
+  companies             Company[]
+  agencies              Agency[]
+  contractors           Contractor[]
+  payrollPartners       PayrollPartner[]
+  contracts             Contract[]
+  invoices              Invoice[]
+  banks                 Bank[]
+  documentTypes         DocumentType[]
+  leads                 Lead[]
+  tasks                 Task[]
+  onboardingTemplates   OnboardingTemplate[]
+  payslips              Payslip[]
+  auditLogs             AuditLog[]
+  webhookSubscriptions  WebhookSubscription[]
 
   @@map("tenants")
 }
@@ -70,18 +71,19 @@ model User {
   companyId        String?
 
   // RELATIONS
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role                Role                 @relation(fields: [roleId], references: [id])
-  agency              Agency?              @relation("AgencyUsers", fields: [agencyId], references: [id])
-  payrollPartner      PayrollPartner?      @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
-  company             Company?             @relation("CompanyUsers", fields: [companyId], references: [id])
-  contractor          Contractor?
-  accounts            Account[]
-  sessions            Session[]
-  auditLogs           AuditLog[]
-  passwordResetTokens PasswordResetToken[]
-  tasksAssignedTo     Task[]               @relation("TasksAssignedTo")
-  tasksAssignedBy     Task[]               @relation("TasksAssignedBy")
+  tenant                   Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role                     Role                       @relation(fields: [roleId], references: [id])
+  agency                   Agency?                    @relation("AgencyUsers", fields: [agencyId], references: [id])
+  payrollPartner           PayrollPartner?            @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
+  company                  Company?                   @relation("CompanyUsers", fields: [companyId], references: [id])
+  contractor               Contractor?
+  accounts                 Account[]
+  sessions                 Session[]
+  auditLogs                AuditLog[]
+  passwordResetTokens      PasswordResetToken[]
+  tasksAssignedTo          Task[]                     @relation("TasksAssignedTo")
+  tasksAssignedBy          Task[]                     @relation("TasksAssignedBy")
+  notificationPreferences  NotificationPreference[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -754,4 +756,164 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
+}
+
+// =============================================================
+// WEBHOOKS
+// =============================================================
+model WebhookSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  url       String
+  events    String[] // Array of event names
+  secret    String // For HMAC signature
+  isActive  Boolean  @default(true)
+  headers   Json? // Additional headers as JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveryLogs     WebhookDelivery[]
+
+  @@map("webhook_subscriptions")
+}
+
+model WebhookDelivery {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  event          String
+  payload        Json
+  statusCode     Int?
+  response       String?
+  success        Boolean
+  attempt        Int      @default(1)
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("webhook_deliveries")
+}
+
+// =============================================================
+// PERMISSION AUDIT TRAIL
+// =============================================================
+model PermissionAudit {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  userId       String?
+  action       String // GRANT, REVOKE, ROLE_ASSIGNED, ROLE_REMOVED
+  resourceType String // ROLE, PERMISSION, USER
+  resourceId   String
+  changes      Json // Details of the change
+  performedBy  String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("permission_audits")
+}
+
+// =============================================================
+// EMAIL & SMS TRACKING
+// =============================================================
+model EmailLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  to          String
+  from        String
+  subject     String
+  template    String?
+  status      String // QUEUED, SENT, FAILED, BOUNCED
+  messageId   String?
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+model SMSLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  to          String
+  from        String
+  message     String
+  template    String?
+  status      String // QUEUED, SENT, FAILED, DELIVERED
+  messageId   String?
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sms_logs")
+}
+
+// =============================================================
+// NOTIFICATION PREFERENCES
+// =============================================================
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  channel   String // EMAIL, SMS, IN_APP
+  event     String // Event type
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, event])
+  @@map("notification_preferences")
+}
+
+// =============================================================
+// SCHEDULED JOBS
+// =============================================================
+model ScheduledJob {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  name         String
+  type         String // PAYROLL, INVOICE, REPORT, CLEANUP, etc.
+  schedule     String // Cron expression
+  isActive     Boolean  @default(true)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  lastStatus   String? // SUCCESS, FAILED
+  lastError    String?
+  config       Json? // Job-specific configuration
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([nextRunAt])
+  @@map("scheduled_jobs")
+}
+
+// =============================================================
+// SYSTEM CONFIGURATION
+// =============================================================
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  category  String
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("system_configs")
 }

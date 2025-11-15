@@ -34,6 +34,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.926.0",
     "@aws-sdk/s3-request-presigner": "^3.926.0",
+    "bullmq": "^5.36.1",
+    "ioredis": "^5.4.1",
+    "winston": "^3.17.0",
     "@floating-ui/react": "0.26.0",
     "@headlessui/react": "1.7.18",
     "@hookform/resolvers": "3.9.0",
