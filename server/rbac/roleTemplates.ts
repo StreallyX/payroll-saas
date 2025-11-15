@@ -304,7 +304,10 @@ export function getRoleTemplatePermissions(templateId: string): string[] {
   // Import permission groups
   const { getPermissionsFromGroups } = require('./permissionGroups');
   const groupPermissions = getPermissionsFromGroups(template.permissionGroupIds);
-  groupPermissions.forEach((perm) => permissions.add(perm));
+  groupPermissions.forEach((perm: string) => {
+    permissions.add(perm);
+  });
+
 
   return Array.from(permissions);
 }
