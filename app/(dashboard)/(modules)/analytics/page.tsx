@@ -498,7 +498,7 @@ export default function AnalyticsPage() {
                 </p>
                 <Button
                   onClick={() => handleExport("audit")}
-                  disabled={exportMutation.isLoading}
+                  disabled={exportMutation.isPending}
                   className="w-full"
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -517,7 +517,7 @@ export default function AnalyticsPage() {
                 </p>
                 <Button
                   onClick={() => handleExport("financial")}
-                  disabled={exportMutation.isLoading}
+                  disabled={exportMutation.isPending}
                   className="w-full"
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -536,7 +536,7 @@ export default function AnalyticsPage() {
                 </p>
                 <Button
                   onClick={() => handleExport("contracts")}
-                  disabled={exportMutation.isLoading}
+                  disabled={exportMutation.isPending}
                   className="w-full"
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -555,7 +555,7 @@ export default function AnalyticsPage() {
                 </p>
                 <Button
                   onClick={() => handleExport("users")}
-                  disabled={exportMutation.isLoading}
+                  disabled={exportMutation.isPending}
                   className="w-full"
                 >
                   <Download className="mr-2 h-4 w-4" />
