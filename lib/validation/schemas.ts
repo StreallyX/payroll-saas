@@ -111,7 +111,7 @@ export const statusSchema = z.enum([
 ]);
 
 // Multi-tenant schema helpers
-export const tenantScopedSchema = <T extends z.ZodType>(schema: T) =>
+export const tenantScopedSchema = <T extends z.ZodObject<any>>(schema: T) =>
   schema.extend({
     tenantId: cuidSchema.optional(),
   });

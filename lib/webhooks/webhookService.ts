@@ -4,11 +4,12 @@
  * Handles webhook delivery with retry logic and event subscriptions
  */
 
-import { Job } from 'bullmq';
 import { addJob, QueueNames, registerWorker } from '../queue';
 import { logger } from '../logging';
 import { ExternalServiceError } from '../errors';
 import crypto from 'crypto';
+import { Job, QueueEvents } from "bullmq";
+
 
 export interface WebhookPayload {
   event: string;
@@ -203,8 +204,8 @@ class WebhookService {
   verifySignature(payload: WebhookPayload, signature: string, secret: string): boolean {
     const expectedSignature = this.generateSignature(payload, secret);
     return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
+      new Uint8Array(Buffer.from(signature)),
+      new Uint8Array(Buffer.from(expectedSignature))
     );
   }
 
@@ -262,7 +263,7 @@ class WebhookService {
     }
 
     // Queue webhook deliveries
-    const jobs = await Promise.all(
+    const rawJobs = await Promise.all(
       matchingSubscriptions.map((sub) =>
         addJob(
           QueueNames.WEBHOOK,
@@ -285,6 +286,10 @@ class WebhookService {
         )
       )
     );
+
+// Remove nulls (queue disabled)
+const jobs = rawJobs.filter((job): job is Job => job !== null);
+
 
     logger.info('Webhook event triggered', {
       event,
@@ -364,11 +369,27 @@ class WebhookService {
       attempt: 1,
     });
 
-    // Wait for job to complete
-    await job.waitUntilFinished(queueManager.getQueue(QueueNames.WEBHOOK).events);
-    
-    const result = job.returnvalue as WebhookResult;
-    return result;
+    if (!job) {
+      throw new Error("Queue is disabled, cannot test webhook");
+    }
+
+    const queue = queueManager.getQueue(QueueNames.WEBHOOK);
+
+    if (!queue) {
+      throw new Error("Queue is disabled, cannot wait for webhook job");
+    }
+
+    // Create a QueueEvents instance (required for waiting)
+    const queueEvents = new QueueEvents(QueueNames.WEBHOOK, {
+      connection: queue.opts.connection, // <-- LA BONNE CONNECTION
+    });
+
+    await queueEvents.waitUntilReady();
+
+    // Wait for the job to complete
+    await job.waitUntilFinished(queueEvents);
+
+    return job.returnvalue as WebhookResult;
   }
 }
 

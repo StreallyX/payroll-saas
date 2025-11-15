@@ -71,10 +71,14 @@ export class Validator {
   /**
    * Validate partial update (all fields optional)
    */
-  static validatePartial<T>(schema: ZodSchema<T>, data: unknown): Partial<T> {
+  static validatePartial<T extends z.ZodRawShape>(
+    schema: z.ZodObject<T>,
+    data: unknown
+  ): Partial<z.infer<z.ZodObject<T>>> {
     const partialSchema = schema.partial();
     return this.validateSync(partialSchema, data);
   }
+
 }
 
 /**

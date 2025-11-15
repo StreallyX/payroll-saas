@@ -187,7 +187,7 @@ class EmailService {
 
       logger.debug('Sending email with Resend', { from, to: options.to });
 
-      const result = await resend.emails.send({
+      const payload: any = {
         from,
         to: Array.isArray(options.to) ? options.to : [options.to],
         subject: options.subject,
@@ -195,14 +195,16 @@ class EmailService {
         text: options.text,
         cc: options.cc ? (Array.isArray(options.cc) ? options.cc : [options.cc]) : undefined,
         bcc: options.bcc ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]) : undefined,
-        reply_to: options.replyTo,
+        replyTo: options.replyTo,
         attachments: options.attachments?.map(att => ({
           filename: att.filename,
           content: att.content,
           path: att.path,
         })),
         headers: options.headers,
-      });
+      };
+
+      const result = await resend.emails.send(payload as any);
 
       if (result.error) {
         throw new Error(`Resend error: ${result.error.message}`);
@@ -222,32 +224,61 @@ class EmailService {
   /**
    * Send email with SendGrid
    */
+  /**
+   * Send email with SendGrid
+   */
   private async sendWithSendGrid(from: string, options: EmailOptions): Promise<string> {
     if (!this.apiKey) {
       throw new ExternalServiceError('email', 'SendGrid API key not configured');
     }
 
     try {
-      // Dynamic import to avoid requiring @sendgrid/mail if not used
       const sgMail = await import('@sendgrid/mail');
       sgMail.default.setApiKey(this.apiKey);
-      
+
       logger.debug('Sending email with SendGrid', { from, to: options.to });
-      
+
+      // 🔥 NORMALISATION DES ATTACHMENTS POUR SENDGRID
+      const attachments = options.attachments
+        ? options.attachments.map(att => {
+            let contentString = '';
+
+            if (att.content instanceof Buffer) {
+              contentString = att.content.toString('base64');
+            } else if (typeof att.content === 'string') {
+              contentString = Buffer.from(att.content).toString('base64');
+            } else if (att.path) {
+              const fs = require('fs');
+              const fileBuffer = fs.readFileSync(att.path);
+              contentString = fileBuffer.toString('base64');
+            }
+
+            return {
+              filename: att.filename,
+              content: contentString,
+              type: att.contentType,
+              disposition: 'attachment',
+            };
+          })
+        : undefined;
+
       const response = await sgMail.default.send({
         from,
         to: options.to,
         subject: options.subject,
-        html: options.html,
-        text: options.text,
+        html: options.html ?? "",
+        text: options.text ?? "",
         cc: options.cc,
         bcc: options.bcc,
         replyTo: options.replyTo,
-        attachments: options.attachments,
+        attachments,
         headers: options.headers,
       });
-      
-      return response[0]?.headers?.['x-message-id'] || `sg-${Date.now()}`;
+
+      return (
+        response[0]?.headers?.['x-message-id'] ||
+        `sg-${Date.now()}`
+      );
     } catch (error) {
       logger.error('Failed to send email with SendGrid', {
         error,
@@ -257,6 +288,7 @@ class EmailService {
       throw new ExternalServiceError('email', `SendGrid sending failed: ${error}`);
     }
   }
+
 
   /**
    * Send email with Mailgun
