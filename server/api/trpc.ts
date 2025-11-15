@@ -1,118 +1,165 @@
+// src/server/api/trpc.ts
 
-import { initTRPC, TRPCError } from '@trpc/server'
-import { type CreateNextContextOptions } from '@trpc/server/adapters/next'
-import { type Session } from 'next-auth'
-import superjson from 'superjson'
-import { ZodError } from 'zod'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../lib/auth'
-import { prisma } from '../../lib/db'
+import { initTRPC, TRPCError } from "@trpc/server";
+import { getServerSession } from "next-auth";
+import superjson from "superjson";
+import { ZodError } from "zod";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { headers, cookies } from "next/headers";
+import { SUPERADMIN_PERMISSIONS } from "@/server/rbac/permissions";
 
-/**
- * 1. CONTEXT
- * This section defines the "contexts" that are available in the backend API.
- */
+/* -------------------------------------------------------------
+ * 1) CONTEXT TYPE
+ * ------------------------------------------------------------- */
 
-type CreateContextOptions = {
-  session: Session | null
-}
+export type TRPCContext = {
+  prisma: typeof prisma;
+  session: any | null;
+  tenantId?: string | null;
+};
 
-const createInnerTRPCContext = (opts: CreateContextOptions) => {
-  return {
-    session: opts.session,
-    prisma,
+/* -------------------------------------------------------------
+ * 2) NEW CONTEXT CREATION — FIX SUPERADMIN + SESSION
+ * ------------------------------------------------------------- */
+
+export async function createTRPCContext(opts: { req: Request }): Promise<TRPCContext> {
+  // ⭐ NECESSARY FIX FOR NEXTAUTH + APP ROUTER
+  const session = await getServerSession({
+    ...authOptions,
+    req: {
+      headers: Object.fromEntries(headers()),
+      cookies: Object.fromEntries(
+        cookies()
+          .getAll()
+          .map(c => [c.name, c.value])
+      ),
+    },
+  });
+
+  // No session → public access
+  if (!session?.user?.id) {
+    return { prisma, session: null, tenantId: null };
   }
+
+  // ⭐ SUPERADMIN FIX → does not exist in prisma.user
+  if (session.user.isSuperAdmin) {
+    return {
+      prisma,
+      session: {
+        ...session,
+        user: {
+          ...session.user,
+          permissions: SUPERADMIN_PERMISSIONS,
+          tenantId: null,
+          roleName: "superadmin",
+          roleId: null,
+          agencyId: null,
+          payrollPartnerId: null,
+          companyId: null,
+        },
+      },
+      tenantId: null,
+    };
+  }
+
+  // Regular tenant user → load from DB
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      role: {
+        include: {
+          rolePermissions: { include: { permission: true } },
+        },
+      },
+    },
+  });
+
+  if (!dbUser) {
+    return { prisma, session: null, tenantId: null };
+  }
+
+  const permissions = dbUser.role.rolePermissions.map(p => p.permission.key);
+
+  return {
+    prisma,
+    session: {
+      ...session,
+      user: {
+        ...session.user,
+        tenantId: dbUser.tenantId,
+        roleId: dbUser.roleId,
+        roleName: dbUser.role.name,
+        permissions,
+        agencyId: dbUser.agencyId,
+        payrollPartnerId: dbUser.payrollPartnerId,
+        companyId: dbUser.companyId,
+      },
+    },
+    tenantId: dbUser.tenantId,
+  };
 }
 
-export const createTRPCContext = async (opts: CreateNextContextOptions) => {
-  const { req, res } = opts
+/* -------------------------------------------------------------
+ * 3) TRPC INIT
+ * ------------------------------------------------------------- */
 
-  // Get the session from the server using the getServerSession wrapper function
-  const session = await getServerSession(req, res, authOptions)
-
-  return createInnerTRPCContext({
-    session,
-  })
-}
-
-// Create context for fetch adapter (App Router)
-export const createTRPCContextFetch = async (opts: { req: Request }) => {
-  return createInnerTRPCContext({
-    session: null, // TODO: Extract session from request headers if needed
-  })
-}
-
-/**
- * 2. INITIALIZATION
- * This is where the tRPC API is initialized, connecting the context and transformer.
- */
-
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
       ...shape,
       data: {
         ...shape.data,
-        zodError:
-          error.cause instanceof ZodError ? error.cause.flatten() : null,
+        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
-    }
+    };
   },
-})
+});
 
-/**
- * 3. ROUTER & PROCEDURE HELPERS
- */
+export const createTRPCRouter = t.router;
+export const publicProcedure = t.procedure;
 
-export const createTRPCRouter = t.router
+/* -------------------------------------------------------------
+ * 4) MIDDLEWARES
+ * ------------------------------------------------------------- */
 
-// Base procedure
-export const publicProcedure = t.procedure
-
-// Protected procedure with authentication
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.session || !ctx.session.user) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' })
+// Require login
+const requireAuth = t.middleware(({ ctx, next }) => {
+  if (!ctx.session?.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
   }
-  return next({
-    ctx: {
-      ...ctx,
-      // infers the `session` as non-nullable
-      session: { ...ctx.session, user: ctx.session.user },
-    },
-  })
-})
 
-// Tenant-scoped procedure (ensures all operations are tenant-aware)
-export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
-  const tenantId = ctx.session.user.tenantId
-  if (!tenantId) {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Tenant context required' })
-  }
-  
-  return next({
-    ctx: {
-      ...ctx,
-      tenantId,
-    },
-  })
-})
+  return next();
+});
 
-// Admin procedure (ensures only admins can perform certain operations)
-export const adminProcedure = tenantProcedure.use(async ({ ctx, next }) => {
-  const userRole = ctx.session.user.roleName?.toLowerCase()
-  
-  if (!userRole || userRole !== 'admin') {
-    throw new TRPCError({ 
-      code: 'FORBIDDEN', 
-      message: 'Seuls les administrateurs peuvent effectuer cette action' 
-    })
+// Require tenant
+const requireTenant = t.middleware(({ ctx, next }) => {
+  if (!ctx.session?.user?.tenantId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Tenant required",
+    });
   }
-  
+
   return next({
-    ctx: {
-      ...ctx,
-    },
-  })
-})
+    ctx: { ...ctx, tenantId: ctx.session.user.tenantId },
+  });
+});
+
+// Permission check
+export const requirePermission = (permission: string) =>
+  t.middleware(({ ctx, next }) => {
+    if (!ctx.session!.user.permissions.includes(permission)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `Missing permission ${permission}`,
+      });
+    }
+
+    return next();
+  });
+
+export const protectedProcedure = t.procedure.use(requireAuth);
+export const tenantProcedure = protectedProcedure.use(requireTenant);
+export const hasPermission = (permission: string) => requirePermission(permission);

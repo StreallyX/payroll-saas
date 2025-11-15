@@ -1,185 +1,194 @@
-
-
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, adminProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission
+} from "../trpc"
+
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 
 export const documentTypeRouter = createTRPCRouter({
-  // Get all document types for tenant
-  getAll: tenantProcedure
-    .query(async ({ ctx }) => {
-      return ctx.prisma.documentType.findMany({
-        where: { tenantId: ctx.tenantId },
-        orderBy: { name: "asc" },
-      })
-    }),
 
-  // Get document type by ID
+  // -------------------------------------------------------
+  // GET ALL — Tenant Only
+  // -------------------------------------------------------
+  getAll: tenantProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.documentType.findMany({
+      where: { tenantId: ctx.tenantId },
+      orderBy: { name: "asc" },
+    })
+  }),
+
+  // -------------------------------------------------------
+  // GET BY ID
+  // -------------------------------------------------------
   getById: tenantProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.documentType.findFirst({
-        where: { 
+        where: {
           id: input.id,
           tenantId: ctx.tenantId,
         },
       })
     }),
 
-  // Create document type
-  create: adminProcedure
-    .input(z.object({
-      name: z.string().min(1),
-      description: z.string().optional(),
-      isRequired: z.boolean().default(false),
-      isActive: z.boolean().default(true),
-    }))
+  // -------------------------------------------------------
+  // CREATE DOCUMENT TYPE
+  // Requires: document_types.create
+  // -------------------------------------------------------
+  create: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.documentTypes.create))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        isRequired: z.boolean().default(false),
+        isActive: z.boolean().default(true),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      // Check if document type with this name already exists
-      const existingDocType = await ctx.prisma.documentType.findFirst({
+
+      // Check duplicate name
+      const existing = await ctx.prisma.documentType.findFirst({
         where: {
           name: input.name,
           tenantId: ctx.tenantId,
         },
       })
 
-      if (existingDocType) {
-        throw new Error("Un type de document avec ce nom existe déjà")
+      if (existing) {
+        throw new Error("A document type with this name already exists.")
       }
 
-      const newDocType = await ctx.prisma.documentType.create({
+      const docType = await ctx.prisma.documentType.create({
         data: {
-          name: input.name,
-          description: input.description,
-          isRequired: input.isRequired,
-          isActive: input.isActive,
+          ...input,
           tenantId: ctx.tenantId,
         },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.DOCUMENT_TYPE,
-        entityId: newDocType.id,
-        entityName: newDocType.name,
+        entityId: docType.id,
+        entityName: docType.name,
         metadata: {
-          name: newDocType.name,
-          isRequired: newDocType.isRequired,
+          name: docType.name,
+          isRequired: docType.isRequired,
         },
         tenantId: ctx.tenantId,
       })
 
-      return newDocType
+      return docType
     }),
 
-  // Update document type
-  update: adminProcedure
-    .input(z.object({
-      id: z.string(),
-      name: z.string().min(1).optional(),
-      description: z.string().optional(),
-      isRequired: z.boolean().optional(),
-      isActive: z.boolean().optional(),
-    }))
+  // -------------------------------------------------------
+  // UPDATE DOCUMENT TYPE
+  // Requires: document_types.update
+  // -------------------------------------------------------
+  update: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.documentTypes.update))
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        isRequired: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input
 
-      // Get current document type data for audit log
-      const currentDocType = await ctx.prisma.documentType.findFirst({
+      const before = await ctx.prisma.documentType.findFirst({
         where: { id, tenantId: ctx.tenantId },
         select: { name: true },
       })
 
-      const updatedDocType = await ctx.prisma.documentType.update({
-        where: { 
-          id,
-        },
+      const docType = await ctx.prisma.documentType.update({
+        where: { id },
         data: updateData,
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.DOCUMENT_TYPE,
-        entityId: updatedDocType.id,
-        entityName: currentDocType?.name || "Document Type",
+        entityId: docType.id,
+        entityName: before?.name ?? "Document Type",
         metadata: {
           changes: updateData,
         },
         tenantId: ctx.tenantId,
       })
 
-      return updatedDocType
+      return docType
     }),
 
-  // Delete document type
-  delete: adminProcedure
+  // -------------------------------------------------------
+  // DELETE DOCUMENT TYPE
+  // Requires: document_types.delete
+  // -------------------------------------------------------
+  delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.documentTypes.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get document type data before deletion for audit log
-      const docTypeToDelete = await ctx.prisma.documentType.findFirst({
+
+      const before = await ctx.prisma.documentType.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         select: { name: true },
       })
 
-      const deletedDocType = await ctx.prisma.documentType.delete({
-        where: { 
-          id: input.id,
-        },
+      const deleted = await ctx.prisma.documentType.delete({
+        where: { id: input.id },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.DOCUMENT_TYPE,
         entityId: input.id,
-        entityName: docTypeToDelete?.name || "Document Type",
+        entityName: before?.name ?? "Document Type",
         metadata: {
-          name: docTypeToDelete?.name,
+          name: before?.name,
         },
         tenantId: ctx.tenantId,
       })
 
-      return deletedDocType
+      return deleted
     }),
 
-  // Get stats
-  getStats: tenantProcedure
-    .query(async ({ ctx }) => {
-      const total = await ctx.prisma.documentType.count({
-        where: { tenantId: ctx.tenantId },
-      })
+  // -------------------------------------------------------
+  // STATS
+  // -------------------------------------------------------
+  getStats: tenantProcedure.query(async ({ ctx }) => {
+    const total = await ctx.prisma.documentType.count({
+      where: { tenantId: ctx.tenantId },
+    })
 
-      const required = await ctx.prisma.documentType.count({
-        where: {
-          tenantId: ctx.tenantId,
-          isRequired: true,
-        },
-      })
+    const required = await ctx.prisma.documentType.count({
+      where: { tenantId: ctx.tenantId, isRequired: true },
+    })
 
-      const active = await ctx.prisma.documentType.count({
-        where: {
-          tenantId: ctx.tenantId,
-          isActive: true,
-        },
-      })
+    const active = await ctx.prisma.documentType.count({
+      where: { tenantId: ctx.tenantId, isActive: true },
+    })
 
-      return {
-        total,
-        required,
-        active,
-        optional: total - required,
-      }
-    }),
+    return {
+      total,
+      required,
+      active,
+      optional: total - required,
+    }
+  }),
 })

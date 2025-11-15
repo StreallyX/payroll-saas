@@ -1,66 +1,112 @@
-
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { TRPCError } from "@trpc/server"
+import { generateInvoiceNumber, calculateDueDate, InvoiceStatus } from "@/lib/types/invoices"
+import { Prisma } from "@prisma/client"
+
 
 export const invoiceRouter = createTRPCRouter({
-  // Get all invoices for tenant
+
+  // ---------------------------------------------------------
+  // GET ALL
+  // ---------------------------------------------------------
   getAll: tenantProcedure
-    .query(async ({ ctx }) => {
-      return ctx.prisma.invoice.findMany({
-        where: { tenantId: ctx.tenantId },
-        include: {
-          contract: {
-            include: {
-              agency: { select: { name: true } },
-              contractor: {
-                include: {
-                  user: { select: { name: true, email: true } },
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .input(
+      z.object({
+        status: z.string().optional(),
+        contractId: z.string().optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const where: any = { tenantId: ctx.tenantId }
+      
+      if (input?.status) {
+        where.status = input.status
+      }
+      
+      if (input?.contractId) {
+        where.contractId = input.contractId
+      }
+
+      const [invoices, total] = await Promise.all([
+        ctx.prisma.invoice.findMany({
+          where,
+          include: {
+            contract: {
+              include: {
+                agency: { select: { name: true } },
+                contractor: {
+                  include: {
+                    user: { select: { name: true, email: true } },
+                  },
                 },
+                company: { select: { name: true } },
+                payrollPartner: { select: { name: true } },
               },
-              payrollPartner: { select: { name: true } },
             },
+            lineItems: true,
           },
-        },
-        orderBy: { createdAt: "desc" },
-      })
+          orderBy: { createdAt: "desc" },
+          take: input?.limit ?? 50,
+          skip: input?.offset ?? 0,
+        }),
+        ctx.prisma.invoice.count({ where }),
+      ])
+
+      return { invoices, total }
     }),
 
-  // Get invoice by ID
+  // ---------------------------------------------------------
+  // GET BY ID
+  // ---------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.invoice.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           contract: {
             include: {
               agency: true,
-              contractor: {
-                include: {
-                  user: true,
-                },
-              },
+              contractor: { include: { user: true } },
+              company: true,
               payrollPartner: true,
+              currency: true,
+              bank: true,
             },
+          },
+          lineItems: {
+            orderBy: { id: "asc" },
           },
         },
       })
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        })
+      }
+
+      return invoice
     }),
 
-  // Get invoices by contract ID
+  // ---------------------------------------------------------
+  // GET BY CONTRACT
+  // ---------------------------------------------------------
   getByContractId: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
     .input(z.object({ contractId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.invoice.findMany({
-        where: { 
-          contractId: input.contractId,
-          tenantId: ctx.tenantId,
-        },
+        where: { contractId: input.contractId, tenantId: ctx.tenantId },
         include: {
           contract: {
             include: {
@@ -73,25 +119,100 @@ export const invoiceRouter = createTRPCRouter({
               payrollPartner: { select: { name: true } },
             },
           },
+          lineItems: true,
         },
         orderBy: { createdAt: "desc" },
       })
     }),
 
-  // Create invoice
+  // ---------------------------------------------------------
+  // CREATE
+  // ---------------------------------------------------------
   create: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.create))
     .input(z.object({
       contractId: z.string(),
+      invoiceNumber: z.string().optional(),
       amount: z.number().positive(),
-      invoiceRef: z.string().optional(),
-      dueDate: z.date().optional(),
+      currency: z.string().default("USD"),
+      taxAmount: z.number().min(0).default(0),
+      issueDate: z.date(),
+      dueDate: z.date(),
+      description: z.string().optional(),
+      notes: z.string().optional(),
       status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]).default("draft"),
+      lineItems: z.array(z.object({
+        description: z.string(),
+        quantity: z.number().positive(),
+        unitPrice: z.number().positive(),
+        amount: z.number().positive(),
+      })).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Verify contract exists and belongs to tenant
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.contractId, tenantId: ctx.tenantId },
+      })
+
+      if (!contract) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contract not found",
+        })
+      }
+
+      // Generate invoice number if not provided
+      let invoiceNumber = input.invoiceNumber
+      if (!invoiceNumber) {
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        
+        // Count invoices this month
+        const startOfMonth = new Date(year, now.getMonth(), 1)
+        const endOfMonth = new Date(year, now.getMonth() + 1, 0)
+        
+        const count = await ctx.prisma.invoice.count({
+          where: {
+            tenantId: ctx.tenantId,
+            createdAt: {
+              gte: startOfMonth,
+              lte: endOfMonth,
+            },
+          },
+        })
+
+        const sequence = String(count + 1).padStart(4, '0')
+        invoiceNumber = `INV-${year}${month}-${sequence}`
+      }
+
+      // Calculate total amount
+      const totalAmount = input.amount + input.taxAmount
+
+      // Create invoice with line items
       const invoice = await ctx.prisma.invoice.create({
         data: {
-          ...input,
           tenantId: ctx.tenantId,
+          contractId: input.contractId,
+          invoiceNumber,
+          amount: input.amount,
+          currency: input.currency,
+          taxAmount: input.taxAmount,
+          totalAmount,
+          issueDate: input.issueDate,
+          dueDate: input.dueDate,
+          description: input.description,
+          notes: input.notes,
+          status: input.status,
+          createdById: ctx.session!.user.id,
+          lineItems: input.lineItems ? {
+            create: input.lineItems.map(item => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+            })),
+          } : undefined,
         },
         include: {
           contract: {
@@ -105,48 +226,83 @@ export const invoiceRouter = createTRPCRouter({
               payrollPartner: { select: { name: true } },
             },
           },
+          lineItems: true,
         },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        entityName: invoice.invoiceRef || `Invoice-${invoice.id.slice(0, 8)}`,
+        entityName: invoice.invoiceNumber ?? undefined,
+        tenantId: ctx.tenantId,
         metadata: {
           amount: invoice.amount,
+          totalAmount: invoice.totalAmount,
           status: invoice.status,
           contractId: invoice.contractId,
         },
-        tenantId: ctx.tenantId,
       })
 
       return invoice
     }),
 
-  // Update invoice
+  // ---------------------------------------------------------
+  // UPDATE
+  // ---------------------------------------------------------
   update: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
     .input(z.object({
       id: z.string(),
       amount: z.number().positive().optional(),
-      invoiceRef: z.string().optional(),
+      taxAmount: z.number().min(0).optional(),
+      issueDate: z.date().optional(),
       dueDate: z.date().optional(),
+      description: z.string().optional(),
+      notes: z.string().optional(),
       status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]).optional(),
-      paidAt: z.date().optional(),
+      lineItems: z.array(z.object({
+        id: z.string().optional(),
+        description: z.string(),
+        quantity: z.number().positive(),
+        unitPrice: z.number().positive(),
+        amount: z.number().positive(),
+      })).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input
+      const { id, lineItems, ...updateData } = input
 
+      // Verify invoice exists
+      const existingInvoice = await ctx.prisma.invoice.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        include: { lineItems: true },
+      })
+
+      if (!existingInvoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        })
+      }
+
+      // Calculate new total if amount or tax changed
+      let totalAmount = existingInvoice.totalAmount
+      if (updateData.amount !== undefined || updateData.taxAmount !== undefined) {
+        const newAmount = updateData.amount ?? Number(existingInvoice.amount)
+        const newTax = updateData.taxAmount ?? Number(existingInvoice.taxAmount)
+        totalAmount = new Prisma.Decimal(newAmount).plus(new Prisma.Decimal(newTax))
+      }
+
+      // Update invoice
       const invoice = await ctx.prisma.invoice.update({
-        where: { 
-          id,
-          tenantId: ctx.tenantId,
+        where: { id, tenantId: ctx.tenantId },
+        data: {
+          ...updateData,
+          ...(totalAmount !== existingInvoice.totalAmount && { totalAmount }),
         },
-        data: updateData,
         include: {
           contract: {
             include: {
@@ -159,109 +315,357 @@ export const invoiceRouter = createTRPCRouter({
               payrollPartner: { select: { name: true } },
             },
           },
+          lineItems: true,
         },
       })
 
-      // Create audit log
+      // Update line items if provided
+      if (lineItems) {
+        // Delete existing line items
+        await ctx.prisma.invoiceLineItem.deleteMany({
+          where: { invoiceId: id },
+        })
+
+        // Create new line items
+        await ctx.prisma.invoiceLineItem.createMany({
+          data: lineItems.map(item => ({
+            invoiceId: id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            amount: item.amount,
+          })),
+        })
+      }
+
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        entityName: invoice.invoiceRef || `Invoice-${invoice.id.slice(0, 8)}`,
-        metadata: {
-          updatedFields: updateData,
-        },
+        entityName: invoice.invoiceNumber ?? undefined,
         tenantId: ctx.tenantId,
+        metadata: { updatedFields: updateData },
       })
 
       return invoice
     }),
 
-  // Delete invoice
+  // ---------------------------------------------------------
+  // UPDATE STATUS
+  // ---------------------------------------------------------
+  updateStatus: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .input(z.object({
+      id: z.string(),
+      status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.update({
+        where: { id: input.id, tenantId: ctx.tenantId },
+        data: {
+          status: input.status,
+          ...(input.status === "sent" && { sentDate: new Date() }),
+          ...(input.status === "paid" && { paidDate: new Date() }),
+        },
+        include: {
+          contract: {
+            include: {
+              contractor: { include: { user: true } },
+            },
+          },
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: invoice.id,
+        entityName: invoice.invoiceNumber ?? undefined,
+        tenantId: ctx.tenantId,
+        description: `Changed invoice status to ${input.status}`,
+      })
+
+      return invoice
+    }),
+
+  // ---------------------------------------------------------
+  // DELETE
+  // ---------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get invoice details before deleting
       const invoice = await ctx.prisma.invoice.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
 
       if (!invoice) {
-        throw new Error("Invoice not found")
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        })
       }
 
-      const result = await ctx.prisma.invoice.delete({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+      // Delete invoice (will cascade delete line items)
+      await ctx.prisma.invoice.delete({
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.INVOICE,
         entityId: input.id,
-        entityName: invoice.invoiceRef || `Invoice-${invoice.id.slice(0, 8)}`,
+        entityName: invoice.invoiceNumber ?? undefined,
+        tenantId: ctx.tenantId,
         metadata: {
           amount: invoice.amount,
           status: invoice.status,
         },
-        tenantId: ctx.tenantId,
       })
 
-      return result
+      return { success: true }
     }),
 
-  // Get invoice statistics
-  getStats: tenantProcedure
-    .query(async ({ ctx }) => {
-      const totalInvoices = await ctx.prisma.invoice.count({
-        where: { tenantId: ctx.tenantId },
-      })
-
-      const paidInvoices = await ctx.prisma.invoice.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "paid",
+  // ---------------------------------------------------------
+  // GENERATE FROM CONTRACT
+  // ---------------------------------------------------------
+  generateFromContract: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.create))
+    .input(z.object({
+      contractId: z.string(),
+      period: z.object({
+        month: z.number().min(1).max(12),
+        year: z.number(),
+      }).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Get contract with details
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.contractId, tenantId: ctx.tenantId },
+        include: {
+          contractor: { include: { user: true } },
+          currency: true,
         },
       })
 
-      const overdueInvoices = await ctx.prisma.invoice.count({
-        where: { 
+      if (!contract) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contract not found",
+        })
+      }
+
+      if (!contract.rate) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Contract must have a rate to generate invoice",
+        })
+      }
+
+      // Calculate invoice amount based on rate type
+      let amount = Number(contract.rate)
+      let description = `Invoice for ${contract.title || "Contract Services"}`
+
+      const period = input.period || {
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear(),
+      }
+
+      if (contract.rateType === "monthly") {
+        description += ` - ${new Date(period.year, period.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}`
+      }
+
+      // Calculate dates
+      const issueDate = new Date()
+      const dueDate = calculateDueDate(issueDate, contract.invoiceDueDays || 30)
+
+      // Generate invoice number
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      
+      const count = await ctx.prisma.invoice.count({
+        where: {
           tenantId: ctx.tenantId,
-          status: "overdue",
+          createdAt: {
+            gte: new Date(year, now.getMonth(), 1),
+            lte: new Date(year, now.getMonth() + 1, 0),
+          },
+        },
+      })
+
+      const sequence = String(count + 1).padStart(4, '0')
+      const invoiceNumber = `INV-${year}${month}-${sequence}`
+
+      // Calculate tax
+      const taxAmount = contract.contractVatRate 
+        ? amount * (Number(contract.contractVatRate) / 100)
+        : 0
+      const totalAmount = amount + taxAmount
+
+      // Create invoice
+      const invoice = await ctx.prisma.invoice.create({
+        data: {
+          tenantId: ctx.tenantId,
+          contractId: input.contractId,
+          invoiceNumber,
+          amount,
+          currency: contract.currency?.code || "USD",
+          taxAmount,
+          totalAmount,
+          issueDate,
+          dueDate,
+          description,
+          status: "draft",
+          createdById: ctx.session!.user.id,
+          lineItems: {
+            create: [
+              {
+                description: `${contract.rateType || "Service"} - ${description}`,
+                quantity: 1,
+                unitPrice: amount,
+                amount,
+              },
+            ],
+          },
+        },
+        include: {
+          contract: {
+            include: {
+              contractor: { include: { user: true } },
+              agency: { select: { name: true } },
+            },
+          },
+          lineItems: true,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: invoice.id,
+        entityName: invoice.invoiceNumber ?? undefined,
+        tenantId: ctx.tenantId,
+        description: `Auto-generated invoice from contract`,
+      })
+
+      return invoice
+    }),
+
+  // ---------------------------------------------------------
+  // GET OVERDUE
+  // ---------------------------------------------------------
+  getOverdue: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .query(async ({ ctx }) => {
+      return ctx.prisma.invoice.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          status: { in: ["sent", "overdue"] },
+          dueDate: { lt: new Date() },
+        },
+        include: {
+          contract: {
+            include: {
+              contractor: { include: { user: true } },
+              agency: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { dueDate: "asc" },
+      })
+    }),
+
+  // ---------------------------------------------------------
+  // STATS
+  // ---------------------------------------------------------
+  getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .query(async ({ ctx }) => {
+      const total = await ctx.prisma.invoice.count({
+        where: { tenantId: ctx.tenantId },
+      })
+
+      const paid = await ctx.prisma.invoice.count({
+        where: { tenantId: ctx.tenantId, status: "paid" },
+      })
+
+      const overdue = await ctx.prisma.invoice.count({
+        where: {
+          tenantId: ctx.tenantId,
+          status: { in: ["sent", "overdue"] },
+          dueDate: { lt: new Date() },
         },
       })
 
       const totalAmount = await ctx.prisma.invoice.aggregate({
         where: { tenantId: ctx.tenantId },
-        _sum: { amount: true },
+        _sum: { totalAmount: true },
       })
 
       const paidAmount = await ctx.prisma.invoice.aggregate({
-        where: { 
+        where: { tenantId: ctx.tenantId, status: "paid" },
+        _sum: { totalAmount: true },
+      })
+
+      const overdueAmount = await ctx.prisma.invoice.aggregate({
+        where: {
           tenantId: ctx.tenantId,
-          status: "paid",
+          status: { in: ["sent", "overdue"] },
+          dueDate: { lt: new Date() },
         },
-        _sum: { amount: true },
+        _sum: { totalAmount: true },
       })
 
       return {
-        total: totalInvoices,
-        paid: paidInvoices,
-        overdue: overdueInvoices,
-        totalAmount: Number(totalAmount._sum.amount || 0),
-        paidAmount: Number(paidAmount._sum.amount || 0),
+        total,
+        paid,
+        overdue,
+        totalAmount: Number(totalAmount._sum.totalAmount ?? 0),
+        paidAmount: Number(paidAmount._sum.totalAmount ?? 0),
+        overdueAmount: Number(overdueAmount._sum.totalAmount ?? 0),
       }
+    }),
+
+  // ---------------------------------------------------------
+  // GENERATE INVOICE NUMBER
+  // ---------------------------------------------------------
+  generateInvoiceNumber: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.invoices.create))
+    .mutation(async ({ ctx }) => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      
+      // Count invoices this month
+      const startOfMonth = new Date(year, now.getMonth(), 1)
+      const endOfMonth = new Date(year, now.getMonth() + 1, 0)
+      
+      const count = await ctx.prisma.invoice.count({
+        where: {
+          tenantId: ctx.tenantId,
+          createdAt: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+      })
+
+      const sequence = String(count + 1).padStart(4, '0')
+      const invoiceNumber = `INV-${year}${month}-${sequence}`
+
+      return { invoiceNumber }
     }),
 })

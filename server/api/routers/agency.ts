@@ -1,12 +1,21 @@
-
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission,
+} from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { sanitizeData } from "@/lib/utils"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 
 export const agencyRouter = createTRPCRouter({
-  // Get all agencies for tenant
+
+  // ------------------------------------------------------
+  // GET ALL
+  // ------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.agencies.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.agency.findMany({
         where: { tenantId: ctx.tenantId },
@@ -14,9 +23,7 @@ export const agencyRouter = createTRPCRouter({
           country: true,
           contractors: {
             include: {
-              user: {
-                select: { name: true, email: true },
-              },
+              user: { select: { name: true, email: true } },
             },
           },
           contracts: true,
@@ -31,211 +38,178 @@ export const agencyRouter = createTRPCRouter({
       })
     }),
 
-  // Get agency by ID
+  // ------------------------------------------------------
+  // GET BY ID
+  // ------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.agencies.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.agency.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           contractors: {
             include: {
-              user: {
-                select: { name: true, email: true },
-              },
+              user: { select: { name: true, email: true } },
             },
           },
           contracts: {
             include: {
               contractor: {
-                include: {
-                  user: {
-                    select: { name: true, email: true },
-                  },
-                },
+                include: { user: { select: { name: true, email: true } } },
               },
-              payrollPartner: {
-                select: { name: true },
-              },
+              payrollPartner: { select: { name: true } },
             },
           },
         },
       })
     }),
 
-  // Create agency
+  // ------------------------------------------------------
+  // CREATE
+  // ------------------------------------------------------
   create: tenantProcedure
-    .input(z.object({
-      // Contact Details
-      name: z.string().min(1),
-      contactPhone: z.string().optional(),
-      alternateContactPhone: z.string().optional(),
-      contactEmail: z.string().email(),
-      primaryContactName: z.string().optional(),
-      primaryContactJobTitle: z.string().optional(),
-      fax: z.string().optional(),
-      notes: z.string().optional(),
-      
-      // Address Details
-      officeBuilding: z.string().optional(),
-      address1: z.string().optional(),
-      address2: z.string().optional(),
-      city: z.string().optional(),
-      countryId: z.string().optional(),
-      state: z.string().optional(),
-      postCode: z.string().optional(),
-      
-      // Invoice Details
-      invoicingContactName: z.string().optional(),
-      invoicingContactPhone: z.string().optional(),
-      invoicingContactEmail: z.string().optional(),
-      alternateInvoicingEmail: z.string().optional(),
-      vatNumber: z.string().optional(),
-      website: z.string().optional(),
-      
-      status: z.enum(["active", "inactive", "suspended"]).default("active"),
-    }))
+    .use(hasPermission(PERMISSION_TREE.agencies.create))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        contactEmail: z.string().email(),
+        contactPhone: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
+      
       const agency = await ctx.prisma.agency.create({
         data: {
-          ...input,
-          tenantId: ctx.tenantId,
+          tenantId: ctx.tenantId!,
+          name: input.name,
+          contactEmail: input.contactEmail,
+          contactPhone: input.contactPhone ?? null,
+          city: input.city ?? null,
+          countryId: input.countryId ?? null,
         },
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        tenantId: ctx.tenantId!,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.AGENCY,
         entityId: agency.id,
         entityName: agency.name,
-        tenantId: ctx.tenantId
+        description: `Created agency ${agency.name}`,
       })
 
       return agency
     }),
 
-  // Update agency
+  // ------------------------------------------------------
+  // UPDATE
+  // ------------------------------------------------------
   update: tenantProcedure
-    .input(z.object({
-      id: z.string(),
-      
-      // Contact Details
-      name: z.string().min(1).optional(),
-      contactPhone: z.string().optional(),
-      alternateContactPhone: z.string().optional(),
-      contactEmail: z.string().email().optional(),
-      primaryContactName: z.string().optional(),
-      primaryContactJobTitle: z.string().optional(),
-      fax: z.string().optional(),
-      notes: z.string().optional(),
-      
-      // Address Details
-      officeBuilding: z.string().optional(),
-      address1: z.string().optional(),
-      address2: z.string().optional(),
-      city: z.string().optional(),
-      countryId: z.string().optional(),
-      state: z.string().optional(),
-      postCode: z.string().optional(),
-      
-      // Invoice Details
-      invoicingContactName: z.string().optional(),
-      invoicingContactPhone: z.string().optional(),
-      invoicingContactEmail: z.string().optional(),
-      alternateInvoicingEmail: z.string().optional(),
-      vatNumber: z.string().optional(),
-      website: z.string().optional(),
-      
-      status: z.enum(["active", "inactive", "suspended"]).optional(),
-    }))
+    .use(hasPermission(PERMISSION_TREE.agencies.update))
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        contactPhone: z.string().optional(),
+        alternateContactPhone: z.string().optional(),
+        contactEmail: z.string().optional(),
+        primaryContactName: z.string().optional(),
+        primaryContactJobTitle: z.string().optional(),
+        fax: z.string().optional(),
+        notes: z.string().optional(),
+        officeBuilding: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+        invoicingContactName: z.string().optional(),
+        invoicingContactPhone: z.string().optional(),
+        invoicingContactEmail: z.string().optional(),
+        alternateInvoicingEmail: z.string().optional(),
+        vatNumber: z.string().optional(),
+        website: z.string().optional(),
+        status: z.enum(["active", "inactive", "suspended"]).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input
+      const { id, ...raw } = input
+      const clean = sanitizeData(raw)
 
       const agency = await ctx.prisma.agency.update({
-        where: { 
-          id,
-          tenantId: ctx.tenantId,
-        },
-        data: updateData,
+        where: { id, tenantId: ctx.tenantId },
+        data: clean,
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        tenantId: ctx.tenantId!,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.AGENCY,
         entityId: agency.id,
         entityName: agency.name,
-        tenantId: ctx.tenantId
       })
 
       return agency
     }),
 
-  // Delete agency
+  // ------------------------------------------------------
+  // DELETE
+  // ------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.agencies.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+
       const agency = await ctx.prisma.agency.findUnique({
-        where: { id: input.id }
+        where: { id: input.id },
       })
 
       await ctx.prisma.agency.delete({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        tenantId: ctx.tenantId!,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.AGENCY,
         entityId: input.id,
-        entityName: agency?.name || "Unknown",
-        tenantId: ctx.tenantId
+        entityName: agency?.name ?? "Unknown",
       })
 
       return { success: true }
     }),
 
-  // Get agency statistics
+  // ------------------------------------------------------
+  // STATS
+  // ------------------------------------------------------
   getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.agencies.view))
     .query(async ({ ctx }) => {
-      const totalAgencies = await ctx.prisma.agency.count({
+      const total = await ctx.prisma.agency.count({
         where: { tenantId: ctx.tenantId },
       })
 
-      const activeAgencies = await ctx.prisma.agency.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "active",
-        },
+      const active = await ctx.prisma.agency.count({
+        where: { tenantId: ctx.tenantId, status: "active" },
       })
 
-      const inactiveAgencies = await ctx.prisma.agency.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "inactive",
-        },
+      const inactive = await ctx.prisma.agency.count({
+        where: { tenantId: ctx.tenantId, status: "inactive" },
       })
 
-      return {
-        total: totalAgencies,
-        active: activeAgencies,
-        inactive: inactiveAgencies,
-      }
+      return { total, active, inactive }
     }),
 })

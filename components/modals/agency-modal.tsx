@@ -151,10 +151,8 @@ export function AgencyModal({ open, onOpenChange, agency, onSuccess }: AgencyMod
         status: formData.status as "active" | "inactive" | "suspended"
       })
     } else {
-      createMutation.mutate({
-        ...formData,
-        status: formData.status as "active" | "inactive" | "suspended"
-      })
+      const { status, ...createData } = formData;
+      createMutation.mutate(createData)
     }
   }
 

@@ -1,22 +1,26 @@
-
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission
+} from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 
 export const contractorRouter = createTRPCRouter({
-  // Get all contractors for tenant
+
+  // -------------------------------------------------------
+  // GET ALL CONTRACTORS
+  // -------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contractors.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.contractor.findMany({
         where: { tenantId: ctx.tenantId },
         include: {
-          user: {
-            select: { name: true, email: true, isActive: true },
-          },
-          agency: {
-            select: { name: true, contactEmail: true },
-          },
+          user: { select: { name: true, email: true, isActive: true } },
+          agency: { select: { name: true, contactEmail: true } },
           country: true,
           onboardingTemplate: true,
           contracts: {
@@ -25,23 +29,21 @@ export const contractorRouter = createTRPCRouter({
               payrollPartner: { select: { name: true } },
             },
           },
-          _count: {
-            select: { contracts: true, onboardingResponses: true },
-          },
+          _count: { select: { contracts: true, onboardingResponses: true } },
         },
         orderBy: { createdAt: "desc" },
       })
     }),
 
-  // Get contractor by ID
+  // -------------------------------------------------------
+  // GET BY ID
+  // -------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contractors.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractor.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           user: true,
           agency: true,
@@ -56,15 +58,15 @@ export const contractorRouter = createTRPCRouter({
       })
     }),
 
-  // Get contractor by user ID (for contractor dashboard)
+  // -------------------------------------------------------
+  // GET BY USER ID (contractor dashboard)
+  // -------------------------------------------------------
   getByUserId: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contractors.view))
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractor.findFirst({
-        where: { 
-          userId: input.userId,
-          tenantId: ctx.tenantId,
-        },
+        where: { userId: input.userId, tenantId: ctx.tenantId },
         include: {
           user: true,
           agency: true,
@@ -72,77 +74,62 @@ export const contractorRouter = createTRPCRouter({
             include: {
               agency: { select: { name: true } },
               payrollPartner: { select: { name: true } },
-              invoices: true,
+              invoices: true },
             },
           },
-        },
-      })
+        })
     }),
 
-  // Create contractor with new user
+  // -------------------------------------------------------
+  // CREATE CONTRACTOR
+  // -------------------------------------------------------
   create: tenantProcedure
-    .input(z.object({
-      // User credentials
-      name: z.string().min(1),
-      email: z.string().email(),
-      password: z.string().min(6),
-      
-      // Contractor details
-      phone: z.string().optional(),
-      alternatePhone: z.string().optional(),
-      dateOfBirth: z.string().optional(), // Will be converted to Date
-      referredBy: z.string().optional(),
-      skypeId: z.string().optional(),
-      notes: z.string().optional(),
-      
-      // Address Details
-      officeBuilding: z.string().optional(),
-      address1: z.string().optional(),
-      address2: z.string().optional(),
-      city: z.string().optional(),
-      countryId: z.string().optional(),
-      state: z.string().optional(),
-      postCode: z.string().optional(),
-      
-      // Relations
-      agencyId: z.string().optional(),
-      onboardingTemplateId: z.string().optional(),
-      
-      status: z.enum(["active", "inactive", "suspended"]).default("active"),
-    }))
+    .use(hasPermission(PERMISSION_TREE.contractors.create))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(6),
+
+        phone: z.string().optional(),
+        alternatePhone: z.string().optional(),
+        dateOfBirth: z.string().optional(),
+        referredBy: z.string().optional(),
+        skypeId: z.string().optional(),
+        notes: z.string().optional(),
+
+        officeBuilding: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+
+        agencyId: z.string().optional(),
+        onboardingTemplateId: z.string().optional(),
+
+        status: z.enum(["active", "inactive", "suspended"]).default("active"),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const bcrypt = require("bcryptjs")
-      
-      // Check if email already exists
+
       const existingUser = await ctx.prisma.user.findFirst({
-        where: {
-          email: input.email,
-          tenantId: ctx.tenantId,
-        },
+        where: { email: input.email, tenantId: ctx.tenantId },
       })
 
-      if (existingUser) {
-        throw new Error("Un utilisateur avec cet email existe déjà")
-      }
+      if (existingUser) throw new Error("Un utilisateur avec cet email existe déjà")
 
-      // Get contractor role
       const contractorRole = await ctx.prisma.role.findFirst({
-        where: {
-          name: "contractor",
-          tenantId: ctx.tenantId,
-        },
+        where: { name: "contractor", tenantId: ctx.tenantId },
       })
 
-      if (!contractorRole) {
-        throw new Error("Le rôle 'contractor' n'existe pas")
-      }
+      if (!contractorRole) throw new Error("Le rôle 'contractor' n'existe pas")
 
-      // Hash password
       const passwordHash = await bcrypt.hash(input.password, 10)
 
-      // Create user and contractor in a transaction
-      const result = await ctx.prisma.$transaction(async (tx) => {
-        // Create user
+      const contractor = await ctx.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
             name: input.name,
@@ -154,13 +141,11 @@ export const contractorRouter = createTRPCRouter({
           },
         })
 
-        // Create contractor with all new fields
         const contractor = await tx.contractor.create({
           data: {
             userId: user.id,
             tenantId: ctx.tenantId,
-            
-            // General info
+
             name: input.name,
             phone: input.phone,
             alternatePhone: input.alternatePhone,
@@ -169,8 +154,7 @@ export const contractorRouter = createTRPCRouter({
             referredBy: input.referredBy,
             skypeId: input.skypeId,
             notes: input.notes,
-            
-            // Address
+
             officeBuilding: input.officeBuilding,
             address1: input.address1,
             address2: input.address2,
@@ -178,8 +162,7 @@ export const contractorRouter = createTRPCRouter({
             countryId: input.countryId,
             state: input.state,
             postCode: input.postCode,
-            
-            // Relations
+
             agencyId: input.agencyId,
             onboardingTemplateId: input.onboardingTemplateId,
             status: input.status,
@@ -192,18 +175,18 @@ export const contractorRouter = createTRPCRouter({
           },
         })
 
-        // If onboarding template is selected, create initial responses
+        // Create initial onboarding entries
         if (input.onboardingTemplateId) {
           const questions = await tx.onboardingQuestion.findMany({
             where: { onboardingTemplateId: input.onboardingTemplateId },
           })
 
           await Promise.all(
-            questions.map((question) =>
+            questions.map((q) =>
               tx.onboardingResponse.create({
                 data: {
                   contractorId: contractor.id,
-                  questionId: question.id,
+                  questionId: q.id,
                   status: "pending",
                 },
               })
@@ -214,63 +197,58 @@ export const contractorRouter = createTRPCRouter({
         return contractor
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.CONTRACTOR,
-        entityId: result.id,
-        entityName: result.user.name || result.user.email,
-        metadata: {
-          email: result.user.email,
-          status: result.status,
-        },
+        entityId: contractor.id,
+        entityName: contractor.user?.name ?? contractor.user?.email,
+        metadata: { email: contractor.user?.email, status: contractor.status },
         tenantId: ctx.tenantId,
       })
 
-      return result
+      return contractor
     }),
 
-  // Update contractor
+  // -------------------------------------------------------
+  // UPDATE CONTRACTOR
+  // -------------------------------------------------------
   update: tenantProcedure
-    .input(z.object({
-      id: z.string(),
-      
-      // Contractor details
-      name: z.string().optional(),
-      phone: z.string().optional(),
-      alternatePhone: z.string().optional(),
-      email: z.string().optional(),
-      dateOfBirth: z.string().optional(),
-      referredBy: z.string().optional(),
-      skypeId: z.string().optional(),
-      notes: z.string().optional(),
-      
-      // Address Details
-      officeBuilding: z.string().optional(),
-      address1: z.string().optional(),
-      address2: z.string().optional(),
-      city: z.string().optional(),
-      countryId: z.string().optional(),
-      state: z.string().optional(),
-      postCode: z.string().optional(),
-      
-      // Relations
-      agencyId: z.string().optional(),
-      onboardingTemplateId: z.string().optional(),
-      
-      status: z.enum(["active", "inactive", "suspended"]).optional(),
-    }))
+    .use(hasPermission(PERMISSION_TREE.contractors.update))
+    .input(
+      z.object({
+        id: z.string(),
+
+        name: z.string().optional(),
+        phone: z.string().optional(),
+        alternatePhone: z.string().optional(),
+        email: z.string().optional(),
+        dateOfBirth: z.string().optional(),
+        referredBy: z.string().optional(),
+        skypeId: z.string().optional(),
+        notes: z.string().optional(),
+
+        officeBuilding: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+
+        agencyId: z.string().optional(),
+        onboardingTemplateId: z.string().optional(),
+
+        status: z.enum(["active", "inactive", "suspended"]).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const { id, dateOfBirth, ...updateData } = input
 
-      const result = await ctx.prisma.contractor.update({
-        where: { 
-          id,
-          tenantId: ctx.tenantId,
-        },
+      const contractor = await ctx.prisma.contractor.update({
+        where: { id, tenantId: ctx.tenantId },
         data: {
           ...updateData,
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
@@ -283,93 +261,73 @@ export const contractorRouter = createTRPCRouter({
         },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.CONTRACTOR,
-        entityId: result.id,
-        entityName: result.user.name || result.user.email,
-        metadata: {
-          updatedFields: updateData,
-        },
+        entityId: contractor.id,
+        entityName: contractor.user.name ?? contractor.user.email,
+        metadata: { updatedFields: updateData },
         tenantId: ctx.tenantId,
       })
 
-      return result
+      return contractor
     }),
 
-  // Delete contractor
+  // -------------------------------------------------------
+  // DELETE CONTRACTOR
+  // -------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contractors.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get contractor details before deleting
+
       const contractor = await ctx.prisma.contractor.findFirst({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-        include: {
-          user: { select: { name: true, email: true } },
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
+        include: { user: { select: { name: true, email: true } } },
       })
 
-      if (!contractor) {
-        throw new Error("Contractor not found")
-      }
+      if (!contractor) throw new Error("Contractor not found")
 
-      const result = await ctx.prisma.contractor.delete({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+      await ctx.prisma.contractor.delete({
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
 
-      // Create audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "System",
-        userRole: ctx.session?.user?.roleName || "system",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.CONTRACTOR,
         entityId: input.id,
-        entityName: contractor.user.name || contractor.user.email,
-        metadata: {
-          email: contractor.user.email,
-        },
+        entityName: contractor.user.name ?? contractor.user.email,
+        metadata: { email: contractor.user.email },
         tenantId: ctx.tenantId,
       })
 
-      return result
+      return { success: true }
     }),
 
-  // Get contractor statistics
+  // -------------------------------------------------------
+  // STATS
+  // -------------------------------------------------------
   getStats: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contractors.view))
     .query(async ({ ctx }) => {
-      const totalContractors = await ctx.prisma.contractor.count({
+      const total = await ctx.prisma.contractor.count({
         where: { tenantId: ctx.tenantId },
       })
 
-      const activeContractors = await ctx.prisma.contractor.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "active",
-        },
+      const active = await ctx.prisma.contractor.count({
+        where: { tenantId: ctx.tenantId, status: "active" },
       })
 
-      const inactiveContractors = await ctx.prisma.contractor.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          status: "inactive",
-        },
+      const inactive = await ctx.prisma.contractor.count({
+        where: { tenantId: ctx.tenantId, status: "inactive" },
       })
 
-      return {
-        total: totalContractors,
-        active: activeContractors,
-        inactive: inactiveContractors,
-      }
+      return { total, active, inactive }
     }),
 })

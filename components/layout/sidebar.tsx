@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
-import { getMenuForRole, MenuItem } from "@/lib/menuConfig"
+import { getDynamicMenu, MenuItem } from "@/lib/dynamicMenuConfig"
 import { useTenant } from "@/lib/hooks/useTenant"
 import { 
   ChevronLeft, 
@@ -34,9 +34,12 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     if (onMobileClose) onMobileClose()
   }, [pathname])
 
-  if (!session?.user?.roleName) return null
+  if (!session?.user) return null
 
-  const menuItems = getMenuForRole(session.user.roleName)
+  // Get dynamic menu based on user permissions
+  const userPermissions = session.user.permissions || []
+  const isSuperAdmin = session.user.isSuperAdmin || false
+  const menuItems = getDynamicMenu(userPermissions, isSuperAdmin)
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({
@@ -137,7 +140,22 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                       )}
                     >
                       <item.icon className="h-5 w-5" />
-                      {!collapsed && <span className="flex-1">{item.label}</span>}
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          {item.badge && (
+                            <span className={cn(
+                              "px-2 py-0.5 text-xs rounded-full font-medium",
+                              item.badgeVariant === "destructive" && "bg-red-500 text-white",
+                              item.badgeVariant === "secondary" && "bg-secondary text-secondary-foreground",
+                              item.badgeVariant === "outline" && "border border-border",
+                              !item.badgeVariant && "bg-primary text-primary-foreground"
+                            )}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </Link>
                   ) : (
                     <>
@@ -171,7 +189,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                               )}
                             >
                               <sub.icon className="h-4 w-4" />
-                              <span>{sub.label}</span>
+                              <span className="flex-1">{sub.label}</span>
+                              {sub.badge && (
+                                <span className={cn(
+                                  "px-2 py-0.5 text-xs rounded-full font-medium",
+                                  sub.badgeVariant === "destructive" && "bg-red-500 text-white",
+                                  sub.badgeVariant === "secondary" && "bg-secondary text-secondary-foreground",
+                                  sub.badgeVariant === "outline" && "border border-border",
+                                  !sub.badgeVariant && "bg-primary text-primary-foreground"
+                                )}>
+                                  {sub.badge}
+                                </span>
+                              )}
                             </Link>
                           ))}
                         </div>

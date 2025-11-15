@@ -14,10 +14,17 @@ import { bankRouter } from "./routers/bank"
 import { currencyRouter } from "./routers/currency"
 import { countryRouter } from "./routers/country"
 import { roleRouter } from "./routers/role"
+import { permissionRouter } from "./routers/permission"
 import { documentTypeRouter } from "./routers/documentType"
 import { taskRouter } from "./routers/task"
 import { onboardingRouter } from "./routers/onboarding"
 import { payslipRouter } from "./routers/payslip"
+import { authRouter } from "./routers/auth";
+import { dashboardRouter } from "./routers/dashboard";
+import { analyticsRouter } from "./routers/analytics";
+import { webhookRouter } from "./routers/webhook";
+import { permissionAuditRouter } from "./routers/admin/permissionAudit";
+
 
 /**
  * This is the primary router for your server.
@@ -26,6 +33,7 @@ import { payslipRouter } from "./routers/payslip"
 export const appRouter = createTRPCRouter({
   user: userRouter,
   agency: agencyRouter,
+  auth: authRouter,
   contractor: contractorRouter,
   payroll: payrollRouter,
   contract: contractRouter,
@@ -38,10 +46,15 @@ export const appRouter = createTRPCRouter({
   currency: currencyRouter,
   country: countryRouter,
   role: roleRouter,
+  permission: permissionRouter,
   documentType: documentTypeRouter,
   task: taskRouter,
   onboarding: onboardingRouter,
   payslip: payslipRouter,
+  dashboard: dashboardRouter,
+  analytics: analyticsRouter,
+  webhook: webhookRouter,
+  permissionAudit: permissionAuditRouter,
 })
 
 // export type definition of API

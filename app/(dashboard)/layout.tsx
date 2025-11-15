@@ -22,7 +22,7 @@ export default function DashboardLayout({
     if (status === "loading") return // Still loading
 
     if (!session) {
-      router.push("/login")
+      router.push("/auth/login")
       return
     }
   }, [session, status, router])

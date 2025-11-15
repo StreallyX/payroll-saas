@@ -1,84 +1,105 @@
-// Multi-Tenant SaaS Payroll & Staffing Platform Schema
+// -------------------------------------------------------------
+// Multi-Tenant Payroll & Staffing Platform (DEEL-Like Structure)
+// -------------------------------------------------------------
 
 generator client {
-    provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// Multi-Tenant Core Models
+// =============================================================
+// TENANT
+// =============================================================
 model Tenant {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   name             String
   logoUrl          String?
-  primaryColor     String?   @default("#3b82f6")
-  accentColor      String?   @default("#10b981")
-  backgroundColor  String?   @default("#f8fafc")
-  sidebarBgColor   String?   @default("#ffffff")
-  sidebarTextColor String?   @default("#111827")
-  headerBgColor    String?   @default("#ffffff")
-  headerTextColor  String?   @default("#111827")
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  primaryColor     String?  @default("#3b82f6")
+  accentColor      String?  @default("#10b981")
+  backgroundColor  String?  @default("#f8fafc")
+  sidebarBgColor   String?  @default("#ffffff")
+  sidebarTextColor String?  @default("#111827")
+  headerBgColor    String?  @default("#ffffff")
+  headerTextColor  String?  @default("#111827")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  // Relations
-  users           User[]
-  roles           Role[]
-  companies       Company[]
-  agencies        Agency[]
-  contractors     Contractor[]
-  payrollPartners PayrollPartner[]
-  contracts       Contract[]
-  invoices        Invoice[]
-  banks               Bank[]
-  documentTypes       DocumentType[]
-  leads               Lead[]
-  tasks               Task[]
-  onboardingTemplates OnboardingTemplate[]
-  payslips            Payslip[]
+  users                 User[]
+  roles                 Role[]
+  companies             Company[]
+  agencies              Agency[]
+  contractors           Contractor[]
+  payrollPartners       PayrollPartner[]
+  contracts             Contract[]
+  invoices              Invoice[]
+  banks                 Bank[]
+  documentTypes         DocumentType[]
+  leads                 Lead[]
+  tasks                 Task[]
+  onboardingTemplates   OnboardingTemplate[]
+  payslips              Payslip[]
+  auditLogs             AuditLog[]
+  webhookSubscriptions  WebhookSubscription[]
 
   @@map("tenants")
 }
 
-
+// =============================================================
+// USER (DEEL-Like)
+// =============================================================
 model User {
-  id           String    @id @default(cuid())
-  tenantId     String
-  name         String?
-  email        String    
-  passwordHash String
-  roleId       String
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                 String   @id @default(cuid())
+  tenantId           String
+  name               String?
+  email              String
+  passwordHash       String
+  mustChangePassword Boolean  @default(true)
+  roleId             String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  // Relations
-  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role            Role         @relation(fields: [roleId], references: [id])
-  contractor      Contractor?
-  accounts        Account[]
-  sessions        Session[]
-  auditLogs       AuditLog[]
-  tasksAssignedTo Task[]       @relation("TasksAssignedTo")
-  tasksAssignedBy Task[]       @relation("TasksAssignedBy")
+  // ENTITY ATTACHMENTS
+  agencyId         String?
+  payrollPartnerId String?
+  companyId        String?
+
+  // RELATIONS
+  tenant                   Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role                     Role                       @relation(fields: [roleId], references: [id])
+  agency                   Agency?                    @relation("AgencyUsers", fields: [agencyId], references: [id])
+  payrollPartner           PayrollPartner?            @relation("PayrollPartnerUsers", fields: [payrollPartnerId], references: [id])
+  company                  Company?                   @relation("CompanyUsers", fields: [companyId], references: [id])
+  contractor               Contractor?
+  accounts                 Account[]
+  sessions                 Session[]
+  auditLogs                AuditLog[]
+  passwordResetTokens      PasswordResetToken[]
+  tasksAssignedTo          Task[]                     @relation("TasksAssignedTo")
+  tasksAssignedBy          Task[]                     @relation("TasksAssignedBy")
+  notificationPreferences  NotificationPreference[]
 
   @@unique([tenantId, email])
   @@map("users")
 }
 
+// =============================================================
+// ROLE & PERMISSIONS (Full Dynamic RBAC)
+// =============================================================
 model Role {
   id        String   @id @default(cuid())
   tenantId  String
-  name      String   // admin, agency, payroll_partner, contractor
+  name      String
+  homePath  String   @default("/admin")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   users           User[]
   rolePermissions RolePermission[]
@@ -89,12 +110,11 @@ model Role {
 
 model Permission {
   id          String   @id @default(cuid())
-  key         String   @unique // e.g., "users.create", "agencies.view", etc.
+  key         String   @unique
   description String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   rolePermissions RolePermission[]
 
   @@map("permissions")
@@ -104,7 +124,6 @@ model RolePermission {
   roleId       String
   permissionId String
 
-  // Relations
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
@@ -112,23 +131,27 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-// Business Logic Models
+// =============================================================
+// COMPANY (Now has multiple users like Deel)
+// =============================================================
 model Company {
-  id                      String   @id @default(cuid())
-  tenantId                String
-  name                    String
-  contactPerson           String?
-  contactEmail            String?
-  contactPhone            String?
-  // Address
-  officeBuilding          String?
-  address1                String?
-  address2                String?
-  city                    String?
-  countryId               String?
-  state                   String?
-  postCode                String?
-  // Invoice Details
+  id            String  @id @default(cuid())
+  tenantId      String
+  name          String
+  contactPerson String?
+  contactEmail  String?
+  contactPhone  String?
+
+  // ADDRESS
+  officeBuilding String?
+  address1       String?
+  address2       String?
+  city           String?
+  countryId      String?
+  state          String?
+  postCode       String?
+
+  // INVOICE DETAILS
   invoicingContactName    String?
   invoicingContactPhone   String?
   invoicingContactEmail   String?
@@ -139,103 +162,105 @@ model Company {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  // Relations
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   country   Country?   @relation(fields: [countryId], references: [id])
   contracts Contract[]
+  users     User[]     @relation("CompanyUsers")
 
   @@map("companies")
 }
 
+// =============================================================
+// AGENCY (Dynamic Team Members)
+// =============================================================
 model Agency {
-  id                       String   @id @default(cuid())
-  tenantId                 String
-  
-  // Contact Details
-  name                     String
-  contactPhone             String?
-  alternateContactPhone    String?
-  contactEmail             String
-  primaryContactName       String?
-  primaryContactJobTitle   String?
-  fax                      String?
-  notes                    String?  @db.Text
-  
-  // Address Details
-  officeBuilding           String?
-  address1                 String?
-  address2                 String?
-  city                     String?
-  countryId                String?
-  state                    String?
-  postCode                 String?
-  
-  // Invoice Details
-  invoicingContactName     String?
-  invoicingContactPhone    String?
-  invoicingContactEmail    String?
-  alternateInvoicingEmail  String?
-  vatNumber                String?
-  website                  String?
-  
-  status                   String   @default("active") // active, inactive, suspended
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id       String @id @default(cuid())
+  tenantId String
 
-  // Relations
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  country     Country?    @relation("AgencyCountry", fields: [countryId], references: [id])
+  name                   String
+  contactPhone           String?
+  alternateContactPhone  String?
+  contactEmail           String
+  primaryContactName     String?
+  primaryContactJobTitle String?
+  fax                    String?
+  notes                  String? @db.Text
+
+  officeBuilding String?
+  address1       String?
+  address2       String?
+  city           String?
+  countryId      String?
+  state          String?
+  postCode       String?
+
+  invoicingContactName    String?
+  invoicingContactPhone   String?
+  invoicingContactEmail   String?
+  alternateInvoicingEmail String?
+  vatNumber               String?
+  website                 String?
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  country     Country?     @relation("AgencyCountry", fields: [countryId], references: [id])
   contractors Contractor[]
   contracts   Contract[]
+  users       User[]       @relation("AgencyUsers")
 
   @@map("agencies")
 }
 
+// =============================================================
+// CONTRACTOR
+// =============================================================
 model Contractor {
-  id                    String    @id @default(cuid())
-  tenantId              String
-  userId                String    @unique
-  agencyId              String?
-  
-  // General Info
-  name                  String?
-  phone                 String?
-  alternatePhone        String?
-  email                 String?
-  dateOfBirth           DateTime?
-  referredBy            String?
-  skypeId               String?
-  notes                 String?   @db.Text
-  
-  // Address Details
-  officeBuilding        String?
-  address1              String?
-  address2              String?
-  city                  String?
-  countryId             String?
-  state                 String?
-  postCode              String?
-  
-  // Onboarding
-  onboardingTemplateId  String?
-  
-  status                String    @default("active") // active, inactive, suspended
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id       String  @id @default(cuid())
+  tenantId String
+  userId   String  @unique
+  agencyId String?
 
-  // Relations
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agency             Agency?             @relation(fields: [agencyId], references: [id])
-  country            Country?            @relation("ContractorCountry", fields: [countryId], references: [id])
-  onboardingTemplate OnboardingTemplate? @relation(fields: [onboardingTemplateId], references: [id])
-  contracts          Contract[]
-  payslips           Payslip[]
+  name           String?
+  phone          String?
+  alternatePhone String?
+  email          String?
+  dateOfBirth    DateTime?
+  referredBy     String?
+  skypeId        String?
+  notes          String?   @db.Text
+
+  officeBuilding String?
+  address1       String?
+  address2       String?
+  city           String?
+  countryId      String?
+  state          String?
+  postCode       String?
+
+  onboardingTemplateId String?
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency              Agency?              @relation(fields: [agencyId], references: [id])
+  country             Country?             @relation("ContractorCountry", fields: [countryId], references: [id])
+  onboardingTemplate  OnboardingTemplate?  @relation(fields: [onboardingTemplateId], references: [id])
+  contracts           Contract[]
+  payslips            Payslip[]
   onboardingResponses OnboardingResponse[]
 
   @@map("contractors")
 }
 
+// =============================================================
+// PAYROLL PARTNER (Dynamic team too)
+// =============================================================
 model PayrollPartner {
   id           String   @id @default(cuid())
   tenantId     String
@@ -243,95 +268,205 @@ model PayrollPartner {
   contactEmail String
   contactPhone String?
   address      String?
-  status       String   @default("active") // active, inactive, suspended
+  status       String   @default("active")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Relations
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contracts Contract[]
+  users     User[]     @relation("PayrollPartnerUsers")
 
   @@map("payroll_partners")
 }
 
+// =============================================================
+// CONTRACT
+// =============================================================
 model Contract {
-  id                      String    @id @default(cuid())
-  tenantId                String
-  companyId               String?
-  agencyId                String
-  contractorId            String
-  payrollPartnerId        String
-  status                  String    @default("draft") // draft, active, completed, cancelled
-  title                   String?
-  description             String?
-  notes                   String?   @db.Text
-  
-  // Rate & Pricing
-  rate                    Decimal?  @db.Decimal(10, 2)
-  rateType                String?   // hourly, daily, monthly, fixed
-  currencyId              String?
-  rateCycle               String?   // daily, weekly, monthly
-  
-  // Margin
-  margin                  Decimal?  @db.Decimal(10, 2)
-  marginType              String?   // fixed, percentage
-  marginPaidBy            String?   // agency, contractor
-  
-  // Salary & Payment
-  salaryType              String?   // GROSS, PAYROLL, PAYROLL_WE_PAY, SPLIT
-  bankId                  String?
-  invoiceDueDays          Int?      // 30, 60, 90 days or 0 for "Upon Receipt"
-  
-  // Contract Details
-  contractReference       String?   @unique
-  contractCountryId       String?
-  contractVatRate         Decimal?  @db.Decimal(5, 2) // Percentage
-  signedContractPath      String?   // S3 path to PDF
-  
-  // Dates
-  startDate               DateTime?
-  endDate                 DateTime?
-  agencySignDate          DateTime?
-  contractorSignDate      DateTime?
-  
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id               String  @id @default(cuid())
+  tenantId         String
+  companyId        String?
+  agencyId         String
+  contractorId     String
+  payrollPartnerId String
 
-  // Relations
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company         Company?        @relation(fields: [companyId], references: [id])
-  agency          Agency          @relation(fields: [agencyId], references: [id])
-  contractor      Contractor      @relation(fields: [contractorId], references: [id])
-  payrollPartner  PayrollPartner  @relation(fields: [payrollPartnerId], references: [id])
-  currency        Currency?       @relation(fields: [currencyId], references: [id])
-  bank            Bank?           @relation(fields: [bankId], references: [id])
-  contractCountry Country?        @relation(fields: [contractCountryId], references: [id])
+  status      String  @default("draft")
+  title       String?
+  description String?
+  notes       String? @db.Text
+
+  // Workflow Status
+  workflowStatus    String    @default("draft") // draft, pending_agency_sign, pending_contractor_sign, active, paused, completed, cancelled, terminated
+  terminationReason String?   @db.Text
+  terminatedAt      DateTime?
+  terminatedBy      String?
+
+  rate       Decimal? @db.Decimal(10, 2)
+  rateType   String?
+  currencyId String?
+  rateCycle  String?
+
+  margin       Decimal? @db.Decimal(10, 2)
+  marginType   String?
+  marginPaidBy String?
+
+  salaryType     String?
+  bankId         String?
+  invoiceDueDays Int?
+
+  contractReference  String?  @unique
+  contractCountryId  String?
+  contractVatRate    Decimal? @db.Decimal(5, 2)
+  signedContractPath String?
+
+  startDate          DateTime?
+  endDate            DateTime?
+  agencySignDate     DateTime?
+  contractorSignDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company         Company?                @relation(fields: [companyId], references: [id])
+  agency          Agency                  @relation(fields: [agencyId], references: [id])
+  contractor      Contractor              @relation(fields: [contractorId], references: [id])
+  payrollPartner  PayrollPartner          @relation(fields: [payrollPartnerId], references: [id])
+  currency        Currency?               @relation(fields: [currencyId], references: [id])
+  bank            Bank?                   @relation(fields: [bankId], references: [id])
+  contractCountry Country?                @relation(fields: [contractCountryId], references: [id])
   invoices        Invoice[]
   payslips        Payslip[]
+  documents       ContractDocument[]
+  statusHistory   ContractStatusHistory[]
+  notifications   ContractNotification[]
 
+  @@index([tenantId])
+  @@index([agencyId])
+  @@index([contractorId])
+  @@index([status])
+  @@index([workflowStatus])
   @@map("contracts")
 }
 
-model Invoice {
-  id         String    @id @default(cuid())
-  tenantId   String
+// Contract Document Management
+model ContractDocument {
+  id         String   @id @default(cuid())
   contractId String
-  amount     Decimal   @db.Decimal(10, 2)
-  status     String    @default("draft") // draft, sent, paid, overdue, cancelled
-  invoiceRef String?   // Invoice reference number
-  dueDate    DateTime?
+  type       String // "contract", "amendment", "termination", "other"
+  name       String
+  fileUrl    String
+  fileSize   Int
+  mimeType   String
+  version    Int      @default(1)
+  isActive   Boolean  @default(true)
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_documents")
+}
+
+// Contract Status History
+model ContractStatusHistory {
+  id         String   @id @default(cuid())
+  contractId String
+  fromStatus String?
+  toStatus   String
+  changedBy  String
+  changedAt  DateTime @default(now())
+  reason     String?  @db.Text
+  metadata   Json?
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_status_history")
+}
+
+// Contract Notifications
+model ContractNotification {
+  id          String    @id @default(cuid())
+  contractId  String
+  recipientId String
+  type        String // "signature_request", "renewal_reminder", "termination_notice", "status_change"
+  title       String
+  message     String    @db.Text
+  sentAt      DateTime  @default(now())
+  readAt      DateTime?
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@index([recipientId])
+  @@map("contract_notifications")
+}
+
+// =============================================================
+// INVOICE
+// =============================================================
+model Invoice {
+  id            String  @id @default(cuid())
+  tenantId      String
+  contractId    String
+  invoiceNumber String? @unique
+
+  status String @default("draft") // draft, sent, paid, overdue, cancelled
+
+  // Financial
+  amount      Decimal @db.Decimal(10, 2)
+  currency    String  @default("USD")
+  taxAmount   Decimal @default(0) @db.Decimal(10, 2)
+  totalAmount Decimal @default(0) @db.Decimal(10, 2)
+
+  // Dates
+  issueDate DateTime @default(now())
+  dueDate   DateTime @default(now())
+  paidDate  DateTime?
+  sentDate  DateTime?
+
+  // Details
+  description String? @db.Text
+  notes       String? @db.Text
+
+  // Legacy field
+  invoiceRef String?
   paidAt     DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
 
-  // Relations
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contract Contract @relation(fields: [contractId], references: [id])
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract  Contract          @relation(fields: [contractId], references: [id])
+  lineItems InvoiceLineItem[]
+
+  @@index([tenantId])
+  @@index([contractId])
+  @@index([status])
   @@map("invoices")
 }
 
-// NextAuth Models (adapted for multi-tenancy)
+// Invoice Line Items
+model InvoiceLineItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  amount      Decimal @db.Decimal(10, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+// =============================================================
+// AUTH MODELS
+// =============================================================
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -371,33 +506,33 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-// Reference Data Models
+// =============================================================
+// REFERENCE MODELS
+// =============================================================
 model Currency {
-  id        String     @id @default(cuid())
-  code      String     @unique // AED, CHF, EUR, USD, GBP
-  name      String     // United Arab Emirates Dirham, Swiss Franc, etc.
-  symbol    String?    // د.إ, CHF, €, $, £
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  symbol    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relations
   contracts Contract[]
 
   @@map("currencies")
 }
 
 model Country {
-  id        String    @id @default(cuid())
-  code      String    @unique // FR, US, GB, AE, CH
-  name      String    // France, United States, etc.
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relations
   companies         Company[]
-  agencies          Agency[]    @relation("AgencyCountry")
+  agencies          Agency[]     @relation("AgencyCountry")
   contractors       Contractor[] @relation("ContractorCountry")
   contractCountries Contract[]
 
@@ -416,7 +551,6 @@ model Bank {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contracts Contract[]
 
@@ -426,14 +560,13 @@ model Bank {
 model DocumentType {
   id          String   @id @default(cuid())
   tenantId    String
-  name        String   // e.g., "Passport", "Work Permit", "Tax Form", etc.
+  name        String
   description String?
   isRequired  Boolean  @default(false)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, name])
@@ -441,185 +574,167 @@ model DocumentType {
 }
 
 model Lead {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
   name        String
   contact     String?
   email       String?
   phone       String?
-  status      String   @default("cold") // hot, warm, cold
+  status      String    @default("cold")
   source      String?
   value       String?
   lastContact DateTime?
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Relations
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("leads")
 }
 
+// =============================================================
+// TASKS
+// =============================================================
 model Task {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
   title       String
-  description String?  @db.Text
-  assignedTo  String   // User ID
-  assignedBy  String   // User ID
-  priority    String   @default("medium") // low, medium, high, urgent
-  status      String   @default("pending") // pending, completed
+  description String?   @db.Text
+  assignedTo  String
+  assignedBy  String
+  priority    String    @default("medium")
+  status      String    @default("pending")
   dueDate     DateTime?
   completedAt DateTime?
-  isCompleted Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isCompleted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Relations
   tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedUser User   @relation("TasksAssignedTo", fields: [assignedTo], references: [id], onDelete: Cascade)
   assignerUser User   @relation("TasksAssignedBy", fields: [assignedBy], references: [id], onDelete: Cascade)
 
-  @@index([tenantId])
-  @@index([assignedTo])
-  @@index([assignedBy])
-  @@index([status])
   @@map("tasks")
 }
 
-// Onboarding System - Templates define what questions to ask
+// =============================================================
+// ONBOARDING
+// =============================================================
 model OnboardingTemplate {
   id          String   @id @default(cuid())
   tenantId    String
-  name        String   // e.g., "Standard Contractor Onboarding"
+  name        String
   description String?  @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   questions   OnboardingQuestion[]
   contractors Contractor[]
 
-  @@index([tenantId])
   @@map("onboarding_templates")
 }
 
-// Questions in an onboarding template
 model OnboardingQuestion {
-  id                     String   @id @default(cuid())
-  onboardingTemplateId   String
-  questionText           String   @db.Text // e.g., "Upload Copy of Passport"
-  questionType           String   // file_upload, text, date, number, etc.
-  isRequired             Boolean  @default(true)
-  order                  Int      // Display order
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  onboardingTemplateId String
+  questionText         String   @db.Text
+  questionType         String
+  isRequired           Boolean  @default(true)
+  order                Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  // Relations
   template  OnboardingTemplate   @relation(fields: [onboardingTemplateId], references: [id], onDelete: Cascade)
   responses OnboardingResponse[]
 
-  @@index([onboardingTemplateId])
   @@map("onboarding_questions")
 }
 
-// Contractor responses to onboarding questions
 model OnboardingResponse {
-  id                   String    @id @default(cuid())
-  contractorId         String
-  questionId           String
-  responseText         String?   @db.Text
-  responseFilePath     String?   // S3 path for file uploads
-  status               String    @default("pending") // pending, approved, rejected
-  adminNotes           String?   @db.Text // Admin feedback when rejecting
-  submittedAt          DateTime?
-  reviewedAt           DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  contractorId     String
+  questionId       String
+  responseText     String?   @db.Text
+  responseFilePath String?
+  status           String    @default("pending")
+  adminNotes       String?   @db.Text
+  submittedAt      DateTime?
+  reviewedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  // Relations
   contractor Contractor         @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   question   OnboardingQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([contractorId, questionId])
-  @@index([contractorId])
-  @@index([questionId])
-  @@index([status])
   @@map("onboarding_responses")
 }
 
-// Payslip Model for storing generated payslips
+// =============================================================
+// PAYSLIP
+// =============================================================
 model Payslip {
-  id             String    @id @default(cuid())
-  tenantId       String
-  contractorId   String
-  contractId     String?
-  month          Int       // 1-12
-  year           Int
-  grossPay       Float
-  netPay         Float
-  deductions     Float     @default(0)
-  tax            Float     @default(0)
-  status         String    // pending, generated, sent, paid
-  generatedDate  DateTime  @default(now())
-  sentDate       DateTime?
-  paidDate       DateTime?
-  notes          String?   @db.Text
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  tenantId      String
+  contractorId  String
+  contractId    String?
+  month         Int
+  year          Int
+  grossPay      Float
+  netPay        Float
+  deductions    Float     @default(0)
+  tax           Float     @default(0)
+  status        String
+  generatedDate DateTime  @default(now())
+  sentDate      DateTime?
+  paidDate      DateTime?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  // Relations
   tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   contract   Contract?  @relation(fields: [contractId], references: [id], onDelete: SetNull)
 
-  @@index([tenantId])
-  @@index([contractorId])
-  @@index([contractId])
-  @@index([status])
-  @@index([year, month])
   @@map("payslips")
 }
 
-// Audit Log Model for tracking all user actions
+// =============================================================
+// AUDIT LOG
+// =============================================================
 model AuditLog {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
 
-  // Who performed the action
-  userId      String?    // ✅ facultatif
-  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  userName    String
-  userRole    String
+  userName String
+  userRole String
 
-  // What action was performed
-  action      String
-  entityType  String
-  entityId    String?
-  entityName  String?
+  action     String
+  entityType String
+  entityId   String?
+  entityName String?
 
-  // Details
   description String
   metadata    Json?
-
-  // Context
   ipAddress   String?
   userAgent   String?
   tenantId    String?
+  tenant      Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([entityType])
-  @@index([action])
-  @@index([createdAt])
   @@index([tenantId])
+  @@index([userId])
   @@map("audit_logs")
 }
 
-
+// =============================================================
+// SUPER ADMIN
+// =============================================================
 model SuperAdmin {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -630,4 +745,175 @@ model SuperAdmin {
   updatedAt    DateTime @updatedAt
 
   @@map("super_admins")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// =============================================================
+// WEBHOOKS
+// =============================================================
+model WebhookSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  url       String
+  events    String[] // Array of event names
+  secret    String // For HMAC signature
+  isActive  Boolean  @default(true)
+  headers   Json? // Additional headers as JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveryLogs     WebhookDelivery[]
+
+  @@map("webhook_subscriptions")
+}
+
+model WebhookDelivery {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  event          String
+  payload        Json
+  statusCode     Int?
+  response       String?
+  success        Boolean
+  attempt        Int      @default(1)
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("webhook_deliveries")
+}
+
+// =============================================================
+// PERMISSION AUDIT TRAIL
+// =============================================================
+model PermissionAudit {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  userId       String?
+  action       String // GRANT, REVOKE, ROLE_ASSIGNED, ROLE_REMOVED
+  resourceType String // ROLE, PERMISSION, USER
+  resourceId   String
+  changes      Json // Details of the change
+  performedBy  String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("permission_audits")
+}
+
+// =============================================================
+// EMAIL & SMS TRACKING
+// =============================================================
+model EmailLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  to          String
+  from        String
+  subject     String
+  template    String?
+  status      String // QUEUED, SENT, FAILED, BOUNCED
+  messageId   String?
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+model SMSLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  to          String
+  from        String
+  message     String
+  template    String?
+  status      String // QUEUED, SENT, FAILED, DELIVERED
+  messageId   String?
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sms_logs")
+}
+
+// =============================================================
+// NOTIFICATION PREFERENCES
+// =============================================================
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  channel   String // EMAIL, SMS, IN_APP
+  event     String // Event type
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, event])
+  @@map("notification_preferences")
+}
+
+// =============================================================
+// SCHEDULED JOBS
+// =============================================================
+model ScheduledJob {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  name         String
+  type         String // PAYROLL, INVOICE, REPORT, CLEANUP, etc.
+  schedule     String // Cron expression
+  isActive     Boolean  @default(true)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  lastStatus   String? // SUCCESS, FAILED
+  lastError    String?
+  config       Json? // Job-specific configuration
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([nextRunAt])
+  @@map("scheduled_jobs")
+}
+
+// =============================================================
+// SYSTEM CONFIGURATION
+// =============================================================
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  category  String
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("system_configs")
 }

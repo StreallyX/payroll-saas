@@ -1,106 +1,87 @@
-import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
+// MUST be at the TOP
+export const config = {
+  matcher: [
+    "/((?!api/auth|api/auth|auth|api/trpc|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)",
+  ],
+};
+
+
+
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
+import { getFirstAccessibleRoute } from "@/lib/routing/dynamic-router";
 
 export default withAuth(
   function middleware(req) {
-    const { pathname } = req.nextUrl
-    const token = req.nextauth.token
+    const token = req.nextauth.token;
+    const { pathname } = req.nextUrl;
 
-    // 🔹 Exclure les routes publiques / API
-    if (
-      pathname === "/login" ||
-      pathname === "/register" ||
-      pathname.startsWith("/api/auth") ||
-      pathname.startsWith("/api/signup") ||
-      pathname.startsWith("/api/trpc")
-    ) {
-      return NextResponse.next()
+    const publicRoutes = [
+      "/auth/login",
+      "/auth/signin",
+      "/auth/set-password",
+    ];
+
+    if (publicRoutes.some((r) => pathname.startsWith(r))) {
+      return NextResponse.next();
     }
 
-    // 🔹 Si pas connecté → redirige vers /login
     if (!token) {
-      return NextResponse.redirect(new URL("/unauthorized", req.url))
+      return NextResponse.redirect(new URL("/auth/login", req.url));
     }
 
-    const roleName = token.roleName as string
-    const isSuperAdmin = token.isSuperAdmin as boolean
-
-    // 🟥 SUPERADMIN — accès réservé
-    if (isSuperAdmin) {
-      // Redirige la racine vers /superadmin
-      if (pathname === "/") {
-        return NextResponse.redirect(new URL("/superadmin", req.url))
+    // 🔥 Must change password but token is NULL
+    if (!token.isSuperAdmin && token.mustChangePassword) {
+      if (!token.passwordResetToken) {
+        // ⬅️ Redirect to API route that regenerates a token
+        return NextResponse.redirect(
+          new URL(`/api/auth/generate-reset-token?userId=${token.id}`, req.url)
+        );
       }
 
-      // Autorise uniquement les routes /superadmin/*
+      // Already has a token → go to set-password
+      if (!pathname.startsWith("/auth/set-password")) {
+        return NextResponse.redirect(
+          new URL(`/auth/set-password?token=${token.passwordResetToken}`, req.url)
+        );
+      }
+    }
+
+    // SUPERADMIN isolation
+    if (token.isSuperAdmin) {
       if (!pathname.startsWith("/superadmin")) {
-        return NextResponse.redirect(new URL("/superadmin", req.url))
+        return NextResponse.redirect(new URL("/superadmin", req.url));
       }
-
-      return NextResponse.next()
+      return NextResponse.next();
     }
 
-    // 🟦 UTILISATEURS CLASSIQUES (tenant)
+    // DYNAMIC ROUTING based on permissions
+    const permissions = (token.permissions as string[]) || [];
+    
+    // Redirect from root to first accessible route
     if (pathname === "/") {
-      switch (roleName) {
-        case "admin":
-          return NextResponse.redirect(new URL("/admin", req.url))
-        case "agency":
-          return NextResponse.redirect(new URL("/agency", req.url))
-        case "payroll_partner":
-          return NextResponse.redirect(new URL("/payroll", req.url))
-        case "contractor":
-          return NextResponse.redirect(new URL("/contractor", req.url))
-        default:
-          return NextResponse.redirect(new URL("/login", req.url))
+      const firstRoute = getFirstAccessibleRoute(permissions);
+      return NextResponse.redirect(new URL(firstRoute, req.url));
+    }
+
+    // Redirect from /dashboard to first accessible route if user has limited permissions
+    if (pathname === "/home") {
+      const firstRoute = getFirstAccessibleRoute(permissions);
+      // Only redirect if dashboard is not the first accessible route
+      // This allows users with many permissions to see the dashboard
+      if (firstRoute !== "/home" && permissions.length > 0) {
+        const hasSpecificModule = permissions.some(p => 
+          !p.includes('.view') || p.split('.').length > 2
+        );
+        if (!hasSpecificModule) {
+          return NextResponse.redirect(new URL(firstRoute, req.url));
+        }
       }
     }
 
-    // 🧩 Protection par rôle (empêche accès croisé)
-    const roleRoutes = {
-      admin: "/admin",
-      agency: "/agency",
-      payroll_partner: "/payroll",
-      contractor: "/contractor",
-    }
-
-    const userRoute = roleRoutes[roleName as keyof typeof roleRoutes]
-
-    if (userRoute && !pathname.startsWith(userRoute)) {
-      return NextResponse.redirect(new URL(userRoute, req.url))
-    }
-
-    return NextResponse.next()
+    return NextResponse.next();
   },
   {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl
-
-        // Routes publiques / API
-        if (
-          pathname === "/login" ||
-          pathname === "/register" ||
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/signup") ||
-          pathname.startsWith("/api/trpc")
-        ) {
-          return true
-        }
-
-        // Require auth for everything else
-        return !!token
-      },
-    },
+    callbacks: { authorized: ({ token }) => !!token },
   }
-)
-
-export const config = {
-  matcher: [
-    // ✅ Inclure toutes les routes dynamiques SAUF les fichiers statiques
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg).*)",
-
-    // ✅ Protection explicite du SuperAdmin
-    "/superadmin/:path*",
-  ],
-}
+);

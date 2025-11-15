@@ -1,185 +1,212 @@
-
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
-import bcrypt from "bcryptjs"
-import { createAuditLog } from "@/lib/audit"
-import { AuditAction, AuditEntityType } from "@/lib/types"
+import { z } from "zod";
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission,
+} from "../trpc";
+import { PERMISSION_TREE } from "../../rbac/permissions";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { generateRandomPassword } from "@/lib/utils";
 
 export const userRouter = createTRPCRouter({
-  // Get all users for tenant
+
+  // ---------------------------------------------------------
+  // GET ALL USERS
+  // ---------------------------------------------------------
   getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.user.findMany({
         where: { tenantId: ctx.tenantId },
         include: {
           role: true,
-          contractor: true,
         },
         orderBy: { createdAt: "desc" },
-      })
+      });
     }),
 
-  // Get user by ID
+  // ---------------------------------------------------------
+  // GET ONE USER
+  // ---------------------------------------------------------
   getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.user.findFirst({
-        where: { 
+        where: {
           id: input.id,
           tenantId: ctx.tenantId,
         },
         include: {
           role: true,
-          contractor: true,
-          tenant: true,
         },
-      })
+      });
     }),
 
-  // Create user
+  // ---------------------------------------------------------
+  // CREATE USER (ENTERPRISE DEEL STYLE)
+  // ---------------------------------------------------------
   create: tenantProcedure
-    .input(z.object({
-      name: z.string().min(1),
-      email: z.string().email(),
-      password: z.string().min(6),
-      roleId: z.string(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // Check if user already exists in this tenant
-      const existingUser = await ctx.prisma.user.findFirst({
-        where: {
-          email: input.email,
-          tenantId: ctx.tenantId,
-        },
+    .use(hasPermission(PERMISSION_TREE.tenant.users.create))
+    .input(
+      z.object({
+        name: z.string().min(2),
+        email: z.string().email(),
+        roleId: z.string(),
+        agencyId: z.string().nullable().optional(),
+        payrollPartnerId: z.string().nullable().optional(),
+        companyId: z.string().nullable().optional(),
       })
+    )
+    .mutation(async ({ ctx, input }) => {
 
-      if (existingUser) {
-        throw new Error("User with this email already exists")
-      }
+      // 1. Generate enterprise-grade temp password
+      const tempPassword = generateRandomPassword(12);
+      const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-      // Hash password
-      const passwordHash = bcrypt.hashSync(input.password, 10)
-
-      const newUser = await ctx.prisma.user.create({
+      // 2. Create the user
+      const user = await ctx.prisma.user.create({
         data: {
           name: input.name,
           email: input.email,
-          passwordHash,
           roleId: input.roleId,
-          tenantId: ctx.tenantId,
+          tenantId: ctx.tenantId!,
+          passwordHash,
+          mustChangePassword: true,
+          agencyId: input.agencyId ?? null,
+          payrollPartnerId: input.payrollPartnerId ?? null,
+          companyId: input.companyId ?? null,
         },
-        include: {
-          role: true,
-        },
-      })
+      });
 
-      // Create audit log
-      await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.USER,
-        entityId: newUser.id,
-        entityName: newUser.name || newUser.email,
-        metadata: {
-          email: newUser.email,
-          roleName: newUser.role.name,
-        },
-        tenantId: ctx.tenantId,
-      })
+      // 3. Create a password reset token (for setup page)
+      const token = crypto.randomBytes(48).toString("hex");
 
-      return newUser
+      await ctx.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          token,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h
+        },
+      });
+
+      const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password?token=${token}`;
+
+      // 4. Audit log
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name ?? "Unknown",
+          userRole: ctx.session!.user.roleName,
+          action: "USER_CREATED",
+          entityType: "user",
+          entityId: user.id,
+          entityName: user.name,
+          description: `Created user ${user.name}.`,
+          metadata: { setupUrl },
+        },
+      });
+
+      return {
+        success: true,
+        message: "User created. Password setup email sent.",
+      };
     }),
 
-  // Update user
+  // ---------------------------------------------------------
+  // UPDATE USER
+  // ---------------------------------------------------------
   update: tenantProcedure
-    .input(z.object({
-      id: z.string(),
-      name: z.string().min(1).optional(),
-      email: z.string().email().optional(),
-      roleId: z.string().optional(),
-      isActive: z.boolean().optional(),
-    }))
+    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().min(2),
+        email: z.string().email(),
+        roleId: z.string(),
+        isActive: z.boolean(),
+        agencyId: z.string().nullable().optional(),
+        payrollPartnerId: z.string().nullable().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input
+      // Check tenant matches
+      const existing = await ctx.prisma.user.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId }
+      });
 
-      // Get current user data for audit log
-      const currentUser = await ctx.prisma.user.findFirst({
-        where: { id, tenantId: ctx.tenantId },
-        select: { name: true, email: true },
-      })
+      if (!existing) {
+        throw new Error("User not found in tenant.");
+      }
 
-      const updatedUser = await ctx.prisma.user.update({
-        where: { 
-          id,
-          tenantId: ctx.tenantId,
+      const updated = await ctx.prisma.user.update({
+        where: { id: input.id },
+        data: {
+          name: input.name,
+          email: input.email,
+          roleId: input.roleId,
+          isActive: input.isActive,
+          agencyId: input.agencyId ?? null,
+          payrollPartnerId: input.payrollPartnerId ?? null,
         },
-        data: updateData,
-        include: {
-          role: true,
-        },
-      })
+      });
 
-      // Create audit log
-      await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
-        action: AuditAction.UPDATE,
-        entityType: AuditEntityType.USER,
-        entityId: updatedUser.id,
-        entityName: currentUser?.name || currentUser?.email || "User",
-        metadata: {
-          changes: updateData,
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name ?? "Unknown",
+          userRole: ctx.session!.user.roleName,
+          action: "USER_UPDATED",
+          entityType: "user",
+          entityId: updated.id,
+          entityName: updated.name,
+          description: `Updated user ${updated.name}`,
         },
-        tenantId: ctx.tenantId,
-      })
+      });
 
-      return updatedUser
+      return updated;
     }),
 
-  // Delete user
+  // ---------------------------------------------------------
+  // DELETE USER
+  // ---------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.tenant.users.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get user data before deletion for audit log
-      const userToDelete = await ctx.prisma.user.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-        select: { name: true, email: true },
-      })
 
-      const deletedUser = await ctx.prisma.user.delete({
-        where: { 
-          id: input.id,
-          tenantId: ctx.tenantId,
+      // 1. Check tenant matches
+      const existing = await ctx.prisma.user.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId }
+      });
+
+      if (!existing) {
+        throw new Error("User not found in tenant.");
+      }
+
+      // 2. Delete
+      const removed = await ctx.prisma.user.delete({
+        where: { id: input.id },
+      });
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name ?? "Unknown",
+          userRole: ctx.session!.user.roleName,
+          action: "USER_DELETED",
+          entityType: "user",
+          entityId: removed.id,
+          entityName: removed.name,
+          description: `Deleted user ${removed.name}`,
         },
-      })
+      });
 
-      // Create audit log
-      await createAuditLog({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name || "Unknown",
-        userRole: ctx.session.user.roleName || "Unknown",
-        action: AuditAction.DELETE,
-        entityType: AuditEntityType.USER,
-        entityId: input.id,
-        entityName: userToDelete?.name || userToDelete?.email || "User",
-        metadata: {
-          email: userToDelete?.email,
-        },
-        tenantId: ctx.tenantId,
-      })
-
-      return deletedUser
+      return removed;
     }),
+});
 
-  // Get roles for dropdown
-  getRoles: tenantProcedure
-    .query(async ({ ctx }) => {
-      return ctx.prisma.role.findMany({
-        where: { tenantId: ctx.tenantId },
-        orderBy: { name: "asc" },
-      })
-    }),
-})

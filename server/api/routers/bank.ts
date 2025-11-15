@@ -1,36 +1,47 @@
-
-
 import { z } from "zod"
-import { createTRPCRouter, protectedProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission,
+} from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 
 export const bankRouter = createTRPCRouter({
-  /**
-   * Get all banks
-   */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.prisma.bank.findMany({
-      where: { tenantId: ctx.session?.user?.tenantId || "" },
-      orderBy: { createdAt: "desc" }
-    })
-  }),
 
-  /**
-   * Get single bank by ID
-   */
-  getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return await ctx.prisma.bank.findUnique({
-        where: { id: input.id }
+  // -------------------------------------------------------
+  // GET ALL BANKS
+  // -------------------------------------------------------
+  getAll: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.banks.view))
+    .query(async ({ ctx }) => {
+      return ctx.prisma.bank.findMany({
+        where: { tenantId: ctx.tenantId },
+        orderBy: { createdAt: "desc" },
       })
     }),
 
-  /**
-   * Create a new bank
-   */
-  create: protectedProcedure
+  // -------------------------------------------------------
+  // GET ONE BANK
+  // -------------------------------------------------------
+  getById: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.banks.view))
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.bank.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+    }),
+
+  // -------------------------------------------------------
+  // CREATE BANK
+  // -------------------------------------------------------
+  create: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.banks.create))
     .input(
       z.object({
         name: z.string().min(1, "Bank name is required"),
@@ -38,101 +49,116 @@ export const bankRouter = createTRPCRouter({
         swiftCode: z.string().optional(),
         iban: z.string().optional(),
         address: z.string().optional(),
-        status: z.enum(["active", "inactive"]).default("active")
+        status: z.enum(["active", "inactive"]).default("active"),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const tenantId = ctx.session?.user?.tenantId || ""
+      const tenantId = ctx.tenantId!
 
       const bank = await ctx.prisma.bank.create({
         data: {
           ...input,
-          tenantId
-        }
+          tenantId,
+        },
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        tenantId,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.BANK,
         entityId: bank.id,
         entityName: bank.name,
-        tenantId
+        description: `Created bank ${bank.name}`,
       })
 
       return bank
     }),
 
-  /**
-   * Update an existing bank
-   */
-  update: protectedProcedure
+  // -------------------------------------------------------
+  // UPDATE BANK
+  // -------------------------------------------------------
+  update: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.banks.update))
     .input(
       z.object({
         id: z.string(),
-        name: z.string().min(1).optional(),
+        name: z.string().optional(),
         accountNumber: z.string().optional(),
         swiftCode: z.string().optional(),
         iban: z.string().optional(),
         address: z.string().optional(),
-        status: z.enum(["active", "inactive"]).optional()
+        status: z.enum(["active", "inactive"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
-      const tenantId = ctx.session?.user?.tenantId || ""
+      const tenantId = ctx.tenantId!
+
+      // Sécurité multi-tenant : vérifier que la banque appartient bien au tenant
+      const existing = await ctx.prisma.bank.findFirst({
+        where: { id, tenantId },
+      })
+
+      if (!existing) {
+        throw new Error("Bank not found in tenant")
+      }
 
       const bank = await ctx.prisma.bank.update({
         where: { id },
-        data
+        data,
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        tenantId,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.BANK,
         entityId: bank.id,
         entityName: bank.name,
-        tenantId
+        description: `Updated bank ${bank.name}`,
       })
 
       return bank
     }),
 
-  /**
-   * Delete a bank
-   */
-  delete: protectedProcedure
+  // -------------------------------------------------------
+  // DELETE BANK
+  // -------------------------------------------------------
+  delete: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.banks.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const tenantId = ctx.session?.user?.tenantId || ""
-      
-      const bank = await ctx.prisma.bank.findUnique({
-        where: { id: input.id }
+      const tenantId = ctx.tenantId!
+
+      const bank = await ctx.prisma.bank.findFirst({
+        where: { id: input.id, tenantId },
       })
+
+      if (!bank) {
+        throw new Error("Bank not found in tenant")
+      }
 
       await ctx.prisma.bank.delete({
-        where: { id: input.id }
+        where: { id: input.id },
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        tenantId,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.BANK,
-        entityId: input.id,
-        entityName: bank?.name || "Unknown",
-        tenantId
+        entityId: bank.id,
+        entityName: bank.name,
+        description: `Deleted bank ${bank.name}`,
       })
 
       return { success: true }
-    })
+    }),
 })

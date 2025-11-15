@@ -1,43 +1,49 @@
-
-
 import { z } from "zod"
-import { createTRPCRouter, protectedProcedure } from "../trpc"
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  hasPermission,
+} from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PERMISSION_TREE } from "../../rbac/permissions"
 
 export const companyRouter = createTRPCRouter({
-  /**
-   * Get all companies
-   */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.prisma.company.findMany({
-      where: { tenantId: ctx.session?.user?.tenantId || "" },
-      include: {
-        country: true
-      },
-      orderBy: { createdAt: "desc" }
-    })
-  }),
 
-  /**
-   * Get single company by ID
-   */
-  getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return await ctx.prisma.company.findUnique({
-        where: { id: input.id },
-        include: { country: true }
+  // ======================================================
+  // GET ALL COMPANIES
+  // ======================================================
+  getAll: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.companies.view))
+    .query(async ({ ctx }) => {
+      return ctx.prisma.company.findMany({
+        where: { tenantId: ctx.session!.user.tenantId },
+        include: { country: true },
+        orderBy: { createdAt: "desc" },
       })
     }),
 
-  /**
-   * Create a new company
-   */
+  // ======================================================
+  // GET ONE COMPANY
+  // ======================================================
+  getById: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.companies.view))
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.company.findUnique({
+        where: { id: input.id },
+        include: { country: true },
+      })
+    }),
+
+  // ======================================================
+  // CREATE COMPANY
+  // ======================================================
   create: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.companies.create))
     .input(
       z.object({
-        name: z.string().min(1, "Organization name is required"),
+        name: z.string().min(1),
         contactPerson: z.string().optional(),
         contactEmail: z.string().email().optional().or(z.literal("")),
         contactPhone: z.string().optional(),
@@ -50,46 +56,54 @@ export const companyRouter = createTRPCRouter({
         postCode: z.string().optional(),
         invoicingContactName: z.string().optional(),
         invoicingContactPhone: z.string().optional(),
-        invoicingContactEmail: z.string().email().optional().or(z.literal("")),
-        alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
+        invoicingContactEmail: z
+          .string()
+          .email()
+          .optional()
+          .or(z.literal("")),
+        alternateInvoicingEmail: z
+          .string()
+          .email()
+          .optional()
+          .or(z.literal("")),
         vatNumber: z.string().optional(),
         website: z.string().url().optional().or(z.literal("")),
-        status: z.enum(["active", "inactive"]).default("active")
+        status: z.enum(["active", "inactive"]).default("active"),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const tenantId = ctx.session?.user?.tenantId || ""
+      const tenantId = ctx.session!.user.tenantId
 
       const company = await ctx.prisma.company.create({
         data: {
           ...input,
-          tenantId
-        }
+          tenantId,
+        },
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.COMPANY,
         entityId: company.id,
         entityName: company.name,
-        tenantId
+        tenantId,
       })
 
       return company
     }),
 
-  /**
-   * Update an existing company
-   */
+  // ======================================================
+  // UPDATE COMPANY
+  // ======================================================
   update: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.companies.update))
     .input(
       z.object({
         id: z.string(),
-        name: z.string().min(1).optional(),
+        name: z.string().optional(),
         contactPerson: z.string().optional(),
         contactEmail: z.string().email().optional().or(z.literal("")),
         contactPhone: z.string().optional(),
@@ -102,80 +116,93 @@ export const companyRouter = createTRPCRouter({
         postCode: z.string().optional(),
         invoicingContactName: z.string().optional(),
         invoicingContactPhone: z.string().optional(),
-        invoicingContactEmail: z.string().email().optional().or(z.literal("")),
-        alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
+        invoicingContactEmail: z
+          .string()
+          .email()
+          .optional()
+          .or(z.literal("")),
+        alternateInvoicingEmail: z
+          .string()
+          .email()
+          .optional()
+          .or(z.literal("")),
         vatNumber: z.string().optional(),
         website: z.string().url().optional().or(z.literal("")),
-        status: z.enum(["active", "inactive"]).optional()
+        status: z.enum(["active", "inactive"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
-      const tenantId = ctx.session?.user?.tenantId || ""
+      const tenantId = ctx.session!.user.tenantId
 
       const company = await ctx.prisma.company.update({
         where: { id },
-        data
+        data,
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.COMPANY,
         entityId: company.id,
         entityName: company.name,
-        tenantId
+        tenantId,
       })
 
       return company
     }),
 
-  /**
-   * Delete a company
-   */
+  // ======================================================
+  // DELETE COMPANY
+  // ======================================================
   delete: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.companies.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const tenantId = ctx.session?.user?.tenantId || ""
-      
+      const tenantId = ctx.session!.user.tenantId
+
       const company = await ctx.prisma.company.findUnique({
-        where: { id: input.id }
+        where: { id: input.id },
       })
 
       await ctx.prisma.company.delete({
-        where: { id: input.id }
+        where: { id: input.id },
       })
 
-      // Audit log
       await createAuditLog({
-        userId: ctx.session?.user?.id || "",
-        userName: ctx.session?.user?.name || "Unknown",
-        userRole: ctx.session?.user?.roleName || "Unknown",
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.COMPANY,
         entityId: input.id,
-        entityName: company?.name || "Unknown",
-        tenantId
+        entityName: company?.name ?? "Unknown",
+        tenantId,
       })
 
       return { success: true }
     }),
 
-  /**
-   * Get company statistics
-   */
-  getStats: protectedProcedure.query(async ({ ctx }) => {
-    const tenantId = ctx.session?.user?.tenantId || ""
+  // ======================================================
+  // STATS
+  // ======================================================
+  getStats: protectedProcedure
+    .use(hasPermission(PERMISSION_TREE.companies.view))
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.session!.user.tenantId
 
-    const [total, active, inactive] = await Promise.all([
-      ctx.prisma.company.count({ where: { tenantId } }),
-      ctx.prisma.company.count({ where: { tenantId, status: "active" } }),
-      ctx.prisma.company.count({ where: { tenantId, status: "inactive" } })
-    ])
+      const [total, active, inactive] = await Promise.all([
+        ctx.prisma.company.count({ where: { tenantId } }),
+        ctx.prisma.company.count({
+          where: { tenantId, status: "active" },
+        }),
+        ctx.prisma.company.count({
+          where: { tenantId, status: "inactive" },
+        }),
+      ])
 
-    return { total, active, inactive }
-  })
+      return { total, active, inactive }
+    }),
 })

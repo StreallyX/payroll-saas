@@ -94,8 +94,12 @@ export function InvoiceModal({ open, onOpenChange, invoice, onSuccess }: Invoice
       amount: parseFloat(formData.amount),
       status: formData.status as "draft" | "sent" | "paid" | "overdue" | "cancelled",
       invoiceRef: formData.invoiceRef || undefined,
-      dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
-    }
+      issueDate: new Date(), // obligatoire
+      dueDate: formData.dueDate
+        ? new Date(formData.dueDate)
+        : new Date(new Date().setDate(new Date().getDate() + 30)), // fallback obligatoire
+    };
+
 
     if (invoice) {
       updateMutation.mutate({
@@ -105,6 +109,7 @@ export function InvoiceModal({ open, onOpenChange, invoice, onSuccess }: Invoice
     } else {
       createMutation.mutate(payload)
     }
+
   }
 
   const isLoading = createMutation.isPending || updateMutation.isPending
