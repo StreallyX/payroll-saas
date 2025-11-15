@@ -7,6 +7,12 @@ import {
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { PERMISSION_TREE } from "../../rbac/permissions"
+import { TRPCError } from "@trpc/server"
+import { 
+  ContractWorkflowStatus, 
+  isValidTransition,
+  ContractDocumentType 
+} from "@/lib/types/contracts"
 
 export const contractRouter = createTRPCRouter({
 
@@ -262,5 +268,333 @@ export const contractRouter = createTRPCRouter({
       })
 
       return { total, active, draft, completed }
+    }),
+
+  // ---------------------------------------------------------
+  // UPDATE WORKFLOW STATUS
+  // ---------------------------------------------------------
+  updateWorkflowStatus: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .input(
+      z.object({
+        id: z.string(),
+        workflowStatus: z.enum([
+          "draft",
+          "pending_agency_sign",
+          "pending_contractor_sign",
+          "active",
+          "paused",
+          "completed",
+          "cancelled",
+          "terminated",
+        ]),
+        reason: z.string().optional(),
+        terminationReason: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get current contract
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
+
+      if (!contract) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contract not found",
+        })
+      }
+
+      // Validate transition
+      const currentStatus = contract.workflowStatus as ContractWorkflowStatus
+      const newStatus = input.workflowStatus as ContractWorkflowStatus
+
+      if (!isValidTransition(currentStatus, newStatus)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Invalid status transition from ${currentStatus} to ${newStatus}`,
+        })
+      }
+
+      // Update contract
+      const updatedContract = await ctx.prisma.contract.update({
+        where: { id: input.id, tenantId: ctx.tenantId },
+        data: {
+          workflowStatus: input.workflowStatus,
+          ...(input.workflowStatus === "terminated" && {
+            terminationReason: input.terminationReason,
+            terminatedAt: new Date(),
+            terminatedBy: ctx.session!.user.id,
+          }),
+        },
+      })
+
+      // Record status history
+      await ctx.prisma.contractStatusHistory.create({
+        data: {
+          contractId: input.id,
+          fromStatus: contract.workflowStatus,
+          toStatus: input.workflowStatus,
+          changedBy: ctx.session!.user.id,
+          reason: input.reason,
+          metadata: {
+            userId: ctx.session!.user.id,
+            userName: ctx.session!.user.name,
+            userRole: ctx.session!.user.roleName,
+          },
+        },
+      })
+
+      // Create audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: contract.title || `Contract-${contract.id.slice(0, 8)}`,
+        tenantId: ctx.tenantId,
+        description: `Changed workflow status from ${contract.workflowStatus} to ${input.workflowStatus}`,
+      })
+
+      return updatedContract
+    }),
+
+  // ---------------------------------------------------------
+  // GET STATUS HISTORY
+  // ---------------------------------------------------------
+  getStatusHistory: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .input(z.object({ contractId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.contractStatusHistory.findMany({
+        where: { contractId: input.contractId },
+        orderBy: { changedAt: "desc" },
+      })
+    }),
+
+  // ---------------------------------------------------------
+  // UPLOAD DOCUMENT
+  // ---------------------------------------------------------
+  uploadDocument: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .input(
+      z.object({
+        contractId: z.string(),
+        type: z.enum(["contract", "amendment", "termination", "other"]),
+        name: z.string(),
+        fileUrl: z.string(),
+        fileSize: z.number(),
+        mimeType: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify contract exists and belongs to tenant
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.contractId, tenantId: ctx.tenantId },
+      })
+
+      if (!contract) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contract not found",
+        })
+      }
+
+      // Get the current max version for this document type
+      const existingDocs = await ctx.prisma.contractDocument.findMany({
+        where: {
+          contractId: input.contractId,
+          type: input.type,
+        },
+        orderBy: { version: "desc" },
+        take: 1,
+      })
+
+      const newVersion = existingDocs.length > 0 ? existingDocs[0].version + 1 : 1
+
+      // Create document
+      const document = await ctx.prisma.contractDocument.create({
+        data: {
+          contractId: input.contractId,
+          type: input.type,
+          name: input.name,
+          fileUrl: input.fileUrl,
+          fileSize: input.fileSize,
+          mimeType: input.mimeType,
+          version: newVersion,
+          uploadedBy: ctx.session!.user.id,
+        },
+      })
+
+      // Create audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: contract.title || `Contract-${contract.id.slice(0, 8)}`,
+        tenantId: ctx.tenantId,
+        description: `Uploaded document: ${input.name}`,
+      })
+
+      return document
+    }),
+
+  // ---------------------------------------------------------
+  // GET DOCUMENTS
+  // ---------------------------------------------------------
+  getDocuments: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .input(z.object({ contractId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.contractDocument.findMany({
+        where: { contractId: input.contractId },
+        orderBy: { uploadedAt: "desc" },
+      })
+    }),
+
+  // ---------------------------------------------------------
+  // DELETE DOCUMENT
+  // ---------------------------------------------------------
+  deleteDocument: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const document = await ctx.prisma.contractDocument.findUnique({
+        where: { id: input.id },
+        include: { contract: true },
+      })
+
+      if (!document || document.contract.tenantId !== ctx.tenantId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Document not found",
+        })
+      }
+
+      await ctx.prisma.contractDocument.delete({
+        where: { id: input.id },
+      })
+
+      return { success: true }
+    }),
+
+  // ---------------------------------------------------------
+  // CREATE NOTIFICATION
+  // ---------------------------------------------------------
+  createNotification: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .input(
+      z.object({
+        contractId: z.string(),
+        recipientId: z.string(),
+        type: z.string(),
+        title: z.string(),
+        message: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const notification = await ctx.prisma.contractNotification.create({
+        data: {
+          contractId: input.contractId,
+          recipientId: input.recipientId,
+          type: input.type,
+          title: input.title,
+          message: input.message,
+        },
+      })
+
+      return notification
+    }),
+
+  // ---------------------------------------------------------
+  // GET NOTIFICATIONS
+  // ---------------------------------------------------------
+  getNotifications: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .input(z.object({ contractId: z.string().optional(), recipientId: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.contractNotification.findMany({
+        where: {
+          ...(input.contractId && { contractId: input.contractId }),
+          ...(input.recipientId && { recipientId: input.recipientId }),
+        },
+        orderBy: { sentAt: "desc" },
+      })
+    }),
+
+  // ---------------------------------------------------------
+  // MARK NOTIFICATION AS READ
+  // ---------------------------------------------------------
+  markNotificationRead: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const notification = await ctx.prisma.contractNotification.update({
+        where: { id: input.id },
+        data: { readAt: new Date() },
+      })
+
+      return notification
+    }),
+
+  // ---------------------------------------------------------
+  // GET EXPIRING CONTRACTS
+  // ---------------------------------------------------------
+  getExpiringContracts: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .input(z.object({ days: z.number().default(30) }))
+    .query(async ({ ctx, input }) => {
+      const futureDate = new Date()
+      futureDate.setDate(futureDate.getDate() + input.days)
+
+      return ctx.prisma.contract.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          workflowStatus: "active",
+          endDate: {
+            lte: futureDate,
+            gte: new Date(),
+          },
+        },
+        include: {
+          contractor: { include: { user: { select: { name: true, email: true } } } },
+          agency: { select: { name: true } },
+        },
+        orderBy: { endDate: "asc" },
+      })
+    }),
+
+  // ---------------------------------------------------------
+  // GENERATE CONTRACT REFERENCE
+  // ---------------------------------------------------------
+  generateReference: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE.contracts.create))
+    .mutation(async ({ ctx }) => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      
+      // Count contracts this month
+      const startOfMonth = new Date(year, now.getMonth(), 1)
+      const endOfMonth = new Date(year, now.getMonth() + 1, 0)
+      
+      const count = await ctx.prisma.contract.count({
+        where: {
+          tenantId: ctx.tenantId,
+          createdAt: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+      })
+
+      const sequence = String(count + 1).padStart(4, '0')
+      const reference = `CTR-${year}${month}-${sequence}`
+
+      return { reference }
     }),
 })
