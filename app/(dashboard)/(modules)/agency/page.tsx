@@ -18,28 +18,28 @@ export default function AgencyDashboard() {
       value: "12",
       description: "Running contracts",
       icon: FileText,
-      trend: { value: 8, isPositive: true }
+      trend: { value: 8, label: "vs last month", isPositive: true }
     },
     {
       title: "Total Contractors",
       value: "34",
       description: "Assigned workers",
       icon: Users,
-      trend: { value: 15, isPositive: true }
+      trend: { value: 15, label: "vs last month", isPositive: true }
     },
     {
       title: "Pending Invoices",
       value: "$8,450",
       description: "Awaiting payment",
       icon: DollarSign,
-      trend: { value: -5, isPositive: false }
+      trend: { value: -5, label: "vs last month", isPositive: false }
     },
     {
       title: "This Month Revenue",
       value: "$28,500",
       description: "Current month",
       icon: TrendingUp,
-      trend: { value: 22, isPositive: true }
+      trend: { value: 22, label: "vs last month", isPositive: true }
     },
     {
       title: "Average Contract Duration",
@@ -52,7 +52,7 @@ export default function AgencyDashboard() {
       value: "8",
       description: "Ongoing work",
       icon: Building2,
-      trend: { value: 12, isPositive: true }
+      trend: { value: 12, label: "vs last month", isPositive: true }
     }
   ]
 

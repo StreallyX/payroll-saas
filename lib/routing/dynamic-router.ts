@@ -1,204 +1,49 @@
+
 import { PERMISSION_TREE } from "@/server/rbac/permissions";
 
 // Définition des routes avec leurs permissions requises
 export const ROUTES_CONFIG = [
-  // Dashboard - accessible à tous
-  { 
-    path: "/dashboard", 
-    permission: null, 
-    label: "Dashboard", 
-    icon: "LayoutDashboard",
-    category: "Dashboard"
-  },
+  // Dashboard
+  { path: "/dashboard", permission: null, label: "Dashboard", icon: "LayoutDashboard" },
   
   // Users & Teams
-  { 
-    path: "/modules/users", 
-    permission: PERMISSION_TREE.tenant.users.view, 
-    label: "Users", 
-    icon: "Users", 
-    category: "Team" 
-  },
+  { path: "/modules/users", permission: PERMISSION_TREE.tenant.users.view, label: "Users", icon: "Users", category: "Team" },
+  { path: "/modules/settings/roles", permission: PERMISSION_TREE.tenant.roles.view, label: "Roles & Permissions", icon: "UserCog", category: "Team" },
   
   // Contractors
-  { 
-    path: "/modules/contractors", 
-    permission: PERMISSION_TREE.contractors.view,
-    label: "Contractors", 
-    icon: "UserCheck", 
-    category: "Workforce" 
-  },
+  { path: "/modules/contractors", permission: PERMISSION_TREE.contractors.view, label: "Contractors", icon: "UserCheck", category: "Workforce" },
   
   // Agencies
-  { 
-    path: "/modules/agencies", 
-    permission: PERMISSION_TREE.agencies.view, 
-    label: "Agencies", 
-    icon: "Building2", 
-    category: "Partners" 
-  },
-  
-  // Companies
-  { 
-    path: "/modules/companies", 
-    permission: PERMISSION_TREE.companies.view, 
-    label: "Companies", 
-    icon: "Building", 
-    category: "Partners" 
-  },
+  { path: "/modules/agencies", permission: PERMISSION_TREE.agencies.view, label: "Agencies", icon: "Building2", category: "Partners" },
   
   // Contracts
-  { 
-    path: "/modules/contracts", 
-    permission: PERMISSION_TREE.contracts.view, 
-    label: "Contracts", 
-    icon: "FileText", 
-    category: "Operations" 
-  },
+  { path: "/modules/contracts", permission: PERMISSION_TREE.contracts.view, label: "Contracts", icon: "FileText", category: "Operations" },
   
   // Invoices
-  { 
-    path: "/modules/invoices", 
-    permission: PERMISSION_TREE.invoices.view, 
-    label: "Invoices", 
-    icon: "Receipt", 
-    category: "Finance" 
-  },
+  { path: "/modules/invoices", permission: PERMISSION_TREE.invoices.view, label: "Invoices", icon: "Receipt", category: "Finance" },
   
   // Payroll
-  { 
-    path: "/modules/payroll", 
-    permission: PERMISSION_TREE.payroll.view, 
-    label: "Payroll", 
-    icon: "DollarSign", 
-    category: "Finance" 
-  },
+  { path: "/modules/payroll", permission: PERMISSION_TREE.payroll.view, label: "Payroll", icon: "DollarSign", category: "Finance" },
   
   // Payslips
-  { 
-    path: "/modules/payslips", 
-    permission: PERMISSION_TREE.payslip.view, 
-    label: "Payslips", 
-    icon: "FileText", 
-    category: "Finance" 
-  },
-  
-  // Banks
-  { 
-    path: "/modules/banks", 
-    permission: PERMISSION_TREE.banks.view, 
-    label: "Banks", 
-    icon: "Landmark", 
-    category: "Finance" 
-  },
+  { path: "/modules/payslips", permission: PERMISSION_TREE.payslip.view, label: "Payslips", icon: "FileText", category: "Finance" },
   
   // Onboarding
-  { 
-    path: "/modules/onboarding", 
-    permission: PERMISSION_TREE.onboarding.templates.view, 
-    label: "Onboarding", 
-    icon: "ClipboardList", 
-    category: "HR" 
-  },
+  { path: "/modules/onboarding", permission: PERMISSION_TREE.onboarding.templates.view, label: "Onboarding", icon: "ClipboardList", category: "HR" },
   
   // Tasks
-  { 
-    path: "/modules/tasks", 
-    permission: PERMISSION_TREE.tasks.view, 
-    label: "Tasks", 
-    icon: "CheckSquare", 
-    category: "Productivity" 
-  },
+  { path: "/modules/tasks", permission: PERMISSION_TREE.tasks.view, label: "Tasks", icon: "CheckSquare", category: "Productivity" },
   
   // Leads
-  { 
-    path: "/modules/leads", 
-    permission: PERMISSION_TREE.leads.view, 
-    label: "Leads", 
-    icon: "TrendingUp", 
-    category: "Sales" 
-  },
+  { path: "/modules/leads", permission: PERMISSION_TREE.leads.view, label: "Leads", icon: "TrendingUp", category: "Sales" },
   
   // Reports
-  { 
-    path: "/modules/reports", 
-    permission: PERMISSION_TREE.audit.view, 
-    label: "Reports", 
-    icon: "BarChart3", 
-    category: "Analytics" 
-  },
-  { 
-    path: "/modules/reports/activity-logs", 
-    permission: PERMISSION_TREE.audit.view, 
-    label: "Activity Logs", 
-    icon: "ListChecks", 
-    category: "Analytics" 
-  },
+  { path: "/modules/reports", permission: PERMISSION_TREE.audit.view, label: "Reports", icon: "BarChart3", category: "Analytics" },
+  { path: "/modules/reports/activity-logs", permission: PERMISSION_TREE.audit.view, label: "Activity Logs", icon: "ListChecks", category: "Analytics" },
   
   // Settings
-  { 
-    path: "/modules/settings", 
-    permission: PERMISSION_TREE.settings.view, 
-    label: "Settings", 
-    icon: "Settings", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/profile", 
-    permission: null, // Everyone can access their profile
-    label: "My Profile", 
-    icon: "User", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/roles", 
-    permission: PERMISSION_TREE.tenant.roles.view, 
-    label: "Roles & Permissions", 
-    icon: "UserCog", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/tenant", 
-    permission: PERMISSION_TREE.tenant.view, 
-    label: "Tenant Settings", 
-    icon: "Building", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/banks", 
-    permission: PERMISSION_TREE.banks.view, 
-    label: "Banks", 
-    icon: "Landmark", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/currencies", 
-    permission: PERMISSION_TREE.settings.view, 
-    label: "Currencies", 
-    icon: "Coins", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/countries", 
-    permission: PERMISSION_TREE.settings.view, 
-    label: "Countries", 
-    icon: "Globe", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/companies", 
-    permission: PERMISSION_TREE.companies.view, 
-    label: "Companies", 
-    icon: "Building", 
-    category: "System" 
-  },
-  { 
-    path: "/modules/settings/document-types", 
-    permission: PERMISSION_TREE.documentTypes.view, 
-    label: "Document Types", 
-    icon: "FileType", 
-    category: "System" 
-  },
+  { path: "/modules/settings", permission: PERMISSION_TREE.settings.view, label: "Settings", icon: "Settings", category: "System" },
+  { path: "/modules/settings/tenant", permission: PERMISSION_TREE.tenant.view, label: "Tenant Settings", icon: "Building", category: "System" },
 ];
 
 /**

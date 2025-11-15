@@ -21,7 +21,7 @@ export default function ContractorDashboard() {
       value: "$8,450",
       description: "Pending payment",
       icon: DollarSign,
-      trend: { value: 15, isPositive: true }
+      trend: { value: 15, label: "vs last month", isPositive: true }
     },
     {
       title: "Hours This Week",
@@ -40,7 +40,7 @@ export default function ContractorDashboard() {
       value: "12",
       description: "All time",
       icon: CheckCircle,
-      trend: { value: 8, isPositive: true }
+      trend: { value: 8, label: "vs last month", isPositive: true }
     },
     {
       title: "Profile Status",

@@ -15,21 +15,21 @@ export default function PayrollDashboard() {
       value: "$156,750",
       description: "Processed payments",
       icon: DollarSign,
-      trend: { value: 18, isPositive: true }
+      trend: { value: 18, label: "vs last month", isPositive: true }
     },
     {
       title: "Active Contracts",
       value: "45",
       description: "Being processed",
       icon: FileText,
-      trend: { value: 8, isPositive: true }
+      trend: { value: 8, label: "vs last month", isPositive: true }
     },
     {
       title: "Employees Paid",
       value: "234",
       description: "This month",
       icon: Users,
-      trend: { value: 12, isPositive: true }
+      trend: { value: 12, label: "vs last month", isPositive: true }
     },
     {
       title: "Pending Payslips",
@@ -42,14 +42,14 @@ export default function PayrollDashboard() {
       value: "2.4 days",
       description: "From receipt to payment",
       icon: Clock,
-      trend: { value: -15, isPositive: true }
+      trend: { value: -15, label: "vs last month", isPositive: true }
     },
     {
       title: "Monthly Growth",
       value: "24%",
       description: "Revenue increase",
       icon: TrendingUp,
-      trend: { value: 6, isPositive: true }
+      trend: { value: 6, label: "vs last month", isPositive: true }
     }
   ]
 
