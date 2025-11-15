@@ -2,10 +2,12 @@
 /**
  * Background Job Queue System using BullMQ
  * Handles asynchronous task processing
+ * Supports both Upstash Redis REST API and traditional Redis
  */
 
-import { Queue, Worker, Job, QueueEvents } from 'bullmq';
+import { Queue, Worker, Job, QueueEvents, ConnectionOptions } from 'bullmq';
 import { logger } from '../logging';
+import { serviceConfig } from '../config/serviceConfig';
 
 export interface JobOptions {
   priority?: number;
@@ -29,23 +31,99 @@ export interface JobResult {
   error?: string;
 }
 
-// Redis connection configuration
-const redisConnection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: null,
-};
+/**
+ * Get Redis connection configuration
+ * Supports Upstash Redis REST API or traditional Redis
+ */
+function getRedisConnection(): ConnectionOptions | null {
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  // Check if Upstash is configured
+  if (upstashUrl && upstashToken) {
+    // For Upstash REST API, we need to use ioredis with custom settings
+    // Extract host and port from URL
+    const url = new URL(upstashUrl);
+    const config: ConnectionOptions = {
+      host: url.hostname,
+      port: url.port ? parseInt(url.port) : 443,
+      password: upstashToken,
+      tls: url.protocol === 'https:' ? {} : undefined,
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      // Upstash-specific settings
+      family: 0, // Use both IPv4 and IPv6
+    };
+    
+    logger.debug('Using Upstash Redis configuration', {
+      host: config.host,
+      port: config.port,
+    });
+    
+    return config;
+  }
+
+  // Fall back to traditional Redis
+  const redisHost = process.env.REDIS_HOST;
+  const redisPort = process.env.REDIS_PORT;
+
+  if (redisHost || redisPort) {
+    const config: ConnectionOptions = {
+      host: redisHost || 'localhost',
+      port: parseInt(redisPort || '6379'),
+      password: process.env.REDIS_PASSWORD,
+      maxRetriesPerRequest: null,
+    };
+    
+    logger.debug('Using traditional Redis configuration', {
+      host: config.host,
+      port: config.port,
+    });
+    
+    return config;
+  }
+
+  // No Redis configuration found
+  logger.warn('No Redis configuration found. Queue system will be disabled.');
+  return null;
+}
+
+// Redis connection configuration (can be null if not configured)
+const redisConnection = getRedisConnection();
 
 class QueueManager {
   private queues: Map<string, Queue> = new Map();
   private workers: Map<string, Worker> = new Map();
   private queueEvents: Map<string, QueueEvents> = new Map();
+  private isRedisAvailable: boolean;
+
+  constructor() {
+    this.isRedisAvailable = redisConnection !== null && serviceConfig.isServiceEnabled('redis');
+    
+    if (!this.isRedisAvailable) {
+      logger.warn(
+        '⚠️  Queue system is DISABLED - Background jobs will execute immediately or be skipped. ' +
+        'This may impact performance and reliability.'
+      );
+    }
+  }
+
+  /**
+   * Check if queues are available
+   */
+  isAvailable(): boolean {
+    return this.isRedisAvailable;
+  }
 
   /**
    * Create or get a queue
    */
-  getQueue(name: string): Queue {
+  getQueue(name: string): Queue | null {
+    if (!this.isRedisAvailable || !redisConnection) {
+      logger.warn('Queue system not available', { queue: name });
+      return null;
+    }
+
     if (!this.queues.has(name)) {
       const queue = new Queue(name, {
         connection: redisConnection,
@@ -86,14 +164,28 @@ class QueueManager {
 
   /**
    * Add a job to the queue
+   * If Redis is not available, returns a mock job
    */
   async addJob<T extends JobData>(
     queueName: string,
     jobName: string,
     data: T,
     options?: JobOptions
-  ): Promise<Job<T>> {
+  ): Promise<Job<T> | null> {
+    if (!this.isRedisAvailable) {
+      logger.debug('Queue not available, job will be processed immediately if possible', {
+        queue: queueName,
+        job: jobName,
+      });
+      return null;
+    }
+
     const queue = this.getQueue(queueName);
+    
+    if (!queue) {
+      logger.warn('Failed to get queue, job skipped', { queue: queueName, job: jobName });
+      return null;
+    }
     
     logger.debug('Adding job to queue', {
       queue: queueName,
@@ -106,12 +198,26 @@ class QueueManager {
 
   /**
    * Add multiple jobs in bulk
+   * If Redis is not available, returns empty array
    */
   async addBulk<T extends JobData>(
     queueName: string,
     jobs: Array<{ name: string; data: T; opts?: JobOptions }>
   ): Promise<Job<T>[]> {
+    if (!this.isRedisAvailable) {
+      logger.debug('Queue not available, bulk jobs skipped', {
+        queue: queueName,
+        count: jobs.length,
+      });
+      return [];
+    }
+
     const queue = this.getQueue(queueName);
+    
+    if (!queue) {
+      logger.warn('Failed to get queue, bulk jobs skipped', { queue: queueName });
+      return [];
+    }
     
     logger.debug('Adding bulk jobs to queue', {
       queue: queueName,
@@ -123,6 +229,7 @@ class QueueManager {
 
   /**
    * Register a worker to process jobs
+   * If Redis is not available, returns null
    */
   registerWorker<T extends JobData, R extends JobResult>(
     queueName: string,
@@ -134,7 +241,12 @@ class QueueManager {
         duration: number;
       };
     }
-  ): Worker<T, R> {
+  ): Worker<T, R> | null {
+    if (!this.isRedisAvailable || !redisConnection) {
+      logger.debug('Queue not available, worker not registered', { queue: queueName });
+      return null;
+    }
+
     if (this.workers.has(queueName)) {
       logger.warn('Worker already registered for queue', { queue: queueName });
       return this.workers.get(queueName) as Worker<T, R>;
@@ -207,7 +319,9 @@ class QueueManager {
    * Get job status
    */
   async getJob(queueName: string, jobId: string): Promise<Job | undefined> {
+    if (!this.isRedisAvailable) return undefined;
     const queue = this.getQueue(queueName);
+    if (!queue) return undefined;
     return queue.getJob(jobId);
   }
 
@@ -215,7 +329,9 @@ class QueueManager {
    * Get waiting jobs
    */
   async getWaitingJobs(queueName: string): Promise<Job[]> {
+    if (!this.isRedisAvailable) return [];
     const queue = this.getQueue(queueName);
+    if (!queue) return [];
     return queue.getWaiting();
   }
 
@@ -223,7 +339,9 @@ class QueueManager {
    * Get active jobs
    */
   async getActiveJobs(queueName: string): Promise<Job[]> {
+    if (!this.isRedisAvailable) return [];
     const queue = this.getQueue(queueName);
+    if (!queue) return [];
     return queue.getActive();
   }
 
@@ -231,7 +349,9 @@ class QueueManager {
    * Get completed jobs
    */
   async getCompletedJobs(queueName: string): Promise<Job[]> {
+    if (!this.isRedisAvailable) return [];
     const queue = this.getQueue(queueName);
+    if (!queue) return [];
     return queue.getCompleted();
   }
 
@@ -239,7 +359,9 @@ class QueueManager {
    * Get failed jobs
    */
   async getFailedJobs(queueName: string): Promise<Job[]> {
+    if (!this.isRedisAvailable) return [];
     const queue = this.getQueue(queueName);
+    if (!queue) return [];
     return queue.getFailed();
   }
 
@@ -247,7 +369,12 @@ class QueueManager {
    * Pause queue
    */
   async pauseQueue(queueName: string): Promise<void> {
+    if (!this.isRedisAvailable) {
+      logger.warn('Cannot pause queue, Redis not available', { queue: queueName });
+      return;
+    }
     const queue = this.getQueue(queueName);
+    if (!queue) return;
     await queue.pause();
     logger.info('Queue paused', { queue: queueName });
   }
@@ -256,7 +383,12 @@ class QueueManager {
    * Resume queue
    */
   async resumeQueue(queueName: string): Promise<void> {
+    if (!this.isRedisAvailable) {
+      logger.warn('Cannot resume queue, Redis not available', { queue: queueName });
+      return;
+    }
     const queue = this.getQueue(queueName);
+    if (!queue) return;
     await queue.resume();
     logger.info('Queue resumed', { queue: queueName });
   }
@@ -269,7 +401,12 @@ class QueueManager {
     grace: number,
     status?: 'completed' | 'failed'
   ): Promise<void> {
+    if (!this.isRedisAvailable) {
+      logger.warn('Cannot clean queue, Redis not available', { queue: queueName });
+      return;
+    }
     const queue = this.getQueue(queueName);
+    if (!queue) return;
     await queue.clean(grace, 1000, status);
     logger.info('Queue cleaned', { queue: queueName, grace, status });
   }
@@ -278,7 +415,12 @@ class QueueManager {
    * Obliterate (remove all jobs)
    */
   async obliterateQueue(queueName: string): Promise<void> {
+    if (!this.isRedisAvailable) {
+      logger.warn('Cannot obliterate queue, Redis not available', { queue: queueName });
+      return;
+    }
     const queue = this.getQueue(queueName);
+    if (!queue) return;
     await queue.obliterate();
     logger.warn('Queue obliterated', { queue: queueName });
   }
@@ -325,18 +467,20 @@ export const QueueNames = {
 
 /**
  * Helper function to add a job
+ * Returns null if queue system is not available
  */
 export async function addJob<T extends JobData>(
   queueName: string,
   jobName: string,
   data: T,
   options?: JobOptions
-): Promise<Job<T>> {
+): Promise<Job<T> | null> {
   return queueManager.addJob(queueName, jobName, data, options);
 }
 
 /**
  * Helper function to register a worker
+ * Returns null if queue system is not available
  */
 export function registerWorker<T extends JobData, R extends JobResult>(
   queueName: string,
@@ -345,6 +489,6 @@ export function registerWorker<T extends JobData, R extends JobResult>(
     concurrency?: number;
     limiter?: { max: number; duration: number };
   }
-): Worker<T, R> {
+): Worker<T, R> | null {
   return queueManager.registerWorker(queueName, processor, options);
 }

@@ -2,12 +2,14 @@
 /**
  * SMS Service with Queue Support
  * Handles SMS sending with templates and queue processing
+ * Supports Twilio, Vonage, AWS SNS, and Mock mode
  */
 
 import { Job } from 'bullmq';
-import { addJob, QueueNames, registerWorker } from '../queue';
+import { addJob, QueueNames, registerWorker, queueManager } from '../queue';
 import { logger } from '../logging';
 import { ExternalServiceError } from '../errors';
+import { serviceConfig } from '../config/serviceConfig';
 
 export interface SMSOptions {
   to: string; // Phone number in E.164 format
@@ -42,17 +44,37 @@ class SMSService {
   
   // SMS provider configuration
   private provider: 'twilio' | 'vonage' | 'aws-sns' | 'mock';
+  private twilioAccountSid?: string;
+  private twilioAuthToken?: string;
+  private twilioPhoneNumber?: string;
+  
+  // Legacy support
   private apiKey?: string;
   private apiSecret?: string;
 
   constructor() {
-    this.defaultFrom = process.env.SMS_FROM || 'PayrollSaaS';
-    this.provider = (process.env.SMS_PROVIDER as any) || 'mock';
+    // Get provider from service config
+    const configuredProvider = serviceConfig.getServiceProvider('sms');
+    this.provider = (configuredProvider || 'mock') as any;
+    
+    // Get Twilio credentials (new format)
+    this.twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+    this.twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+    this.twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+    
+    // Legacy credentials (fallback)
     this.apiKey = process.env.SMS_API_KEY;
     this.apiSecret = process.env.SMS_API_SECRET;
+    
+    // Set default from number
+    this.defaultFrom = this.twilioPhoneNumber || process.env.SMS_FROM || 'PayrollSaaS';
 
-    // Register SMS worker
-    this.registerSMSWorker();
+    // Register SMS worker only if queue is available
+    if (queueManager.isAvailable()) {
+      this.registerSMSWorker();
+    } else {
+      logger.warn('SMS queue not available - SMS will be sent immediately (synchronously)');
+    }
     
     // Load default templates
     this.loadDefaultTemplates();
@@ -146,20 +168,38 @@ class SMSService {
    * Send SMS with Twilio
    */
   private async sendWithTwilio(from: string, options: SMSOptions): Promise<string> {
-    // Implementation with Twilio SDK
-    logger.debug('Sending SMS with Twilio', { from, to: options.to });
-    
-    // TODO: Implement actual Twilio integration
-    // const twilio = require('twilio');
-    // const client = twilio(this.apiKey, this.apiSecret);
-    // const message = await client.messages.create({
-    //   body: options.message,
-    //   from: from,
-    //   to: options.to
-    // });
-    // return message.sid;
-    
-    return `tw-${Date.now()}`;
+    // Check credentials (new format)
+    const accountSid = this.twilioAccountSid || this.apiKey;
+    const authToken = this.twilioAuthToken || this.apiSecret;
+
+    if (!accountSid || !authToken) {
+      throw new ExternalServiceError(
+        'sms',
+        'Twilio credentials not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN'
+      );
+    }
+
+    try {
+      // Dynamic import to avoid requiring twilio if not used
+      const twilio = await import('twilio');
+      const client = twilio.default(accountSid, authToken);
+
+      logger.debug('Sending SMS with Twilio', { from, to: options.to });
+
+      const message = await client.messages.create({
+        body: options.message,
+        from: from,
+        to: options.to,
+      });
+
+      return message.sid;
+    } catch (error) {
+      logger.error('Failed to send SMS with Twilio', {
+        error,
+        to: options.to,
+      });
+      throw new ExternalServiceError('sms', `Twilio sending failed: ${error}`);
+    }
   }
 
   /**
@@ -211,9 +251,25 @@ class SMSService {
   }
 
   /**
-   * Queue SMS for sending
+   * Queue SMS for sending (or send immediately if queue is not available)
    */
-  async send(options: SMSOptions): Promise<Job> {
+  async send(options: SMSOptions): Promise<Job | null> {
+    // If queue is not available, send immediately
+    if (!queueManager.isAvailable()) {
+      logger.debug('Queue not available, sending SMS immediately', {
+        to: options.to,
+      });
+      
+      try {
+        await this.sendSMSDirect(options);
+        return null;
+      } catch (error) {
+        logger.error('Failed to send SMS immediately', { error, options });
+        throw error;
+      }
+    }
+
+    // Queue the SMS
     return addJob(
       QueueNames.SMS,
       'send-sms',
@@ -228,14 +284,32 @@ class SMSService {
   }
 
   /**
-   * Send SMS using template
+   * Send SMS using template (or send immediately if queue is not available)
    */
   async sendWithTemplate(
     templateName: string,
     templateData: Record<string, any>,
     options: Omit<SMSOptions, 'message'>,
     priority?: 'high' | 'normal' | 'low'
-  ): Promise<Job> {
+  ): Promise<Job | null> {
+    // If queue is not available, send immediately
+    if (!queueManager.isAvailable()) {
+      logger.debug('Queue not available, sending template SMS immediately', {
+        to: options.to,
+        template: templateName,
+      });
+      
+      try {
+        const finalOptions = await this.applyTemplate(templateName, templateData, options);
+        await this.sendSMSDirect(finalOptions);
+        return null;
+      } catch (error) {
+        logger.error('Failed to send template SMS immediately', { error, templateName });
+        throw error;
+      }
+    }
+
+    // Queue the SMS
     return addJob(
       QueueNames.SMS,
       'send-template-sms',
@@ -252,12 +326,31 @@ class SMSService {
   }
 
   /**
-   * Send bulk SMS
+   * Send bulk SMS (or send immediately if queue is not available)
    */
   async sendBulk(
     messages: Array<SMSOptions>,
     priority?: 'high' | 'normal' | 'low'
-  ): Promise<Job[]> {
+  ): Promise<Job[] | null> {
+    // If queue is not available, send immediately
+    if (!queueManager.isAvailable()) {
+      logger.debug('Queue not available, sending bulk SMS immediately', {
+        count: messages.length,
+      });
+      
+      const results = await Promise.allSettled(
+        messages.map(options => this.sendSMSDirect(options))
+      );
+      
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        logger.warn(`${failures.length} of ${messages.length} SMS failed to send`, { failures });
+      }
+      
+      return null;
+    }
+
+    // Queue the SMS messages
     const jobs = messages.map((options) => ({
       name: 'send-sms',
       data: {

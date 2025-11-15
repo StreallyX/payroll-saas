@@ -2,12 +2,14 @@
 /**
  * Email Service with Queue Support
  * Handles email sending with templates and queue processing
+ * Supports Resend, SendGrid, Mailgun, SMTP, and Mock mode
  */
 
 import { Job } from 'bullmq';
-import { addJob, QueueNames, registerWorker } from '../queue';
+import { addJob, QueueNames, registerWorker, queueManager } from '../queue';
 import { logger } from '../logging';
 import { ExternalServiceError } from '../errors';
+import { serviceConfig } from '../config/serviceConfig';
 
 export interface EmailOptions {
   to: string | string[];
@@ -55,16 +57,33 @@ class EmailService {
   private templates: Map<string, EmailTemplate> = new Map();
   
   // Email provider configuration
-  private provider: 'sendgrid' | 'mailgun' | 'smtp' | 'mock';
+  private provider: 'resend' | 'sendgrid' | 'mailgun' | 'smtp' | 'mock';
   private apiKey?: string;
 
   constructor() {
     this.defaultFrom = process.env.EMAIL_FROM || 'noreply@payroll-saas.com';
-    this.provider = (process.env.EMAIL_PROVIDER as any) || 'mock';
-    this.apiKey = process.env.EMAIL_API_KEY;
+    
+    // Get provider from service config
+    const configuredProvider = serviceConfig.getServiceProvider('email');
+    this.provider = (configuredProvider || 'mock') as any;
+    
+    // Get API key based on provider
+    if (this.provider === 'resend') {
+      this.apiKey = process.env.RESEND_API_KEY;
+    } else if (this.provider === 'sendgrid') {
+      this.apiKey = process.env.SENDGRID_API_KEY || process.env.EMAIL_API_KEY;
+    } else if (this.provider === 'mailgun') {
+      this.apiKey = process.env.MAILGUN_API_KEY || process.env.EMAIL_API_KEY;
+    } else {
+      this.apiKey = process.env.EMAIL_API_KEY;
+    }
 
-    // Register email worker
-    this.registerEmailWorker();
+    // Register email worker only if queue is available
+    if (queueManager.isAvailable()) {
+      this.registerEmailWorker();
+    } else {
+      logger.warn('Email queue not available - emails will be sent immediately (synchronously)');
+    }
     
     // Load default templates
     this.loadDefaultTemplates();
@@ -138,6 +157,8 @@ class EmailService {
     const from = options.from || this.defaultFrom;
 
     switch (this.provider) {
+      case 'resend':
+        return this.sendWithResend(from, options);
       case 'sendgrid':
         return this.sendWithSendGrid(from, options);
       case 'mailgun':
@@ -152,19 +173,89 @@ class EmailService {
   }
 
   /**
+   * Send email with Resend
+   */
+  private async sendWithResend(from: string, options: EmailOptions): Promise<string> {
+    if (!this.apiKey) {
+      throw new ExternalServiceError('email', 'Resend API key not configured');
+    }
+
+    try {
+      // Dynamic import to avoid requiring resend if not used
+      const { Resend } = await import('resend');
+      const resend = new Resend(this.apiKey);
+
+      logger.debug('Sending email with Resend', { from, to: options.to });
+
+      const result = await resend.emails.send({
+        from,
+        to: Array.isArray(options.to) ? options.to : [options.to],
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+        cc: options.cc ? (Array.isArray(options.cc) ? options.cc : [options.cc]) : undefined,
+        bcc: options.bcc ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]) : undefined,
+        reply_to: options.replyTo,
+        attachments: options.attachments?.map(att => ({
+          filename: att.filename,
+          content: att.content,
+          path: att.path,
+        })),
+        headers: options.headers,
+      });
+
+      if (result.error) {
+        throw new Error(`Resend error: ${result.error.message}`);
+      }
+
+      return result.data?.id || `resend-${Date.now()}`;
+    } catch (error) {
+      logger.error('Failed to send email with Resend', {
+        error,
+        to: options.to,
+        subject: options.subject,
+      });
+      throw new ExternalServiceError('email', `Resend sending failed: ${error}`);
+    }
+  }
+
+  /**
    * Send email with SendGrid
    */
   private async sendWithSendGrid(from: string, options: EmailOptions): Promise<string> {
-    // Implementation with SendGrid SDK
-    // This is a placeholder - implement with actual SendGrid integration
-    logger.debug('Sending email with SendGrid', { from, to: options.to });
-    
-    // TODO: Implement actual SendGrid integration
-    // const sgMail = require('@sendgrid/mail');
-    // sgMail.setApiKey(this.apiKey);
-    // const response = await sgMail.send({ from, ...options });
-    
-    return `sg-${Date.now()}`;
+    if (!this.apiKey) {
+      throw new ExternalServiceError('email', 'SendGrid API key not configured');
+    }
+
+    try {
+      // Dynamic import to avoid requiring @sendgrid/mail if not used
+      const sgMail = await import('@sendgrid/mail');
+      sgMail.default.setApiKey(this.apiKey);
+      
+      logger.debug('Sending email with SendGrid', { from, to: options.to });
+      
+      const response = await sgMail.default.send({
+        from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+        cc: options.cc,
+        bcc: options.bcc,
+        replyTo: options.replyTo,
+        attachments: options.attachments,
+        headers: options.headers,
+      });
+      
+      return response[0]?.headers?.['x-message-id'] || `sg-${Date.now()}`;
+    } catch (error) {
+      logger.error('Failed to send email with SendGrid', {
+        error,
+        to: options.to,
+        subject: options.subject,
+      });
+      throw new ExternalServiceError('email', `SendGrid sending failed: ${error}`);
+    }
   }
 
   /**
@@ -208,9 +299,26 @@ class EmailService {
   }
 
   /**
-   * Queue email for sending
+   * Queue email for sending (or send immediately if queue is not available)
    */
-  async send(options: EmailOptions, priority?: 'high' | 'normal' | 'low'): Promise<Job> {
+  async send(options: EmailOptions, priority?: 'high' | 'normal' | 'low'): Promise<Job | null> {
+    // If queue is not available, send immediately
+    if (!queueManager.isAvailable()) {
+      logger.debug('Queue not available, sending email immediately', {
+        to: options.to,
+        subject: options.subject,
+      });
+      
+      try {
+        await this.sendEmailDirect(options);
+        return null;
+      } catch (error) {
+        logger.error('Failed to send email immediately', { error, options });
+        throw error;
+      }
+    }
+
+    // Queue the email
     return addJob(
       QueueNames.EMAIL,
       'send-email',
@@ -225,14 +333,32 @@ class EmailService {
   }
 
   /**
-   * Send email using template
+   * Send email using template (or send immediately if queue is not available)
    */
   async sendWithTemplate(
     templateName: string,
     templateData: Record<string, any>,
     options: Omit<EmailOptions, 'html' | 'text' | 'subject'> & { subject?: string },
     priority?: 'high' | 'normal' | 'low'
-  ): Promise<Job> {
+  ): Promise<Job | null> {
+    // If queue is not available, send immediately
+    if (!queueManager.isAvailable()) {
+      logger.debug('Queue not available, sending template email immediately', {
+        to: options.to,
+        template: templateName,
+      });
+      
+      try {
+        const finalOptions = await this.applyTemplate(templateName, templateData, options);
+        await this.sendEmailDirect(finalOptions);
+        return null;
+      } catch (error) {
+        logger.error('Failed to send template email immediately', { error, templateName });
+        throw error;
+      }
+    }
+
+    // Queue the email
     return addJob(
       QueueNames.EMAIL,
       'send-template-email',
@@ -249,12 +375,31 @@ class EmailService {
   }
 
   /**
-   * Send bulk emails
+   * Send bulk emails (or send immediately if queue is not available)
    */
   async sendBulk(
     emails: Array<EmailOptions>,
     priority?: 'high' | 'normal' | 'low'
-  ): Promise<Job[]> {
+  ): Promise<Job[] | null> {
+    // If queue is not available, send immediately
+    if (!queueManager.isAvailable()) {
+      logger.debug('Queue not available, sending bulk emails immediately', {
+        count: emails.length,
+      });
+      
+      const results = await Promise.allSettled(
+        emails.map(options => this.sendEmailDirect(options))
+      );
+      
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        logger.warn(`${failures.length} of ${emails.length} emails failed to send`, { failures });
+      }
+      
+      return null;
+    }
+
+    // Queue the emails
     const jobs = emails.map((options) => ({
       name: 'send-email',
       data: {
