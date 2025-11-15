@@ -13,6 +13,29 @@ import { Prisma } from "@prisma/client";
  * 
  * Handles timesheet and time entry management
  */
+async function calculateTotals(ctx: any, timesheetId: string) {
+  const entries = await ctx.prisma.timesheetEntry.findMany({
+    where: { timesheetId },
+  });
+
+  const totalHours = entries.reduce((sum: number, entry: any) => {
+    return sum + Number(entry.hours);
+  }, 0);
+
+  const totalAmount = entries.reduce((sum: number, entry: any) => {
+    const amount = entry.amount ? Number(entry.amount) : 0;
+    return sum + amount;
+  }, 0);
+
+  await ctx.prisma.timesheet.update({
+    where: { id: timesheetId },
+    data: {
+      totalHours,
+      totalAmount: totalAmount > 0 ? totalAmount : null,
+    },
+  });
+}
+
 
 export const timesheetRouter = createTRPCRouter({
   
@@ -256,7 +279,7 @@ export const timesheetRouter = createTRPCRouter({
       });
 
       // Recalculate timesheet totals
-      await this.calculateTotals(ctx, input.timesheetId);
+      await calculateTotals(ctx, input.timesheetId);
 
       return entry;
     }),
@@ -310,7 +333,7 @@ export const timesheetRouter = createTRPCRouter({
       });
 
       // Recalculate timesheet totals
-      await this.calculateTotals(ctx, entry.timesheetId);
+      await calculateTotals(ctx, entry.timesheetId);
 
       return updated;
     }),
@@ -351,28 +374,10 @@ export const timesheetRouter = createTRPCRouter({
       });
 
       // Recalculate timesheet totals
-      await this.calculateTotals(ctx, entry.timesheetId);
+      await calculateTotals(ctx, entry.timesheetId);
 
       return { success: true };
     }),
-
-  // CALCULATE TIMESHEET TOTALS
-  calculateTotals: async (ctx: any, timesheetId: string) => {
-    const entries = await ctx.prisma.timesheetEntry.findMany({
-      where: { timesheetId },
-    });
-
-    const totalHours = entries.reduce((sum, entry) => sum + Number(entry.hours), 0);
-    const totalAmount = entries.reduce((sum, entry) => sum + (entry.amount ? Number(entry.amount) : 0), 0);
-
-    await ctx.prisma.timesheet.update({
-      where: { id: timesheetId },
-      data: {
-        totalHours,
-        totalAmount: totalAmount > 0 ? totalAmount : null,
-      },
-    });
-  },
 
   // SUBMIT TIMESHEET
   submit: tenantProcedure
@@ -553,3 +558,4 @@ export const timesheetRouter = createTRPCRouter({
       return timesheets;
     }),
 });
+
