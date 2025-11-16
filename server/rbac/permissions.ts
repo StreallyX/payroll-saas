@@ -221,6 +221,32 @@ export const PERMISSION_TREE = {
     export: "audit_logs.export",
   },
 
+  timesheet: {
+    view: "timesheet.view",
+    create: "timesheet.create",
+    update: "timesheet.update",
+    delete: "timesheet.delete",
+    approve: "timesheet.approve",
+    submit: "timesheet.submit",
+  },
+
+  expense: {
+    view: "expense.view",
+    create: "expense.create",
+    update: "expense.update",
+    delete: "expense.delete",
+    approve: "expense.approve",
+    submit: "expense.submit",
+  },
+
+  webhooks: {
+    view: "webhooks.view",
+    create: "webhooks.create",
+    update: "webhooks.update",
+    delete: "webhooks.delete",
+    test: "webhooks.test",
+  },
+
   superadmin: {
     tenants: {
       create: "superadmin.tenants.create",
@@ -416,5 +442,45 @@ export const TENANT_ADMIN_DEFAULT_PERMISSIONS: string[] = [
 
   // 📜 Audit Logs
   "audit_logs.view",
+
+  // ⏰ Timesheets
+  "timesheet.view",
+  "timesheet.create",
+  "timesheet.update",
+  "timesheet.delete",
+  "timesheet.approve",
+  "timesheet.submit",
+
+  // 💸 Expenses
+  "expense.view",
+  "expense.create",
+  "expense.update",
+  "expense.delete",
+  "expense.approve",
+  "expense.submit",
+
+  // 🔗 Webhooks
+  "webhooks.view",
+  "webhooks.create",
+  "webhooks.update",
+  "webhooks.delete",
+  "webhooks.test",
+
+  // 📧 Email Templates
+  "tenant.templates.email.view",
+  "tenant.templates.email.create",
+  "tenant.templates.email.update",
+  "tenant.templates.email.delete",
+
+  // 📄 PDF Templates
+  "tenant.templates.pdf.view",
+  "tenant.templates.pdf.create",
+  "tenant.templates.pdf.update",
+  "tenant.templates.pdf.delete",
+
+  // 💳 Subscription
+  "tenant.subscription.view",
+  "tenant.subscription.manage",
+  "tenant.subscription.billing",
 ]
 

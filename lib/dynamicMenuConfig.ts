@@ -3,7 +3,8 @@ import {
   Settings, FileText, Receipt, Clock, Upload, UserPlus, 
   Briefcase, PieChart, CheckSquare, TrendingUp, ClipboardList,
   UserCog, FileType, ListChecks, Layers, Globe, BarChart3, Palette,
-  Landmark, Coins
+  Landmark, Coins, Webhook, Mail, MessageSquare, Activity, 
+  CreditCard, Scale, FileSignature
 } from "lucide-react"
 
 export interface MenuItem {
@@ -56,6 +57,20 @@ export const dynamicMenuConfig: MenuItem[] = [
     permission: "tasks.view",
     badge: "3", // Example: 3 pending tasks
     badgeVariant: "default"
+  },
+  { 
+    label: "Timesheets", 
+    href: "/timesheets", 
+    icon: Clock,
+    description: "Time tracking and timesheet management",
+    permission: "timesheet.view"
+  },
+  { 
+    label: "Expenses", 
+    href: "/expenses", 
+    icon: Receipt,
+    description: "Expense tracking and reimbursement",
+    permission: "expense.view"
   },
   { 
     label: "Manage Agency/Clients", 
@@ -128,11 +143,32 @@ export const dynamicMenuConfig: MenuItem[] = [
     requireAll: false, // Show if user has ANY of these permissions
     submenu: [
       {
+        label: "My Profile",
+        href: "/settings/profile",
+        icon: UserCheck,
+        description: "Personal profile and preferences",
+        // No permission required - everyone can view their profile
+      },
+      {
         label: "Manage Users",
         href: "/users",
         icon: Users,
         description: "User accounts and permissions",
         permission: "tenant.users.view"
+      },
+      {
+        label: "Manage Roles",
+        href: "/settings/roles",
+        icon: UserCog,
+        description: "User roles and permissions",
+        permission: "tenant.roles.view"
+      },
+      {
+        label: "Permissions",
+        href: "/settings/permissions",
+        icon: CheckSquare,
+        description: "View and manage system permissions",
+        permission: "tenant.roles.view"
       },
       {
         label: "Manage Document Type",
@@ -147,6 +183,34 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: ListChecks,
         description: "Onboarding templates and workflows",
         permission: "onboarding.templates.view"
+      },
+      {
+        label: "Onboarding Templates",
+        href: "/settings/onboarding-templates",
+        icon: ClipboardList,
+        description: "Configure onboarding templates",
+        permission: "onboarding.templates.view"
+      },
+      {
+        label: "Email Templates",
+        href: "/settings/templates/email",
+        icon: Mail,
+        description: "Customize email templates",
+        permission: "tenant.templates.email.view"
+      },
+      {
+        label: "PDF Templates",
+        href: "/settings/templates/pdf",
+        icon: FileSignature,
+        description: "Customize PDF templates",
+        permission: "tenant.templates.pdf.view"
+      },
+      {
+        label: "Webhooks",
+        href: "/settings/webhooks",
+        icon: Webhook,
+        description: "Configure webhook integrations",
+        permission: "webhooks.view"
       },
       {
         label: "Payroll Partners",
@@ -177,11 +241,11 @@ export const dynamicMenuConfig: MenuItem[] = [
         permission: "settings.view"
       },
       {
-        label: "Manage Roles",
-        href: "/settings/roles",
-        icon: UserCog,
-        description: "User roles and permissions",
-        permission: "tenant.roles.view"
+        label: "Manage Country",
+        href: "/settings/countries",
+        icon: Globe,
+        description: "Country and region settings",
+        permission: "settings.view"
       },
       {
         label: "Customization",
@@ -191,10 +255,24 @@ export const dynamicMenuConfig: MenuItem[] = [
         permission: "tenant.branding.update"
       },
       {
-        label: "Manage Country",
-        href: "/settings/countries",
-        icon: Globe,
-        description: "Country and region settings",
+        label: "Login Branding",
+        href: "/settings/branding/login",
+        icon: Palette,
+        description: "Customize login page branding",
+        permission: "tenant.branding.update"
+      },
+      {
+        label: "Subscription",
+        href: "/settings/subscription",
+        icon: CreditCard,
+        description: "Manage subscription and billing",
+        permission: "tenant.subscription.view"
+      },
+      {
+        label: "Legal",
+        href: "/settings/legal",
+        icon: Scale,
+        description: "Legal documents and policies",
         permission: "settings.view"
       }
     ]
@@ -214,6 +292,13 @@ export const dynamicMenuConfig: MenuItem[] = [
         permission: "audit_logs.view"
       },
       {
+        label: "Analytics",
+        href: "/analytics",
+        icon: PieChart,
+        description: "Business intelligence and insights",
+        permission: "audit_logs.view"
+      },
+      {
         label: "Activity Logs",
         href: "/reports/activity-logs",
         icon: ListChecks,
@@ -221,10 +306,24 @@ export const dynamicMenuConfig: MenuItem[] = [
         permission: "audit_logs.view"
       },
       {
-        label: "Analytics",
-        href: "/analytics",
-        icon: PieChart,
-        description: "Business intelligence and insights",
+        label: "User Activity",
+        href: "/reports/user-activity",
+        icon: Activity,
+        description: "Monitor user activity and behavior",
+        permission: "audit_logs.view"
+      },
+      {
+        label: "Email Logs",
+        href: "/reports/email-logs",
+        icon: Mail,
+        description: "Email delivery and tracking logs",
+        permission: "audit_logs.view"
+      },
+      {
+        label: "SMS Logs",
+        href: "/reports/sms-logs",
+        icon: MessageSquare,
+        description: "SMS delivery and tracking logs",
         permission: "audit_logs.view"
       }
     ]
