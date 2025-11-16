@@ -34,13 +34,13 @@ export default function ExpensesPage() {
 
   const utils = api.useUtils()
   const { data: expenses, isLoading } = api.expense.getAll.useQuery()
-  const { data: stats } = api.expense.getStats.useQuery()
+  const { data: stats } = api.expense.getStatistics.useQuery()
 
   const createMutation = api.expense.create.useMutation({
     onSuccess: () => {
       toast.success("Expense created successfully!")
       utils.expense.getAll.invalidate()
-      utils.expense.getStats.invalidate()
+      utils.expense.getStatistics.invalidate()
       setIsModalOpen(false)
       resetForm()
     },
@@ -50,7 +50,7 @@ export default function ExpensesPage() {
     onSuccess: () => {
       toast.success("Expense approved successfully!")
       utils.expense.getAll.invalidate()
-      utils.expense.getStats.invalidate()
+      utils.expense.getStatistics.invalidate()
     },
   })
 
@@ -58,7 +58,7 @@ export default function ExpensesPage() {
     onSuccess: () => {
       toast.success("Expense rejected successfully!")
       utils.expense.getAll.invalidate()
-      utils.expense.getStats.invalidate()
+      utils.expense.getStatistics.invalidate()
     },
   })
 
@@ -130,21 +130,21 @@ export default function ExpensesPage() {
               <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
               <Clock className="h-4 w-4 text-yellow-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.pending || 0}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{stats.submittedExpenses || 0}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Approved</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.approved || 0}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{stats.approvedExpenses || 0}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Reimbursed</CardTitle>
+              <CardTitle className="text-sm font-medium">Paid</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.reimbursed || 0}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">{stats.paidExpenses || 0}</div></CardContent>
           </Card>
         </div>
       )}
