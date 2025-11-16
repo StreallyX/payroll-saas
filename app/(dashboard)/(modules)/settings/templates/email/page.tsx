@@ -119,9 +119,44 @@ export default function EmailTemplatesPage() {
 
   const handleSubmit = () => {
     if (selectedTemplate) {
-      updateMutation.mutate({ id: selectedTemplate.id, ...formData })
+      updateMutation.mutate({
+        id: selectedTemplate.id,
+
+        displayName: formData.name,
+        category: "notifications",
+
+        subject: formData.subject,
+        htmlBody: formData.body,
+
+        description: formData.description,
+        isActive: formData.isActive,
+
+        textBody: undefined,
+        headerHtml: undefined,
+        footerHtml: undefined,
+        variables: undefined,
+        styles: undefined,
+
+      })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate({
+        name: formData.name,
+        displayName: formData.name,
+        category: "notifications",
+
+        subject: formData.subject,
+        htmlBody: formData.body,
+
+        description: formData.description,
+
+        isActive: formData.isActive,
+
+        textBody: undefined,
+        headerHtml: undefined,
+        footerHtml: undefined,
+        variables: undefined,
+        styles: undefined,
+      })
     }
   }
 
@@ -154,7 +189,7 @@ export default function EmailTemplatesPage() {
   }
 
   const templates = templatesData?.data || []
-  const variables = variablesData?.data || []
+  const variables = variablesData || []
   const filteredTemplates = templates.filter((t: any) =>
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.key.toLowerCase().includes(searchTerm.toLowerCase())
@@ -218,12 +253,8 @@ export default function EmailTemplatesPage() {
               title="No email templates"
               description="Create your first email template"
               icon={Mail}
-              action={
-                <Button onClick={() => setIsModalOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Template
-                </Button>
-              }
+              onAction={() => setIsModalOpen(true)}
+              actionLabel="New Template"
             />
           ) : (
             <Table>
@@ -408,12 +439,14 @@ export default function EmailTemplatesPage() {
       {/* Delete Confirmation */}
       {templateToDelete && (
         <DeleteConfirmDialog
-          isOpen={!!templateToDelete}
-          onClose={() => setTemplateToDelete(null)}
+          open={!!templateToDelete}
+          onOpenChange={(open) => {
+            if (!open) setTemplateToDelete(null)
+          }}
           onConfirm={() => deleteMutation.mutate({ id: templateToDelete.id })}
           title="Delete Email Template"
-          description={`Are you sure you want to delete "${templateToDelete.name}"? This action cannot be undone.`}
-          isDeleting={deleteMutation.isPending}
+          description={`Are you sure you want to delete "${templateToDelete?.name}"? This action cannot be undone.`}
+          isLoading={deleteMutation.isPending}
         />
       )}
     </div>

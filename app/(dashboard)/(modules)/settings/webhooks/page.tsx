@@ -231,12 +231,7 @@ export default function WebhooksPage() {
               title="No webhooks configured"
               description="Create your first webhook to receive real-time notifications"
               icon={Webhook}
-              action={
-                <Button onClick={() => setIsModalOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Webhook
-                </Button>
-              }
+              onAction={() => setIsModalOpen(true)}
             />
           ) : (
             <Table>
@@ -414,12 +409,12 @@ export default function WebhooksPage() {
       {/* Delete Confirmation */}
       {webhookToDelete && (
         <DeleteConfirmDialog
-          isOpen={!!webhookToDelete}
-          onClose={() => setWebhookToDelete(null)}
+          open={!!webhookToDelete}
+          onOpenChange={(open) => !open && setWebhookToDelete(null)}
           onConfirm={() => deleteMutation.mutate({ id: webhookToDelete.id })}
           title="Delete Webhook"
-          description={`Are you sure you want to delete this webhook? This action cannot be undone.`}
-          isDeleting={deleteMutation.isPending}
+          description="Are you sure you want to delete this webhook? This action cannot be undone."
+          isLoading={deleteMutation.isPending}
         />
       )}
     </div>

@@ -1154,8 +1154,8 @@ export const tenantRouter = createTRPCRouter({
           superAdminName: ctx.session!.user.name!,
           superAdminEmail: ctx.session!.user.email!,
           reason: input.reason,
-          ipAddress: ctx.req?.headers["x-forwarded-for"] as string || ctx.req?.headers["x-real-ip"] as string,
-          userAgent: ctx.req?.headers["user-agent"],
+          ipAddress: ctx.session?.ipAddress || null,
+          userAgent: ctx.session?.userAgent || null,
           isActive: true,
         },
       })

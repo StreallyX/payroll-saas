@@ -1,32 +1,32 @@
-
 /**
  * Email Template Management Router
- * Handles email template CRUD and preview
+ * Compatible with your Prisma EmailTemplate model
  */
 
-import { z } from 'zod';
-import { createTRPCRouter, tenantProcedure, hasPermission } from '../trpc';
-import { TRPCError } from '@trpc/server';
-import { PERMISSION_TREE } from '../../rbac/permissions';
+import { z } from "zod";
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+import { TRPCError } from "@trpc/server";
+import { PERMISSION_TREE } from "../../rbac/permissions";
+import { Prisma } from "@prisma/client";
 
 export const emailTemplateRouter = createTRPCRouter({
-  /**
-   * List all email templates for the tenant
-   */
+  // ----------------------------------------------------
+  // LIST ALL TEMPLATES
+  // ----------------------------------------------------
   getAll: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.view))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.emailTemplate.findMany({
         where: { tenantId: ctx.tenantId! },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       return { success: true, data: templates };
     }),
 
-  /**
-   * Get a single email template
-   */
+  // ----------------------------------------------------
+  // GET BY ID
+  // ----------------------------------------------------
   getById: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.view))
     .input(z.object({ id: z.string() }))
@@ -40,91 +40,103 @@ export const emailTemplateRouter = createTRPCRouter({
 
       if (!template) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Email template not found',
+          code: "NOT_FOUND",
+          message: "Email template not found",
         });
       }
 
       return { success: true, data: template };
     }),
 
-  /**
-   * Get template by key
-   */
-  getByKey: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
-    .input(z.object({ key: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const template = await ctx.prisma.emailTemplate.findFirst({
-        where: {
-          key: input.key,
-          tenantId: ctx.tenantId!,
-        },
-      });
-
-      if (!template) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Email template not found',
-        });
-      }
-
-      return { success: true, data: template };
-    }),
-
-  /**
-   * Create a new email template
-   */
+  // ----------------------------------------------------
+  // CREATE TEMPLATE
+  // ----------------------------------------------------
   create: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.update))
     .input(
       z.object({
-        key: z.string().min(1),
         name: z.string().min(1),
+        displayName: z.string().min(1),
+        category: z.string().min(1),
+
         subject: z.string().min(1),
-        body: z.string().min(1),
+        htmlBody: z.string().min(1),
+        textBody: z.string().optional(),
+
         description: z.string().optional(),
+        variables: z.record(z.any()).optional(),
+
+        headerHtml: z.string().optional(),
+        footerHtml: z.string().optional(),
+        styles: z.record(z.any()).optional(),
+
         isActive: z.boolean().default(true),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Check if template key already exists
-      const existing = await ctx.prisma.emailTemplate.findFirst({
+      const exists = await ctx.prisma.emailTemplate.findFirst({
         where: {
-          key: input.key,
           tenantId: ctx.tenantId!,
+          name: input.name,
         },
       });
 
-      if (existing) {
+      if (exists) {
         throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'Email template with this key already exists',
+          code: "CONFLICT",
+          message: "A template with this name already exists",
         });
       }
 
       const template = await ctx.prisma.emailTemplate.create({
         data: {
-          ...input,
           tenantId: ctx.tenantId!,
+
+          name: input.name,
+          displayName: input.displayName,
+          category: input.category,
+
+          subject: input.subject,
+          htmlBody: input.htmlBody,
+          textBody: input.textBody ?? null,
+
+          description: input.description ?? null,
+          variables: input.variables ?? Prisma.JsonNull,
+          headerHtml: input.headerHtml ?? null,
+          footerHtml: input.footerHtml ?? null,
+          styles: input.styles ?? Prisma.JsonNull,
+
+          isActive: input.isActive,
+          version: "1.0",
         },
       });
 
       return { success: true, data: template };
     }),
 
-  /**
-   * Update an email template
-   */
+  // ----------------------------------------------------
+  // UPDATE TEMPLATE
+  // ----------------------------------------------------
   update: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.update))
     .input(
       z.object({
         id: z.string(),
-        name: z.string().optional(),
+
+        displayName: z.string().optional(),
+        category: z.string().optional(),
+
         subject: z.string().optional(),
-        body: z.string().optional(),
+        htmlBody: z.string().optional(),
+        textBody: z.string().optional(),
+
         description: z.string().optional(),
+        variables: z.record(z.any()).optional(),
+
+        headerHtml: z.string().optional(),
+        footerHtml: z.string().optional(),
+        styles: z.record(z.any()).optional(),
+
         isActive: z.boolean().optional(),
       })
     )
@@ -136,15 +148,19 @@ export const emailTemplateRouter = createTRPCRouter({
           id,
           tenantId: ctx.tenantId!,
         },
-        data,
+        data: {
+          ...data,
+          variables: data.variables ?? Prisma.JsonNull,
+          styles: data.styles ?? Prisma.JsonNull,
+        },
       });
 
       return { success: true, data: template };
     }),
 
-  /**
-   * Delete an email template
-   */
+  // ----------------------------------------------------
+  // DELETE TEMPLATE
+  // ----------------------------------------------------
   delete: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.update))
     .input(z.object({ id: z.string() }))
@@ -159,9 +175,9 @@ export const emailTemplateRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  /**
-   * Preview email template with sample data
-   */
+  // ----------------------------------------------------
+  // PREVIEW TEMPLATE
+  // ----------------------------------------------------
   preview: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.view))
     .input(
@@ -180,57 +196,40 @@ export const emailTemplateRouter = createTRPCRouter({
 
       if (!template) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Email template not found',
+          code: "NOT_FOUND",
+          message: "Email template not found",
         });
       }
 
-      // Replace variables in template
       let subject = template.subject;
-      let body = template.body;
+      let html = template.htmlBody;
+      let text = template.textBody ?? "";
 
       if (input.sampleData) {
-        Object.entries(input.sampleData).forEach(([key, value]) => {
-          const regex = new RegExp(`{{${key}}}`, 'g');
+        for (const [key, value] of Object.entries(input.sampleData)) {
+          const regex = new RegExp(`{{${key}}}`, "g");
           subject = subject.replace(regex, String(value));
-          body = body.replace(regex, String(value));
-        });
+          html = html.replace(regex, String(value));
+          text = text.replace(regex, String(value));
+        }
       }
 
       return {
         success: true,
         data: {
           subject,
-          body,
+          html,
+          text,
           originalSubject: template.subject,
-          originalBody: template.body,
+          originalHtml: template.htmlBody,
+          originalText: template.textBody,
         },
       };
     }),
 
-  /**
-   * Get available template variables
-   */
-  getVariables: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
-    .query(() => {
-      const variables = [
-        { key: 'name', description: 'User name', example: 'John Doe' },
-        { key: 'email', description: 'User email', example: 'john@example.com' },
-        { key: 'company', description: 'Company name', example: 'Acme Inc.' },
-        { key: 'date', description: 'Current date', example: new Date().toLocaleDateString() },
-        { key: 'contractId', description: 'Contract ID', example: 'CNT-001' },
-        { key: 'invoiceId', description: 'Invoice ID', example: 'INV-001' },
-        { key: 'amount', description: 'Amount', example: '$1,000.00' },
-        { key: 'status', description: 'Status', example: 'Active' },
-      ];
-
-      return { success: true, data: variables };
-    }),
-
-  /**
-   * Duplicate an email template
-   */
+  // ----------------------------------------------------
+  // DUPLICATE TEMPLATE
+  // ----------------------------------------------------
   duplicate: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.update))
     .input(z.object({ id: z.string() }))
@@ -244,24 +243,48 @@ export const emailTemplateRouter = createTRPCRouter({
 
       if (!original) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Email template not found',
+          code: "NOT_FOUND",
+          message: "Email template not found",
         });
       }
 
-      // Create a copy with a new key
       const copy = await ctx.prisma.emailTemplate.create({
         data: {
           tenantId: ctx.tenantId!,
-          key: `${original.key}_copy_${Date.now()}`,
-          name: `${original.name} (Copy)`,
+
+          name: `${original.name}_copy_${Date.now()}`,
+          displayName: `${original.displayName} (Copy)`,
+          category: original.category,
+
           subject: original.subject,
-          body: original.body,
+          htmlBody: original.htmlBody,
+          textBody: original.textBody ?? null,
+
           description: original.description,
+          variables: original.variables ?? Prisma.JsonNull,
+          headerHtml: original.headerHtml ?? null,
+          footerHtml: original.footerHtml ?? null,
+          styles: original.styles ?? Prisma.JsonNull,
+
           isActive: false,
+          version: original.version,
         },
       });
 
       return { success: true, data: copy };
     }),
+
+    // ----------------------------------------------------
+    // GET AVAILABLE VARIABLES
+    // ----------------------------------------------------
+    getVariables: tenantProcedure
+      .use(hasPermission(PERMISSION_TREE.settings.view))
+      .query(async () => {
+        return [
+          { key: "name", description: "User full name", example: "John Smith" },
+          { key: "email", description: "User email address", example: "john@example.com" },
+          { key: "company", description: "Company name", example: "Acme Inc." },
+          { key: "date", description: "Current date", example: "2025-11-16" },
+        ];
+      }),
 });

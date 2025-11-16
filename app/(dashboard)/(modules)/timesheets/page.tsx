@@ -20,21 +20,46 @@ export default function TimesheetsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
   const { data: timesheets, isLoading } = api.timesheet.getAll.useQuery()
-  const { data: stats } = api.timesheet.getStats.useQuery()
 
   const approveMutation = api.timesheet.approve.useMutation({
     onSuccess: () => {
       toast.success("Timesheet approved successfully!")
-      // Invalidate queries here
+      // Tu pourras invalider la query ici si tu veux
+      // utils.timesheet.getAll.invalidate()
     },
   })
 
   if (isLoading) return <LoadingState message="Loading timesheets..." />
 
-  const timesheetsList = timesheets || []
+  const timesheetsList = timesheets?.timesheets ?? []
+
+  // 🔢 Stats calculées côté front
+  const totalHours = timesheetsList.reduce(
+    (sum: number, t: any) => sum + (t.totalHours ?? 0),
+    0
+  )
+
+  const pendingApproval = timesheetsList.filter(
+    (t: any) => t.status === "submitted"
+  ).length
+
+  const approvedCount = timesheetsList.filter(
+    (t: any) => t.status === "approved"
+  ).length
+
+  const rejectedCount = timesheetsList.filter(
+    (t: any) => t.status === "rejected"
+  ).length
+
+  // 🔍 Filtrage
   const filteredTimesheets = timesheetsList.filter((t: any) => {
-    const matchesSearch = t.contractor?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || t.status === statusFilter
+    const matchesSearch = t.contractor?.name
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase())
+
+    const matchesStatus =
+      statusFilter === "all" || t.status === statusFilter
+
     return matchesSearch && matchesStatus
   })
 
@@ -44,61 +69,91 @@ export default function TimesheetsPage() {
         <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input placeholder="Search contractor..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-64" />
+            <Input
+              placeholder="Search contractor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-64"
+            />
           </div>
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="SUBMITTED">Submitted</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
+
           <Button size="sm">
             <Plus className="h-4 w-4 mr-2" /> New Timesheet
           </Button>
         </div>
       </PageHeader>
 
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.totalHours || 0}h</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
-              <Calendar className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.pendingApproval || 0}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.approved || 0}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-              <XCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.rejected || 0}</div></CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalHours}h</div>
+          </CardContent>
+        </Card>
 
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+            <Calendar className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingApproval}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{approvedCount}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+            <XCircle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{rejectedCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Table */}
       <Card>
         <CardContent className="p-0">
           {filteredTimesheets.length === 0 ? (
-            <EmptyState title="No timesheets found" description="Create your first timesheet" icon={Clock} action={<Button><Plus className="h-4 w-4 mr-2" /> New Timesheet</Button>} />
+            <>
+              <EmptyState
+                title="No timesheets found"
+                description="Create your first timesheet"
+                icon={Clock}
+                onAction={() => {}}
+              />
+              <Button className="mt-4">
+                <Plus className="h-4 w-4 mr-2" /> New Timesheet
+              </Button>
+            </>
           ) : (
             <Table>
               <TableHeader>
@@ -111,35 +166,61 @@ export default function TimesheetsPage() {
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {filteredTimesheets.map((timesheet: any) => (
                   <TableRow key={timesheet.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{timesheet.contractor?.name || 'Unknown'}</p>
-                        <p className="text-xs text-gray-500">{timesheet.contractor?.email}</p>
+                        <p className="font-medium">{timesheet.contractor?.user?.name || "Unknown"}</p>
+                        <p className="text-xs text-gray-500">{timesheet.contractor?.user?.email}</p>
                       </div>
                     </TableCell>
+
                     <TableCell>
                       <div>
-                        <p className="text-sm">{format(new Date(timesheet.periodStart), 'MMM dd')}</p>
-                        <p className="text-xs text-gray-500">to {format(new Date(timesheet.periodEnd), 'MMM dd, yyyy')}</p>
+                        <p className="text-sm">
+                          {format(new Date(timesheet.startDate), "MMM dd")}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          to {format(new Date(timesheet.endDate), "MMM dd, yyyy")}
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="outline">{timesheet.totalHours || 0}h</Badge></TableCell>
+
                     <TableCell>
-                      <Badge variant={
-                        timesheet.status === 'APPROVED' ? 'default' :
-                        timesheet.status === 'REJECTED' ? 'destructive' :
-                        timesheet.status === 'SUBMITTED' ? 'secondary' : 'outline'
-                      }>
-                        {timesheet.status}
+                      <Badge variant="outline">{timesheet.totalHours ?? 0}h</Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        variant={
+                          timesheet.status === "approved"
+                            ? "default"
+                            : timesheet.status === "rejected"
+                            ? "destructive"
+                            : timesheet.status === "submitted"
+                            ? "secondary"
+                            : "outline"
+                        }
+                      >
+                        {timesheet.status.toUpperCase()}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-600">{timesheet.submittedAt ? format(new Date(timesheet.submittedAt), 'MMM dd, yyyy') : '-'}</TableCell>
+
+                    <TableCell className="text-sm text-gray-600">
+                      {timesheet.submittedAt
+                        ? format(new Date(timesheet.submittedAt), "MMM dd, yyyy")
+                        : "-"}
+                    </TableCell>
+
                     <TableCell className="text-right">
-                      {timesheet.status === 'SUBMITTED' && (
-                        <Button size="sm" variant="ghost" onClick={() => approveMutation.mutate({ id: timesheet.id })}>
+                      {timesheet.status === "submitted" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => approveMutation.mutate({ id: timesheet.id })}
+                        >
                           <CheckCircle className="h-3 w-3 mr-1" /> Approve
                         </Button>
                       )}

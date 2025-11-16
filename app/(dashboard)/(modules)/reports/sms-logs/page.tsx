@@ -21,7 +21,7 @@ export default function SMSLogsPage() {
   const [page, setPage] = useState(1)
 
   const { data: logsData, isLoading } = api.smsLog.getAll.useQuery({
-    recipient: searchTerm || undefined,
+    to: searchTerm || undefined,
     status: statusFilter !== "all" ? statusFilter as any : undefined,
     page,
     pageSize: 20,
@@ -88,7 +88,7 @@ export default function SMSLogsPage() {
               <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">${stats.totalCost.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">$0.00</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

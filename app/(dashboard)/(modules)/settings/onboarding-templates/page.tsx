@@ -17,7 +17,7 @@ export default function OnboardingTemplatesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   
   // Note: Using existing onboarding router
-  const { data: templates, isLoading } = api.onboarding.getTemplates.useQuery()
+  const { data: templates, isLoading } = api.onboarding.getAllTemplates.useQuery()
 
   if (isLoading) return <LoadingState message="Loading onboarding templates..." />
 
@@ -67,7 +67,17 @@ export default function OnboardingTemplatesPage() {
       <Card>
         <CardContent className="p-0">
           {filteredTemplates.length === 0 ? (
-            <EmptyState title="No onboarding templates" description="Create your first onboarding template" icon={ClipboardList} action={<Button><Plus className="h-4 w-4 mr-2" /> New Template</Button>} />
+            <>
+              <EmptyState
+                title="No onboarding templates"
+                description="Create your first onboarding template"
+                icon={ClipboardList}
+                onAction={() => {}}
+              />
+              <Button className="mt-4">
+                <Plus className="h-4 w-4 mr-2" /> New Template
+              </Button>
+            </>
           ) : (
             <Table>
               <TableHeader>
@@ -84,8 +94,16 @@ export default function OnboardingTemplatesPage() {
                   <TableRow key={template.id}>
                     <TableCell><p className="font-medium">{template.name}</p></TableCell>
                     <TableCell><Badge variant="outline">{template.questions?.length || 0} questions</Badge></TableCell>
-                    <TableCell>{template.isActive ? <Badge variant="default" className="bg-green-500">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
-                    <TableCell><span className="text-sm text-gray-600">{template.usageCount || 0} times used</span></TableCell>
+                    <TableCell>
+                      {template.isActive ? (
+                        <Badge variant="default" className="bg-green-500">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-gray-600">{template.usageCount || 0} times used</span>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button size="sm" variant="ghost"><Edit className="h-3 w-3" /></Button>

@@ -34,7 +34,7 @@ export const emailLogRouter = createTRPCRouter({
       };
 
       if (recipient) {
-        where.recipient = {
+        where.to = {
           contains: recipient,
           mode: 'insensitive',
         };

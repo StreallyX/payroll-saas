@@ -1,4 +1,3 @@
-
 /**
  * SMS Log Router
  * Handles SMS log viewing and monitoring
@@ -11,15 +10,16 @@ import { PERMISSION_TREE } from '../../rbac/permissions';
 import { Prisma } from '@prisma/client';
 
 export const smsLogRouter = createTRPCRouter({
-  /**
-   * List all SMS logs for the tenant with pagination and filters
-   */
+
+  // ----------------------------------------------------
+  // LIST ALL SMS LOGS
+  // ----------------------------------------------------
   getAll: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.audit.view))
     .input(
       z.object({
-        recipient: z.string().optional(),
-        status: z.enum(['SENT', 'FAILED', 'PENDING', 'QUEUED']).optional(),
+        to: z.string().optional(),
+        status: z.enum(['SENT', 'FAILED', 'PENDING', 'QUEUED', 'DELIVERED']).optional(),
         startDate: z.date().optional(),
         endDate: z.date().optional(),
         page: z.number().min(1).default(1),
@@ -27,15 +27,15 @@ export const smsLogRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      const { recipient, status, startDate, endDate, page, pageSize } = input;
+      const { to, status, startDate, endDate, page, pageSize } = input;
 
       const where: Prisma.SMSLogWhereInput = {
         tenantId: ctx.tenantId!,
       };
 
-      if (recipient) {
-        where.recipient = {
-          contains: recipient,
+      if (to) {
+        where.to = {
+          contains: to,
           mode: 'insensitive',
         };
       }
@@ -77,18 +77,15 @@ export const smsLogRouter = createTRPCRouter({
       };
     }),
 
-  /**
-   * Get a single SMS log by ID
-   */
+  // ----------------------------------------------------
+  // GET ONE SMS LOG
+  // ----------------------------------------------------
   getById: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.audit.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId!,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId! },
       });
 
       if (!log) {
@@ -101,9 +98,9 @@ export const smsLogRouter = createTRPCRouter({
       return { success: true, data: log };
     }),
 
-  /**
-   * Get SMS statistics
-   */
+  // ----------------------------------------------------
+  // GET SMS STATS
+  // ----------------------------------------------------
   getStats: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.audit.view))
     .input(
@@ -131,14 +128,6 @@ export const smsLogRouter = createTRPCRouter({
         ctx.prisma.sMSLog.count({ where: { ...where, status: 'PENDING' } }),
       ]);
 
-      // Calculate total cost if available
-      const logs = await ctx.prisma.sMSLog.findMany({
-        where,
-        select: { cost: true },
-      });
-
-      const totalCost = logs.reduce((sum, log) => sum + (log.cost || 0), 0);
-
       return {
         success: true,
         data: {
@@ -146,27 +135,20 @@ export const smsLogRouter = createTRPCRouter({
           sent,
           failed,
           pending,
-          totalCost,
           successRate: total > 0 ? (sent / total) * 100 : 0,
         },
       };
     }),
 
-  /**
-   * Get recent SMS logs
-   */
+  // ----------------------------------------------------
+  // RECENT SMS LOGS
+  // ----------------------------------------------------
   getRecent: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.audit.view))
-    .input(
-      z.object({
-        limit: z.number().min(1).max(50).default(10),
-      }).optional()
-    )
+    .input(z.object({ limit: z.number().min(1).max(50).default(10) }).optional())
     .query(async ({ ctx, input }) => {
       const logs = await ctx.prisma.sMSLog.findMany({
-        where: {
-          tenantId: ctx.tenantId!,
-        },
+        where: { tenantId: ctx.tenantId! },
         orderBy: { sentAt: 'desc' },
         take: input?.limit ?? 10,
       });
@@ -174,18 +156,15 @@ export const smsLogRouter = createTRPCRouter({
       return { success: true, data: logs };
     }),
 
-  /**
-   * Resend a failed SMS
-   */
+  // ----------------------------------------------------
+  // RESEND SMS
+  // ----------------------------------------------------
   resend: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId!,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId! },
       });
 
       if (!log) {
@@ -202,17 +181,15 @@ export const smsLogRouter = createTRPCRouter({
         });
       }
 
-      // Update status to pending for resend
       await ctx.prisma.sMSLog.update({
-        where: { id: input.id },
+        where: { id: log.id },
         data: {
           status: 'PENDING',
           error: null,
         },
       });
 
-      // TODO: Trigger SMS sending service here
-      // smsService.send(log)
+      // TODO: trigger SMS sending service here
 
       return { success: true, message: 'SMS queued for resending' };
     }),

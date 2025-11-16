@@ -25,7 +25,16 @@ export default function PDFTemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
   const [templateToDelete, setTemplateToDelete] = useState<any>(null)
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    key: string
+    name: string
+    htmlTemplate: string
+    cssTemplate: string
+    description: string
+    isActive: boolean
+    pageSize: "A4" | "LETTER" | "LEGAL"
+    orientation: "portrait" | "landscape"
+  }>({
     key: "",
     name: "",
     htmlTemplate: "",
@@ -35,6 +44,7 @@ export default function PDFTemplatesPage() {
     pageSize: "A4",
     orientation: "portrait",
   })
+
 
   const utils = api.useUtils()
   const { data: templatesData, isLoading } = api.pdfTemplate.getAll.useQuery()
@@ -89,9 +99,48 @@ export default function PDFTemplatesPage() {
 
   const handleSubmit = () => {
     if (selectedTemplate) {
-      updateMutation.mutate({ id: selectedTemplate.id, ...formData })
+      updateMutation.mutate({
+        id: selectedTemplate.id,
+
+        displayName: formData.name,
+        type: "contract",     // tu peux adapter selon ton usage
+
+        template: formData.htmlTemplate,
+        headerHtml: "",
+        footerHtml: "",
+
+        styles: { css: formData.cssTemplate },
+        margins: { top: "20mm", bottom: "20mm" },
+
+        description: formData.description,
+        pageSize: formData.pageSize,
+        orientation: formData.orientation,
+
+        isActive: formData.isActive,
+      })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate({
+        name: formData.key,                // clé technique
+        displayName: formData.name,        // nom visible
+        type: "contract",                  // ou "invoice", "report", etc.
+
+        template: formData.htmlTemplate,   // HTML principal
+        headerHtml: "",                    // optionnel
+        footerHtml: "",                    // optionnel
+
+        styles: { css: formData.cssTemplate }, // stocke ton CSS
+        margins: { top: "20mm", bottom: "20mm" },
+
+        description: formData.description,
+
+        pageSize: formData.pageSize,
+        orientation: formData.orientation,
+
+        watermarkText: undefined,
+        watermarkOpacity: 0.3,
+
+        isActive: formData.isActive,
+      })
     }
   }
 
@@ -104,8 +153,8 @@ export default function PDFTemplatesPage() {
       cssTemplate: template.cssTemplate || "",
       description: template.description || "",
       isActive: template.isActive,
-      pageSize: template.pageSize,
-      orientation: template.orientation,
+      pageSize: (template.pageSize ?? "A4") as "A4" | "LETTER" | "LEGAL",
+      orientation: (template.orientation ?? "portrait") as "portrait" | "landscape",
     })
     setIsModalOpen(true)
   }
@@ -113,7 +162,7 @@ export default function PDFTemplatesPage() {
   if (isLoading) return <LoadingState message="Loading PDF templates..." />
 
   const templates = templatesData?.data || []
-  const variables = variablesData?.data || []
+  const variables = variablesData || []
   const filteredTemplates = templates.filter((t: any) =>
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.key.toLowerCase().includes(searchTerm.toLowerCase())
@@ -153,7 +202,13 @@ export default function PDFTemplatesPage() {
       <Card>
         <CardContent className="p-0">
           {filteredTemplates.length === 0 ? (
-            <EmptyState title="No PDF templates" description="Create your first PDF template" icon={FileText} action={<Button onClick={() => setIsModalOpen(true)}><Plus className="h-4 w-4 mr-2" /> New Template</Button>} />
+            <EmptyState
+              title="No PDF templates"
+              description="Create your first PDF template"
+              icon={FileText}
+              onAction={() => setIsModalOpen(true)}
+              actionLabel="New Template"
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -207,8 +262,8 @@ export default function PDFTemplatesPage() {
               </div>
               <div className="space-y-2"><Label htmlFor="description">Description</Label><Input id="description" placeholder="Template for generating invoices" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label htmlFor="pageSize">Page Size</Label><Select value={formData.pageSize} onValueChange={(value) => setFormData({ ...formData, pageSize: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="A4">A4</SelectItem><SelectItem value="LETTER">Letter</SelectItem><SelectItem value="LEGAL">Legal</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label htmlFor="orientation">Orientation</Label><Select value={formData.orientation} onValueChange={(value) => setFormData({ ...formData, orientation: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="portrait">Portrait</SelectItem><SelectItem value="landscape">Landscape</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label htmlFor="pageSize">Page Size</Label><Select value={formData.pageSize} onValueChange={(value) => setFormData({ ...formData, pageSize: value as "A4" | "LETTER" | "LEGAL", })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="A4">A4</SelectItem><SelectItem value="LETTER">Letter</SelectItem><SelectItem value="LEGAL">Legal</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label htmlFor="orientation">Orientation</Label><Select value={formData.orientation} onValueChange={(value) => setFormData({ ...formData, orientation: value as "portrait" | "landscape",})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="portrait">Portrait</SelectItem><SelectItem value="landscape">Landscape</SelectItem></SelectContent></Select></div>
               </div>
               <div className="flex items-center space-x-2"><input type="checkbox" id="isActive" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} className="rounded" /><Label htmlFor="isActive">Active</Label></div>
             </TabsContent>
@@ -225,7 +280,16 @@ export default function PDFTemplatesPage() {
       </Dialog>
 
       {templateToDelete && (
-        <DeleteConfirmDialog isOpen={!!templateToDelete} onClose={() => setTemplateToDelete(null)} onConfirm={() => deleteMutation.mutate({ id: templateToDelete.id })} title="Delete PDF Template" description={`Are you sure you want to delete "${templateToDelete.name}"?`} isDeleting={deleteMutation.isPending} />
+        <DeleteConfirmDialog
+          open={!!templateToDelete}
+          onOpenChange={(open) => {
+            if (!open) setTemplateToDelete(null)
+          }}
+          onConfirm={() => deleteMutation.mutate({ id: templateToDelete.id })}
+          title="Delete PDF Template"
+          description={`Are you sure you want to delete "${templateToDelete?.name}"?`}
+          isLoading={deleteMutation.isPending}
+        />
       )}
     </div>
   )
