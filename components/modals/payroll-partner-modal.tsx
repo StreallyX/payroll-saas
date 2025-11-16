@@ -23,7 +23,7 @@ type PayrollPartnerModalProps = {
     address?: string
     status: string
   }
-  onSuccess?: () => void
+  onSuccess?: (partner?: any) => void
 }
 
 export function PayrollPartnerModal({ open, onOpenChange, partner, onSuccess }: PayrollPartnerModalProps) {
@@ -50,11 +50,11 @@ export function PayrollPartnerModal({ open, onOpenChange, partner, onSuccess }: 
   }, [partner])
 
   const createMutation = api.payroll.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Partenaire de paie created successfully!")
       utils.payroll.getAll.invalidate()
       onOpenChange(false)
-      onSuccess?.()
+      onSuccess?.(data)
       resetForm()
     },
     onError: (error: any) => {
