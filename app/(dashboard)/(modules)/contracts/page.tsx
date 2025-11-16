@@ -25,6 +25,7 @@ import { LoadingState } from "@/components/shared/loading-state"
 import { EmptyState } from "@/components/shared/empty-state"
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
 import { ContractModal } from "@/components/modals/contract-modal"
+import { ContractViewModal } from "@/components/modals/contract-view-modal"
 import { toast } from "sonner"
 import { downloadFile } from "@/lib/s3"
 
@@ -33,7 +34,8 @@ export default function ManageContractsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingContract, setEditingContract] = useState<any>(null)
-  const [viewingContract, setViewingContract] = useState<any>(null)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [viewingContractId, setViewingContractId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("active")
 
   // Fetch contracts
@@ -71,19 +73,9 @@ export default function ManageContractsPage() {
     }
   }
 
-  const handleViewContract = async (contract: any) => {
-    if (contract.signedContractPath) {
-      try {
-        // Generate signed URL
-        const signedUrl = await downloadFile(contract.signedContractPath)
-        // Open in new tab
-        window.open(signedUrl, '_blank')
-      } catch (error: any) {
-        toast.error("Erreur lors de l'ouverture du contrat: " + error.message)
-      }
-    } else {
-      toast.error("Aucun contrat signé disponible")
-    }
+  const handleViewContract = (contractId: string) => {
+    setViewingContractId(contractId)
+    setViewModalOpen(true)
   }
 
   // Categorize contracts
@@ -207,16 +199,14 @@ export default function ManageContractsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {contract.signedContractPath && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewContract(contract)}
-                              title="Voir le contrat signé"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewContract(contract.id)}
+                            title="View contract details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -462,6 +452,16 @@ export default function ManageContractsPage() {
         }}
         contract={editingContract}
         onSuccess={() => refetch()}
+      />
+
+      {/* Contract View Modal */}
+      <ContractViewModal
+        open={viewModalOpen}
+        onOpenChange={(open) => {
+          setViewModalOpen(open)
+          if (!open) setViewingContractId(null)
+        }}
+        contractId={viewingContractId}
       />
     </div>
   )
