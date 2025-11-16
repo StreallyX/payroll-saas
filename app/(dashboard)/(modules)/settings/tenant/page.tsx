@@ -26,6 +26,7 @@ export default function CustomizationPage() {
   const [headerBgColor, setHeaderBgColor] = useState("#ffffff")
   const [sidebarTextColor, setSidebarTextColor] = useState("#ffffff")
   const [headerTextColor, setHeaderTextColor] = useState("#1e293b")
+  const [customFont, setCustomFont] = useState("Inter")
 
   
   // Sync with tenant data
@@ -40,6 +41,7 @@ export default function CustomizationPage() {
       setSidebarBgColor(tenant.sidebarBgColor || "#1e293b")
       setHeaderBgColor(tenant.headerBgColor || "#ffffff")
       setHeaderTextColor(tenant.headerTextColor || "#1e293b")
+      setCustomFont(tenant.customFont || "Inter")
     }
   }, [tenant])
 
@@ -88,6 +90,7 @@ export default function CustomizationPage() {
       sidebarTextColor,
       headerBgColor,
       headerTextColor,
+      customFont,
     })
   }
 
@@ -165,6 +168,34 @@ export default function CustomizationPage() {
                 />
               </div>
             )}
+          </div>
+
+          {/* Custom Font */}
+          <div className="space-y-2">
+            <Label htmlFor="customFont">Custom Font</Label>
+            <select
+              id="customFont"
+              value={customFont}
+              onChange={(e) => setCustomFont(e.target.value)}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="Inter">Inter (Default)</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Open Sans">Open Sans</option>
+              <option value="Lato">Lato</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Poppins">Poppins</option>
+              <option value="Raleway">Raleway</option>
+              <option value="Ubuntu">Ubuntu</option>
+              <option value="Nunito">Nunito</option>
+              <option value="Playfair Display">Playfair Display</option>
+              <option value="Source Sans Pro">Source Sans Pro</option>
+              <option value="Merriweather">Merriweather</option>
+            </select>
+            <p className="text-sm text-muted-foreground">
+              Choose a custom font for your platform. This will be applied to all text elements.
+            </p>
           </div>
         </CardContent>
       </Card>

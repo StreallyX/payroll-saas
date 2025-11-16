@@ -8,9 +8,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SelectWithCreate } from "@/components/ui/select-with-create"
 import { api } from "@/lib/trpc"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, InfoIcon, AlertTriangle } from "lucide-react"
+import { ContractorModal } from "./contractor-modal"
+import { AgencyModal } from "./agency-modal"
+import { PayrollPartnerModal } from "./payroll-partner-modal"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type ContractModalProps = {
   open: boolean
@@ -77,6 +88,11 @@ export function ContractModal({ open, onOpenChange, contract, onSuccess }: Contr
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  
+  // Modal states for creating related entities
+  const [contractorModalOpen, setContractorModalOpen] = useState(false)
+  const [agencyModalOpen, setAgencyModalOpen] = useState(false)
+  const [payrollPartnerModalOpen, setPayrollPartnerModalOpen] = useState(false)
 
   const utils = api.useUtils()
 
@@ -268,7 +284,30 @@ export function ContractModal({ open, onOpenChange, contract, onSuccess }: Contr
 
   const isLoading = createMutation.isPending || updateMutation.isPending
 
+  // Handle successful creation of related entities
+  const handleContractorCreated = (contractorId: string) => {
+    setFormData({ ...formData, contractorId })
+    setContractorModalOpen(false)
+    utils.contractor.getAll.invalidate()
+    toast.success("Contractor created! Now selected in the contract.")
+  }
+
+  const handleAgencyCreated = (agencyId: string) => {
+    setFormData({ ...formData, agencyId })
+    setAgencyModalOpen(false)
+    utils.agency.getAll.invalidate()
+    toast.success("Agency created! Now selected in the contract.")
+  }
+
+  const handlePayrollPartnerCreated = (payrollPartnerId: string) => {
+    setFormData({ ...formData, payrollPartnerId })
+    setPayrollPartnerModalOpen(false)
+    utils.payroll.getAll.invalidate()
+    toast.success("Payroll Partner created! Now selected in the contract.")
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -279,6 +318,22 @@ export function ContractModal({ open, onOpenChange, contract, onSuccess }: Contr
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Prerequisites Warning */}
+          {(agencies.length === 0 || contractors.length === 0 || payrollPartners.length === 0) && (
+            <Alert variant="default" className="bg-orange-50 border-orange-200">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-sm">
+                <strong>Action Required:</strong> You need to create the following before creating a contract:
+                <ul className="mt-2 ml-4 list-disc space-y-1">
+                  {agencies.length === 0 && <li>At least one <strong>Agency/Client</strong></li>}
+                  {contractors.length === 0 && <li>At least one <strong>Contractor</strong></li>}
+                  {payrollPartners.length === 0 && <li>At least one <strong>Payroll Partner</strong></li>}
+                </ul>
+                <p className="mt-2 text-xs">Use the <strong>+</strong> buttons below to create them.</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="title">Contract Title</Label>
             <Input
@@ -291,63 +346,87 @@ export function ContractModal({ open, onOpenChange, contract, onSuccess }: Contr
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="agencyId">Agence *</Label>
-              <Select value={formData.agencyId} onValueChange={(value) => setFormData({ ...formData, agencyId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agencies.length === 0 ? (
-                    <SelectItem value="none" disabled>Aucune agence disponible</SelectItem>
-                  ) : (
-                    agencies.map((agency: any) => (
-                      <SelectItem key={agency.id} value={agency.id}>
-                        {agency.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="agencyId">Agence/Client *</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InfoIcon className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">The client or agency that is hiring the contractor. This is the entity that will be invoiced.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <SelectWithCreate
+                value={formData.agencyId}
+                onValueChange={(value) => setFormData({ ...formData, agencyId: value })}
+                items={agencies.map((agency: any) => ({ id: agency.id, label: agency.name }))}
+                placeholder="Select agency"
+                emptyMessage="No agencies available"
+                onCreateNew={() => setAgencyModalOpen(true)}
+                createLabel="Create Agency"
+                isRequired={true}
+                helpText="The client or agency hiring the contractor"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contractorId">Contractor *</Label>
-              <Select value={formData.contractorId} onValueChange={(value) => setFormData({ ...formData, contractorId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contractors.length === 0 ? (
-                    <SelectItem value="none" disabled>Aucun contractor disponible</SelectItem>
-                  ) : (
-                    contractors.map((contractor: any) => (
-                      <SelectItem key={contractor.id} value={contractor.id}>
-                        {contractor.user?.name || contractor.user?.email || 'Unknown'}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="contractorId">Contractor *</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InfoIcon className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">The independent contractor or freelancer who will perform the work. Also called a worker.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <SelectWithCreate
+                value={formData.contractorId}
+                onValueChange={(value) => setFormData({ ...formData, contractorId: value })}
+                items={contractors.map((contractor: any) => ({ 
+                  id: contractor.id, 
+                  label: contractor.user?.name || contractor.user?.email || 'Unknown' 
+                }))}
+                placeholder="Select contractor"
+                emptyMessage="No contractors available"
+                onCreateNew={() => setContractorModalOpen(true)}
+                createLabel="Create Contractor"
+                isRequired={true}
+                helpText="The worker who will perform the services"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payrollPartnerId">Payroll Partner *</Label>
-              <Select value={formData.payrollPartnerId} onValueChange={(value) => setFormData({ ...formData, payrollPartnerId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {payrollPartners.length === 0 ? (
-                    <SelectItem value="none" disabled>Aucun partenaire disponible</SelectItem>
-                  ) : (
-                    payrollPartners.map((partner: any) => (
-                      <SelectItem key={partner.id} value={partner.id}>
-                        {partner.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="payrollPartnerId">Payroll Partner *</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InfoIcon className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">The legal entity (e.g., your company in Switzerland) that handles payroll, compliance, and legal matters for this contract.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <SelectWithCreate
+                value={formData.payrollPartnerId}
+                onValueChange={(value) => setFormData({ ...formData, payrollPartnerId: value })}
+                items={payrollPartners.map((partner: any) => ({ id: partner.id, label: partner.name }))}
+                placeholder="Select payroll partner"
+                emptyMessage="No payroll partners available"
+                onCreateNew={() => setPayrollPartnerModalOpen(true)}
+                createLabel="Create Payroll Partner"
+                isRequired={true}
+                helpText="Your company account handling legal/payroll matters"
+              />
             </div>
           </div>
 
@@ -670,5 +749,25 @@ export function ContractModal({ open, onOpenChange, contract, onSuccess }: Contr
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Nested modals for creating related entities */}
+    <ContractorModal
+      open={contractorModalOpen}
+      onOpenChange={setContractorModalOpen}
+      onSuccess={(contractor: any) => handleContractorCreated(contractor.id)}
+    />
+
+    <AgencyModal
+      open={agencyModalOpen}
+      onOpenChange={setAgencyModalOpen}
+      onSuccess={(agency: any) => handleAgencyCreated(agency.id)}
+    />
+
+    <PayrollPartnerModal
+      open={payrollPartnerModalOpen}
+      onOpenChange={setPayrollPartnerModalOpen}
+      onSuccess={(partner: any) => handlePayrollPartnerCreated(partner.id)}
+    />
+    </>
   )
 }

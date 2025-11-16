@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, FileDown, Pencil, Trash2, FileText, Eye, Calendar, TrendingUp, AlertTriangle } from "lucide-react"
+import { Search, Plus, FileDown, Pencil, Trash2, FileText, Eye, Calendar, TrendingUp, AlertTriangle, Users, Building2, UserPlus } from "lucide-react"
+import Link from "next/link"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
   Table,
   TableBody,
@@ -39,6 +41,17 @@ export default function ManageContractsPage() {
   
   // Fetch stats
   const { data: stats } = api.contract.getStats.useQuery()
+
+  // Check prerequisites
+  const { data: contractors = [] } = api.contractor.getAll.useQuery()
+  const { data: agencies = [] } = api.agency.getAll.useQuery()
+  const { data: payrollPartners = [] } = api.payroll.getAll.useQuery()
+
+  const hasPrerequisites = contractors.length > 0 && agencies.length > 0 && payrollPartners.length > 0
+  const missingPrerequisites = []
+  if (contractors.length === 0) missingPrerequisites.push("contractors")
+  if (agencies.length === 0) missingPrerequisites.push("agencies")
+  if (payrollPartners.length === 0) missingPrerequisites.push("payroll partners")
 
   // Delete mutation
   const deleteMutation = api.contract.delete.useMutation({
@@ -242,6 +255,68 @@ export default function ManageContractsPage() {
         title="Gestion des Contrats"
         description="Visualisez et gérez tous les contrats par catégorie"
       />
+
+      {/* Prerequisites Warning */}
+      {!hasPrerequisites && (
+        <Alert className="bg-orange-50 border-orange-200">
+          <AlertTriangle className="h-5 w-5 text-orange-600" />
+          <AlertDescription>
+            <div className="space-y-3">
+              <div>
+                <strong className="text-orange-900">Prerequisites Required</strong>
+                <p className="text-sm text-orange-800 mt-1">
+                  Before creating contracts, you need to set up the following:
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                {contractors.length === 0 && (
+                  <Link href="/contractors">
+                    <div className="flex items-center gap-3 p-3 bg-white rounded-md border border-orange-200 hover:border-orange-400 transition-colors cursor-pointer">
+                      <Users className="h-8 w-8 text-orange-600" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-gray-900">Add Contractors</p>
+                        <p className="text-xs text-gray-600">Create your first contractor</p>
+                      </div>
+                      <UserPlus className="h-4 w-4 text-orange-600" />
+                    </div>
+                  </Link>
+                )}
+                
+                {agencies.length === 0 && (
+                  <Link href="/agencies">
+                    <div className="flex items-center gap-3 p-3 bg-white rounded-md border border-orange-200 hover:border-orange-400 transition-colors cursor-pointer">
+                      <Building2 className="h-8 w-8 text-orange-600" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-gray-900">Add Agencies</p>
+                        <p className="text-xs text-gray-600">Create your first agency/client</p>
+                      </div>
+                      <Plus className="h-4 w-4 text-orange-600" />
+                    </div>
+                  </Link>
+                )}
+                
+                {payrollPartners.length === 0 && (
+                  <Link href="/payroll-partners">
+                    <div className="flex items-center gap-3 p-3 bg-white rounded-md border border-orange-200 hover:border-orange-400 transition-colors cursor-pointer">
+                      <FileText className="h-8 w-8 text-orange-600" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-gray-900">Add Payroll Partner</p>
+                        <p className="text-xs text-gray-600">Set up your payroll entity</p>
+                      </div>
+                      <Plus className="h-4 w-4 text-orange-600" />
+                    </div>
+                  </Link>
+                )}
+              </div>
+
+              <p className="text-xs text-orange-700 mt-2">
+                💡 <strong>Tip:</strong> You can also create these directly from the "New Contract" modal using the + buttons.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

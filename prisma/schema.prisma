@@ -30,6 +30,48 @@ model Tenant {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // PHASE 3: Multi-tenancy Enhancements
+  customFont            String?   @default("Inter")
+  customEmailDomain     String?
+  emailDomainVerified   Boolean   @default(false)
+  
+  // Subscription Management
+  subscriptionPlan      String    @default("free") // free, starter, professional, enterprise
+  subscriptionStatus    String    @default("active") // active, trial, suspended, cancelled
+  subscriptionStartDate DateTime  @default(now())
+  subscriptionEndDate   DateTime?
+  
+  // Usage & Limits
+  currentStorageUsed    BigInt    @default(0) // in bytes
+  usageMetrics          Json?     // { apiCalls: 0, emailsSent: 0, invoicesCreated: 0, contractsCreated: 0 }
+  
+  // Localization
+  timezone              String    @default("UTC")
+  defaultLanguage       String    @default("en") // en, fr, es, de
+  defaultCurrency       String    @default("USD")
+  dateFormat            String    @default("MM/DD/YYYY") // MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD
+  timeFormat            String    @default("12h") // 12h, 24h
+  
+  // Domain Management
+  subdomain             String?   @unique
+  customDomain          String?   @unique
+  customDomainVerified  Boolean   @default(false)
+  sslCertificateStatus  String?   // pending, active, expired, failed
+  sslCertificateExpiry  DateTime?
+  
+  // White-label Configuration
+  loginPageConfig       Json?     // { backgroundImage, welcomeMessage, customCss }
+  navigationConfig      Json?     // Custom menu structure and ordering
+  termsOfService        String?   @db.Text
+  termsVersion          String?   @default("1.0")
+  privacyPolicy         String?   @db.Text
+  privacyPolicyVersion  String?   @default("1.0")
+  
+  // Onboarding
+  onboardingCompleted   Boolean   @default(false)
+  onboardingStep        Int       @default(1)
+  onboardingData        Json?     // Progress tracking data
+
   users                User[]
   roles                Role[]
   companies            Company[]
@@ -61,6 +103,14 @@ model Tenant {
   customFieldValues CustomFieldValue[]
   userActivities    UserActivity[]
   apiKeys           ApiKey[]
+
+  // PHASE 3 RELATIONS
+  featureFlags       TenantFeatureFlag[]
+  quotas             TenantQuota?
+  emailTemplates     EmailTemplate[]
+  pdfTemplates       PDFTemplate[]
+  securitySettings   TenantSecuritySettings?
+  dataExports        DataExport[]
 
   @@map("tenants")
 }
@@ -1660,4 +1710,377 @@ model ApiKey {
   @@index([keyPrefix])
   @@index([isActive])
   @@map("api_keys")
+}
+
+
+
+// =============================================================
+// PHASE 3: MULTI-TENANCY & WHITE-LABEL
+// =============================================================
+
+// -------------------------------------------------------
+// TENANT QUOTAS & LIMITS
+// -------------------------------------------------------
+model TenantQuota {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  // User Limits
+  maxUsers             Int @default(10)
+  maxAdmins            Int @default(5)
+  maxContractors       Int @default(50)
+
+  // Contract & Invoice Limits
+  maxContracts         Int @default(50)
+  maxInvoices          Int @default(100)
+  maxActiveContracts   Int @default(25)
+
+  // Storage Limits
+  maxStorage           BigInt @default(1073741824) // 1GB in bytes
+  maxFileSize          BigInt @default(10485760) // 10MB in bytes
+  maxFilesPerUpload    Int    @default(10)
+
+  // API & Email Limits
+  maxAPICallsPerMonth  Int @default(10000)
+  maxAPICallsPerDay    Int @default(1000)
+  maxEmailsPerMonth    Int @default(1000)
+  maxEmailsPerDay      Int @default(100)
+  maxSMSPerMonth       Int @default(500)
+
+  // Features Quotas
+  maxCustomFields      Int @default(20)
+  maxWebhooks          Int @default(10)
+  maxAPIKeys           Int @default(5)
+  maxReports           Int @default(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_quotas")
+}
+
+// -------------------------------------------------------
+// FEATURE FLAGS
+// -------------------------------------------------------
+model TenantFeatureFlag {
+  id         String  @id @default(cuid())
+  tenantId   String
+  featureKey String // e.g., "advanced_analytics", "custom_domain", "api_access", "white_label", "sso"
+  enabled    Boolean @default(true)
+
+  // Feature metadata
+  enabledAt  DateTime?
+  enabledBy  String? // User ID who enabled the feature
+  expiresAt  DateTime? // For trial features
+  metadata   Json? // Additional feature-specific data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, featureKey])
+  @@index([tenantId])
+  @@index([featureKey])
+  @@index([enabled])
+  @@map("tenant_feature_flags")
+}
+
+// -------------------------------------------------------
+// EMAIL TEMPLATES
+// -------------------------------------------------------
+model EmailTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Template identification
+  name        String // welcome_email, invoice_email, contract_signed, password_reset, etc.
+  displayName String // User-friendly name
+  description String? @db.Text
+  category    String // authentication, notifications, invoicing, contracts
+
+  // Template content
+  subject  String
+  htmlBody String @db.Text
+  textBody String? @db.Text
+
+  // Template variables
+  variables Json? // { "user_name": "string", "invoice_number": "string", etc. }
+
+  // Customization
+  headerHtml String? @db.Text
+  footerHtml String? @db.Text
+  styles     Json? // Custom CSS styles
+
+  // Status
+  isActive   Boolean  @default(true)
+  isDefault  Boolean  @default(false) // System default templates
+  version    String   @default("1.0")
+
+  // Usage tracking
+  sentCount  Int      @default(0)
+  lastSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([category])
+  @@index([isActive])
+  @@map("email_templates")
+}
+
+// -------------------------------------------------------
+// PDF TEMPLATES
+// -------------------------------------------------------
+model PDFTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Template identification
+  name        String // contract_template, invoice_template, payslip_template, report_template
+  displayName String
+  description String? @db.Text
+  type        String // contract, invoice, payslip, report
+
+  // Template content (Handlebars syntax)
+  template   String @db.Text
+  headerHtml String? @db.Text
+  footerHtml String? @db.Text
+
+  // Styling
+  styles      Json? // CSS styles as JSON
+  pageSize    String  @default("A4") // A4, Letter, Legal
+  orientation String  @default("portrait") // portrait, landscape
+  margins     Json? // { top: 20, right: 20, bottom: 20, left: 20 }
+
+  // Watermark
+  watermarkText    String?
+  watermarkOpacity Float?   @default(0.3)
+
+  // Status
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+  version   String  @default("1.0")
+
+  // Usage tracking
+  generatedCount Int      @default(0)
+  lastUsedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+  @@map("pdf_templates")
+}
+
+// -------------------------------------------------------
+// TENANT SECURITY SETTINGS
+// -------------------------------------------------------
+model TenantSecuritySettings {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  // Password Policy
+  minPasswordLength    Int     @default(8)
+  requireUppercase     Boolean @default(true)
+  requireLowercase     Boolean @default(true)
+  requireNumbers       Boolean @default(true)
+  requireSpecialChars  Boolean @default(false)
+  passwordExpiryDays   Int? // null = never expires
+  passwordHistoryCount Int     @default(5) // Prevent reusing last N passwords
+
+  // Session Management
+  sessionTimeoutMinutes  Int @default(60) // Auto logout after inactivity
+  maxConcurrentSessions  Int @default(3)
+  enforceSessionTimeout  Boolean @default(true)
+
+  // IP Restrictions
+  ipWhitelist        Json? // ["IP1", "IP2"] - only these IPs can access
+  ipBlacklist        Json? // ["IP1", "IP2"] - these IPs are blocked
+  enableIPRestriction Boolean @default(false)
+
+  // 2FA / MFA
+  enforce2FA                  Boolean @default(false)
+  enforce2FAForAdmins         Boolean @default(false)
+  allowed2FAMethods           Json?   @default("[\"totp\", \"sms\"]") // totp, sms, email
+  
+  // Account Lockout
+  maxLoginAttempts            Int     @default(5)
+  lockoutDurationMinutes      Int     @default(30)
+  enableAccountLockout        Boolean @default(true)
+
+  // Login Security
+  requireEmailVerification    Boolean @default(true)
+  allowSocialLogin            Boolean @default(true)
+  allowedSocialProviders      Json?   @default("[\"google\", \"microsoft\"]")
+
+  // API Security
+  requireAPIKeyForAPI         Boolean @default(true)
+  enableAPIRateLimiting       Boolean @default(true)
+  apiRateLimitPerHour         Int     @default(1000)
+
+  // Data Security
+  enableDataEncryption        Boolean @default(true)
+  enableAuditLogging          Boolean @default(true)
+  dataRetentionDays           Int     @default(2555) // 7 years default
+  enableAutoDataDeletion      Boolean @default(false)
+
+  // Compliance
+  gdprCompliant               Boolean @default(true)
+  hipaaCompliant              Boolean @default(false)
+  soc2Compliant               Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_security_settings")
+}
+
+// -------------------------------------------------------
+// DATA EXPORT REQUESTS
+// -------------------------------------------------------
+model DataExport {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Export details
+  requestedBy     String // User ID
+  exportType      String // full_export, users_only, contracts_only, invoices_only, etc.
+  exportFormat    String // json, csv, excel, zip
+  status          String @default("pending") // pending, processing, completed, failed
+  
+  // Export scope
+  entities        Json? // List of entities to export: ["users", "contracts", "invoices"]
+  dateRangeFrom   DateTime?
+  dateRangeTo     DateTime?
+  filters         Json? // Additional filters
+
+  // Export file
+  fileUrl         String?
+  fileName        String?
+  fileSize        BigInt? // in bytes
+  expiresAt       DateTime? // Auto-delete after expiry
+  
+  // Processing
+  startedAt       DateTime?
+  completedAt     DateTime?
+  errorMessage    String? @db.Text
+  recordsExported Int?    @default(0)
+
+  // Download tracking
+  downloadCount   Int      @default(0)
+  lastDownloadAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([requestedBy])
+  @@index([createdAt])
+  @@map("data_exports")
+}
+
+// -------------------------------------------------------
+// TENANT IMPERSONATION LOGS (Super Admin Feature)
+// -------------------------------------------------------
+model TenantImpersonation {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Impersonation details
+  superAdminId    String // User ID of super admin
+  superAdminName  String
+  superAdminEmail String
+
+  impersonatedUserId    String? // If impersonating specific user
+  impersonatedUserName  String?
+  impersonatedUserEmail String?
+
+  // Session details
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  duration    Int? // in seconds
+  ipAddress   String?
+  userAgent   String?   @db.Text
+
+  // Actions taken during impersonation
+  actionsPerformed Json? // List of actions/pages accessed
+  reason           String? @db.Text // Why was impersonation needed
+
+  // Status
+  isActive Boolean @default(true)
+
+  @@index([tenantId])
+  @@index([superAdminId])
+  @@index([startedAt])
+  @@index([isActive])
+  @@map("tenant_impersonations")
+}
+
+// -------------------------------------------------------
+// SUBSCRIPTION INVOICES (For Tenant Billing)
+// -------------------------------------------------------
+model SubscriptionInvoice {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Invoice details
+  invoiceNumber String   @unique
+  subscriptionPlan String // free, starter, professional, enterprise
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  
+  // Amounts
+  subtotal     Float
+  taxAmount    Float   @default(0)
+  discountAmount Float @default(0)
+  totalAmount  Float
+
+  currency     String  @default("USD")
+
+  // Payment
+  status           String  @default("pending") // pending, paid, failed, refunded
+  paymentMethod    String? // stripe, paypal, bank_transfer
+  paymentIntentId  String? // External payment system ID
+  paidAt           DateTime?
+  dueDate          DateTime
+
+  // Billing info
+  billingEmail   String
+  billingAddress Json? // Address details
+
+  // Line items
+  lineItems      Json // Array of { description, quantity, unitPrice, amount }
+
+  // Files
+  pdfUrl         String?
+  
+  // Metadata
+  metadata       Json?
+  notes          String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([paidAt])
+  @@map("subscription_invoices")
 }

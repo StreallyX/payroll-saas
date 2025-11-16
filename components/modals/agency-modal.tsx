@@ -17,7 +17,7 @@ type AgencyModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   agency?: any
-  onSuccess?: () => void
+  onSuccess?: (agency?: any) => void
 }
 
 export function AgencyModal({ open, onOpenChange, agency, onSuccess }: AgencyModalProps) {
@@ -85,11 +85,11 @@ export function AgencyModal({ open, onOpenChange, agency, onSuccess }: AgencyMod
   }, [agency])
 
   const createMutation = api.agency.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Agency created successfully!")
       utils.agency.getAll.invalidate()
       onOpenChange(false)
-      onSuccess?.()
+      onSuccess?.(data)
       resetForm()
     },
     onError: (error: any) => {

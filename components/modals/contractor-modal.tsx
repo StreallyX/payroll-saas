@@ -18,7 +18,7 @@ type ContractorModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   contractor?: any
-  onSuccess?: () => void
+  onSuccess?: (contractor?: any) => void
 }
 
 export function ContractorModal({ open, onOpenChange, contractor, onSuccess }: ContractorModalProps) {
@@ -85,11 +85,11 @@ export function ContractorModal({ open, onOpenChange, contractor, onSuccess }: C
   }, [contractor])
 
   const createMutation = api.contractor.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Contractor created successfully!")
       utils.contractor.getAll.invalidate()
       onOpenChange(false)
-      onSuccess?.()
+      onSuccess?.(data)
       resetForm()
     },
     onError: (error: any) => {

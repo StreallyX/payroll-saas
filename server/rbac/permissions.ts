@@ -23,6 +23,55 @@ export const PERMISSION_TREE = {
       disable: "tenant.users.disable",
       delete: "tenant.users.delete",
     },
+    // PHASE 3: Multi-tenancy & White-label Permissions
+    subscription: {
+      view: "tenant.subscription.view",
+      manage: "tenant.subscription.manage",
+      billing: "tenant.subscription.billing",
+    },
+    quotas: {
+      view: "tenant.quotas.view",
+      manage: "tenant.quotas.manage",
+    },
+    features: {
+      view: "tenant.features.view",
+      manage: "tenant.features.manage",
+    },
+    localization: {
+      view: "tenant.localization.view",
+      manage: "tenant.localization.manage",
+    },
+    domain: {
+      view: "tenant.domain.view",
+      manage: "tenant.domain.manage",
+      verify: "tenant.domain.verify",
+    },
+    templates: {
+      email: {
+        view: "tenant.templates.email.view",
+        create: "tenant.templates.email.create",
+        update: "tenant.templates.email.update",
+        delete: "tenant.templates.email.delete",
+      },
+      pdf: {
+        view: "tenant.templates.pdf.view",
+        create: "tenant.templates.pdf.create",
+        update: "tenant.templates.pdf.update",
+        delete: "tenant.templates.pdf.delete",
+      },
+    },
+    security: {
+      view: "tenant.security.view",
+      manage: "tenant.security.manage",
+    },
+    data: {
+      export: "tenant.data.export",
+      delete: "tenant.data.delete",
+    },
+    onboarding: {
+      view: "tenant.onboarding.view",
+      manage: "tenant.onboarding.manage",
+    },
   },
 
   companies: {
@@ -172,16 +221,60 @@ export const PERMISSION_TREE = {
     export: "audit_logs.export",
   },
 
+  timesheet: {
+    view: "timesheet.view",
+    create: "timesheet.create",
+    update: "timesheet.update",
+    delete: "timesheet.delete",
+    approve: "timesheet.approve",
+    submit: "timesheet.submit",
+  },
+
+  expense: {
+    view: "expense.view",
+    create: "expense.create",
+    update: "expense.update",
+    delete: "expense.delete",
+    approve: "expense.approve",
+    submit: "expense.submit",
+  },
+
+  webhooks: {
+    view: "webhooks.view",
+    create: "webhooks.create",
+    update: "webhooks.update",
+    delete: "webhooks.delete",
+    test: "webhooks.test",
+  },
+
   superadmin: {
     tenants: {
       create: "superadmin.tenants.create",
       suspend: "superadmin.tenants.suspend",
       delete: "superadmin.tenants.delete",
+      // PHASE 3: Enhanced super admin capabilities
+      view_all: "superadmin.tenants.view_all",
+      switch: "superadmin.tenants.switch",
+      impersonate: "superadmin.tenants.impersonate",
+      manage_quotas: "superadmin.tenants.manage_quotas",
+      manage_features: "superadmin.tenants.manage_features",
+      manage_subscriptions: "superadmin.tenants.manage_subscriptions",
+      view_analytics: "superadmin.tenants.view_analytics",
+      export_data: "superadmin.tenants.export_data",
     },
     users: {
       create: "superadmin.users.create",
       update: "superadmin.users.update",
       delete: "superadmin.users.delete",
+      view_all: "superadmin.users.view_all",
+    },
+    system: {
+      // PHASE 3: System-wide management
+      view_logs: "superadmin.system.view_logs",
+      manage_settings: "superadmin.system.manage_settings",
+      view_metrics: "superadmin.system.view_metrics",
+      manage_templates: "superadmin.system.manage_templates",
+      manage_security: "superadmin.system.manage_security",
     },
   },
 } as const;
@@ -349,5 +442,45 @@ export const TENANT_ADMIN_DEFAULT_PERMISSIONS: string[] = [
 
   // 📜 Audit Logs
   "audit_logs.view",
+
+  // ⏰ Timesheets
+  "timesheet.view",
+  "timesheet.create",
+  "timesheet.update",
+  "timesheet.delete",
+  "timesheet.approve",
+  "timesheet.submit",
+
+  // 💸 Expenses
+  "expense.view",
+  "expense.create",
+  "expense.update",
+  "expense.delete",
+  "expense.approve",
+  "expense.submit",
+
+  // 🔗 Webhooks
+  "webhooks.view",
+  "webhooks.create",
+  "webhooks.update",
+  "webhooks.delete",
+  "webhooks.test",
+
+  // 📧 Email Templates
+  "tenant.templates.email.view",
+  "tenant.templates.email.create",
+  "tenant.templates.email.update",
+  "tenant.templates.email.delete",
+
+  // 📄 PDF Templates
+  "tenant.templates.pdf.view",
+  "tenant.templates.pdf.create",
+  "tenant.templates.pdf.update",
+  "tenant.templates.pdf.delete",
+
+  // 💳 Subscription
+  "tenant.subscription.view",
+  "tenant.subscription.manage",
+  "tenant.subscription.billing",
 ]
 
