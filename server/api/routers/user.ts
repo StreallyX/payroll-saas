@@ -53,6 +53,7 @@ export const userRouter = createTRPCRouter({
       z.object({
         name: z.string().min(2),
         email: z.string().email(),
+        password: z.string().min(6).optional(),
         roleId: z.string(),
         agencyId: z.string().nullable().optional(),
         payrollPartnerId: z.string().nullable().optional(),
@@ -61,9 +62,9 @@ export const userRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
 
-      // 1. Generate enterprise-grade temp password
-      const tempPassword = generateRandomPassword(12);
-      const passwordHash = await bcrypt.hash(tempPassword, 10);
+      // 1. Use provided password or generate a random one
+      const passwordToUse = input.password || generateRandomPassword(12);
+      const passwordHash = await bcrypt.hash(passwordToUse, 10);
 
       // 2. Create the user
       const user = await ctx.prisma.user.create({
@@ -80,39 +81,61 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      // 3. Create a password reset token (for setup page)
-      const token = crypto.randomBytes(48).toString("hex");
+      // 3. Create a password reset token (for setup page) only if password was not provided
+      if (!input.password) {
+        const token = crypto.randomBytes(48).toString("hex");
 
-      await ctx.prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          token,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h
-        },
-      });
+        await ctx.prisma.passwordResetToken.create({
+          data: {
+            userId: user.id,
+            token,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h
+          },
+        });
 
-      const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password?token=${token}`;
+        const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password?token=${token}`;
 
-      // 4. Audit log
-      await ctx.prisma.auditLog.create({
-        data: {
-          tenantId: ctx.tenantId!,
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.roleName,
-          action: "USER_CREATED",
-          entityType: "user",
-          entityId: user.id,
-          entityName: user.name,
-          description: `Created user ${user.name}.`,
-          metadata: { setupUrl },
-        },
-      });
+        // 4. Audit log
+        await ctx.prisma.auditLog.create({
+          data: {
+            tenantId: ctx.tenantId!,
+            userId: ctx.session!.user.id,
+            userName: ctx.session!.user.name ?? "Unknown",
+            userRole: ctx.session!.user.roleName,
+            action: "USER_CREATED",
+            entityType: "user",
+            entityId: user.id,
+            entityName: user.name,
+            description: `Created user ${user.name}.`,
+            metadata: { setupUrl },
+          },
+        });
 
-      return {
-        success: true,
-        message: "User created. Password setup email sent.",
-      };
+        return {
+          success: true,
+          message: "User created. Password setup email sent.",
+        };
+      } else {
+        // 4. Audit log (password was provided)
+        await ctx.prisma.auditLog.create({
+          data: {
+            tenantId: ctx.tenantId!,
+            userId: ctx.session!.user.id,
+            userName: ctx.session!.user.name ?? "Unknown",
+            userRole: ctx.session!.user.roleName,
+            action: "USER_CREATED",
+            entityType: "user",
+            entityId: user.id,
+            entityName: user.name,
+            description: `Created user ${user.name} with provided password.`,
+          },
+        });
+
+        return {
+          success: true,
+          message: "User created successfully with the provided password.",
+        };
+      }
     }),
 
   // ---------------------------------------------------------
