@@ -74,12 +74,20 @@ export default function ExpensesPage() {
   }
 
   const handleSubmit = () => {
-    createMutation.mutate(formData)
+    createMutation.mutate({
+      title: formData.category,  
+      amount: formData.amount,
+      category: formData.category,
+      currency: formData.currency,
+      description: formData.description,
+      expenseDate: new Date(formData.date),
+    })
   }
+
 
   if (isLoading) return <LoadingState message="Loading expenses..." />
 
-  const expensesList = expenses || []
+  const expensesList = expenses?.expenses ?? []
   const filteredExpenses = expensesList.filter((e: any) => {
     const matchesSearch = 
       e.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -152,7 +160,12 @@ export default function ExpensesPage() {
       <Card>
         <CardContent className="p-0">
           {filteredExpenses.length === 0 ? (
-            <EmptyState title="No expenses found" description="Create your first expense" icon={DollarSign} action={<Button onClick={() => setIsModalOpen(true)}><Plus className="h-4 w-4 mr-2" /> New Expense</Button>} />
+            <EmptyState 
+              title="No expenses found"
+              description="Create your first expense"
+              icon={DollarSign}
+              onAction={() => setIsModalOpen(true)}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -195,7 +208,7 @@ export default function ExpensesPage() {
                         {expense.status === 'PENDING' && (
                           <>
                             <Button size="sm" variant="ghost" onClick={() => approveMutation.mutate({ id: expense.id })}><CheckCircle className="h-3 w-3 text-green-500" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => rejectMutation.mutate({ id: expense.id })}><XCircle className="h-3 w-3 text-red-500" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => rejectMutation.mutate({ id: expense.id, reason: "Rejected by admin" })}><XCircle className="h-3 w-3 text-red-500" /></Button>
                           </>
                         )}
                       </div>
