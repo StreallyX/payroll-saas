@@ -267,30 +267,29 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Rate</p>
                     <p className="text-lg font-semibold">
-                      {contract.rate ? formatCurrency(contract.rate, contract.currency?.symbol) : "-"}
+                      {contract.rate
+                        ? formatCurrency(contract.rate)
+                        : "-"}
                     </p>
                     {contract.rateType && (
                       <p className="text-xs text-muted-foreground">per {contract.rateType}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Currency</p>
                     <p className="text-lg font-semibold">
-                      {contract.currency?.code || "-"}
+                      {contract.currencyId || "-"}
                     </p>
-                    {contract.currency?.name && (
-                      <p className="text-xs text-muted-foreground">{contract.currency.name}</p>
-                    )}
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Margin</p>
                     <p className="text-lg font-semibold">
                       {contract.margin ? (
-                        contract.marginType === 'percentage' 
+                        contract.marginType === "percentage"
                           ? `${contract.margin}%`
-                          : formatCurrency(contract.margin, contract.currency?.symbol)
+                          : formatCurrency(contract.margin)
                       ) : "-"}
                     </p>
                     {contract.marginPaidBy && (
@@ -305,21 +304,20 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                     </p>
                   </div>
 
-                  {contract.contractVatRate && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">VAT Rate</p>
-                      <p className="text-lg font-semibold">
-                        {contract.contractVatRate}%
-                      </p>
-                    </div>
-                  )}
+                  {contract.contractVatRate !== null &&
+                    contract.contractVatRate !== undefined && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">VAT Rate</p>
+                        <p className="text-lg font-semibold">
+                          {String(contract.contractVatRate)}%
+                        </p>
+                      </div>
+                    )}
 
                   {contract.invoiceDueDays && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Invoice Due Days</p>
-                      <p className="text-lg font-semibold">
-                        {contract.invoiceDueDays} days
-                      </p>
+                      <p className="text-lg font-semibold">{contract.invoiceDueDays} days</p>
                     </div>
                   )}
                 </div>
