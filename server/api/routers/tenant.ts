@@ -17,8 +17,11 @@ export const tenantRouter = createTRPCRouter({
   // -------------------------------------------------------
   // 🟢 GET CURRENT TENANT
   // -------------------------------------------------------
+  // NOTE: No permission check required - all authenticated users in a tenant
+  // should be able to view their tenant's branding information (logo, colors, etc.)
+  // as it's needed for the UI. The tenantProcedure already ensures authentication
+  // and tenant membership.
   getCurrent: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
