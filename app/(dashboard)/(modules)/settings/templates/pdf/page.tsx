@@ -2,421 +2,231 @@
 
 import { useState } from "react"
 import { PageHeader } from "@/components/ui/page-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { LoadingState } from "@/components/shared/loading-state"
+import { EmptyState } from "@/components/shared/empty-state"
+import { api } from "@/lib/trpc"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Plus, Search, FileText, Edit, Trash2, Copy } from "lucide-react"
+import { toast } from "sonner"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { api } from "@/lib/trpc"
-import { useToast } from "@/hooks/use-toast"
-import { Loader2, Plus, Edit, Trash2, FileText } from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-
-interface PDFTemplateForm {
-  id?: string
-  name: string
-  displayName: string
-  description: string
-  type: string
-  template: string
-  headerHtml: string
-  footerHtml: string
-  pageSize: string
-  orientation: string
-}
+import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function PDFTemplatesPage() {
-  const { toast } = useToast()
+  const [searchTerm, setSearchTerm] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<PDFTemplateForm | null>(null)
-
-  const [form, setForm] = useState<PDFTemplateForm>({
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [templateToDelete, setTemplateToDelete] = useState<any>(null)
+  
+  const [formData, setFormData] = useState({
+    key: "",
     name: "",
-    displayName: "",
+    htmlTemplate: "",
+    cssTemplate: "",
     description: "",
-    type: "contract",
-    template: "",
-    headerHtml: "",
-    footerHtml: "",
+    isActive: true,
     pageSize: "A4",
     orientation: "portrait",
   })
 
-  const { data: templates, refetch, isLoading } = api.tenant.listPDFTemplates.useQuery()
+  const utils = api.useUtils()
+  const { data: templatesData, isLoading } = api.pdfTemplate.getAll.useQuery()
+  const { data: variablesData } = api.pdfTemplate.getVariables.useQuery()
 
-  const createMutation = api.tenant.createPDFTemplate.useMutation({
+  const createMutation = api.pdfTemplate.create.useMutation({
     onSuccess: () => {
-      toast({
-        title: "Template Created",
-        description: "PDF template has been created successfully.",
-      })
-      refetch()
-      resetForm()
+      toast.success("PDF template created successfully!")
+      utils.pdfTemplate.getAll.invalidate()
       setIsModalOpen(false)
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create template.",
-        variant: "destructive",
-      })
+      resetForm()
     },
   })
 
-  const updateMutation = api.tenant.updatePDFTemplate.useMutation({
+  const updateMutation = api.pdfTemplate.update.useMutation({
     onSuccess: () => {
-      toast({
-        title: "Template Updated",
-        description: "PDF template has been updated successfully.",
-      })
-      refetch()
-      resetForm()
+      toast.success("PDF template updated successfully!")
+      utils.pdfTemplate.getAll.invalidate()
       setIsModalOpen(false)
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update template.",
-        variant: "destructive",
-      })
+      resetForm()
     },
   })
 
-  const deleteMutation = api.tenant.deletePDFTemplate.useMutation({
+  const deleteMutation = api.pdfTemplate.delete.useMutation({
     onSuccess: () => {
-      toast({
-        title: "Template Deleted",
-        description: "PDF template has been deleted successfully.",
-      })
-      refetch()
+      toast.success("PDF template deleted successfully!")
+      utils.pdfTemplate.getAll.invalidate()
+      setTemplateToDelete(null)
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete template.",
-        variant: "destructive",
-      })
+  })
+
+  const duplicateMutation = api.pdfTemplate.duplicate.useMutation({
+    onSuccess: () => {
+      toast.success("Template duplicated successfully!")
+      utils.pdfTemplate.getAll.invalidate()
     },
   })
 
   const resetForm = () => {
-    setForm({
+    setFormData({
+      key: "",
       name: "",
-      displayName: "",
+      htmlTemplate: "",
+      cssTemplate: "",
       description: "",
-      type: "contract",
-      template: "",
-      headerHtml: "",
-      footerHtml: "",
+      isActive: true,
       pageSize: "A4",
       orientation: "portrait",
     })
-    setEditingTemplate(null)
-  }
-
-  const handleEdit = (template: any) => {
-    setForm({
-      id: template.id,
-      name: template.name,
-      displayName: template.displayName,
-      description: template.description || "",
-      type: template.type,
-      template: template.template,
-      headerHtml: template.headerHtml || "",
-      footerHtml: template.footerHtml || "",
-      pageSize: template.pageSize,
-      orientation: template.orientation,
-    })
-    setEditingTemplate(template)
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this template?")) {
-      deleteMutation.mutate({ id })
-    }
+    setSelectedTemplate(null)
   }
 
   const handleSubmit = () => {
-    if (editingTemplate) {
-      updateMutation.mutate({
-        id: form.id!,
-        displayName: form.displayName,
-        description: form.description,
-        template: form.template,
-        headerHtml: form.headerHtml,
-        footerHtml: form.footerHtml,
-        pageSize: form.pageSize,
-        orientation: form.orientation,
-      })
+    if (selectedTemplate) {
+      updateMutation.mutate({ id: selectedTemplate.id, ...formData })
     } else {
-      createMutation.mutate({
-        name: form.name.toLowerCase().replace(/\s+/g, "_"),
-        displayName: form.displayName,
-        description: form.description,
-        type: form.type,
-        template: form.template,
-        headerHtml: form.headerHtml,
-        footerHtml: form.footerHtml,
-        pageSize: form.pageSize,
-        orientation: form.orientation,
-      })
+      createMutation.mutate(formData)
     }
   }
 
-  const typeColors: Record<string, string> = {
-    contract: "bg-blue-100 text-blue-800",
-    invoice: "bg-green-100 text-green-800",
-    payslip: "bg-purple-100 text-purple-800",
-    report: "bg-yellow-100 text-yellow-800",
+  const handleEdit = (template: any) => {
+    setSelectedTemplate(template)
+    setFormData({
+      key: template.key,
+      name: template.name,
+      htmlTemplate: template.htmlTemplate,
+      cssTemplate: template.cssTemplate || "",
+      description: template.description || "",
+      isActive: template.isActive,
+      pageSize: template.pageSize,
+      orientation: template.orientation,
+    })
+    setIsModalOpen(true)
   }
+
+  if (isLoading) return <LoadingState message="Loading PDF templates..." />
+
+  const templates = templatesData?.data || []
+  const variables = variablesData?.data || []
+  const filteredTemplates = templates.filter((t: any) =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.key.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="PDF Templates"
-        description="Manage custom PDF templates for contracts, invoices, and payslips"
-        action={
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Template
+      <PageHeader title="PDF Templates" description="Manage PDF templates for documents and reports">
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input placeholder="Search templates..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-64" />
+          </div>
+          <Button size="sm" onClick={() => { resetForm(); setIsModalOpen(true) }}>
+            <Plus className="h-4 w-4 mr-2" /> New Template
           </Button>
-        }
-      />
-
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templates?.map((template) => (
-            <Card key={template.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{template.displayName}</CardTitle>
-                    <CardDescription className="mt-1">{template.description}</CardDescription>
-                  </div>
-                  <Badge className={typeColors[template.type] || typeColors.report}>
-                    {template.type}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="font-medium text-gray-700">Page Size</p>
-                      <p className="text-gray-600">{template.pageSize}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-700">Orientation</p>
-                      <p className="text-gray-600 capitalize">{template.orientation}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-gray-500">
-                    <span>Generated: {template.generatedCount} times</span>
-                    <Badge variant={template.isActive ? "default" : "secondary"}>
-                      {template.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(template)}
-                      className="flex-1"
-                    >
-                      <Edit className="mr-1 h-3 w-3" />
-                      Edit
-                    </Button>
-                    {!template.isDefault && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(template.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      </PageHeader>
 
-      {!isLoading && templates?.length === 0 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium">No PDF templates yet</h3>
-            <p className="mt-2 text-sm text-gray-500">
-              Create your first PDF template to get started.
-            </p>
-            <Button onClick={() => setIsModalOpen(true)} className="mt-4">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Template
-            </Button>
-          </CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{templates.length}</div></CardContent>
         </Card>
-      )}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Templates</CardTitle>
+            <FileText className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{templates.filter((t: any) => t.isActive).length}</div></CardContent>
+        </Card>
+      </div>
 
-      {/* Create/Edit Modal */}
+      <Card>
+        <CardContent className="p-0">
+          {filteredTemplates.length === 0 ? (
+            <EmptyState title="No PDF templates" description="Create your first PDF template" icon={FileText} action={<Button onClick={() => setIsModalOpen(true)}><Plus className="h-4 w-4 mr-2" /> New Template</Button>} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Template</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead>Page Size</TableHead>
+                  <TableHead>Orientation</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTemplates.map((template: any) => (
+                  <TableRow key={template.id}>
+                    <TableCell><div><p className="font-medium">{template.name}</p>{template.description && <p className="text-sm text-gray-500">{template.description}</p>}</div></TableCell>
+                    <TableCell className="font-mono text-sm">{template.key}</TableCell>
+                    <TableCell><Badge variant="outline">{template.pageSize}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className="capitalize">{template.orientation}</Badge></TableCell>
+                    <TableCell>{template.isActive ? <Badge variant="default" className="bg-green-500">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(template)}><Edit className="h-3 w-3" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => duplicateMutation.mutate({ id: template.id })} disabled={duplicateMutation.isPending}><Copy className="h-3 w-3" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => setTemplateToDelete(template)}><Trash2 className="h-3 w-3 text-red-500" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingTemplate ? "Edit" : "Create"} PDF Template</DialogTitle>
-            <DialogDescription>
-              {editingTemplate
-                ? "Update the PDF template details."
-                : "Create a new custom PDF template using Handlebars syntax."}
-            </DialogDescription>
+            <DialogTitle>{selectedTemplate ? "Edit Template" : "Create PDF Template"}</DialogTitle>
+            <DialogDescription>Create or edit PDF templates with HTML/CSS</DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            {!editingTemplate && (
-              <>
-                <div className="space-y-2">
-                  <Label>Template Name (Internal ID)</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="contract_template_v1"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Internal identifier (use lowercase and underscores)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Template Type</Label>
-                  <select
-                    value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="contract">Contract</option>
-                    <option value="invoice">Invoice</option>
-                    <option value="payslip">Payslip</option>
-                    <option value="report">Report</option>
-                  </select>
-                </div>
-              </>
-            )}
-
-            <div className="space-y-2">
-              <Label>Display Name</Label>
-              <Input
-                value={form.displayName}
-                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                placeholder="Standard Contract Template"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Template for standard employment contracts..."
-                rows={2}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Page Size</Label>
-                <select
-                  value={form.pageSize}
-                  onChange={(e) => setForm({ ...form, pageSize: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="A4">A4</option>
-                  <option value="Letter">Letter</option>
-                  <option value="Legal">Legal</option>
-                </select>
+          <Tabs defaultValue="basic">
+            <TabsList>
+              <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="content">Content</TabsTrigger>
+            </TabsList>
+            <TabsContent value="basic" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label htmlFor="key">Template Key *</Label><Input id="key" placeholder="invoice_template" value={formData.key} onChange={(e) => setFormData({ ...formData, key: e.target.value })} disabled={!!selectedTemplate} /></div>
+                <div className="space-y-2"><Label htmlFor="name">Template Name *</Label><Input id="name" placeholder="Invoice Template" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
               </div>
-
-              <div className="space-y-2">
-                <Label>Orientation</Label>
-                <select
-                  value={form.orientation}
-                  onChange={(e) => setForm({ ...form, orientation: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="portrait">Portrait</option>
-                  <option value="landscape">Landscape</option>
-                </select>
+              <div className="space-y-2"><Label htmlFor="description">Description</Label><Input id="description" placeholder="Template for generating invoices" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label htmlFor="pageSize">Page Size</Label><Select value={formData.pageSize} onValueChange={(value) => setFormData({ ...formData, pageSize: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="A4">A4</SelectItem><SelectItem value="LETTER">Letter</SelectItem><SelectItem value="LEGAL">Legal</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label htmlFor="orientation">Orientation</Label><Select value={formData.orientation} onValueChange={(value) => setFormData({ ...formData, orientation: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="portrait">Portrait</SelectItem><SelectItem value="landscape">Landscape</SelectItem></SelectContent></Select></div>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Template Content (Handlebars)</Label>
-              <Textarea
-                value={form.template}
-                onChange={(e) => setForm({ ...form, template: e.target.value })}
-                placeholder={`<h1>{{document_title}}</h1>\n<p>Contractor: {{contractor_name}}</p>\n<p>Rate: {{rate}}</p>`}
-                rows={12}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-gray-500">
-                Use Handlebars syntax like {`{{variable_name}}`} for dynamic content
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Header HTML (Optional)</Label>
-              <Textarea
-                value={form.headerHtml}
-                onChange={(e) => setForm({ ...form, headerHtml: e.target.value })}
-                placeholder="<div class='header'><img src='{{logo_url}}' /></div>"
-                rows={3}
-                className="font-mono text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Footer HTML (Optional)</Label>
-              <Textarea
-                value={form.footerHtml}
-                onChange={(e) => setForm({ ...form, footerHtml: e.target.value })}
-                placeholder="<div class='footer'>Page {{page}} of {{total_pages}}</div>"
-                rows={3}
-                className="font-mono text-sm"
-              />
-            </div>
-          </div>
-
+              <div className="flex items-center space-x-2"><input type="checkbox" id="isActive" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} className="rounded" /><Label htmlFor="isActive">Active</Label></div>
+            </TabsContent>
+            <TabsContent value="content" className="space-y-4">
+              <div className="space-y-2"><Label htmlFor="htmlTemplate">HTML Template *</Label><Textarea id="htmlTemplate" placeholder="<html><body><h1>{{company}}</h1>...</body></html>" value={formData.htmlTemplate} onChange={(e) => setFormData({ ...formData, htmlTemplate: e.target.value })} rows={10} className="font-mono text-sm" /></div>
+              <div className="space-y-2"><Label htmlFor="cssTemplate">CSS Template</Label><Textarea id="cssTemplate" placeholder="body { font-family: Arial; }..." value={formData.cssTemplate} onChange={(e) => setFormData({ ...formData, cssTemplate: e.target.value })} rows={10} className="font-mono text-sm" /></div>
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsModalOpen(false)
-                resetForm()
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                editingTemplate ? "Update" : "Create"
-              )}
-            </Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending || !formData.key || !formData.name || !formData.htmlTemplate}>{selectedTemplate ? "Update" : "Create"} Template</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {templateToDelete && (
+        <DeleteConfirmDialog isOpen={!!templateToDelete} onClose={() => setTemplateToDelete(null)} onConfirm={() => deleteMutation.mutate({ id: templateToDelete.id })} title="Delete PDF Template" description={`Are you sure you want to delete "${templateToDelete.name}"?`} isDeleting={deleteMutation.isPending} />
+      )}
     </div>
   )
 }

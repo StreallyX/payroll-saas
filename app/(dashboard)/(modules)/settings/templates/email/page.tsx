@@ -2,448 +2,420 @@
 
 import { useState } from "react"
 import { PageHeader } from "@/components/ui/page-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { LoadingState } from "@/components/shared/loading-state"
+import { EmptyState } from "@/components/shared/empty-state"
+import { api } from "@/lib/trpc"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Plus, Search, Mail, Edit, Trash2, Copy, Eye, Code } from "lucide-react"
+import { toast } from "sonner"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { api } from "@/lib/trpc"
-import { useToast } from "@/hooks/use-toast"
-import { Loader2, Plus, Edit, Trash2, Eye, Mail } from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-
-interface EmailTemplateForm {
-  id?: string
-  name: string
-  displayName: string
-  description: string
-  category: string
-  subject: string
-  htmlBody: string
-  textBody: string
-  headerHtml: string
-  footerHtml: string
-}
+import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function EmailTemplatesPage() {
-  const { toast } = useToast()
+  const [searchTerm, setSearchTerm] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [previewHtml, setPreviewHtml] = useState("")
-  const [editingTemplate, setEditingTemplate] = useState<EmailTemplateForm | null>(null)
-
-  const [form, setForm] = useState<EmailTemplateForm>({
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [templateToDelete, setTemplateToDelete] = useState<any>(null)
+  const [previewTemplate, setPreviewTemplate] = useState<any>(null)
+  
+  const [formData, setFormData] = useState({
+    key: "",
     name: "",
-    displayName: "",
-    description: "",
-    category: "notifications",
     subject: "",
-    htmlBody: "",
-    textBody: "",
-    headerHtml: "",
-    footerHtml: "",
+    body: "",
+    description: "",
+    isActive: true,
   })
 
-  const { data: templates, refetch, isLoading } = api.tenant.listEmailTemplates.useQuery()
+  const utils = api.useUtils()
 
-  const createMutation = api.tenant.createEmailTemplate.useMutation({
+  // Fetch templates
+  const { data: templatesData, isLoading } = api.emailTemplate.getAll.useQuery()
+  const { data: variablesData } = api.emailTemplate.getVariables.useQuery()
+
+  // Mutations
+  const createMutation = api.emailTemplate.create.useMutation({
     onSuccess: () => {
-      toast({
-        title: "Template Created",
-        description: "Email template has been created successfully.",
-      })
-      refetch()
-      resetForm()
+      toast.success("Email template created successfully!")
+      utils.emailTemplate.getAll.invalidate()
       setIsModalOpen(false)
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create template.",
-        variant: "destructive",
-      })
-    },
-  })
-
-  const updateMutation = api.tenant.updateEmailTemplate.useMutation({
-    onSuccess: () => {
-      toast({
-        title: "Template Updated",
-        description: "Email template has been updated successfully.",
-      })
-      refetch()
       resetForm()
-      setIsModalOpen(false)
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update template.",
-        variant: "destructive",
-      })
-    },
+      toast.error(error.message || "Failed to create template")
+    }
   })
 
-  const deleteMutation = api.tenant.deleteEmailTemplate.useMutation({
+  const updateMutation = api.emailTemplate.update.useMutation({
     onSuccess: () => {
-      toast({
-        title: "Template Deleted",
-        description: "Email template has been deleted successfully.",
-      })
-      refetch()
+      toast.success("Email template updated successfully!")
+      utils.emailTemplate.getAll.invalidate()
+      setIsModalOpen(false)
+      resetForm()
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete template.",
-        variant: "destructive",
-      })
+      toast.error(error.message || "Failed to update template")
+    }
+  })
+
+  const deleteMutation = api.emailTemplate.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Email template deleted successfully!")
+      utils.emailTemplate.getAll.invalidate()
+      setTemplateToDelete(null)
     },
+    onError: (error) => {
+      toast.error(error.message || "Failed to delete template")
+    }
+  })
+
+  const duplicateMutation = api.emailTemplate.duplicate.useMutation({
+    onSuccess: () => {
+      toast.success("Template duplicated successfully!")
+      utils.emailTemplate.getAll.invalidate()
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to duplicate template")
+    }
   })
 
   const resetForm = () => {
-    setForm({
+    setFormData({
+      key: "",
       name: "",
-      displayName: "",
-      description: "",
-      category: "notifications",
       subject: "",
-      htmlBody: "",
-      textBody: "",
-      headerHtml: "",
-      footerHtml: "",
+      body: "",
+      description: "",
+      isActive: true,
     })
-    setEditingTemplate(null)
-  }
-
-  const handleEdit = (template: any) => {
-    setForm({
-      id: template.id,
-      name: template.name,
-      displayName: template.displayName,
-      description: template.description || "",
-      category: template.category,
-      subject: template.subject,
-      htmlBody: template.htmlBody,
-      textBody: template.textBody || "",
-      headerHtml: template.headerHtml || "",
-      footerHtml: template.footerHtml || "",
-    })
-    setEditingTemplate(template)
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this template?")) {
-      deleteMutation.mutate({ id })
-    }
+    setSelectedTemplate(null)
   }
 
   const handleSubmit = () => {
-    if (editingTemplate) {
-      updateMutation.mutate({
-        id: form.id!,
-        displayName: form.displayName,
-        description: form.description,
-        subject: form.subject,
-        htmlBody: form.htmlBody,
-        textBody: form.textBody,
-      })
+    if (selectedTemplate) {
+      updateMutation.mutate({ id: selectedTemplate.id, ...formData })
     } else {
-      createMutation.mutate({
-        name: form.name.toLowerCase().replace(/\s+/g, "_"),
-        displayName: form.displayName,
-        description: form.description,
-        category: form.category,
-        subject: form.subject,
-        htmlBody: form.htmlBody,
-        textBody: form.textBody,
-        headerHtml: form.headerHtml,
-        footerHtml: form.footerHtml,
-      })
+      createMutation.mutate(formData)
     }
   }
 
-  const handlePreview = (template: any) => {
-    const fullHtml = `
-      ${template.headerHtml || ""}
-      ${template.htmlBody}
-      ${template.footerHtml || ""}
-    `
-    setPreviewHtml(fullHtml)
-    setIsPreviewOpen(true)
+  const handleEdit = (template: any) => {
+    setSelectedTemplate(template)
+    setFormData({
+      key: template.key,
+      name: template.name,
+      subject: template.subject,
+      body: template.body,
+      description: template.description || "",
+      isActive: template.isActive,
+    })
+    setIsModalOpen(true)
   }
 
-  const categoryColors: Record<string, string> = {
-    authentication: "bg-blue-100 text-blue-800",
-    notifications: "bg-green-100 text-green-800",
-    invoicing: "bg-yellow-100 text-yellow-800",
-    contracts: "bg-purple-100 text-purple-800",
-    system: "bg-gray-100 text-gray-800",
+  const handleDuplicate = (template: any) => {
+    duplicateMutation.mutate({ id: template.id })
   }
+
+  const insertVariable = (variable: string) => {
+    setFormData({
+      ...formData,
+      body: formData.body + `{{${variable}}}`
+    })
+  }
+
+  if (isLoading) {
+    return <LoadingState message="Loading email templates..." />
+  }
+
+  const templates = templatesData?.data || []
+  const variables = variablesData?.data || []
+  const filteredTemplates = templates.filter((t: any) =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.key.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const activeTemplates = templates.filter((t: any) => t.isActive).length
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Email Templates"
-        description="Manage custom email templates for your organization"
-        action={
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Template
+        description="Manage email templates for automated notifications"
+      >
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search templates..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-64"
+            />
+          </div>
+          <Button size="sm" onClick={() => {
+            resetForm()
+            setIsModalOpen(true)
+          }}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
           </Button>
-        }
-      />
-
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templates?.map((template) => (
-            <Card key={template.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{template.displayName}</CardTitle>
-                    <CardDescription className="mt-1">{template.description}</CardDescription>
-                  </div>
-                  <Badge className={categoryColors[template.category] || categoryColors.system}>
-                    {template.category}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Subject:</p>
-                    <p className="text-sm text-gray-600">{template.subject}</p>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-gray-500">
-                    <span>Sent: {template.sentCount} times</span>
-                    <Badge variant={template.isActive ? "default" : "secondary"}>
-                      {template.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePreview(template)}
-                      className="flex-1"
-                    >
-                      <Eye className="mr-1 h-3 w-3" />
-                      Preview
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(template)}
-                      className="flex-1"
-                    >
-                      <Edit className="mr-1 h-3 w-3" />
-                      Edit
-                    </Button>
-                    {!template.isDefault && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(template.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      </PageHeader>
 
-      {!isLoading && templates?.length === 0 && (
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
-          <CardContent className="py-12 text-center">
-            <Mail className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium">No email templates yet</h3>
-            <p className="mt-2 text-sm text-gray-500">
-              Create your first email template to get started.
-            </p>
-            <Button onClick={() => setIsModalOpen(true)} className="mt-4">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Template
-            </Button>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
+            <Mail className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{templates.length}</div>
           </CardContent>
         </Card>
-      )}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Templates</CardTitle>
+            <Mail className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeTemplates}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Templates Table */}
+      <Card>
+        <CardContent className="p-0">
+          {filteredTemplates.length === 0 ? (
+            <EmptyState
+              title="No email templates"
+              description="Create your first email template"
+              icon={Mail}
+              action={
+                <Button onClick={() => setIsModalOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Template
+                </Button>
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Template</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTemplates.map((template: any) => (
+                  <TableRow key={template.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{template.name}</p>
+                        {template.description && (
+                          <p className="text-sm text-gray-500">{template.description}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{template.key}</TableCell>
+                    <TableCell className="max-w-md truncate">{template.subject}</TableCell>
+                    <TableCell>
+                      {template.isActive ? (
+                        <Badge variant="default" className="bg-green-500">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(template)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDuplicate(template)}
+                          disabled={duplicateMutation.isPending}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setTemplateToDelete(template)}
+                        >
+                          <Trash2 className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingTemplate ? "Edit" : "Create"} Email Template</DialogTitle>
-            <DialogDescription>
-              {editingTemplate
-                ? "Update the email template details."
-                : "Create a new custom email template for your organization."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {!editingTemplate && (
-              <>
-                <div className="space-y-2">
-                  <Label>Template Name (Internal ID)</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="welcome_email"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Internal identifier (use lowercase and underscores)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="authentication">Authentication</option>
-                    <option value="notifications">Notifications</option>
-                    <option value="invoicing">Invoicing</option>
-                    <option value="contracts">Contracts</option>
-                    <option value="system">System</option>
-                  </select>
-                </div>
-              </>
-            )}
-
-            <div className="space-y-2">
-              <Label>Display Name</Label>
-              <Input
-                value={form.displayName}
-                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                placeholder="Welcome Email"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Email sent to new users..."
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Subject</Label>
-              <Input
-                value={form.subject}
-                onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                placeholder="Welcome to {{company_name}}!"
-              />
-              <p className="text-xs text-gray-500">
-                Use variables like {`{{variable_name}}`}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>HTML Body</Label>
-              <Textarea
-                value={form.htmlBody}
-                onChange={(e) => setForm({ ...form, htmlBody: e.target.value })}
-                placeholder="<h1>Welcome!</h1><p>Hello {{user_name}},</p>"
-                rows={10}
-                className="font-mono text-sm"
-              />
-            </div>
-
-            {!editingTemplate && (
-              <>
-                <div className="space-y-2">
-                  <Label>Header HTML (Optional)</Label>
-                  <Textarea
-                    value={form.headerHtml}
-                    onChange={(e) => setForm({ ...form, headerHtml: e.target.value })}
-                    placeholder="<div>Company Logo</div>"
-                    rows={3}
-                    className="font-mono text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Footer HTML (Optional)</Label>
-                  <Textarea
-                    value={form.footerHtml}
-                    onChange={(e) => setForm({ ...form, footerHtml: e.target.value })}
-                    placeholder="<div>© 2024 Company Name</div>"
-                    rows={3}
-                    className="font-mono text-sm"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="space-y-2">
-              <Label>Plain Text Body (Optional)</Label>
-              <Textarea
-                value={form.textBody}
-                onChange={(e) => setForm({ ...form, textBody: e.target.value })}
-                placeholder="Welcome! Hello {{user_name}},"
-                rows={5}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsModalOpen(false)
-                resetForm()
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                editingTemplate ? "Update" : "Create"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Preview Modal */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Email Preview</DialogTitle>
+            <DialogTitle>{selectedTemplate ? "Edit Template" : "Create Email Template"}</DialogTitle>
+            <DialogDescription>
+              Create or edit email templates with dynamic variables
+            </DialogDescription>
           </DialogHeader>
-          <div
-            className="border rounded-lg p-4 bg-white"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList>
+              <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="content">Content</TabsTrigger>
+              <TabsTrigger value="variables">Variables</TabsTrigger>
+            </TabsList>
+            <TabsContent value="basic" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="key">Template Key *</Label>
+                  <Input
+                    id="key"
+                    placeholder="welcome_email"
+                    value={formData.key}
+                    onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                    disabled={!!selectedTemplate}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Template Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="Welcome Email"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  placeholder="Sent when a user signs up"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="isActive">Active</Label>
+              </div>
+            </TabsContent>
+            <TabsContent value="content" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="subject">Email Subject *</Label>
+                <Input
+                  id="subject"
+                  placeholder="Welcome to {{company}}!"
+                  value={formData.subject}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="body">Email Body *</Label>
+                <Textarea
+                  id="body"
+                  placeholder="Hello {{name}},&#10;&#10;Welcome to our platform!..."
+                  value={formData.body}
+                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+              </div>
+            </TabsContent>
+            <TabsContent value="variables" className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Click on a variable to insert it at the cursor position in the email body:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {variables.map((variable: any) => (
+                  <div
+                    key={variable.key}
+                    className="p-3 border rounded-md cursor-pointer hover:bg-gray-50"
+                    onClick={() => insertVariable(variable.key)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm">{`{{${variable.key}}}`}</span>
+                      <Code className="h-3 w-3 text-gray-400" />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">{variable.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">Example: {variable.example}</p>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
-            <Button onClick={() => setIsPreviewOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending || !formData.key || !formData.name || !formData.subject || !formData.body}
+            >
+              {selectedTemplate ? "Update" : "Create"} Template
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      {templateToDelete && (
+        <DeleteConfirmDialog
+          isOpen={!!templateToDelete}
+          onClose={() => setTemplateToDelete(null)}
+          onConfirm={() => deleteMutation.mutate({ id: templateToDelete.id })}
+          title="Delete Email Template"
+          description={`Are you sure you want to delete "${templateToDelete.name}"? This action cannot be undone.`}
+          isDeleting={deleteMutation.isPending}
+        />
+      )}
     </div>
   )
 }
