@@ -675,7 +675,7 @@ export const invoiceRouter = createTRPCRouter({
   
   // Get contractor's own invoices
   getMyInvoices: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.view_own))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -711,7 +711,7 @@ export const invoiceRouter = createTRPCRouter({
   
   // Create invoice for contractor
   createContractorInvoice: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.create))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.create_own))
     .input(z.object({
       contractId: z.string(),
       title: z.string().optional(),
@@ -847,7 +847,7 @@ export const invoiceRouter = createTRPCRouter({
   
   // Get invoice summary for contractor
   getMyInvoiceSummary: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.view_own))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },

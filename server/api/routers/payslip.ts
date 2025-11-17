@@ -3,6 +3,7 @@ import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
 import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
+import { TRPCError } from "@trpc/server";
 
 export const payslipRouter = createTRPCRouter({
 
@@ -229,5 +230,37 @@ export const payslipRouter = createTRPCRouter({
       ]);
 
       return { thisMonth, generated, sent, pending };
+    }),
+
+  // -------------------------------------------------------
+  // CONTRACTOR-SPECIFIC: GET MY PAYSLIPS
+  // -------------------------------------------------------
+  getMyPayslips: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_own))
+    .query(async ({ ctx }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        include: { contractor: true },
+      });
+
+      if (!user?.contractor) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contractor profile not found",
+        });
+      }
+
+      return ctx.prisma.payslip.findMany({
+        where: {
+          contractorId: user.contractor.id,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          contract: {
+            select: { id: true, title: true, contractReference: true },
+          },
+        },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+      });
     }),
 });

@@ -597,4 +597,45 @@ export const contractRouter = createTRPCRouter({
 
       return { reference }
     }),
+
+  // ---------------------------------------------------------
+  // CONTRACTOR-SPECIFIC: GET MY CONTRACTS
+  // ---------------------------------------------------------
+  getMyContracts: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view_own))
+    .query(async ({ ctx }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        include: { contractor: true },
+      })
+
+      if (!user?.contractor) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contractor profile not found",
+        })
+      }
+
+      return ctx.prisma.contract.findMany({
+        where: {
+          contractorId: user.contractor.id,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          agency: { select: { name: true } },
+          payrollPartner: { select: { name: true } },
+          company: { select: { name: true } },
+          invoices: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              status: true,
+              amount: true,
+              totalAmount: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    }),
 })

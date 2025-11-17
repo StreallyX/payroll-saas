@@ -59,12 +59,18 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY USER ID (contractor dashboard)
+  // GET BY USER ID (contractor dashboard - for viewing own profile)
   // -------------------------------------------------------
   getByUserId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.view_own))
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Ensure user can only view their own contractor profile
+      if (input.userId !== ctx.session.user.id && !ctx.session.user.isSuperAdmin && 
+          !ctx.session.user.permissions?.includes(PERMISSION_TREE_V2.contractors.manage.view_all)) {
+        throw new Error("You can only view your own contractor profile")
+      }
+
       return ctx.prisma.contractor.findFirst({
         where: { userId: input.userId, tenantId: ctx.tenantId },
         include: {

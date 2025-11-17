@@ -42,7 +42,7 @@ export const taskRouter = createTRPCRouter({
   // GET MY TASKS
   // -------------------------------------------------------
   getMyTasks: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_own))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
         where: { 
@@ -104,7 +104,7 @@ export const taskRouter = createTRPCRouter({
   // UPDATE TASK
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.update_assigned))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.update_own))
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
