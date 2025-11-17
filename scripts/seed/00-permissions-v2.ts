@@ -253,6 +253,16 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   "banks.update": "Modifier une banque",
   "banks.delete": "Supprimer une banque",
 
+  // Payroll Partners - Own
+  "payroll_partners.view_own": "Voir son propre profil de payroll partner",
+  "payroll_partners.update_own": "Modifier son profil de payroll partner",
+
+  // Payroll Partners - Manage
+  "payroll_partners.manage.view_all": "Voir tous les payroll partners",
+  "payroll_partners.manage.create": "Créer un payroll partner",
+  "payroll_partners.manage.update": "Modifier un payroll partner",
+  "payroll_partners.manage.delete": "Supprimer un payroll partner",
+
   // Document Types
   "document_types.view": "Voir les types de documents",
   "document_types.create": "Créer un type de document",

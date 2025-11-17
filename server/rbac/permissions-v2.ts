@@ -409,6 +409,23 @@ export const PERMISSION_TREE_V2 = {
     delete: "banks.delete",
   },
 
+  // =================================================================
+  // PAYROLL PARTNERS
+  // =================================================================
+  payrollPartners: {
+    // Permissions personnelles
+    view_own: "payroll_partners.view_own",
+    update_own: "payroll_partners.update_own",
+    
+    // Permissions de gestion (admin)
+    manage: {
+      view_all: "payroll_partners.manage.view_all",
+      create: "payroll_partners.manage.create",
+      update: "payroll_partners.manage.update",
+      delete: "payroll_partners.manage.delete",
+    },
+  },
+
   documentTypes: {
     view: "document_types.view",
     create: "document_types.create",
