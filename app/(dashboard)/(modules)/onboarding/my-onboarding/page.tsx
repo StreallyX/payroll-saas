@@ -105,14 +105,19 @@ export default function ContractorOnboardingPage() {
   const getStepIcon = (status: string) => {
     if (status === "completed") {
       return (
-    <RouteGuard permission="onboarding.responses.view_own">
-      <CheckCircle className="h-6 w-6 text-green-600" />;
+        <RouteGuard permission="onboarding.responses.view_own">
+          <CheckCircle className="h-6 w-6 text-green-600" />
+        </RouteGuard>
+      );
     }
+
     if (status === "in_progress") {
       return <Circle className="h-6 w-6 animate-pulse text-blue-600" />;
     }
+
     return <Circle className="h-6 w-6 text-muted-foreground" />;
   };
+
 
   const getDocumentStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive"; label: string }> = {

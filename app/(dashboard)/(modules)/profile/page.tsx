@@ -37,7 +37,7 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState<any>(null);
 
   // Determine user type based on session
-  const userType = session?.user?.role?.name || "user";
+  const userType = session?.user?.roleName?.toLowerCase() || "user";
   const isContractor = userType.toLowerCase().includes("contractor");
   const isAgency = userType.toLowerCase().includes("agency");
 

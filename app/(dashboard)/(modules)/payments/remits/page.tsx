@@ -332,5 +332,6 @@ export default function ContractorRemitsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RouteGuard>
   );
 }

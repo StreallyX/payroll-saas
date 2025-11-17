@@ -484,5 +484,6 @@ export default function ContractorReferPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </RouteGuard>
   );
 }

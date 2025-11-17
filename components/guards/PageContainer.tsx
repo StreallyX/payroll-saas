@@ -6,13 +6,16 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 
+type PageMode = "own" | "manage" | "none";
+
 interface PageContainerProps {
-  children: ReactNode;
+  children: ReactNode | ((mode: PageMode) => ReactNode);
   ownPermission?: string;
   managePermission?: string;
   className?: string;
   showModeIndicator?: boolean;
 }
+
 
 /**
  * PageContainer - Conteneur intelligent pour les pages multi-rôles

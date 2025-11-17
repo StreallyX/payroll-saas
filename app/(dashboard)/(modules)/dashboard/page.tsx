@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const { hasPermission } = usePermissions();
   
   // Determine user type
-  const userType = session?.user?.role?.name?.toLowerCase() || "user";
+  const userType = session?.user?.roleName?.toLowerCase() || "user";
   const isContractor = userType.includes("contractor");
   const isAgency = userType.includes("agency");
   const isPayrollPartner = userType.includes("payroll");

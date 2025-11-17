@@ -68,14 +68,18 @@ export default function AgencyUsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary"> = {
+  const variants: Record<string, "default" | "secondary"> = {
       active: "default",
       inactive: "secondary",
     };
+
     return (
-    <RouteGuard permission="team.view">
-      <Badge variant={variants[status] || "default"}>{status}</Badge>;
+      <Badge variant={variants[status] || "default"}>
+        {status}
+      </Badge>
+    );
   };
+
 
   const getInitials = (name: string) => {
     return name

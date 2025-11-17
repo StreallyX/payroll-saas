@@ -207,5 +207,6 @@ export default function ContractorPayslipsPage() {
         </CardContent>
       </Card>
     </div>
+    </RouteGuard>
   );
 }
