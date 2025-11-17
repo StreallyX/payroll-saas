@@ -60,10 +60,10 @@ export default function ContractorInformationPage() {
         email: contractor.user?.email || "",
         phone: contractor.phone || "",
         alternatePhone: contractor.alternatePhone || "",
-        address: contractor.address || "",
+        address: contractor.address1 || "",
         city: contractor.city || "",
         state: contractor.state || "",
-        zipCode: contractor.zipCode || "",
+        zipCode: contractor.postCode || "",
         countryId: contractor.countryId || "",
         dateOfBirth: contractor.dateOfBirth || "",
         notes: contractor.notes || "",
@@ -87,10 +87,10 @@ export default function ContractorInformationPage() {
         email: contractor.user?.email || "",
         phone: contractor.phone || "",
         alternatePhone: contractor.alternatePhone || "",
-        address: contractor.address || "",
+        address: contractor.address1 || "",
         city: contractor.city || "",
         state: contractor.state || "",
-        zipCode: contractor.zipCode || "",
+        zipCode: contractor.postCode || "",
         countryId: contractor.countryId || "",
         dateOfBirth: contractor.dateOfBirth || "",
         notes: contractor.notes || "",
@@ -327,11 +327,11 @@ export default function ContractorInformationPage() {
       <div className="flex justify-end gap-3">
         {isEditing ? (
           <>
-            <Button variant="outline" onClick={handleCancel} disabled={updateContractor.isLoading}>
+            <Button variant="outline" onClick={handleCancel} disabled={updateContractor.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={updateContractor.isLoading}>
-              {updateContractor.isLoading ? (
+            <Button onClick={handleSave} disabled={updateContractor.isPending}>
+              {updateContractor.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...

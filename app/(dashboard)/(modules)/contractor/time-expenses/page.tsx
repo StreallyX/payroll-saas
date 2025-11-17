@@ -81,7 +81,7 @@ export default function ContractorTimeExpensesPage() {
   const { data: expenses, isLoading: expensesLoading, error: expensesError } = api.expense.getMyExpenses.useQuery();
 
   // Fetch expense summary
-  const { data: expenseSummary } = api.expense.getMyExpenseSummary.useQuery();
+  const { data: expenseSummary } = api.expense.getStatistics.useQuery();
 
   // Mutations
   const createTimeEntry = api.timesheet.createEntry.useMutation({
@@ -330,10 +330,12 @@ export default function ContractorTimeExpensesPage() {
 
     createExpense.mutate({
       contractId: expenseForm.contractId,
-      date: new Date(expenseForm.date),
-      amount: parseFloat(expenseForm.amount),
-      category: expenseForm.category,
+      title: expenseForm.description || "Expense",     // obligatoire
       description: expenseForm.description,
+      amount: parseFloat(expenseForm.amount),
+      currency: "USD",
+      category: expenseForm.category,
+      expenseDate: new Date(expenseForm.date),          // 🔥 bon champ
       receiptUrl: expenseForm.receiptUrl || undefined,
     });
   };
@@ -375,7 +377,7 @@ export default function ContractorTimeExpensesPage() {
               title="Expenses"
               value={`$${expenseSummary?.totalAmount?.toFixed(2) || '0.00'}`}
               icon={DollarSign}
-              description={`${expenseSummary?.pendingCount || 0} pending`}
+              description={`${expenseSummary?.submittedExpenses || 0} pending`}
             />
           </>
         )}
@@ -488,12 +490,12 @@ export default function ContractorTimeExpensesPage() {
                         <Button
                           variant="outline"
                           onClick={() => setIsTimeDialogOpen(false)}
-                          disabled={createTimeEntry.isLoading}
+                          disabled={createTimeEntry.isPending}
                         >
                           Cancel
                         </Button>
-                        <Button onClick={handleSubmitTime} disabled={createTimeEntry.isLoading}>
-                          {createTimeEntry.isLoading ? (
+                        <Button onClick={handleSubmitTime} disabled={createTimeEntry.isPending}>
+                          {createTimeEntry.isPending ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Adding...
@@ -667,12 +669,12 @@ export default function ContractorTimeExpensesPage() {
                         <Button
                           variant="outline"
                           onClick={() => setIsExpenseDialogOpen(false)}
-                          disabled={createExpense.isLoading}
+                          disabled={createExpense.isPending}
                         >
                           Cancel
                         </Button>
-                        <Button onClick={handleSubmitExpense} disabled={createExpense.isLoading}>
-                          {createExpense.isLoading ? (
+                        <Button onClick={handleSubmitExpense} disabled={createExpense.isPending}>
+                          {createExpense.isPending ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Adding...

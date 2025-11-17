@@ -120,18 +120,18 @@ export default function ContractorRemitsPage() {
             />
             <StatsCard
               title="Processing"
-              value={`$${summary.processingAmount?.toFixed(2) || '0.00'}`}
+              value={`$${(summary.processing || 0).toFixed(2)}`}
               icon={TrendingUp}
-              description={`${summary.processingCount || 0} payments`}
+              description={`${summary.processing > 0 ? 1 : 0} payments`}
             />
             <StatsCard
               title="This Month"
-              value={`$${summary.monthlyAverage?.toFixed(2) || '0.00'}`}
+              value={`$${summary.thisMonth?.toFixed(2) || '0.00'}`}
               icon={DollarSign}
             />
             <StatsCard
               title="Avg Per Period"
-              value={`$${summary.monthlyAverage?.toFixed(2) || '0.00'}`}
+              value={`$${summary.averagePerPeriod?.toFixed(2) || '0.00'}`}
               icon={TrendingUp}
             />
           </>

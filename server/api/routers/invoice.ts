@@ -793,13 +793,11 @@ export const invoiceRouter = createTRPCRouter({
           tenantId: ctx.tenantId,
           contractId: contract.id,
           invoiceNumber,
-          title: input.title || `Invoice for ${contract.contractReference}`,
-          description: input.description,
+          description: input.title || input.description || `Invoice for ${contract.contractReference}`,
           status: 'pending',
-          subtotal,
-          taxAmount: 0, // TODO: Calculate tax if needed
-          discount: 0,
-          total: subtotal,
+          amount: subtotal,
+          taxAmount: 0,
+          totalAmount: subtotal,
           currency: contract.currency?.code || 'USD',
           dueDate,
           notes: input.notes,
@@ -825,18 +823,21 @@ export const invoiceRouter = createTRPCRouter({
       
       // Create audit log
       await createAuditLog({
-        prisma: ctx.prisma,
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name ?? "Unknown",
+        userRole: ctx.session.user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.INVOICE,
         entityId: invoice.id,
-        performedById: ctx.session.user.id,
         tenantId: ctx.tenantId,
         metadata: {
           invoiceNumber,
           contractId: contract.id,
-          total: subtotal
+          totalAmount: subtotal,
         },
       })
+
+
       
       // TODO: Implement smart routing logic
       // await routeInvoiceToApprover(invoice, contract)
@@ -875,9 +876,9 @@ export const invoiceRouter = createTRPCRouter({
       const thisMonthPaid = paidInvoices.filter(i => i.paidAt && i.paidAt >= thisMonth)
       
       return {
-        totalEarnings: paidInvoices.reduce((sum, i) => sum + Number(i.total), 0),
-        pendingPayment: pendingInvoices.reduce((sum, i) => sum + Number(i.total), 0),
-        paidThisMonth: thisMonthPaid.reduce((sum, i) => sum + Number(i.total), 0),
+        totalEarnings: paidInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0),
+        pendingPayment: pendingInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0),
+        paidThisMonth: thisMonthPaid.reduce((sum, i) => sum + Number(i.totalAmount), 0),
         totalInvoices: invoices.length,
         paidCount: paidInvoices.length,
         pendingCount: pendingInvoices.length,

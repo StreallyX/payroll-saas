@@ -23,20 +23,23 @@ export default function ExpensesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] = useState<any>(null)
-  
+  const { data: contracts } = api.contract.getAll.useQuery()
+
   const [formData, setFormData] = useState({
+    contractId: "",
+    title: "",
     amount: 0,
     currency: "USD",
     category: "",
     description: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
   })
 
   const utils = api.useUtils()
   const { data: expenses, isLoading } = api.expense.getAll.useQuery()
   const { data: stats } = api.expense.getStatistics.useQuery()
 
-  const createMutation = api.expense.create.useMutation({
+  const createMutation = api.expense.createExpense.useMutation({
     onSuccess: () => {
       toast.success("Expense created successfully!")
       utils.expense.getAll.invalidate()
@@ -64,18 +67,21 @@ export default function ExpensesPage() {
 
   const resetForm = () => {
     setFormData({
+      contractId: "",
+      title: "",
       amount: 0,
       currency: "USD",
       category: "",
       description: "",
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split("T")[0],
     })
     setSelectedExpense(null)
   }
 
   const handleSubmit = () => {
     createMutation.mutate({
-      title: formData.category,  
+      contractId: formData.contractId,
+      title: formData.title || formData.category,
       amount: formData.amount,
       category: formData.category,
       currency: formData.currency,
@@ -84,12 +90,11 @@ export default function ExpensesPage() {
     })
   }
 
-
   if (isLoading) return <LoadingState message="Loading expenses..." />
 
-  const expensesList = expenses?.expenses ?? []
-  const filteredExpenses = expensesList.filter((e: any) => {
-    const matchesSearch = 
+    const expensesList = expenses ?? []
+    const filteredExpenses = expensesList.filter((e: any) => {
+    const matchesSearch =
       e.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.contractor?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -103,8 +108,14 @@ export default function ExpensesPage() {
         <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input placeholder="Search expenses..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-64" />
+            <Input
+              placeholder="Search expenses..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-64"
+            />
           </div>
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -115,10 +126,8 @@ export default function ExpensesPage() {
               <SelectItem value="REIMBURSED">Reimbursed</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={() => {
-            resetForm()
-            setIsModalOpen(true)
-          }}>
+
+          <Button size="sm" onClick={() => { resetForm(); setIsModalOpen(true) }}>
             <Plus className="h-4 w-4 mr-2" /> New Expense
           </Button>
         </div>
@@ -127,32 +136,43 @@ export default function ExpensesPage() {
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm">Total Amount</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">${stats.totalAmount?.toFixed(2) || '0.00'}</div></CardContent>
+            <CardContent>
+              <div className="text-2xl font-bold">${stats.totalAmount?.toFixed(2) || "0.00"}</div>
+            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm">Pending Approval</CardTitle>
               <Clock className="h-4 w-4 text-yellow-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.submittedExpenses || 0}</div></CardContent>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.submittedExpenses || 0}</div>
+            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm">Approved</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.approvedExpenses || 0}</div></CardContent>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.approvedExpenses || 0}</div>
+            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Paid</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm">Paid</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-500" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{stats.paidExpenses || 0}</div></CardContent>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.paidExpenses || 0}</div>
+            </CardContent>
           </Card>
         </div>
       )}
@@ -160,7 +180,7 @@ export default function ExpensesPage() {
       <Card>
         <CardContent className="p-0">
           {filteredExpenses.length === 0 ? (
-            <EmptyState 
+            <EmptyState
               title="No expenses found"
               description="Create your first expense"
               icon={DollarSign}
@@ -179,36 +199,88 @@ export default function ExpensesPage() {
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {filteredExpenses.map((expense: any) => (
                   <TableRow key={expense.id}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{expense.contractor?.name || 'Unknown'}</p>
-                        <p className="text-xs text-gray-500">{expense.contractor?.email}</p>
-                      </div>
+                      <p className="font-medium">{expense.contractor?.name || "Unknown"}</p>
+                      <p className="text-xs text-gray-500">{expense.contractor?.email}</p>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="capitalize">{expense.category}</Badge></TableCell>
-                    <TableCell className="max-w-md truncate">{expense.description}</TableCell>
-                    <TableCell className="font-semibold">${expense.amount.toFixed(2)} {expense.currency}</TableCell>
-                    <TableCell className="text-sm text-gray-600">{format(new Date(expense.date), 'MMM dd, yyyy')}</TableCell>
+
                     <TableCell>
-                      <Badge variant={
-                        expense.status === 'APPROVED' ? 'default' :
-                        expense.status === 'REJECTED' ? 'destructive' :
-                        expense.status === 'REIMBURSED' ? 'default' : 'secondary'
-                      } className={expense.status === 'REIMBURSED' ? 'bg-blue-500' : ''}>
+                      <Badge variant="outline" className="capitalize">
+                        {expense.category}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="max-w-md truncate">{expense.description}</TableCell>
+
+                    <TableCell className="font-semibold">
+                      ${expense.amount.toFixed(2)} {expense.currency}
+                    </TableCell>
+
+                    <TableCell className="text-sm text-gray-600">
+                      {expense.expenseDate
+                        ? format(new Date(expense.expenseDate), "MMM dd, yyyy")
+                        : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        variant={
+                          expense.status === "APPROVED"
+                            ? "default"
+                            : expense.status === "REJECTED"
+                            ? "destructive"
+                            : expense.status === "REIMBURSED"
+                            ? "default"
+                            : "secondary"
+                        }
+                        className={expense.status === "REIMBURSED" ? "bg-blue-500" : ""}
+                      >
                         {expense.status}
                       </Badge>
                     </TableCell>
+
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setSelectedExpense(expense)}><Eye className="h-3 w-3" /></Button>
-                        {expense.receiptUrl && <Button size="sm" variant="ghost"><Download className="h-3 w-3" /></Button>}
-                        {expense.status === 'PENDING' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedExpense(expense)}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+
+                        {expense.receiptUrl && (
+                          <Button size="sm" variant="ghost">
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        )}
+
+                        {expense.status === "PENDING" && (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => approveMutation.mutate({ id: expense.id })}><CheckCircle className="h-3 w-3 text-green-500" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => rejectMutation.mutate({ id: expense.id, reason: "Rejected by admin" })}><XCircle className="h-3 w-3 text-red-500" /></Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => approveMutation.mutate({ id: expense.id })}
+                            >
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                rejectMutation.mutate({
+                                  id: expense.id,
+                                  reason: "Rejected by admin",
+                                })
+                              }
+                            >
+                              <XCircle className="h-3 w-3 text-red-500" />
+                            </Button>
                           </>
                         )}
                       </div>
@@ -221,23 +293,74 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      {/* Create Expense Modal */}
+      {/* CREATE EXPENSE MODAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Expense</DialogTitle>
-            <DialogDescription>Submit a new expense for approval and reimbursement</DialogDescription>
+            <DialogDescription>
+              Submit a new expense for approval and reimbursement
+            </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-4">
+            {/* CONTRACT SELECT */}
+            <div className="space-y-2">
+              <Label>Contract *</Label>
+              <Select
+                value={formData.contractId}
+                onValueChange={(value) => setFormData({ ...formData, contractId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select contract" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {contracts?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.contractReference || c.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* TITLE */}
+            <div className="space-y-2">
+              <Label htmlFor="title">Title *</Label>
+              <Input
+                id="title"
+                placeholder="Expense title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              />
+            </div>
+
+            {/* AMOUNT & CURRENCY */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount *</Label>
-                <Input id="amount" type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })} />
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, amount: parseFloat(e.target.value) })
+                  }
+                />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="currency">Currency</Label>
-                <Select value={formData.currency} onValueChange={(value) => setFormData({ ...formData, currency: value })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
                   <SelectContent>
                     <SelectItem value="USD">USD</SelectItem>
                     <SelectItem value="EUR">EUR</SelectItem>
@@ -246,10 +369,17 @@ export default function ExpensesPage() {
                 </Select>
               </div>
             </div>
+
+            {/* CATEGORY */}
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="travel">Travel</SelectItem>
                   <SelectItem value="meals">Meals</SelectItem>
@@ -259,37 +389,99 @@ export default function ExpensesPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* DATE */}
             <div className="space-y-2">
               <Label htmlFor="date">Date *</Label>
-              <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
             </div>
+
+            {/* DESCRIPTION */}
             <div className="space-y-2">
               <Label htmlFor="description">Description *</Label>
-              <Textarea id="description" placeholder="Describe the expense..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+              <Textarea
+                id="description"
+                placeholder="Describe the expense..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+              />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || !formData.amount || !formData.category || !formData.description}>Create Expense</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={
+                createMutation.isPending ||
+                !formData.amount ||
+                !formData.category ||
+                !formData.description ||
+                !formData.contractId ||
+                !formData.title
+              }
+            >
+              Create Expense
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* View Expense Details */}
+      {/* VIEW EXPENSE DETAILS */}
       {selectedExpense && (
         <Dialog open={!!selectedExpense} onOpenChange={() => setSelectedExpense(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Expense Details</DialogTitle>
             </DialogHeader>
+
             <div className="space-y-4 py-4">
-              <div><Label>Contractor</Label><p className="text-sm">{selectedExpense.contractor?.name}</p></div>
-              <div><Label>Category</Label><p className="text-sm capitalize">{selectedExpense.category}</p></div>
-              <div><Label>Amount</Label><p className="text-sm font-semibold">${selectedExpense.amount.toFixed(2)} {selectedExpense.currency}</p></div>
-              <div><Label>Date</Label><p className="text-sm">{format(new Date(selectedExpense.date), 'MMMM dd, yyyy')}</p></div>
-              <div><Label>Description</Label><p className="text-sm">{selectedExpense.description}</p></div>
-              <div><Label>Status</Label><Badge>{selectedExpense.status}</Badge></div>
+              <div>
+                <Label>Contractor</Label>
+                <p className="text-sm">{selectedExpense.contractor?.name}</p>
+              </div>
+
+              <div>
+                <Label>Category</Label>
+                <p className="text-sm capitalize">{selectedExpense.category}</p>
+              </div>
+
+              <div>
+                <Label>Amount</Label>
+                <p className="text-sm font-semibold">
+                  ${selectedExpense.amount.toFixed(2)} {selectedExpense.currency}
+                </p>
+              </div>
+
+              <div>
+                <Label>Date</Label>
+                <p className="text-sm">
+                  {selectedExpense.expenseDate
+                    ? format(new Date(selectedExpense.expenseDate), "MMMM dd, yyyy")
+                    : "-"}
+                </p>
+              </div>
+
+              <div>
+                <Label>Description</Label>
+                <p className="text-sm">{selectedExpense.description}</p>
+              </div>
+
+              <div>
+                <Label>Status</Label>
+                <Badge>{selectedExpense.status}</Badge>
+              </div>
             </div>
+
             <DialogFooter>
               <Button onClick={() => setSelectedExpense(null)}>Close</Button>
             </DialogFooter>

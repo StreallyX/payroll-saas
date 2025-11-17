@@ -213,7 +213,7 @@ export default function ContractorInvoicesPage() {
             />
             <StatsCard
               title="Pending Payment"
-              value={`$${summary.pendingAmount?.toFixed(2) || '0.00'}`}
+              value={`$${summary.pendingPayment?.toFixed(2) || '0.00'}`}
               icon={DollarSign}
               description={`${summary.pendingCount || 0} invoices`}
             />
@@ -224,7 +224,7 @@ export default function ContractorInvoicesPage() {
             />
             <StatsCard
               title="Total Invoices"
-              value={summary.totalCount || 0}
+              value={summary.totalInvoices || 0}
               icon={DollarSign}
             />
           </>
@@ -353,12 +353,12 @@ export default function ContractorInvoicesPage() {
                     <Button
                       variant="outline"
                       onClick={() => setIsCreateDialogOpen(false)}
-                      disabled={createInvoice.isLoading}
+                      disabled={createInvoice.isPending}
                     >
                       Cancel
                     </Button>
-                    <Button onClick={handleCreateInvoice} disabled={createInvoice.isLoading}>
-                      {createInvoice.isLoading ? (
+                    <Button onClick={handleCreateInvoice} disabled={createInvoice.isPending}>
+                      {createInvoice.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Creating...
@@ -434,14 +434,14 @@ export default function ContractorInvoicesPage() {
           )}
 
           {/* Payment Info */}
-          {invoices && invoices.length > 0 && summary && summary.pendingAmount && summary.pendingAmount > 0 && (
+          {invoices && invoices.length > 0 && summary && summary.pendingPayment && summary.pendingPayment > 0 && (
             <div className="mt-6 rounded-lg bg-muted p-4">
               <div className="flex items-start gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
                   <h4 className="font-medium">Payment Information</h4>
                   <p className="text-sm text-muted-foreground">
-                    You have ${summary.pendingAmount.toFixed(2)} in pending payments. 
+                    You have ${summary.pendingPayment.toFixed(2)} in pending payments. 
                     Payments are typically processed within 5-7 business days after invoice approval.
                   </p>
                 </div>

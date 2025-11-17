@@ -65,8 +65,8 @@ export default function ContractorReferPage() {
   });
 
   const handleCopyCode = () => {
-    if (referralCode?.code) {
-      navigator.clipboard.writeText(referralCode.code);
+    if (referralCode?.referralCode) {
+      navigator.clipboard.writeText(referralCode.referralCode);
       setCopied(true);
       toast({
         title: "Copied!",
@@ -77,8 +77,8 @@ export default function ContractorReferPage() {
   };
 
   const handleCopyLink = () => {
-    if (referralCode?.link) {
-      navigator.clipboard.writeText(referralCode.link);
+    if (referralCode?.referralLink) {
+      navigator.clipboard.writeText(referralCode.referralLink);
       toast({
         title: "Copied!",
         description: "Referral link copied to clipboard.",
@@ -185,7 +185,7 @@ export default function ContractorReferPage() {
               title="Pending Rewards"
               value={`$${stats.pendingRewards?.toFixed(2) || '0.00'}`}
               icon={Gift}
-              description={`${stats.pendingCount || 0} pending`}
+              description={`${stats.byStatus.invited || 0} pending`}
             />
             <StatsCard
               title="Total Referrals"
@@ -233,7 +233,7 @@ export default function ContractorReferPage() {
                       <Label>Your Referral Code</Label>
                       <div className="flex gap-2">
                         <Input
-                          value={referralCode.code}
+                          value={referralCode.referralCode}
                           readOnly
                           className="font-mono text-lg font-semibold"
                         />
@@ -254,7 +254,7 @@ export default function ContractorReferPage() {
                       <Label>Referral Link</Label>
                       <div className="flex gap-2">
                         <Input
-                          value={referralCode.link}
+                          value={referralCode.referralLink}
                           readOnly
                           className="text-sm"
                         />
@@ -320,9 +320,9 @@ export default function ContractorReferPage() {
                 <Button
                   className="w-full"
                   onClick={handleSendInvitation}
-                  disabled={sendInvitation.isLoading}
+                  disabled={sendInvitation.isPending}
                 >
-                  {sendInvitation.isLoading ? (
+                  {sendInvitation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Sending...

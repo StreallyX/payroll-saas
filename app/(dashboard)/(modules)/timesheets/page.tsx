@@ -31,7 +31,7 @@ export default function TimesheetsPage() {
 
   if (isLoading) return <LoadingState message="Loading timesheets..." />
 
-  const timesheetsList = timesheets?.timesheets ?? []
+  const timesheetsList = timesheets ?? []
 
   // 🔢 Stats calculées côté front
   const totalHours = timesheetsList.reduce(

@@ -237,6 +237,9 @@ export const PERMISSION_TREE = {
     delete: "expense.delete",
     approve: "expense.approve",
     submit: "expense.submit",
+    listAll: "expense.list_all",
+    reject: "expense.reject",
+    pay: "expense.pay"
   },
 
   referrals: {
@@ -458,6 +461,7 @@ export const TENANT_ADMIN_DEFAULT_PERMISSIONS: string[] = [
   "timesheet.delete",
   "timesheet.approve",
   "timesheet.submit",
+  
 
   // 💸 Expenses
   "expense.view",
