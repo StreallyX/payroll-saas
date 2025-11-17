@@ -239,6 +239,14 @@ export const PERMISSION_TREE = {
     submit: "expense.submit",
   },
 
+  referrals: {
+    view: "referrals.view",
+    create: "referrals.create",
+    update: "referrals.update",
+    delete: "referrals.delete",
+    track: "referrals.track",
+  },
+
   webhooks: {
     view: "webhooks.view",
     create: "webhooks.create",

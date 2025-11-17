@@ -35,6 +35,80 @@ export const dynamicMenuConfig: MenuItem[] = [
     description: "System overview and analytics",
     // No permission required - everyone can see dashboard
   },
+  
+  // 🆕 CONTRACTOR PORTAL SECTION
+  { 
+    label: "Contractor Portal", 
+    href: "/contractor", 
+    icon: UserCheck,
+    description: "Contractor dashboard and tools",
+    permissions: [
+      "contracts.view",
+      "onboarding.responses.view_own"
+    ],
+    requireAll: false,  // Show if user has ANY contractor permission
+    submenu: [
+      {
+        label: "My Dashboard",
+        href: "/contractor",
+        icon: LayoutDashboard,
+        description: "Contractor overview and stats",
+        permissions: ["contracts.view", "onboarding.responses.view_own"],
+        requireAll: false,
+      },
+      {
+        label: "My Information",
+        href: "/contractor/information",
+        icon: UserCog,
+        description: "View and edit your profile",
+        permission: "contractors.update",
+      },
+      {
+        label: "Onboarding",
+        href: "/contractor/onboarding",
+        icon: ClipboardList,
+        description: "Complete your KYC process",
+        permission: "onboarding.responses.view_own",
+      },
+      {
+        label: "Time & Expenses",
+        href: "/contractor/time-expenses",
+        icon: Clock,
+        description: "Log hours and submit expenses",
+        permissions: ["timesheet.create", "expense.create"],
+        requireAll: false,
+      },
+      {
+        label: "My Invoices",
+        href: "/contractor/invoices",
+        icon: Receipt,
+        description: "View and create invoices",
+        permission: "invoices.view",
+      },
+      {
+        label: "Remits",
+        href: "/contractor/remits",
+        icon: DollarSign,
+        description: "View payment history",
+        permission: "payroll.view",
+      },
+      {
+        label: "Payslips",
+        href: "/contractor/payslips",
+        icon: FileText,
+        description: "Download your pay stubs",
+        permission: "payslip.view",
+      },
+      {
+        label: "Refer a Friend",
+        href: "/contractor/refer",
+        icon: UserPlus,
+        description: "Earn referral rewards",
+        permission: "referrals.view",
+      },
+    ]
+  },
+  
   { 
     label: "Manage Contracts", 
     href: "/contracts", 

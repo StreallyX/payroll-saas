@@ -140,6 +140,29 @@ export const PERMISSIONS = [
   "audit_logs.view",
   "audit_logs.export",
 
+  // --- TIMESHEETS ---
+  "timesheet.view",
+  "timesheet.create",
+  "timesheet.update",
+  "timesheet.delete",
+  "timesheet.approve",
+  "timesheet.submit",
+
+  // --- EXPENSES ---
+  "expense.view",
+  "expense.create",
+  "expense.update",
+  "expense.delete",
+  "expense.approve",
+  "expense.submit",
+
+  // --- REFERRALS ---
+  "referrals.view",
+  "referrals.create",
+  "referrals.update",
+  "referrals.delete",
+  "referrals.track",
+
   // --- SUPERADMIN ---
   "superadmin.tenants.create",
   "superadmin.tenants.suspend",

@@ -37,6 +37,8 @@ import { tagRouter } from "./routers/tag";
 import { customFieldRouter } from "./routers/customField";
 import { userActivityRouter } from "./routers/userActivity";
 import { apiKeyRouter } from "./routers/apiKey";
+import { remittanceRouter } from "./routers/remittance";
+import { referralRouter } from "./routers/referral";
 
 // PHASE 3 ROUTERS - UI Enhancement
 import { emailTemplateRouter } from "./routers/emailTemplate";
@@ -87,6 +89,8 @@ export const appRouter = createTRPCRouter({
   customField: customFieldRouter,
   userActivity: userActivityRouter,
   apiKey: apiKeyRouter,
+  remittance: remittanceRouter,
+  referral: referralRouter,
   
   // PHASE 3 ROUTERS
   emailTemplate: emailTemplateRouter,

@@ -74,11 +74,38 @@ export const DEFAULT_ROLES = [
     name: "contractor",
     homePath: "/contractor",
     permissions: [
+      // ✅ Existing permissions (keep these)
       "onboarding.responses.view_own",
       "onboarding.responses.submit",
       "contracts.view",
       "payslip.view",
-      "payslip.download",
+      
+      // 🆕 Personal Information
+      "contractors.update",
+      "contractors.documents.upload",
+      "contractors.documents.view",
+      
+      // 🆕 Timesheets
+      "timesheet.view",
+      "timesheet.create",
+      "timesheet.submit",
+      
+      // 🆕 Expenses
+      "expense.view",
+      "expense.create",
+      "expense.submit",
+      
+      // 🆕 Invoices
+      "invoices.view",
+      "invoices.create",
+      
+      // 🆕 Remits/Payroll
+      "payroll.view",
+      
+      // 🆕 Referrals
+      "referrals.view",
+      "referrals.create",
+      "referrals.track",
     ].filter(Boolean),
   },
 
