@@ -7,6 +7,40 @@ import { TRPCError } from "@trpc/server"
 
 export const timesheetRouter = createTRPCRouter({
   
+  getAll: tenantProcedure
+  .use(hasPermission(PERMISSION_TREE.timesheet.view))
+  .query(async ({ ctx }) => {
+    return ctx.prisma.timesheet.findMany({
+      where: { tenantId: ctx.tenantId },
+      include: {
+        contractor: {
+          include: { user: true }
+        },
+        contract: {
+          select: {
+            contractReference: true,
+            agency: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    })
+  }),
+
+  approve: tenantProcedure
+  .use(hasPermission(PERMISSION_TREE.timesheet.approve))
+  .input(z.object({ id: z.string() }))
+  .mutation(async ({ ctx, input }) => {
+    return ctx.prisma.timesheet.update({
+      where: { id: input.id },
+      data: {
+        status: "approved",
+        approvedAt: new Date()
+      }
+    })
+  }),
+
+
   // Get contractor's own timesheets
   getMyTimesheets: tenantProcedure
     .use(hasPermission(PERMISSION_TREE.timesheet.view))

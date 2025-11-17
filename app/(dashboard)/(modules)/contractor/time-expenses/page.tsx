@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -7,17 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { Plus, Clock, DollarSign, Upload, Calendar, Trash2, Edit } from "lucide-react";
+import { Plus, Clock, DollarSign, Upload, Calendar, Trash2, Edit, AlertCircle, Loader2, Send } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,114 +17,370 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { api } from "@/lib/trpc";
+import { useToast } from "@/hooks/use-toast";
+import { useSession } from "next-auth/react";
+import { StatsCard } from "@/components/contractor/stats-card";
+import { StatusBadge } from "@/components/contractor/status-badge";
+import { DataTable, Column } from "@/components/contractor/data-table";
+import { EmptyState } from "@/components/contractor/empty-state";
+import { StatsCardSkeleton, TableSkeleton } from "@/components/contractor/loading-skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
  * Contractor Time & Expenses Page
  * 
- * This page allows contractors to log time and submit expenses.
- * 
- * TODO:
- * - Implement tRPC mutations to submit timesheets and expenses
- * - Add form validation with React Hook Form + Zod
- * - Implement file upload for expense receipts
- * - Add timesheet approval status tracking
- * - Implement weekly/monthly time summary
- * - Add expense categorization
- * - Implement bulk entry for timesheets
- * - Add calendar view for time entries
- * - Implement export to PDF/CSV
+ * Allows contractors to log time and submit expenses with full tRPC integration.
+ * Features weekly timesheet grouping and professional expense tracking.
  */
 
-// Mock data - TODO: Replace with real data from tRPC
-const mockTimeEntries = [
-  {
-    id: "1",
-    date: "2024-01-19",
-    hours: "8",
-    description: "Frontend development - User dashboard",
-    status: "approved",
-  },
-  {
-    id: "2",
-    date: "2024-01-18",
-    hours: "7.5",
-    description: "Backend API integration",
-    status: "approved",
-  },
-  {
-    id: "3",
-    date: "2024-01-17",
-    hours: "8",
-    description: "Code review and bug fixes",
-    status: "pending",
-  },
-];
-
-const mockExpenses = [
-  {
-    id: "1",
-    date: "2024-01-15",
-    category: "Software",
-    amount: "$49.99",
-    description: "Adobe Creative Cloud subscription",
-    status: "approved",
-  },
-  {
-    id: "2",
-    date: "2024-01-12",
-    category: "Travel",
-    amount: "$85.00",
-    description: "Client meeting - Parking and tolls",
-    status: "pending",
-  },
-];
-
 export default function ContractorTimeExpensesPage() {
+  const { data: session } = useSession();
+  const { toast } = useToast();
   const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<string>("");
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      approved: "default",
-      pending: "secondary",
-      rejected: "destructive",
-    };
-    return <Badge variant={variants[status] || "default"}>{status}</Badge>;
+  // Time entry form state
+  const [timeForm, setTimeForm] = useState({
+    contractId: "",
+    date: new Date().toISOString().split('T')[0],
+    hours: "",
+    description: "",
+    projectName: "",
+    taskName: "",
+  });
+
+  // Expense form state
+  const [expenseForm, setExpenseForm] = useState({
+    contractId: "",
+    date: new Date().toISOString().split('T')[0],
+    amount: "",
+    category: "",
+    description: "",
+    receiptUrl: "",
+  });
+
+  // Fetch contractor data to get contracts
+  const { data: contractor } = api.contractor.getByUserId.useQuery(
+    { userId: session?.user?.id || "" },
+    { enabled: !!session?.user?.id }
+  );
+
+  // Fetch timesheets
+  const { data: timesheets, isLoading: timesheetsLoading, error: timesheetsError } = api.timesheet.getMyTimesheets.useQuery();
+
+  // Fetch expenses
+  const { data: expenses, isLoading: expensesLoading, error: expensesError } = api.expense.getMyExpenses.useQuery();
+
+  // Fetch expense summary
+  const { data: expenseSummary } = api.expense.getStatistics.useQuery();
+
+  // Mutations
+  const createTimeEntry = api.timesheet.createEntry.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Time entry added successfully.",
+      });
+      setIsTimeDialogOpen(false);
+      setTimeForm({
+        contractId: "",
+        date: new Date().toISOString().split('T')[0],
+        hours: "",
+        description: "",
+        projectName: "",
+        taskName: "",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add time entry.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createExpense = api.expense.createExpense.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Expense added successfully.",
+      });
+      setIsExpenseDialogOpen(false);
+      setExpenseForm({
+        contractId: "",
+        date: new Date().toISOString().split('T')[0],
+        amount: "",
+        category: "",
+        description: "",
+        receiptUrl: "",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add expense.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const submitTimesheet = api.timesheet.submitTimesheet.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Timesheet submitted for approval.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit timesheet.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const submitExpense = api.expense.submitExpense.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Expense submitted for approval.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit expense.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTimeEntry = api.timesheet.deleteEntry.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Time entry deleted.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete entry.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteExpense = api.expense.deleteExpense.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Expense deleted.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete expense.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Calculate time summary
+  const calculateTimeSummary = () => {
+    if (!timesheets) return { thisWeek: 0, thisMonth: 0, pending: 0 };
+
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let thisWeek = 0;
+    let thisMonth = 0;
+    let pending = 0;
+
+    timesheets.forEach((timesheet: any) => {
+      timesheet.entries?.forEach((entry: any) => {
+        const entryDate = new Date(entry.date);
+        const hours = parseFloat(entry.hours || 0);
+
+        if (entryDate >= weekStart) thisWeek += hours;
+        if (entryDate >= monthStart) thisMonth += hours;
+        if (timesheet.status === 'draft' || timesheet.status === 'submitted') pending += hours;
+      });
+    });
+
+    return { thisWeek, thisMonth, pending };
+  };
+
+  const timeSummary = calculateTimeSummary();
+
+  // Time entries table columns
+  const timeColumns: Column<any>[] = [
+    {
+      key: "date",
+      label: "Date",
+      sortable: true,
+      render: (entry) => new Date(entry.date).toLocaleDateString(),
+    },
+    {
+      key: "hours",
+      label: "Hours",
+      sortable: true,
+      render: (entry) => <span className="font-semibold">{entry.hours}</span>,
+    },
+    {
+      key: "description",
+      label: "Description",
+      render: (entry) => entry.description || "-",
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      render: (entry) => entry.projectName || "-",
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (entry) => <StatusBadge status={entry.timesheet?.status || "draft"} />,
+    },
+  ];
+
+  // Expense table columns
+  const expenseColumns: Column<any>[] = [
+    {
+      key: "date",
+      label: "Date",
+      sortable: true,
+      render: (expense) => new Date(expense.date).toLocaleDateString(),
+    },
+    {
+      key: "category",
+      label: "Category",
+      render: (expense) => expense.category || "-",
+    },
+    {
+      key: "description",
+      label: "Description",
+      render: (expense) => expense.description,
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      sortable: true,
+      render: (expense) => <span className="font-semibold">${parseFloat(expense.amount).toFixed(2)}</span>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (expense) => <StatusBadge status={expense.status} />,
+    },
+  ];
+
+  // Flatten time entries for table
+  const allTimeEntries = timesheets?.flatMap((ts: any) => 
+    ts.entries?.map((entry: any) => ({
+      ...entry,
+      timesheet: ts,
+      timesheetId: ts.id,
+    })) || []
+  ) || [];
+
+  const handleSubmitTime = () => {
+    if (!timeForm.contractId || !timeForm.date || !timeForm.hours || !timeForm.description) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createTimeEntry.mutate({
+      contractId: timeForm.contractId,
+      date: new Date(timeForm.date),
+      hours: parseFloat(timeForm.hours),
+      description: timeForm.description,
+      projectName: timeForm.projectName || undefined,
+      taskName: timeForm.taskName || undefined,
+    });
+  };
+
+  const handleSubmitExpense = () => {
+    if (!expenseForm.contractId || !expenseForm.date || !expenseForm.amount || !expenseForm.description) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createExpense.mutate({
+      contractId: expenseForm.contractId,
+      title: expenseForm.description || "Expense",     // obligatoire
+      description: expenseForm.description,
+      amount: parseFloat(expenseForm.amount),
+      currency: "USD",
+      category: expenseForm.category,
+      expenseDate: new Date(expenseForm.date),          // 🔥 bon champ
+      receiptUrl: expenseForm.receiptUrl || undefined,
+    });
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Upload Time & Expenses"
+        title="Time & Expenses"
         description="Log your hours and submit expense claims"
       />
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>This Week</CardDescription>
-            <CardTitle className="text-3xl">38.5 hrs</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>This Month</CardDescription>
-            <CardTitle className="text-3xl">156 hrs</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Pending Approval</CardDescription>
-            <CardTitle className="text-3xl">8 hrs</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Expenses</CardDescription>
-            <CardTitle className="text-3xl">$134.99</CardTitle>
-          </CardHeader>
-        </Card>
+        {timesheetsLoading ? (
+          <>
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatsCard
+              title="This Week"
+              value={`${timeSummary.thisWeek.toFixed(1)} hrs`}
+              icon={Clock}
+            />
+            <StatsCard
+              title="This Month"
+              value={`${timeSummary.thisMonth.toFixed(1)} hrs`}
+              icon={Clock}
+            />
+            <StatsCard
+              title="Pending Approval"
+              value={`${timeSummary.pending.toFixed(1)} hrs`}
+              icon={Clock}
+            />
+            <StatsCard
+              title="Expenses"
+              value={`$${expenseSummary?.totalAmount?.toFixed(2) || '0.00'}`}
+              icon={DollarSign}
+              description={`${expenseSummary?.submittedExpenses || 0} pending`}
+            />
+          </>
+        )}
       </div>
 
       <Tabs defaultValue="time" className="space-y-6">
@@ -161,7 +407,7 @@ export default function ContractorTimeExpensesPage() {
                       Log Time
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Log Time Entry</DialogTitle>
                       <DialogDescription>
@@ -170,14 +416,35 @@ export default function ContractorTimeExpensesPage() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="date">Date</Label>
+                        <Label htmlFor="contract">Contract *</Label>
+                        <Select value={timeForm.contractId} onValueChange={(value) => setTimeForm({ ...timeForm, contractId: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a contract" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {contractor?.contracts?.map((contract: any) => (
+                              <SelectItem key={contract.id} value={contract.id}>
+                                {contract.contractReference || "Contract"} - {contract.agency?.name || "Direct"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="date">Date *</Label>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="date" type="date" className="pl-9" />
+                          <Input
+                            id="date"
+                            type="date"
+                            className="pl-9"
+                            value={timeForm.date}
+                            onChange={(e) => setTimeForm({ ...timeForm, date: e.target.value })}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="hours">Hours Worked</Label>
+                        <Label htmlFor="hours">Hours Worked *</Label>
                         <div className="relative">
                           <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                           <Input
@@ -186,26 +453,56 @@ export default function ContractorTimeExpensesPage() {
                             step="0.5"
                             placeholder="8"
                             className="pl-9"
+                            value={timeForm.hours}
+                            onChange={(e) => setTimeForm({ ...timeForm, hours: e.target.value })}
                           />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
+                        <Label htmlFor="projectName">Project Name</Label>
+                        <Input
+                          id="projectName"
+                          placeholder="Client Dashboard"
+                          value={timeForm.projectName}
+                          onChange={(e) => setTimeForm({ ...timeForm, projectName: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="taskName">Task Name</Label>
+                        <Input
+                          id="taskName"
+                          placeholder="Frontend Development"
+                          value={timeForm.taskName}
+                          onChange={(e) => setTimeForm({ ...timeForm, taskName: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description *</Label>
                         <Textarea
                           id="description"
                           placeholder="Describe the work you did..."
                           rows={3}
+                          value={timeForm.description}
+                          onChange={(e) => setTimeForm({ ...timeForm, description: e.target.value })}
                         />
                       </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
                           onClick={() => setIsTimeDialogOpen(false)}
+                          disabled={createTimeEntry.isPending}
                         >
                           Cancel
                         </Button>
-                        <Button onClick={() => setIsTimeDialogOpen(false)}>
-                          Submit
+                        <Button onClick={handleSubmitTime} disabled={createTimeEntry.isPending}>
+                          {createTimeEntry.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            "Add Entry"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -214,39 +511,49 @@ export default function ContractorTimeExpensesPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Hours</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockTimeEntries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{entry.date}</TableCell>
-                        <TableCell className="font-semibold">{entry.hours}</TableCell>
-                        <TableCell>{entry.description}</TableCell>
-                        <TableCell>{getStatusBadge(entry.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="sm" title="Edit">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" title="Delete">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              {timesheetsError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{timesheetsError.message}</AlertDescription>
+                </Alert>
+              )}
+
+              {timesheetsLoading ? (
+                <TableSkeleton />
+              ) : allTimeEntries.length === 0 ? (
+                <EmptyState
+                  icon={Clock}
+                  title="No time entries yet"
+                  description="Start tracking your work hours by adding your first time entry."
+                  action={{
+                    label: "Log Time",
+                    onClick: () => setIsTimeDialogOpen(true),
+                  }}
+                />
+              ) : (
+                <DataTable
+                  data={allTimeEntries}
+                  columns={timeColumns}
+                  searchable
+                  searchPlaceholder="Search time entries..."
+                  actions={(entry) => (
+                    <div className="flex gap-2">
+                      {entry.timesheet?.status === 'draft' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Delete"
+                            onClick={() => deleteTimeEntry.mutate({ entryId: entry.id })}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -269,7 +576,7 @@ export default function ContractorTimeExpensesPage() {
                       Add Expense
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Submit Expense Claim</DialogTitle>
                       <DialogDescription>
@@ -278,18 +585,50 @@ export default function ContractorTimeExpensesPage() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="expenseDate">Date</Label>
+                        <Label htmlFor="expenseContract">Contract *</Label>
+                        <Select value={expenseForm.contractId} onValueChange={(value) => setExpenseForm({ ...expenseForm, contractId: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a contract" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {contractor?.contracts?.map((contract: any) => (
+                              <SelectItem key={contract.id} value={contract.id}>
+                                {contract.contractReference || "Contract"} - {contract.agency?.name || "Direct"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="expenseDate">Date *</Label>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="expenseDate" type="date" className="pl-9" />
+                          <Input
+                            id="expenseDate"
+                            type="date"
+                            className="pl-9"
+                            value={expenseForm.date}
+                            onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="category">Category</Label>
-                        <Input id="category" placeholder="e.g., Travel, Software, Equipment" />
+                        <Label htmlFor="category">Category *</Label>
+                        <Select value={expenseForm.category} onValueChange={(value) => setExpenseForm({ ...expenseForm, category: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Travel">Travel</SelectItem>
+                            <SelectItem value="Software">Software</SelectItem>
+                            <SelectItem value="Equipment">Equipment</SelectItem>
+                            <SelectItem value="Meals">Meals</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="amount">Amount</Label>
+                        <Label htmlFor="amount">Amount *</Label>
                         <div className="relative">
                           <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                           <Input
@@ -298,35 +637,51 @@ export default function ContractorTimeExpensesPage() {
                             step="0.01"
                             placeholder="0.00"
                             className="pl-9"
+                            value={expenseForm.amount}
+                            onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
                           />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="expenseDescription">Description</Label>
+                        <Label htmlFor="expenseDescription">Description *</Label>
                         <Textarea
                           id="expenseDescription"
                           placeholder="Describe the expense..."
                           rows={3}
+                          value={expenseForm.description}
+                          onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="receipt">Receipt</Label>
-                        <div className="flex items-center gap-2">
-                          <Input id="receipt" type="file" accept="image/*,application/pdf" />
-                          <Button variant="outline" size="sm">
-                            <Upload className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Label htmlFor="receiptUrl">Receipt URL</Label>
+                        <Input
+                          id="receiptUrl"
+                          type="url"
+                          placeholder="https://..."
+                          value={expenseForm.receiptUrl}
+                          onChange={(e) => setExpenseForm({ ...expenseForm, receiptUrl: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Upload receipt to cloud storage and paste URL here
+                        </p>
                       </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
                           onClick={() => setIsExpenseDialogOpen(false)}
+                          disabled={createExpense.isPending}
                         >
                           Cancel
                         </Button>
-                        <Button onClick={() => setIsExpenseDialogOpen(false)}>
-                          Submit
+                        <Button onClick={handleSubmitExpense} disabled={createExpense.isPending}>
+                          {createExpense.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            "Add Expense"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -335,41 +690,59 @@ export default function ContractorTimeExpensesPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockExpenses.map((expense) => (
-                      <TableRow key={expense.id}>
-                        <TableCell>{expense.date}</TableCell>
-                        <TableCell>{expense.category}</TableCell>
-                        <TableCell>{expense.description}</TableCell>
-                        <TableCell className="font-semibold">{expense.amount}</TableCell>
-                        <TableCell>{getStatusBadge(expense.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="sm" title="Edit">
-                              <Edit className="h-4 w-4" />
+              {expensesError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{expensesError.message}</AlertDescription>
+                </Alert>
+              )}
+
+              {expensesLoading ? (
+                <TableSkeleton />
+              ) : !expenses || expenses.length === 0 ? (
+                <EmptyState
+                  icon={DollarSign}
+                  title="No expenses yet"
+                  description="Start tracking your business expenses for reimbursement."
+                  action={{
+                    label: "Add Expense",
+                    onClick: () => setIsExpenseDialogOpen(true),
+                  }}
+                />
+              ) : (
+                <DataTable
+                  data={expenses}
+                  columns={expenseColumns}
+                  searchable
+                  searchPlaceholder="Search expenses..."
+                  actions={(expense) => (
+                    <div className="flex gap-2">
+                      {(expense.status === 'draft' || expense.status === 'rejected') && (
+                        <>
+                          {expense.status === 'draft' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Submit for Approval"
+                              onClick={() => submitExpense.mutate({ expenseId: expense.id })}
+                            >
+                              <Send className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" title="Delete">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Delete"
+                            onClick={() => deleteExpense.mutate({ expenseId: expense.id })}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

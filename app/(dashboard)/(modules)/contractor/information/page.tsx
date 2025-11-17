@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useSession } from "next-auth/react";
@@ -8,51 +7,145 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/ui/page-header";
-import { User, Mail, Phone, MapPin, Edit, Save, Briefcase, Calendar } from "lucide-react";
-import { useState } from "react";
+import { User, Mail, Phone, MapPin, Edit, Save, Briefcase, Calendar, AlertCircle, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/trpc";
+import { useToast } from "@/hooks/use-toast";
+import { FormSkeleton } from "@/components/contractor/loading-skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
  * Contractor Information Page
  * 
- * This page displays and allows editing of the contractor's profile information.
- * 
- * TODO:
- * - Implement tRPC mutation to update contractor information
- * - Add form validation with React Hook Form + Zod
- * - Add profile photo upload
- * - Implement success/error toast notifications
- * - Add loading states during save
- * - Fetch real contractor data from database
- * - Add skills and certifications section
- * - Implement resume upload
+ * Displays and allows editing of the contractor's profile information.
+ * Integrated with tRPC for real-time data fetching and updates.
  */
 
 export default function ContractorInformationPage() {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<any>(null);
 
-  // TODO: Fetch real contractor data using tRPC
-  const [formData, setFormData] = useState({
-    firstName: "John",
-    lastName: "Contractor",
-    email: "contractor@demo.com",
-    phone: "+1 (555) 234-5678",
-    address: "789 Work Street, Apt 45",
-    city: "Austin",
-    state: "TX",
-    zipCode: "78701",
-    country: "United States",
-    jobTitle: "Senior Software Engineer",
-    bio: "Experienced full-stack developer with expertise in React, Node.js, and cloud technologies.",
-    dateOfBirth: "1990-05-15",
-    socialSecurity: "***-**-4567",
+  // Fetch contractor data
+  const { data: contractor, isLoading, error, refetch } = api.contractor.getByUserId.useQuery(
+    { userId: session?.user?.id || "" },
+    { enabled: !!session?.user?.id }
+  );
+
+  // Update mutation
+  const updateContractor = api.contractor.update.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Your information has been updated successfully.",
+      });
+      setIsEditing(false);
+      refetch();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update information.",
+        variant: "destructive",
+      });
+    },
   });
 
+  // Initialize form data when contractor data loads
+  useEffect(() => {
+    if (contractor) {
+      setFormData({
+        name: contractor.user?.name || "",
+        email: contractor.user?.email || "",
+        phone: contractor.phone || "",
+        alternatePhone: contractor.alternatePhone || "",
+        address: contractor.address1 || "",
+        city: contractor.city || "",
+        state: contractor.state || "",
+        zipCode: contractor.postCode || "",
+        countryId: contractor.countryId || "",
+        dateOfBirth: contractor.dateOfBirth || "",
+        notes: contractor.notes || "",
+      });
+    }
+  }, [contractor]);
+
   const handleSave = () => {
-    // TODO: Implement save logic with tRPC mutation
-    console.log("Saving contractor information:", formData);
+    if (!contractor?.id || !formData) return;
+
+    updateContractor.mutate({
+      id: contractor.id,
+      ...formData,
+    });
+  };
+
+  const handleCancel = () => {
+    if (contractor) {
+      setFormData({
+        name: contractor.user?.name || "",
+        email: contractor.user?.email || "",
+        phone: contractor.phone || "",
+        alternatePhone: contractor.alternatePhone || "",
+        address: contractor.address1 || "",
+        city: contractor.city || "",
+        state: contractor.state || "",
+        zipCode: contractor.postCode || "",
+        countryId: contractor.countryId || "",
+        dateOfBirth: contractor.dateOfBirth || "",
+        notes: contractor.notes || "",
+      });
+    }
     setIsEditing(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="My Information"
+          description="Manage your personal profile and contact information"
+        />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Personal Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormSkeleton />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Address Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormSkeleton />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !contractor) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="My Information"
+          description="Manage your personal profile and contact information"
+        />
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error?.message || "Failed to load contractor information. Please try again."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!formData) return null;
 
   return (
     <div className="space-y-6">
@@ -74,26 +167,14 @@ export default function ContractorInformationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                disabled={!isEditing}
+              />
             </div>
 
             <div className="space-y-2">
@@ -127,6 +208,21 @@ export default function ContractorInformationPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="alternatePhone">Alternate Phone</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="alternatePhone"
+                  type="tel"
+                  className="pl-9"
+                  value={formData.alternatePhone}
+                  onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
+                  disabled={!isEditing}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="dateOfBirth">Date of Birth</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -140,20 +236,10 @@ export default function ContractorInformationPage() {
                 />
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="socialSecurity">Social Security Number</Label>
-              <Input
-                id="socialSecurity"
-                value={formData.socialSecurity}
-                onChange={(e) => setFormData({ ...formData, socialSecurity: e.target.value })}
-                disabled={!isEditing}
-              />
-            </div>
           </CardContent>
         </Card>
 
-        {/* Address & Professional Info */}
+        {/* Address & Notes */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -198,26 +284,14 @@ export default function ContractorInformationPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="zipCode">ZIP/Postal Code</Label>
-                  <Input
-                    id="zipCode"
-                    value={formData.zipCode}
-                    onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Input
-                    id="country"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="zipCode">ZIP/Postal Code</Label>
+                <Input
+                  id="zipCode"
+                  value={formData.zipCode}
+                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                  disabled={!isEditing}
+                />
               </div>
             </CardContent>
           </Card>
@@ -226,31 +300,22 @@ export default function ContractorInformationPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Briefcase className="h-5 w-5" />
-                Professional Information
+                Additional Notes
               </CardTitle>
               <CardDescription>
-                Your work experience and skills
+                Additional information or notes
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="jobTitle">Current Job Title</Label>
-                <Input
-                  id="jobTitle"
-                  value={formData.jobTitle}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bio">Professional Bio</Label>
+                <Label htmlFor="notes">Notes</Label>
                 <Textarea
-                  id="bio"
+                  id="notes"
                   rows={4}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   disabled={!isEditing}
+                  placeholder="Any additional information..."
                 />
               </div>
             </CardContent>
@@ -262,12 +327,21 @@ export default function ContractorInformationPage() {
       <div className="flex justify-end gap-3">
         {isEditing ? (
           <>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
+            <Button variant="outline" onClick={handleCancel} disabled={updateContractor.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
+            <Button onClick={handleSave} disabled={updateContractor.isPending}>
+              {updateContractor.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </>
+              )}
             </Button>
           </>
         ) : (
@@ -277,6 +351,38 @@ export default function ContractorInformationPage() {
           </Button>
         )}
       </div>
+
+      {/* Contracts Summary */}
+      {contractor.contracts && contractor.contracts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Active Contracts</CardTitle>
+            <CardDescription>
+              Your current contracts and assignments
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {contractor.contracts.map((contract: any) => (
+                <div key={contract.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">{contract.contractReference || "Contract"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {contract.agency?.name || "Direct Contract"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{contract.status}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {contract.startDate ? new Date(contract.startDate).toLocaleDateString() : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
