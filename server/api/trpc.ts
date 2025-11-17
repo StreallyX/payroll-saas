@@ -6,7 +6,6 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { headers, cookies } from "next/headers";
 import { SUPERADMIN_PERMISSIONS } from "@/server/rbac/permissions";
 
 /* -------------------------------------------------------------
@@ -24,18 +23,9 @@ export type TRPCContext = {
  * ------------------------------------------------------------- */
 
 export async function createTRPCContext(opts: { req: Request }): Promise<TRPCContext> {
-  // ⭐ NECESSARY FIX FOR NEXTAUTH + APP ROUTER
-  const session = await getServerSession({
-    ...authOptions,
-    req: {
-      headers: Object.fromEntries(headers()),
-      cookies: Object.fromEntries(
-        cookies()
-          .getAll()
-          .map(c => [c.name, c.value])
-      ),
-    },
-  });
+  // ⭐ FIX: In App Router, getServerSession automatically accesses request context
+  // Passing headers/cookies manually can prevent the session callback from executing properly
+  const session = await getServerSession(authOptions);
 
   // No session → public access
   if (!session?.user?.id) {
