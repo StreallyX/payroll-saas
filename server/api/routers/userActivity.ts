@@ -1,7 +1,7 @@
 
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 
@@ -13,7 +13,7 @@ import { Prisma } from "@prisma/client";
 
 export const userActivityRouter = createTRPCRouter({
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({
       userId: z.string().optional(),
       action: z.string().optional(),
@@ -67,7 +67,7 @@ export const userActivityRouter = createTRPCRouter({
     }),
 
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const activity = await ctx.prisma.userActivity.findFirst({
@@ -93,7 +93,7 @@ export const userActivityRouter = createTRPCRouter({
     }),
 
   getByUser: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({
       userId: z.string(),
       limit: z.number().min(1).max(100).default(50),
@@ -114,7 +114,7 @@ export const userActivityRouter = createTRPCRouter({
     }),
 
   getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -145,7 +145,7 @@ export const userActivityRouter = createTRPCRouter({
     }),
 
   getRecent: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({
       limit: z.number().min(1).max(100).default(20),
     }).optional())

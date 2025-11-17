@@ -7,7 +7,7 @@ import {
 
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 
 export const payrollRouter = createTRPCRouter({
 
@@ -15,7 +15,7 @@ export const payrollRouter = createTRPCRouter({
   // GET ALL PAYROLL PARTNERS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.payrollPartner.findMany({
         where: { tenantId: ctx.tenantId },
@@ -40,7 +40,7 @@ export const payrollRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.payrollPartner.findFirst({
@@ -68,7 +68,7 @@ export const payrollRouter = createTRPCRouter({
   // CREATE PAYROLL PARTNER
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.create))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.generate))
     .input(
       z.object({
         name: z.string().min(1),
@@ -108,7 +108,7 @@ export const payrollRouter = createTRPCRouter({
   // UPDATE PAYROLL PARTNER
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.update))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.update))
     .input(
       z.object({
         id: z.string(),
@@ -149,7 +149,7 @@ export const payrollRouter = createTRPCRouter({
   // DELETE PAYROLL PARTNER
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const partner = await ctx.prisma.payrollPartner.findFirst({
@@ -187,7 +187,7 @@ export const payrollRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.payrollPartner.count({
         where: { tenantId: ctx.tenantId },

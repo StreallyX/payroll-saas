@@ -5,7 +5,7 @@ import {
   protectedProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
 /**
@@ -17,7 +17,7 @@ export const analyticsRouter = createTRPCRouter({
    * Get overview stats for admin dashboard
    */
   getOverviewStats: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .query(async ({ ctx }) => {
       const tenantId = ctx.session!.user.tenantId;
 
@@ -108,7 +108,7 @@ export const analyticsRouter = createTRPCRouter({
    * Get user activity breakdown
    */
   getUserActivity: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         startDate: z.date().optional(),
@@ -151,7 +151,7 @@ export const analyticsRouter = createTRPCRouter({
    * Get action breakdown over time
    */
   getActionTrends: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         days: z.number().min(1).max(90).default(30),
@@ -197,7 +197,7 @@ export const analyticsRouter = createTRPCRouter({
    * Get entity type distribution
    */
   getEntityDistribution: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .query(async ({ ctx }) => {
       const tenantId = ctx.session!.user.tenantId;
 
@@ -218,7 +218,7 @@ export const analyticsRouter = createTRPCRouter({
    * Get contract analytics
    */
   getContractAnalytics: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .query(async ({ ctx }) => {
       const tenantId = ctx.session!.user.tenantId;
 
@@ -276,7 +276,7 @@ export const analyticsRouter = createTRPCRouter({
    * Get financial analytics
    */
   getFinancialAnalytics: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.view))
     .input(
       z.object({
         months: z.number().min(1).max(24).default(12),
@@ -357,7 +357,7 @@ export const analyticsRouter = createTRPCRouter({
    * Export analytics report
    */
   exportReport: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.export))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.export))
     .input(
       z.object({
         reportType: z.enum(["audit", "financial", "contracts", "users"]),

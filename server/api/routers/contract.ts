@@ -6,7 +6,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { TRPCError } from "@trpc/server"
 import { 
   ContractWorkflowStatus, 
@@ -20,7 +20,7 @@ export const contractRouter = createTRPCRouter({
   // GET ALL CONTRACTS
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.contract.findMany({
         where: { tenantId: ctx.tenantId },
@@ -43,7 +43,7 @@ export const contractRouter = createTRPCRouter({
   // GET CONTRACT BY ID
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contract.findFirst({
@@ -61,7 +61,7 @@ export const contractRouter = createTRPCRouter({
   // GET BY AGENCY
   // ---------------------------------------------------------
   getByAgencyId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ agencyId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contract.findMany({
@@ -82,7 +82,7 @@ export const contractRouter = createTRPCRouter({
   // GET BY CONTRACTOR
   // ---------------------------------------------------------
   getByContractorId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ contractorId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contract.findMany({
@@ -103,7 +103,7 @@ export const contractRouter = createTRPCRouter({
   // CREATE CONTRACT
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.create))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.create))
     .input(
       z.object({
         agencyId: z.string(),
@@ -164,7 +164,7 @@ export const contractRouter = createTRPCRouter({
   // UPDATE CONTRACT
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
     .input(
       z.object({
         id: z.string(),
@@ -226,7 +226,7 @@ export const contractRouter = createTRPCRouter({
   // DELETE CONTRACT
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -254,7 +254,7 @@ export const contractRouter = createTRPCRouter({
   // STATS
   // ---------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.contract.count({ where: { tenantId: ctx.tenantId } })
       const active = await ctx.prisma.contract.count({
@@ -274,7 +274,7 @@ export const contractRouter = createTRPCRouter({
   // UPDATE WORKFLOW STATUS
   // ---------------------------------------------------------
   updateWorkflowStatus: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
     .input(
       z.object({
         id: z.string(),
@@ -365,7 +365,7 @@ export const contractRouter = createTRPCRouter({
   // GET STATUS HISTORY
   // ---------------------------------------------------------
   getStatusHistory: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ contractId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractStatusHistory.findMany({
@@ -378,7 +378,7 @@ export const contractRouter = createTRPCRouter({
   // UPLOAD DOCUMENT
   // ---------------------------------------------------------
   uploadDocument: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
     .input(
       z.object({
         contractId: z.string(),
@@ -448,7 +448,7 @@ export const contractRouter = createTRPCRouter({
   // GET DOCUMENTS
   // ---------------------------------------------------------
   getDocuments: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ contractId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractDocument.findMany({
@@ -461,7 +461,7 @@ export const contractRouter = createTRPCRouter({
   // DELETE DOCUMENT
   // ---------------------------------------------------------
   deleteDocument: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const document = await ctx.prisma.contractDocument.findUnique({
@@ -487,7 +487,7 @@ export const contractRouter = createTRPCRouter({
   // CREATE NOTIFICATION
   // ---------------------------------------------------------
   createNotification: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
     .input(
       z.object({
         contractId: z.string(),
@@ -515,7 +515,7 @@ export const contractRouter = createTRPCRouter({
   // GET NOTIFICATIONS
   // ---------------------------------------------------------
   getNotifications: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ contractId: z.string().optional(), recipientId: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractNotification.findMany({
@@ -545,7 +545,7 @@ export const contractRouter = createTRPCRouter({
   // GET EXPIRING CONTRACTS
   // ---------------------------------------------------------
   getExpiringContracts: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({ days: z.number().default(30) }))
     .query(async ({ ctx, input }) => {
       const futureDate = new Date()
@@ -572,7 +572,7 @@ export const contractRouter = createTRPCRouter({
   // GENERATE CONTRACT REFERENCE
   // ---------------------------------------------------------
   generateReference: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.create))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.create))
     .mutation(async ({ ctx }) => {
       const now = new Date()
       const year = now.getFullYear()

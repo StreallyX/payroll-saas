@@ -6,7 +6,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const companyRouter = createTRPCRouter({
 
@@ -14,7 +14,7 @@ export const companyRouter = createTRPCRouter({
   // GET ALL COMPANIES
   // ======================================================
   getAll: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.companies.view))
+    .use(hasPermission(PERMISSION_TREE_V2.companies.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.company.findMany({
         where: { tenantId: ctx.session!.user.tenantId },
@@ -27,7 +27,7 @@ export const companyRouter = createTRPCRouter({
   // GET ONE COMPANY
   // ======================================================
   getById: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.companies.view))
+    .use(hasPermission(PERMISSION_TREE_V2.companies.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.company.findUnique({
@@ -40,7 +40,7 @@ export const companyRouter = createTRPCRouter({
   // CREATE COMPANY
   // ======================================================
   create: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.companies.create))
+    .use(hasPermission(PERMISSION_TREE_V2.companies.create))
     .input(
       z.object({
         name: z.string().min(1),
@@ -99,7 +99,7 @@ export const companyRouter = createTRPCRouter({
   // UPDATE COMPANY
   // ======================================================
   update: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.companies.update))
+    .use(hasPermission(PERMISSION_TREE_V2.companies.update))
     .input(
       z.object({
         id: z.string(),
@@ -158,7 +158,7 @@ export const companyRouter = createTRPCRouter({
   // DELETE COMPANY
   // ======================================================
   delete: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.companies.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.companies.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.session!.user.tenantId
@@ -189,7 +189,7 @@ export const companyRouter = createTRPCRouter({
   // STATS
   // ======================================================
   getStats: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.companies.view))
+    .use(hasPermission(PERMISSION_TREE_V2.companies.view))
     .query(async ({ ctx }) => {
       const tenantId = ctx.session!.user.tenantId
 

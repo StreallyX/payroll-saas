@@ -7,7 +7,7 @@ import {
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { sanitizeData } from "@/lib/utils"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const agencyRouter = createTRPCRouter({
 
@@ -15,7 +15,7 @@ export const agencyRouter = createTRPCRouter({
   // GET ALL
   // ------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.agencies.view))
+    .use(hasPermission(PERMISSION_TREE_V2.agencies.manage.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.agency.findMany({
         where: { tenantId: ctx.tenantId },
@@ -42,7 +42,7 @@ export const agencyRouter = createTRPCRouter({
   // GET BY ID
   // ------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.agencies.view))
+    .use(hasPermission(PERMISSION_TREE_V2.agencies.manage.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.agency.findFirst({
@@ -69,7 +69,7 @@ export const agencyRouter = createTRPCRouter({
   // CREATE
   // ------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.agencies.create))
+    .use(hasPermission(PERMISSION_TREE_V2.agencies.manage.create))
     .input(
       z.object({
         name: z.string().min(1),
@@ -111,7 +111,7 @@ export const agencyRouter = createTRPCRouter({
   // UPDATE
   // ------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.agencies.update))
+    .use(hasPermission(PERMISSION_TREE_V2.agencies.manage.update))
     .input(
       z.object({
         id: z.string(),
@@ -166,7 +166,7 @@ export const agencyRouter = createTRPCRouter({
   // DELETE
   // ------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.agencies.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.agencies.manage.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -196,7 +196,7 @@ export const agencyRouter = createTRPCRouter({
   // STATS
   // ------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.agencies.view))
+    .use(hasPermission(PERMISSION_TREE_V2.agencies.manage.view_all))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.agency.count({
         where: { tenantId: ctx.tenantId },

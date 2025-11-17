@@ -15,7 +15,7 @@ export const smsLogRouter = createTRPCRouter({
   // LIST ALL SMS LOGS
   // ----------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         to: z.string().optional(),
@@ -81,7 +81,7 @@ export const smsLogRouter = createTRPCRouter({
   // GET ONE SMS LOG
   // ----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({
@@ -102,7 +102,7 @@ export const smsLogRouter = createTRPCRouter({
   // GET SMS STATS
   // ----------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         startDate: z.date().optional(),
@@ -144,7 +144,7 @@ export const smsLogRouter = createTRPCRouter({
   // RECENT SMS LOGS
   // ----------------------------------------------------
   getRecent: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({ limit: z.number().min(1).max(50).default(10) }).optional())
     .query(async ({ ctx, input }) => {
       const logs = await ctx.prisma.sMSLog.findMany({
@@ -160,7 +160,7 @@ export const smsLogRouter = createTRPCRouter({
   // RESEND SMS
   // ----------------------------------------------------
   resend: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({

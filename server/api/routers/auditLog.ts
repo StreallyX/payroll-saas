@@ -4,7 +4,7 @@ import {
   protectedProcedure,
   hasPermission
 } from "../trpc"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const auditLogRouter = createTRPCRouter({
 
@@ -12,7 +12,7 @@ export const auditLogRouter = createTRPCRouter({
   // GET ALL LOGS (FILTER + PAGINATION)
   // -------------------------------------------------------
   getAll: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         entityType: z.string().optional(),
@@ -62,7 +62,7 @@ export const auditLogRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .query(async ({ ctx }) => {
 
       const tenantFilter = { tenantId: ctx.session!.user.tenantId }
@@ -109,7 +109,7 @@ export const auditLogRouter = createTRPCRouter({
   // GET LOGS FOR SPECIFIC ENTITY
   // -------------------------------------------------------
   getByEntity: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         entityType: z.string(),

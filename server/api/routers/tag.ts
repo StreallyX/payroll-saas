@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
 export const tagRouter = createTRPCRouter({
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       category: z.string().optional(),
       isActive: z.boolean().optional(),
@@ -22,7 +22,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const tag = await ctx.prisma.tag.findFirst({
@@ -33,7 +33,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       name: z.string().min(1),
       slug: z.string().min(1),
@@ -52,7 +52,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -75,7 +75,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const tag = await ctx.prisma.tag.findFirst({
@@ -90,7 +90,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   assignToEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       tagId: z.string(),
       entityType: z.string(),
@@ -124,7 +124,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   removeFromEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       tagId: z.string(),
       entityType: z.string(),
@@ -157,7 +157,7 @@ export const tagRouter = createTRPCRouter({
     }),
 
   getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),

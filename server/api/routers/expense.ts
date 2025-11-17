@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { createTRPCRouter, tenantProcedure } from "../trpc"
 import { hasPermission } from "../trpc"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { TRPCError } from "@trpc/server"
 
 export const expenseRouter = createTRPCRouter({
@@ -10,7 +10,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔵 CONTRACTOR — GET OWN EXPENSES
   // ================================
   getMyExpenses: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.view))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.view_all))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -42,7 +42,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔵 CONTRACTOR — CREATE EXPENSE
   // ================================
   createExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.create))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.create))
     .input(z.object({
       contractId: z.string(),
       title: z.string().min(1).max(200),
@@ -97,7 +97,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔵 CONTRACTOR — UPDATE EXPENSE
   // ================================
   updateExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.update))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.update))
     .input(z.object({
       expenseId: z.string(),
       title: z.string().optional(),
@@ -133,7 +133,7 @@ export const expenseRouter = createTRPCRouter({
     }),
 
   deleteExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.delete))
     .input(z.object({ expenseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.prisma.user.findUnique({
@@ -158,7 +158,7 @@ export const expenseRouter = createTRPCRouter({
     }),
 
   submitExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.submit))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.submit))
     .input(z.object({ expenseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const expense = await ctx.prisma.expense.findFirst({
@@ -184,7 +184,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔴 ADMIN — LIST ALL EXPENSES
   // ================================
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.view))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.view_all))
     .input(z.object({
       status: z.string().optional(),
       contractorId: z.string().optional(),
@@ -219,7 +219,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔴 ADMIN — STATISTICS
   // ================================
   getStatistics: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.view))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.view_all))
     .query(async ({ ctx }) => {
       const expenses = await ctx.prisma.expense.findMany({
         where: { tenantId: ctx.tenantId }
@@ -237,7 +237,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔴 ADMIN — APPROVE
   // ================================
   approve: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.approve))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.approve))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -251,7 +251,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔴 ADMIN — REJECT
   // ================================
   reject: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.reject))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.reject))
     .input(z.object({
       id: z.string(),
       reason: z.string().optional()
@@ -271,7 +271,7 @@ export const expenseRouter = createTRPCRouter({
   // 🔴 ADMIN — MARK AS PAID
   // ================================
   markPaid: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.expense.pay))
+    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.mark_paid))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 

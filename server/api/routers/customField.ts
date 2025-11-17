@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
 export const customFieldRouter = createTRPCRouter({
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       entityType: z.string().optional(),
       isActive: z.boolean().optional(),
@@ -22,7 +22,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const field = await ctx.prisma.customField.findFirst({
@@ -33,7 +33,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   getByEntityType: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({ entityType: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.customField.findMany({
@@ -47,7 +47,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({
       name: z.string().min(1),
       key: z.string().min(1),
@@ -71,7 +71,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -97,7 +97,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const field = await ctx.prisma.customField.findFirst({
@@ -112,7 +112,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   setValue: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       customFieldId: z.string(),
       entityType: z.string(),
@@ -160,7 +160,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   getValue: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       customFieldId: z.string(),
       entityType: z.string(),
@@ -181,7 +181,7 @@ export const customFieldRouter = createTRPCRouter({
     }),
 
   getValuesByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),

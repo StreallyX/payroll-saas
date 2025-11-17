@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
@@ -14,7 +14,7 @@ export const invoiceRouter = createTRPCRouter({
   // GET ALL
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(
       z.object({
         status: z.string().optional(),
@@ -66,7 +66,7 @@ export const invoiceRouter = createTRPCRouter({
   // GET BY ID
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const invoice = await ctx.prisma.invoice.findFirst({
@@ -102,7 +102,7 @@ export const invoiceRouter = createTRPCRouter({
   // GET BY CONTRACT
   // ---------------------------------------------------------
   getByContractId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({ contractId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.invoice.findMany({
@@ -129,7 +129,7 @@ export const invoiceRouter = createTRPCRouter({
   // CREATE
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.create))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.create))
     .input(z.object({
       contractId: z.string(),
       invoiceNumber: z.string().optional(),
@@ -254,7 +254,7 @@ export const invoiceRouter = createTRPCRouter({
   // UPDATE
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({
       id: z.string(),
       amount: z.number().positive().optional(),
@@ -357,7 +357,7 @@ export const invoiceRouter = createTRPCRouter({
   // UPDATE STATUS
   // ---------------------------------------------------------
   updateStatus: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({
       id: z.string(),
       status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
@@ -398,7 +398,7 @@ export const invoiceRouter = createTRPCRouter({
   // DELETE
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const invoice = await ctx.prisma.invoice.findFirst({
@@ -439,7 +439,7 @@ export const invoiceRouter = createTRPCRouter({
   // GENERATE FROM CONTRACT
   // ---------------------------------------------------------
   generateFromContract: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.create))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.create))
     .input(z.object({
       contractId: z.string(),
       period: z.object({
@@ -568,7 +568,7 @@ export const invoiceRouter = createTRPCRouter({
   // GET OVERDUE
   // ---------------------------------------------------------
   getOverdue: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.invoice.findMany({
         where: {
@@ -592,7 +592,7 @@ export const invoiceRouter = createTRPCRouter({
   // STATS
   // ---------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.invoice.count({
         where: { tenantId: ctx.tenantId },
@@ -643,7 +643,7 @@ export const invoiceRouter = createTRPCRouter({
   // GENERATE INVOICE NUMBER
   // ---------------------------------------------------------
   generateInvoiceNumber: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.create))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.create))
     .mutation(async ({ ctx }) => {
       const now = new Date()
       const year = now.getFullYear()
@@ -675,7 +675,7 @@ export const invoiceRouter = createTRPCRouter({
   
   // Get contractor's own invoices
   getMyInvoices: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -711,7 +711,7 @@ export const invoiceRouter = createTRPCRouter({
   
   // Create invoice for contractor
   createContractorInvoice: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.create))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.create))
     .input(z.object({
       contractId: z.string(),
       title: z.string().optional(),
@@ -847,7 +847,7 @@ export const invoiceRouter = createTRPCRouter({
   
   // Get invoice summary for contractor
   getMyInvoiceSummary: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },

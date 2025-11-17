@@ -7,7 +7,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const countryRouter = createTRPCRouter({
 
@@ -36,7 +36,7 @@ export const countryRouter = createTRPCRouter({
   // CREATE COUNTRY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   create: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.users.create))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.users.create))
     .input(
       z.object({
         code: z.string().length(2, "Code must be 2 characters (e.g., US)"),
@@ -67,7 +67,7 @@ export const countryRouter = createTRPCRouter({
   // UPDATE COUNTRY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   update: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.users.create))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.users.create))
     .input(
       z.object({
         id: z.string(),
@@ -103,7 +103,7 @@ export const countryRouter = createTRPCRouter({
   // DELETE COUNTRY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   delete: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.users.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.users.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 

@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
 export const commentRouter = createTRPCRouter({
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       entityType: z.string().optional(),
       entityId: z.string().optional(),
@@ -34,7 +34,7 @@ export const commentRouter = createTRPCRouter({
     }),
 
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const comment = await ctx.prisma.comment.findFirst({
@@ -57,7 +57,7 @@ export const commentRouter = createTRPCRouter({
     }),
 
   getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -90,7 +90,7 @@ export const commentRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -114,7 +114,7 @@ export const commentRouter = createTRPCRouter({
     }),
 
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({
       id: z.string(),
       content: z.string().min(1),
@@ -135,7 +135,7 @@ export const commentRouter = createTRPCRouter({
     }),
 
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const comment = await ctx.prisma.comment.findFirst({
@@ -150,7 +150,7 @@ export const commentRouter = createTRPCRouter({
     }),
 
   getReplies: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contracts.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
     .input(z.object({ commentId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.comment.findMany({

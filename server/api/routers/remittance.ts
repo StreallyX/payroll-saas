@@ -2,14 +2,14 @@
 import { z } from "zod"
 import { createTRPCRouter, tenantProcedure } from "../trpc"
 import { hasPermission } from "../trpc"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { TRPCError } from "@trpc/server"
 
 export const remittanceRouter = createTRPCRouter({
   
   // Get contractor's own remittances (payment history)
   getMyRemittances: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -43,7 +43,7 @@ export const remittanceRouter = createTRPCRouter({
   
   // Get remittance by ID
   getRemittanceById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
     .input(z.object({ remitId: z.string() }))
     .query(async ({ ctx, input }) => {
       const user = await ctx.prisma.user.findUnique({
@@ -79,7 +79,7 @@ export const remittanceRouter = createTRPCRouter({
   
   // Get remittance summary stats
   getMyRemittanceSummary: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payroll.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },

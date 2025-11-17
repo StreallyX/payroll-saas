@@ -4,7 +4,7 @@ import {
   tenantProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 
@@ -23,7 +23,7 @@ export const paymentRouter = createTRPCRouter({
   // GET ALL PAYMENTS
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({
       status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
       invoiceId: z.string().optional(),
@@ -103,7 +103,7 @@ export const paymentRouter = createTRPCRouter({
   // GET PAYMENT BY ID
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
@@ -132,7 +132,7 @@ export const paymentRouter = createTRPCRouter({
   // CREATE PAYMENT
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({
       invoiceId: z.string().optional(),
       expenseId: z.string().optional(),
@@ -188,7 +188,7 @@ export const paymentRouter = createTRPCRouter({
   // UPDATE PAYMENT
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({
       id: z.string(),
       status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
@@ -232,7 +232,7 @@ export const paymentRouter = createTRPCRouter({
   // DELETE PAYMENT
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
@@ -264,7 +264,7 @@ export const paymentRouter = createTRPCRouter({
   // PROCESS PAYMENT
   // ---------------------------------------------------------
   process: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
@@ -302,7 +302,7 @@ export const paymentRouter = createTRPCRouter({
   // REFUND PAYMENT
   // ---------------------------------------------------------
   refund: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.update))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
     .input(z.object({
       id: z.string(),
       reason: z.string(),
@@ -341,7 +341,7 @@ export const paymentRouter = createTRPCRouter({
   // GET PAYMENTS BY INVOICE
   // ---------------------------------------------------------
   getByInvoice: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({ invoiceId: z.string() }))
     .query(async ({ ctx, input }) => {
       const payments = await ctx.prisma.payment.findMany({
@@ -359,7 +359,7 @@ export const paymentRouter = createTRPCRouter({
   // GET PAYMENTS BY EXPENSE
   // ---------------------------------------------------------
   getByExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({ expenseId: z.string() }))
     .query(async ({ ctx, input }) => {
       const payments = await ctx.prisma.payment.findMany({
@@ -377,7 +377,7 @@ export const paymentRouter = createTRPCRouter({
   // GET PAYMENT STATISTICS
   // ---------------------------------------------------------
   getStatistics: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.invoices.view))
+    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
     .input(z.object({
       startDate: z.date().optional(),
       endDate: z.date().optional(),

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 
 export const payslipRouter = createTRPCRouter({
 
@@ -10,7 +10,7 @@ export const payslipRouter = createTRPCRouter({
   // GET ALL PAYSLIPS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.payslip.findMany({
         where: { tenantId: ctx.tenantId },
@@ -30,7 +30,7 @@ export const payslipRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.payslip.findFirst({
@@ -50,7 +50,7 @@ export const payslipRouter = createTRPCRouter({
   // GET BY CONTRACTOR
   // -------------------------------------------------------
   getByContractorId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
     .input(z.object({ contractorId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.payslip.findMany({
@@ -68,7 +68,7 @@ export const payslipRouter = createTRPCRouter({
   // CREATE PAYSLIP
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.generate))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.generate))
     .input(
       z.object({
         contractorId: z.string(),
@@ -126,7 +126,7 @@ export const payslipRouter = createTRPCRouter({
   // UPDATE PAYSLIP
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.update))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.generate))
     .input(
       z.object({
         id: z.string(),
@@ -176,7 +176,7 @@ export const payslipRouter = createTRPCRouter({
   // DELETE PAYSLIP
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.update))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.generate))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payslip = await ctx.prisma.payslip.findFirst({
@@ -207,7 +207,7 @@ export const payslipRouter = createTRPCRouter({
   // STATISTICS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.payslip.view))
+    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
     .query(async ({ ctx }) => {
       const now = new Date();
       const month = now.getMonth() + 1;
