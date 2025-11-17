@@ -35,13 +35,13 @@ export default function DashboardPage() {
   // Fetch recent activities
   const { data: activities, isLoading: activitiesLoading } = api.dashboard.getRecentActivities.useQuery(
     { limit: 5 },
-    { enabled: hasPermission("audit_logs.view") }
+    { enabled: hasPermission("audit.view") }
   );
 
   // Fetch upcoming contract expirations
   const { data: expiringContracts, isLoading: expirationsLoading } = api.dashboard.getUpcomingExpirations.useQuery(
     { days: 30 },
-    { enabled: hasPermission("contracts.view") }
+    { enabled: hasPermission("contracts.manage.view_all") }
   );
 
   const formatCurrency = (amount: number) => {
