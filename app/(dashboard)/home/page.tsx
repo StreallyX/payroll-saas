@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { RouteGuard } from "@/components/guards/RouteGuard";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -52,14 +53,15 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {session?.user?.name || "User"}! Here's an overview of your workspace.
-        </p>
-      </div>
+    <RouteGuard permission="dashboard.view">
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {session?.user?.name || "User"}! Here's an overview of your workspace.
+          </p>
+        </div>
 
       {/* Main Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -372,6 +374,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </RouteGuard>
   );
 }

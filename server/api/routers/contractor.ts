@@ -59,10 +59,10 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY USER ID (contractor dashboard - for viewing own profile)
+  // GET BY USER ID (unified profile page - for viewing own profile)
   // -------------------------------------------------------
   getByUserId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.view_own))
+    .use(hasPermission(PERMISSION_TREE_V2.profile.view))
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Ensure user can only view their own contractor profile
@@ -222,7 +222,7 @@ export const contractorRouter = createTRPCRouter({
   // UPDATE CONTRACTOR
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.update))
+    .use(hasPermission(PERMISSION_TREE_V2.profile.update))
     .input(
       z.object({
         id: z.string(),
@@ -252,6 +252,22 @@ export const contractorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, dateOfBirth, ...updateData } = input
+
+      // Verify the contractor belongs to the current user (unless admin)
+      const existingContractor = await ctx.prisma.contractor.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+      });
+
+      if (!existingContractor) {
+        throw new Error("Contractor not found");
+      }
+
+      // Only allow users to update their own profile unless they have manage permission
+      if (existingContractor.userId !== ctx.session.user.id && 
+          !ctx.session.user.isSuperAdmin &&
+          !ctx.session.user.permissions?.includes(PERMISSION_TREE_V2.contractors.manage.update)) {
+        throw new Error("You can only update your own profile");
+      }
 
       const contractor = await ctx.prisma.contractor.update({
         where: { id, tenantId: ctx.tenantId },

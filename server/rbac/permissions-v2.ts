@@ -573,6 +573,7 @@ export const PERMISSION_GROUPS = {
   // Contractor complet
   CONTRACTOR_FULL: [
     ...extractPermissionKeys(PERMISSION_TREE_V2.profile),
+    "dashboard.view",
     "contractors.view_own",
     "contractors.update_own",
     "contractors.documents.view_own",
