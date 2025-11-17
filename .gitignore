@@ -63,3 +63,6 @@ Thumbs.db
 /uploads
 /public/uploads
 /tmp
+
+# Old role-based folders (moved during RBAC refactoring)
+.old-role-based-folders/

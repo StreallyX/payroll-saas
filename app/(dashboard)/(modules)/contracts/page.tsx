@@ -261,7 +261,7 @@ export default function ManageContractsPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                 {contractors.length === 0 && (
-                  <Link href="/contractors">
+                  <Link href="/team/contractors">
                     <div className="flex items-center gap-3 p-3 bg-white rounded-md border border-orange-200 hover:border-orange-400 transition-colors cursor-pointer">
                       <Users className="h-8 w-8 text-orange-600" />
                       <div className="flex-1">
@@ -274,7 +274,7 @@ export default function ManageContractsPage() {
                 )}
                 
                 {agencies.length === 0 && (
-                  <Link href="/agencies">
+                  <Link href="/team/agencies">
                     <div className="flex items-center gap-3 p-3 bg-white rounded-md border border-orange-200 hover:border-orange-400 transition-colors cursor-pointer">
                       <Building2 className="h-8 w-8 text-orange-600" />
                       <div className="flex-1">
@@ -287,7 +287,7 @@ export default function ManageContractsPage() {
                 )}
                 
                 {payrollPartners.length === 0 && (
-                  <Link href="/payroll-partners">
+                  <Link href="/team/payroll-partners">
                     <div className="flex items-center gap-3 p-3 bg-white rounded-md border border-orange-200 hover:border-orange-400 transition-colors cursor-pointer">
                       <FileText className="h-8 w-8 text-orange-600" />
                       <div className="flex-1">

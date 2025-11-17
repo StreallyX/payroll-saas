@@ -456,6 +456,77 @@ export const dynamicMenuConfig: MenuItem[] = [
 ];
 
 /**
+ * Filter menu items based on user permissions
+ * @param menuItems - Array of menu items to filter
+ * @param userPermissions - Array of user's permission keys
+ * @param isSuperAdmin - Whether the user is a super admin
+ * @returns Filtered menu items based on permissions
+ */
+export function filterMenuByPermissions(
+  menuItems: MenuItem[],
+  userPermissions: string[],
+  isSuperAdmin: boolean = false
+): MenuItem[] {
+  // SuperAdmin sees everything
+  if (isSuperAdmin) {
+    return menuItems
+  }
+
+  return menuItems
+    .map(item => {
+      // Check if user has permission for this item
+      let hasAccess = true
+
+      if (item.permission) {
+        hasAccess = userPermissions.includes(item.permission)
+      } else if (item.permissions && item.permissions.length > 0) {
+        if (item.requireAll) {
+          // User must have ALL permissions
+          hasAccess = item.permissions.every(p => userPermissions.includes(p))
+        } else {
+          // User must have ANY permission
+          hasAccess = item.permissions.some(p => userPermissions.includes(p))
+        }
+      }
+
+      if (!hasAccess) {
+        return null
+      }
+
+      // If item has submenu, filter it recursively
+      if (item.submenu && item.submenu.length > 0) {
+        const filteredSubmenu = filterMenuByPermissions(item.submenu, userPermissions, isSuperAdmin)
+        
+        // Only show parent if at least one submenu item is visible
+        if (filteredSubmenu.length === 0) {
+          return null
+        }
+
+        return {
+          ...item,
+          submenu: filteredSubmenu
+        }
+      }
+
+      return item
+    })
+    .filter((item): item is MenuItem => item !== null)
+}
+
+/**
+ * Get dynamic menu for current user
+ * @param userPermissions - Array of user's permission keys
+ * @param isSuperAdmin - Whether the user is a super admin
+ * @returns Filtered menu items based on permissions
+ */
+export function getDynamicMenu(
+  userPermissions: string[],
+  isSuperAdmin: boolean = false
+): MenuItem[] {
+  return filterMenuByPermissions(dynamicMenuConfig, userPermissions, isSuperAdmin)
+}
+
+/**
  * CHANGELOG - Phase 2 Migration
  * 
  * 🔄 Path Changes:

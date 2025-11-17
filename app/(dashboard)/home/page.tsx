@@ -65,7 +65,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Contractors Card */}
         {stats?.contractors && (
-          <Link href="/contractors">
+          <Link href="/team/contractors">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Contractors</CardTitle>
@@ -129,7 +129,7 @@ export default function DashboardPage() {
 
         {/* Agencies Card */}
         {stats?.agencies && (
-          <Link href="/agencies">
+          <Link href="/team/agencies">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Agencies</CardTitle>
