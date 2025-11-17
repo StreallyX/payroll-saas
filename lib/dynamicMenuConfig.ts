@@ -36,7 +36,7 @@ export interface MenuItem {
 export const dynamicMenuConfig: MenuItem[] = [
   { 
     label: "Dashboard", 
-    href: "/dashboard", // Changed from /home
+    href: "/home", // Changed from /home
     icon: LayoutDashboard,
     description: "Your personalized dashboard",
     permission: "dashboard.view", // New permission
