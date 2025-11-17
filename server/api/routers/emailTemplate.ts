@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { Prisma } from "@prisma/client";
 
 export const emailTemplateRouter = createTRPCRouter({
@@ -14,7 +14,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // LIST ALL TEMPLATES
   // ----------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.emailTemplate.findMany({
         where: { tenantId: ctx.tenantId! },
@@ -28,7 +28,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // GET BY ID
   // ----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const template = await ctx.prisma.emailTemplate.findFirst({
@@ -52,7 +52,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // CREATE TEMPLATE
   // ----------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(
       z.object({
         name: z.string().min(1),
@@ -118,7 +118,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // UPDATE TEMPLATE
   // ----------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(
       z.object({
         id: z.string(),
@@ -162,7 +162,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // DELETE TEMPLATE
   // ----------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.emailTemplate.delete({
@@ -179,7 +179,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // PREVIEW TEMPLATE
   // ----------------------------------------------------
   preview: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
     .input(
       z.object({
         id: z.string(),
@@ -231,7 +231,7 @@ export const emailTemplateRouter = createTRPCRouter({
   // DUPLICATE TEMPLATE
   // ----------------------------------------------------
   duplicate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const original = await ctx.prisma.emailTemplate.findFirst({
@@ -278,7 +278,7 @@ export const emailTemplateRouter = createTRPCRouter({
     // GET AVAILABLE VARIABLES
     // ----------------------------------------------------
     getVariables: tenantProcedure
-      .use(hasPermission(PERMISSION_TREE.settings.view))
+      .use(hasPermission(PERMISSION_TREE_V2.settings.view))
       .query(async () => {
         return [
           { key: "name", description: "User full name", example: "John Smith" },

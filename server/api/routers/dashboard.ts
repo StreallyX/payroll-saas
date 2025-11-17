@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 
 export const dashboardRouter = createTRPCRouter({
   /**
@@ -28,7 +29,7 @@ export const dashboardRouter = createTRPCRouter({
 
     try {
       // Contractors stats
-      if (hasPermission("contractors.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all)) {
         const totalContractors = await ctx.prisma.contractor.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -52,7 +53,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Contracts stats
-      if (hasPermission("contracts.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all)) {
         const totalContracts = await ctx.prisma.contract.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -82,7 +83,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Invoices stats
-      if (hasPermission("invoices.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all)) {
         const totalInvoices = await ctx.prisma.invoice.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -129,7 +130,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Agencies stats
-      if (hasPermission("agencies.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.agencies.manage.view_all)) {
         const totalAgencies = await ctx.prisma.agency.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -149,7 +150,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Payslips stats
-      if (hasPermission("payslip.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all)) {
         const totalPayslips = await ctx.prisma.payslip.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -169,7 +170,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Users stats
-      if (hasPermission("tenant.users.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.tenant.users.view)) {
         const totalUsers = await ctx.prisma.user.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -189,7 +190,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Tasks stats
-      if (hasPermission("tasks.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.tasks.view_all)) {
         const totalTasks = await ctx.prisma.task.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -216,7 +217,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Leads stats
-      if (hasPermission("leads.view")) {
+      if (hasPermission(PERMISSION_TREE_V2.leads.view)) {
         const totalLeads = await ctx.prisma.lead.count({
           where: { tenantId: ctx.tenantId },
         });
@@ -269,7 +270,7 @@ export const dashboardRouter = createTRPCRouter({
         isSuperAdmin || userPermissions.includes(permission);
 
       // Only fetch if user has audit permission
-      if (!hasPermission("audit_logs.view")) {
+      if (!hasPermission(PERMISSION_TREE_V2.audit.view)) {
         return [];
       }
 
@@ -313,7 +314,7 @@ export const dashboardRouter = createTRPCRouter({
       const hasPermission = (permission: string) => 
         isSuperAdmin || userPermissions.includes(permission);
 
-      if (!hasPermission("contracts.view")) {
+      if (!hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all)) {
         return [];
       }
 

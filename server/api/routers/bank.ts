@@ -6,7 +6,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const bankRouter = createTRPCRouter({
 
@@ -14,7 +14,7 @@ export const bankRouter = createTRPCRouter({
   // GET ALL BANKS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.banks.view))
+    .use(hasPermission(PERMISSION_TREE_V2.banks.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.bank.findMany({
         where: { tenantId: ctx.tenantId },
@@ -26,7 +26,7 @@ export const bankRouter = createTRPCRouter({
   // GET ONE BANK
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.banks.view))
+    .use(hasPermission(PERMISSION_TREE_V2.banks.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.bank.findFirst({
@@ -41,7 +41,7 @@ export const bankRouter = createTRPCRouter({
   // CREATE BANK
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.banks.create))
+    .use(hasPermission(PERMISSION_TREE_V2.banks.create))
     .input(
       z.object({
         name: z.string().min(1, "Bank name is required"),
@@ -81,7 +81,7 @@ export const bankRouter = createTRPCRouter({
   // UPDATE BANK
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.banks.update))
+    .use(hasPermission(PERMISSION_TREE_V2.banks.update))
     .input(
       z.object({
         id: z.string(),
@@ -130,7 +130,7 @@ export const bankRouter = createTRPCRouter({
   // DELETE BANK
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.banks.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.banks.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId!

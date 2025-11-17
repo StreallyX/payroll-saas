@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, tenantProcedure, hasPermission } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { PERMISSION_TREE } from '../../rbac/permissions';
+import { PERMISSION_TREE_V2 } from '../../rbac/permissions-v2';
 import { Prisma } from '@prisma/client';
 
 export const emailLogRouter = createTRPCRouter({
@@ -15,7 +15,7 @@ export const emailLogRouter = createTRPCRouter({
    * List all email logs for the tenant with pagination and filters
    */
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         recipient: z.string().optional(),
@@ -81,7 +81,7 @@ export const emailLogRouter = createTRPCRouter({
    * Get a single email log by ID
    */
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const log = await ctx.prisma.emailLog.findFirst({
@@ -105,7 +105,7 @@ export const emailLogRouter = createTRPCRouter({
    * Get email statistics
    */
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         startDate: z.date().optional(),
@@ -147,7 +147,7 @@ export const emailLogRouter = createTRPCRouter({
    * Get recent email logs
    */
   getRecent: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.audit.view))
+    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
     .input(
       z.object({
         limit: z.number().min(1).max(50).default(10),
@@ -169,7 +169,7 @@ export const emailLogRouter = createTRPCRouter({
    * Resend a failed email
    */
   resend: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const log = await ctx.prisma.emailLog.findFirst({

@@ -72,7 +72,7 @@ export const DEFAULT_ROLES = [
 
   {
     name: "contractor",
-    homePath: "/contractor",
+    homePath: "/dashboard", // Updated in Phase 3: /contractor → /dashboard
     permissions: [
       // ✅ Existing permissions (keep these)
       "onboarding.responses.view_own",

@@ -7,7 +7,7 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const onboardingRouter = createTRPCRouter({
 
@@ -15,7 +15,7 @@ export const onboardingRouter = createTRPCRouter({
   // TEMPLATES — VIEW ALL
   // -------------------------------------------------------
   getAllTemplates: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.templates.view))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.onboardingTemplate.findMany({
         where: { tenantId: ctx.tenantId },
@@ -31,7 +31,7 @@ export const onboardingRouter = createTRPCRouter({
   // TEMPLATE — GET BY ID
   // -------------------------------------------------------
   getTemplateById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.templates.view))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.onboardingTemplate.findFirst({
@@ -47,7 +47,7 @@ export const onboardingRouter = createTRPCRouter({
   // TEMPLATE — CREATE (Admin only)
   // -------------------------------------------------------
   createTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.templates.create))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.create))
     .input(z.object({
       name: z.string().min(1),
       description: z.string().optional(),
@@ -77,7 +77,7 @@ export const onboardingRouter = createTRPCRouter({
   // TEMPLATE — UPDATE (Admin only)
   // -------------------------------------------------------
   updateTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.templates.update))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.update))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -112,7 +112,7 @@ export const onboardingRouter = createTRPCRouter({
   // TEMPLATE — DELETE (Admin only)
   // -------------------------------------------------------
   deleteTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.templates.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -142,7 +142,7 @@ export const onboardingRouter = createTRPCRouter({
   // QUESTIONS — CREATE
   // -------------------------------------------------------
   addQuestion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.questions.add))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.questions.add))
     .input(z.object({
       onboardingTemplateId: z.string(),
       questionText: z.string().min(1),
@@ -159,7 +159,7 @@ export const onboardingRouter = createTRPCRouter({
   // QUESTIONS — UPDATE
   // -------------------------------------------------------
   updateQuestion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.questions.update))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.questions.update))
     .input(z.object({
       id: z.string(),
       questionText: z.string().optional(),
@@ -181,7 +181,7 @@ export const onboardingRouter = createTRPCRouter({
   // QUESTIONS — DELETE
   // -------------------------------------------------------
   deleteQuestion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.questions.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.questions.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -196,7 +196,7 @@ export const onboardingRouter = createTRPCRouter({
   // ADMIN VIEW — Contractors Onboarding Status
   // -------------------------------------------------------
   getAllContractorOnboarding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.responses.view))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.view_all))
     .query(async ({ ctx }) => {
 
       const contractors = await ctx.prisma.contractor.findMany({
@@ -233,7 +233,7 @@ export const onboardingRouter = createTRPCRouter({
   // CONTRACTOR VIEW — Own responses
   // -------------------------------------------------------
   getMyOnboardingResponses: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.responses.viewOwn))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.view_own))
     .query(async ({ ctx }) => {
 
       return ctx.prisma.contractor.findFirst({
@@ -254,7 +254,7 @@ export const onboardingRouter = createTRPCRouter({
   // ADMIN VIEW — Specific contractor
   // -------------------------------------------------------
   getContractorOnboarding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.responses.view))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.view_all))
     .input(z.object({ contractorId: z.string() }))
     .query(async ({ ctx, input }) => {
 
@@ -277,7 +277,7 @@ export const onboardingRouter = createTRPCRouter({
   // CONTRACTOR — Submit response
   // -------------------------------------------------------
   submitResponse: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.responses.submit))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.submit))
     .input(z.object({
       contractorId: z.string(),
       questionId: z.string(),
@@ -314,7 +314,7 @@ export const onboardingRouter = createTRPCRouter({
   // REVIEW — Approve response
   // -------------------------------------------------------
   approveResponse: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.responses.review))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.review))
     .input(z.object({ responseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -346,7 +346,7 @@ export const onboardingRouter = createTRPCRouter({
   // REVIEW — Reject response
   // -------------------------------------------------------
   rejectResponse: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.onboarding.responses.review))
+    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.review))
     .input(z.object({
       responseId: z.string(),
       adminNotes: z.string(),

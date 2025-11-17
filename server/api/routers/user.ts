@@ -4,7 +4,7 @@ import {
   tenantProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
@@ -15,7 +15,7 @@ export const userRouter = createTRPCRouter({
   // GET ALL USERS
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.user.findMany({
         where: { tenantId: ctx.tenantId },
@@ -30,7 +30,7 @@ export const userRouter = createTRPCRouter({
   // GET ONE USER
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.user.findFirst({
@@ -48,7 +48,7 @@ export const userRouter = createTRPCRouter({
   // CREATE USER (ENTERPRISE DEEL STYLE)
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.create))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.create))
     .input(
       z.object({
         name: z.string().min(2),
@@ -142,7 +142,7 @@ export const userRouter = createTRPCRouter({
   // UPDATE USER
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(
       z.object({
         id: z.string(),
@@ -197,7 +197,7 @@ export const userRouter = createTRPCRouter({
   // DELETE USER
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 

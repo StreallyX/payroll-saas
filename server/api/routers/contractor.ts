@@ -6,7 +6,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const contractorRouter = createTRPCRouter({
 
@@ -14,7 +14,7 @@ export const contractorRouter = createTRPCRouter({
   // GET ALL CONTRACTORS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.contractor.findMany({
         where: { tenantId: ctx.tenantId },
@@ -39,7 +39,7 @@ export const contractorRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractor.findFirst({
@@ -59,12 +59,18 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY USER ID (contractor dashboard)
+  // GET BY USER ID (contractor dashboard - for viewing own profile)
   // -------------------------------------------------------
   getByUserId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.view_own))
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Ensure user can only view their own contractor profile
+      if (input.userId !== ctx.session.user.id && !ctx.session.user.isSuperAdmin && 
+          !ctx.session.user.permissions?.includes(PERMISSION_TREE_V2.contractors.manage.view_all)) {
+        throw new Error("You can only view your own contractor profile")
+      }
+
       return ctx.prisma.contractor.findFirst({
         where: { userId: input.userId, tenantId: ctx.tenantId },
         include: {
@@ -84,7 +90,7 @@ export const contractorRouter = createTRPCRouter({
   // CREATE CONTRACTOR
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.create))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.create))
     .input(
       z.object({
         name: z.string().min(1),
@@ -216,7 +222,7 @@ export const contractorRouter = createTRPCRouter({
   // UPDATE CONTRACTOR
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.update))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.update))
     .input(
       z.object({
         id: z.string(),
@@ -280,7 +286,7 @@ export const contractorRouter = createTRPCRouter({
   // DELETE CONTRACTOR
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -314,7 +320,7 @@ export const contractorRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.contractors.view))
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.contractor.count({
         where: { tenantId: ctx.tenantId },

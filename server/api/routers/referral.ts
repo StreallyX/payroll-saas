@@ -2,7 +2,7 @@
 import { z } from "zod"
 import { createTRPCRouter, tenantProcedure } from "../trpc"
 import { hasPermission } from "../trpc"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { TRPCError } from "@trpc/server"
 import { nanoid } from "nanoid"
 
@@ -10,7 +10,7 @@ export const referralRouter = createTRPCRouter({
   
   // Get contractor's referral code
   getMyReferralCode: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.referrals.view))
+    .use(hasPermission(PERMISSION_TREE_V2.referrals.view))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -35,7 +35,7 @@ export const referralRouter = createTRPCRouter({
   
   // Get contractor's referrals
   getMyReferrals: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.referrals.view))
+    .use(hasPermission(PERMISSION_TREE_V2.referrals.view))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -70,7 +70,7 @@ export const referralRouter = createTRPCRouter({
   
   // Send referral invitation
   sendReferralInvitation: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.referrals.create))
+    .use(hasPermission(PERMISSION_TREE_V2.referrals.create))
     .input(z.object({
       referredEmail: z.string().email(),
       referredName: z.string().optional(),
@@ -135,7 +135,7 @@ export const referralRouter = createTRPCRouter({
   
   // Get referral statistics
   getMyReferralStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.referrals.view))
+    .use(hasPermission(PERMISSION_TREE_V2.referrals.view))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -180,7 +180,7 @@ export const referralRouter = createTRPCRouter({
   
   // Track referral status
   trackReferral: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.referrals.track))
+    .use(hasPermission(PERMISSION_TREE_V2.referrals.track))
     .input(z.object({
       referralId: z.string()
     }))

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 
 export const roleRouter = createTRPCRouter({
 
@@ -10,7 +10,7 @@ export const roleRouter = createTRPCRouter({
   // GET ALL ROLES
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.view))
     .query(async ({ ctx }) => {
       return ctx.prisma.role.findMany({
         where: { tenantId: ctx.tenantId },
@@ -30,7 +30,7 @@ export const roleRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.role.findFirst({
@@ -58,7 +58,7 @@ export const roleRouter = createTRPCRouter({
   // CREATE ROLE
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.create))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.create))
     .input(z.object({
       name: z.string().min(1),
       homePath: z.string().default("/admin"),
@@ -111,7 +111,7 @@ export const roleRouter = createTRPCRouter({
   // UPDATE ROLE
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.update))
     .input(z.object({
       id: z.string(),
       name: z.string().min(1).optional(),
@@ -152,7 +152,7 @@ export const roleRouter = createTRPCRouter({
   // DELETE ROLE
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -194,7 +194,7 @@ export const roleRouter = createTRPCRouter({
   // ASSIGN PERMISSIONS TO ROLE
   // -------------------------------------------------------
   assignPermissions: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.update))
     .input(z.object({
       roleId: z.string(),
       permissionIds: z.array(z.string()),
@@ -240,7 +240,7 @@ export const roleRouter = createTRPCRouter({
   // GET ROLE PERMISSIONS
   // -------------------------------------------------------
   getPermissions: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.view))
     .input(z.object({ roleId: z.string() }))
     .query(async ({ ctx, input }) => {
       const rolePermissions = await ctx.prisma.rolePermission.findMany({
@@ -257,7 +257,7 @@ export const roleRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.roles.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.roles.view))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.role.count({
         where: { tenantId: ctx.tenantId },

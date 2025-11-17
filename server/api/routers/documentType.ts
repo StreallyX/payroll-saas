@@ -7,7 +7,7 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const documentTypeRouter = createTRPCRouter({
 
@@ -40,7 +40,7 @@ export const documentTypeRouter = createTRPCRouter({
   // Requires: document_types.create
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.documentTypes.create))
+    .use(hasPermission(PERMISSION_TREE_V2.documentTypes.create))
     .input(
       z.object({
         name: z.string().min(1),
@@ -93,7 +93,7 @@ export const documentTypeRouter = createTRPCRouter({
   // Requires: document_types.update
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.documentTypes.update))
+    .use(hasPermission(PERMISSION_TREE_V2.documentTypes.update))
     .input(
       z.object({
         id: z.string(),
@@ -138,7 +138,7 @@ export const documentTypeRouter = createTRPCRouter({
   // Requires: document_types.delete
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.documentTypes.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.documentTypes.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 

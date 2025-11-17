@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 
 export const taskRouter = createTRPCRouter({
 
@@ -10,7 +10,7 @@ export const taskRouter = createTRPCRouter({
   // GET ALL TASKS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
         where: { tenantId: ctx.tenantId },
@@ -26,7 +26,7 @@ export const taskRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.task.findFirst({
@@ -42,7 +42,7 @@ export const taskRouter = createTRPCRouter({
   // GET MY TASKS
   // -------------------------------------------------------
   getMyTasks: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_own))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
         where: { 
@@ -61,7 +61,7 @@ export const taskRouter = createTRPCRouter({
   // CREATE TASK
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.create))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.create))
     .input(z.object({
       title: z.string().min(1),
       description: z.string().optional(),
@@ -104,7 +104,7 @@ export const taskRouter = createTRPCRouter({
   // UPDATE TASK
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.update_own))
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
@@ -148,7 +148,7 @@ export const taskRouter = createTRPCRouter({
   // DELETE TASK
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -181,7 +181,7 @@ export const taskRouter = createTRPCRouter({
   // TOGGLE COMPLETE
   // -------------------------------------------------------
   toggleComplete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.complete))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.complete))
     .input(z.object({
       id: z.string(),
       isCompleted: z.boolean(),
@@ -222,7 +222,7 @@ export const taskRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tasks.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
     .query(async ({ ctx }) => {
 
       const total = await ctx.prisma.task.count({

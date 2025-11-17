@@ -10,7 +10,7 @@ export function Breadcrumb() {
   const pathname = usePathname()
   
   // Skip breadcrumb on home pages
-  if (pathname === "/" || pathname === "/admin" || pathname === "/agency" || pathname === "/payroll" || pathname === "/contractor") {
+  if (pathname === "/" || pathname === "/admin" || pathname === "/agency" || pathname === "/payroll" || pathname === "/dashboard") {
     return null
   }
 

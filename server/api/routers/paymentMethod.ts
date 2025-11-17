@@ -5,7 +5,7 @@ import {
   tenantProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 import { PaymentMethodType } from "@prisma/client";
 
@@ -21,7 +21,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // GET ALL PAYMENT METHODS
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
     .input(z.object({
       ownerId: z.string().optional(),
       ownerType: z.enum(["user", "company", "agency"]).optional(),
@@ -51,7 +51,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // GET PAYMENT METHOD BY ID
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
@@ -75,7 +75,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // CREATE PAYMENT METHOD
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({
       ownerId: z.string(),
       ownerType: z.enum(["user", "company", "agency"]),
@@ -127,7 +127,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // UPDATE PAYMENT METHOD
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({
       id: z.string(),
       isDefault: z.boolean().optional(),
@@ -181,7 +181,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // DELETE PAYMENT METHOD
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
@@ -206,7 +206,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // SET AS DEFAULT
   // ---------------------------------------------------------
   setDefault: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
@@ -248,7 +248,7 @@ export const paymentMethodRouter = createTRPCRouter({
   // VERIFY PAYMENT METHOD
   // ---------------------------------------------------------
   verify: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.users.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const paymentMethod = await ctx.prisma.paymentMethod.findFirst({

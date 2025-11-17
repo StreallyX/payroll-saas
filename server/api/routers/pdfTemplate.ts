@@ -7,14 +7,14 @@ import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 
 export const pdfTemplateRouter = createTRPCRouter({
   // ----------------------------------------------------
   // LIST ALL PDF TEMPLATES
   // ----------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.pDFTemplate.findMany({
         where: { tenantId: ctx.tenantId! },
@@ -27,7 +27,7 @@ export const pdfTemplateRouter = createTRPCRouter({
   // GET ONE PDF TEMPLATE
   // ----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const template = await ctx.prisma.pDFTemplate.findFirst({
@@ -48,7 +48,7 @@ export const pdfTemplateRouter = createTRPCRouter({
   // CREATE PDF TEMPLATE
   // ----------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(
       z.object({
         name: z.string().min(1),
@@ -120,7 +120,7 @@ export const pdfTemplateRouter = createTRPCRouter({
   // UPDATE PDF TEMPLATE
   // ----------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(
       z.object({
         id: z.string(),
@@ -165,7 +165,7 @@ export const pdfTemplateRouter = createTRPCRouter({
   // DELETE PDF TEMPLATE
   // ----------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.pDFTemplate.delete({
@@ -179,7 +179,7 @@ export const pdfTemplateRouter = createTRPCRouter({
   // PREVIEW PDF TEMPLATE
   // ----------------------------------------------------
   preview: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.view))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
     .input(
       z.object({
         id: z.string(),
@@ -231,7 +231,7 @@ export const pdfTemplateRouter = createTRPCRouter({
   // DUPLICATE PDF TEMPLATE
   // ----------------------------------------------------
   duplicate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.settings.update))
+    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const original = await ctx.prisma.pDFTemplate.findFirst({
@@ -279,7 +279,7 @@ export const pdfTemplateRouter = createTRPCRouter({
     // GET AVAILABLE PDF VARIABLES
     // ----------------------------------------------------
     getVariables: tenantProcedure
-      .use(hasPermission(PERMISSION_TREE.settings.view))
+      .use(hasPermission(PERMISSION_TREE_V2.settings.view))
       .query(async () => {
         return [
           { key: "user_name", description: "Full name of the user", example: "John Doe" },

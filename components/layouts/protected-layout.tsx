@@ -1,17 +1,19 @@
-
 "use client";
 
 import { ReactNode } from "react";
-import { RouteGuard } from "@/components/guards/route-guard";
+import { RouteGuard } from "@/components/guards/RouteGuard";
 import { PageHeader } from "@/components/ui/page-header";
 
 interface ProtectedLayoutProps {
   children: ReactNode;
   title?: string;
   description?: string;
-  requiredPermission?: string;
-  requiredPermissions?: string[];
+
+  // ❗ Correction : on utilise les bons noms
+  permission?: string;
+  permissions?: string[];
   requireAll?: boolean;
+
   backHref?: string;
   headerActions?: ReactNode;
 }
@@ -20,16 +22,18 @@ export function ProtectedLayout({
   children,
   title,
   description,
-  requiredPermission,
-  requiredPermissions,
+
+  permission,
+  permissions,
   requireAll,
+
   backHref,
   headerActions,
 }: ProtectedLayoutProps) {
   return (
     <RouteGuard
-      requiredPermission={requiredPermission}
-      requiredPermissions={requiredPermissions}
+      permission={permission}
+      permissions={permissions}
       requireAll={requireAll}
     >
       <div className="container mx-auto p-6 space-y-6">

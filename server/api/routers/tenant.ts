@@ -10,7 +10,7 @@ import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
 import bcrypt from "bcryptjs"
-import { PERMISSION_TREE, TENANT_ADMIN_DEFAULT_PERMISSIONS } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2, ALL_PERMISSION_KEYS_V2 } from "../../rbac/permissions-v2"
 
 export const tenantRouter = createTRPCRouter({
 
@@ -47,7 +47,7 @@ export const tenantRouter = createTRPCRouter({
   // 🟦 UPDATE TENANT SETTINGS
   // -------------------------------------------------------
   updateSettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .input(
       z.object({
         name: z.string().min(1).optional(),
@@ -92,7 +92,7 @@ export const tenantRouter = createTRPCRouter({
   // 🟧 RESET COLORS
   // -------------------------------------------------------
   resetColors: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .mutation(async ({ ctx }) => {
 
       const before = await ctx.prisma.tenant.findUnique({
@@ -134,7 +134,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 📊 LIST TENANTS
   getAllForSuperAdmin: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.create))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.create))
     .query(async ({ ctx }) => {
 
       const tenants = await ctx.prisma.tenant.findMany({
@@ -159,7 +159,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 🏗️ CREATE TENANT + ADMIN
   createTenantWithAdmin: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.create))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.create))
     .input(
       z.object({
         tenantName: z.string().min(2),
@@ -201,7 +201,7 @@ export const tenantRouter = createTRPCRouter({
         // 1. Load all permissions from DB
         const allPermissions = await prisma.permission.findMany({
           where: {
-            key: { in: TENANT_ADMIN_DEFAULT_PERMISSIONS }
+            key: { in: ALL_PERMISSION_KEYS_V2 }
           }
         });
 
@@ -246,7 +246,7 @@ export const tenantRouter = createTRPCRouter({
 
   // ⚙️ UPDATE TENANT STATUS
   updateTenantStatus: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.suspend))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.suspend))
     .input(z.object({ tenantId: z.string(), isActive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -271,7 +271,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 🗑️ SOFT DELETE TENANT
   deleteTenant: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.delete))
     .input(z.object({ tenantId: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -302,7 +302,7 @@ export const tenantRouter = createTRPCRouter({
   // 📊 SUBSCRIPTION MANAGEMENT
   // -------------------------------------------------------
   getSubscriptionInfo: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.subscription.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.subscription.view))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -325,7 +325,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateSubscriptionPlan: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.subscription.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.subscription.manage))
     .input(
       z.object({
         plan: z.enum(["free", "starter", "professional", "enterprise"]),
@@ -362,7 +362,7 @@ export const tenantRouter = createTRPCRouter({
   // 📈 USAGE & QUOTAS
   // -------------------------------------------------------
   getUsageMetrics: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.quotas.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.quotas.view))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -397,7 +397,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateQuotas: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.quotas.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.quotas.manage))
     .input(
       z.object({
         maxUsers: z.number().optional(),
@@ -491,7 +491,7 @@ export const tenantRouter = createTRPCRouter({
   // 🎯 FEATURE FLAGS
   // -------------------------------------------------------
   getEnabledFeatures: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.features.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.features.view))
     .query(async ({ ctx }) => {
       const features = await ctx.prisma.tenantFeatureFlag.findMany({
         where: { tenantId: ctx.tenantId },
@@ -526,7 +526,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   toggleFeature: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.features.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.features.manage))
     .input(
       z.object({
         featureKey: z.string(),
@@ -578,7 +578,7 @@ export const tenantRouter = createTRPCRouter({
   // 🌍 LOCALIZATION
   // -------------------------------------------------------
   getLocalizationSettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.localization.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.localization.view))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -595,7 +595,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateLocalizationSettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.localization.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.localization.manage))
     .input(
       z.object({
         timezone: z.string().optional(),
@@ -641,7 +641,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateSubdomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.domain.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.manage))
     .input(z.object({ subdomain: z.string().min(3).max(63) }))
     .mutation(async ({ ctx, input }) => {
       const subdomain = input.subdomain.toLowerCase()
@@ -680,7 +680,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   addCustomDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.domain.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.manage))
     .input(z.object({ domain: z.string().min(4) }))
     .mutation(async ({ ctx, input }) => {
       const domain = input.domain.toLowerCase()
@@ -723,7 +723,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   verifyCustomDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.domain.verify))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.verify))
     .mutation(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -762,7 +762,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   removeCustomDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.domain.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.manage))
     .mutation(async ({ ctx }) => {
       const updated = await ctx.prisma.tenant.update({
         where: { id: ctx.tenantId },
@@ -793,7 +793,7 @@ export const tenantRouter = createTRPCRouter({
   // 📧 EMAIL TEMPLATES
   // -------------------------------------------------------
   listEmailTemplates: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.email.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.view))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.emailTemplate.findMany({
         where: { tenantId: ctx.tenantId },
@@ -804,7 +804,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   createEmailTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.email.create))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.create))
     .input(
       z.object({
         name: z.string(),
@@ -841,7 +841,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateEmailTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.email.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.update))
     .input(
       z.object({
         id: z.string(),
@@ -880,7 +880,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   deleteEmailTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.email.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const template = await ctx.prisma.emailTemplate.delete({
@@ -909,7 +909,7 @@ export const tenantRouter = createTRPCRouter({
   // 📄 PDF TEMPLATES
   // -------------------------------------------------------
   listPDFTemplates: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.pdf.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.view))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.pDFTemplate.findMany({
         where: { tenantId: ctx.tenantId },
@@ -920,7 +920,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   createPDFTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.pdf.create))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.create))
     .input(
       z.object({
         name: z.string(),
@@ -961,7 +961,7 @@ export const tenantRouter = createTRPCRouter({
   // 🔒 SECURITY SETTINGS
   // -------------------------------------------------------
   getSecuritySettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.security.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.security.view))
     .query(async ({ ctx }) => {
       const settings = await ctx.prisma.tenantSecuritySettings.findUnique({
         where: { tenantId: ctx.tenantId },
@@ -971,7 +971,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateSecuritySettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.security.manage))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.security.manage))
     .input(
       z.object({
         minPasswordLength: z.number().optional(),
@@ -1017,7 +1017,7 @@ export const tenantRouter = createTRPCRouter({
   // 📤 DATA EXPORT
   // -------------------------------------------------------
   requestDataExport: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.data.export))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.data.export))
     .input(
       z.object({
         exportType: z.enum(["full_export", "users_only", "contracts_only", "invoices_only", "financial_data"]),
@@ -1057,7 +1057,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   getDataExports: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.data.export))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.data.export))
     .query(async ({ ctx }) => {
       const exports = await ctx.prisma.dataExport.findMany({
         where: { tenantId: ctx.tenantId },
@@ -1069,7 +1069,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   downloadDataExport: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.data.export))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.data.export))
     .input(z.object({ exportId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const exportData = await ctx.prisma.dataExport.findFirst({
@@ -1141,7 +1141,7 @@ export const tenantRouter = createTRPCRouter({
   // 🔐 SUPER ADMIN: IMPERSONATION
   // -------------------------------------------------------
   impersonateTenant: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE.superadmin.tenants.impersonate))
+    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.impersonate))
     .input(
       z.object({
         tenantId: z.string(),
@@ -1220,7 +1220,7 @@ export const tenantRouter = createTRPCRouter({
   // 📄 LEGAL DOCUMENTS (TERMS & PRIVACY)
   // -------------------------------------------------------
   getLegalDocuments: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.view))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -1236,7 +1236,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateLegalDocuments: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .input(
       z.object({
         termsOfService: z.string().optional(),
@@ -1274,7 +1274,7 @@ export const tenantRouter = createTRPCRouter({
   // 🎨 LOGIN PAGE BRANDING
   // -------------------------------------------------------
   getLoginBranding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.view))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -1287,7 +1287,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateLoginBranding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .input(
       z.object({
         backgroundImage: z.string().url().optional().nullable(),
@@ -1325,7 +1325,7 @@ export const tenantRouter = createTRPCRouter({
   // 🧭 NAVIGATION MENU CONFIG
   // -------------------------------------------------------
   getNavigationConfig: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.view))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.view))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -1338,7 +1338,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateNavigationConfig: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .input(z.any()) // Accept any JSON structure for navigation config
     .mutation(async ({ ctx, input }) => {
       const updated = await ctx.prisma.tenant.update({
@@ -1367,7 +1367,7 @@ export const tenantRouter = createTRPCRouter({
   // 📧 EMAIL DOMAIN CONFIG
   // -------------------------------------------------------
   updateEmailDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .input(
       z.object({
         customEmailDomain: z.string().optional(),
@@ -1399,7 +1399,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   verifyEmailDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
     .mutation(async ({ ctx }) => {
       // TODO: Implement actual DNS/email verification
       const updated = await ctx.prisma.tenant.update({
@@ -1428,7 +1428,7 @@ export const tenantRouter = createTRPCRouter({
   // 📝 PDF TEMPLATE UPDATE & DELETE
   // -------------------------------------------------------
   updatePDFTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.pdf.update))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.update))
     .input(
       z.object({
         id: z.string(),
@@ -1469,7 +1469,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   deletePDFTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.tenant.templates.pdf.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.delete))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const template = await ctx.prisma.pDFTemplate.delete({

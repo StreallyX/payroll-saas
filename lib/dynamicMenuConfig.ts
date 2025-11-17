@@ -4,412 +4,463 @@ import {
   Briefcase, PieChart, CheckSquare, TrendingUp, ClipboardList,
   UserCog, FileType, ListChecks, Layers, Globe, BarChart3, Palette,
   Landmark, Coins, Webhook, Mail, MessageSquare, Activity, 
-  CreditCard, Scale, FileSignature
-} from "lucide-react"
+  CreditCard, Scale, FileSignature, UserCircle
+} from "lucide-react";
 
 export interface MenuItem {
-  label: string
-  href: string
-  icon: any
-  description?: string
-  permission?: string
-  permissions?: string[]
-  requireAll?: boolean
-  submenu?: MenuItem[]
-  badge?: string | number
-  badgeVariant?: "default" | "secondary" | "destructive" | "outline"
+  label: string;
+  href: string;
+  icon: any;
+  description?: string;
+  permission?: string;
+  permissions?: string[];
+  requireAll?: boolean;
+  submenu?: MenuItem[];
+  badge?: string | number;
+  badgeVariant?: "default" | "secondary" | "destructive" | "outline";
 }
 
 /**
- * Dynamic menu configuration based on permissions
- * Each menu item can have:
- * - permission: single permission required
- * - permissions: array of permissions (uses requireAll to determine AND/OR logic)
- * - requireAll: if true, user must have ALL permissions; if false, user needs ANY permission
+ * Dynamic menu configuration based on NEW permissions-v2
+ * 
+ * Migration Note:
+ * - Uses granular permissions from permissions-v2.ts
+ * - Replaces role-based paths with functional paths
+ * - Supports adaptive permissions (view_own + manage.view_all)
+ * 
+ * Permission Patterns:
+ * - *.view_own → User views their own data
+ * - *.manage.view_all → Admin views all data
+ * - *.create / *.update / *.delete → Specific actions
  */
 export const dynamicMenuConfig: MenuItem[] = [
   { 
     label: "Dashboard", 
-    href: "/home", 
+    href: "/home", // Changed from /home
     icon: LayoutDashboard,
-    description: "System overview and analytics",
-    // No permission required - everyone can see dashboard
+    description: "Your personalized dashboard",
+    permission: "dashboard.view", // New permission
   },
   
-  // 🆕 CONTRACTOR PORTAL SECTION
+  // 👤 PROFILE SECTION (All users)
   { 
-    label: "Contractor Portal", 
-    href: "/contractor", 
-    icon: UserCheck,
-    description: "Contractor dashboard and tools",
+    label: "My Profile", 
+    href: "/profile", // Replaces /contractor/information, /agency/information, etc.
+    icon: UserCircle,
+    description: "View and edit your profile",
+    permission: "profile.view",
+  },
+  
+  // 📄 CONTRACTS SECTION (Adaptive)
+  { 
+    label: "Contracts", 
+    href: "/contracts", // Unified path
+    icon: FileText,
+    description: "View and manage contracts",
     permissions: [
-      "contracts.view",
-      "onboarding.responses.view_own"
+      "contracts.view_own",           // Contractor sees own contracts
+      "contracts.manage.view_all"     // Admin sees all contracts
     ],
-    requireAll: false,  // Show if user has ANY contractor permission
+    requireAll: false,
+  },
+  
+  // 🧾 INVOICES SECTION (Adaptive)
+  { 
+    label: "Invoices", 
+    href: "/invoices",
+    icon: Receipt,
+    description: "View and manage invoices",
+    permissions: [
+      "invoices.view_own",           // Contractor sees own invoices
+      "invoices.manage.view_all"     // Admin sees all invoices
+    ],
+    requireAll: false,
+  },
+  
+  // ⏰ TIMESHEETS SECTION (Adaptive)
+  { 
+    label: "Timesheets", 
+    href: "/timesheets",
+    icon: Clock,
+    description: "Log and manage timesheets",
+    permissions: [
+      "timesheets.view_own",         // Contractor sees own timesheets
+      "timesheets.manage.view_all"   // Admin sees all timesheets
+    ],
+    requireAll: false,
+  },
+  
+  // 💸 EXPENSES SECTION (Adaptive)
+  { 
+    label: "Expenses", 
+    href: "/expenses",
+    icon: Upload,
+    description: "Submit and track expenses",
+    permissions: [
+      "expenses.view_own",           // Contractor sees own expenses
+      "expenses.manage.view_all"     // Admin sees all expenses
+    ],
+    requireAll: false,
+  },
+  
+  // 💰 PAYMENTS SECTION (Adaptive)
+  { 
+    label: "Payments", 
+    href: "/payments",
+    icon: DollarSign,
+    description: "Payment history and payslips",
+    permissions: [
+      "payments.payslips.view_own",
+      "payments.remits.view_own",
+      "payments.payslips.view_all",
+      "payments.remits.view_all",
+    ],
+    requireAll: false,
     submenu: [
       {
-        label: "My Dashboard",
-        href: "/contractor",
-        icon: LayoutDashboard,
-        description: "Contractor overview and stats",
-        permissions: ["contracts.view", "onboarding.responses.view_own"],
+        label: "Payslips",
+        href: "/payments/payslips", // Replaces /contractor/payslips
+        icon: FileText,
+        description: "View your payslips",
+        permissions: [
+          "payments.payslips.view_own",
+          "payments.payslips.view_all"
+        ],
         requireAll: false,
-      },
-      {
-        label: "My Information",
-        href: "/contractor/information",
-        icon: UserCog,
-        description: "View and edit your profile",
-        permission: "contractors.update",
-      },
-      {
-        label: "Onboarding",
-        href: "/contractor/onboarding",
-        icon: ClipboardList,
-        description: "Complete your KYC process",
-        permission: "onboarding.responses.view_own",
-      },
-      {
-        label: "Time & Expenses",
-        href: "/contractor/time-expenses",
-        icon: Clock,
-        description: "Log hours and submit expenses",
-        permissions: ["timesheet.create", "expense.create"],
-        requireAll: false,
-      },
-      {
-        label: "My Invoices",
-        href: "/contractor/invoices",
-        icon: Receipt,
-        description: "View and create invoices",
-        permission: "invoices.view",
       },
       {
         label: "Remits",
-        href: "/contractor/remits",
+        href: "/payments/remits", // Replaces /contractor/remits
         icon: DollarSign,
         description: "View payment history",
-        permission: "payroll.view",
-      },
-      {
-        label: "Payslips",
-        href: "/contractor/payslips",
-        icon: FileText,
-        description: "Download your pay stubs",
-        permission: "payslip.view",
-      },
-      {
-        label: "Refer a Friend",
-        href: "/contractor/refer",
-        icon: UserPlus,
-        description: "Earn referral rewards",
-        permission: "referrals.view",
+        permissions: [
+          "payments.remits.view_own",
+          "payments.remits.view_all"
+        ],
+        requireAll: false,
       },
     ]
   },
   
+  // 📋 ONBOARDING SECTION (Adaptive)
   { 
-    label: "Manage Contracts", 
-    href: "/contracts", 
-    icon: FileText,
-    description: "Contract management and tracking",
-    permission: "contracts.view"
-  },
-  { 
-    label: "Manage Onboarding", 
-    href: "/onboarding", 
+    label: "Onboarding", 
+    href: "/onboarding",
     icon: ClipboardList,
-    description: "Onboarding processes and workflows",
-    permission: "onboarding.responses.view"
+    description: "Onboarding processes",
+    permissions: [
+      "onboarding.responses.view_own",    // Contractor sees own onboarding
+      "onboarding.responses.view_all",    // Admin sees all onboarding
+      "onboarding.templates.view"         // Admin manages templates
+    ],
+    requireAll: false,
+    submenu: [
+      {
+        label: "My Onboarding",
+        href: "/onboarding/my-onboarding", // Replaces /contractor/onboarding
+        icon: UserCheck,
+        description: "Complete your onboarding",
+        permission: "onboarding.responses.view_own",
+      },
+      {
+        label: "Review Submissions",
+        href: "/onboarding/review",
+        icon: CheckSquare,
+        description: "Review onboarding submissions",
+        permission: "onboarding.responses.view_all",
+      },
+      {
+        label: "Templates",
+        href: "/onboarding/templates",
+        icon: FileType,
+        description: "Manage onboarding templates",
+        permission: "onboarding.templates.view",
+      },
+    ]
   },
+  
+  // 🤝 REFERRALS SECTION
+  { 
+    label: "Referrals", 
+    href: "/referrals", // Replaces /contractor/refer
+    icon: UserPlus,
+    description: "Refer colleagues and earn rewards",
+    permissions: [
+      "referrals.view",
+      "referrals.manage.view_all"
+    ],
+    requireAll: false,
+  },
+  
+  // ✅ TASKS SECTION
   { 
     label: "My Tasks", 
-    href: "/tasks", 
+    href: "/tasks",
     icon: CheckSquare,
-    description: "Your assigned tasks and to-dos",
-    permission: "tasks.view",
-    badge: "3", // Example: 3 pending tasks
+    description: "Your assigned tasks",
+    permissions: [
+      "tasks.view_own",
+      "tasks.view_all"
+    ],
+    requireAll: false,
+    badge: "3",
     badgeVariant: "default"
   },
+  
+  // 👥 TEAM MANAGEMENT (Admin only)
   { 
-    label: "Timesheets", 
-    href: "/timesheets", 
-    icon: Clock,
-    description: "Time tracking and timesheet management",
-    permission: "timesheet.view"
+    label: "Team Management", 
+    href: "/team",
+    icon: Users,
+    description: "Manage your team and contractors",
+    permissions: [
+      "contractors.manage.view_all",
+      "agencies.manage.view_all",
+      "team.view"
+    ],
+    requireAll: false,
+    submenu: [
+      {
+        label: "Contractors",
+        href: "/team/contractors", // Replaces /contractors
+        icon: UserCheck,
+        description: "Manage contractor profiles",
+        permission: "contractors.manage.view_all",
+      },
+      {
+        label: "Agencies",
+        href: "/team/agencies", // Replaces /agencies
+        icon: Building2,
+        description: "Manage agency clients",
+        permission: "agencies.manage.view_all",
+      },
+      {
+        label: "Payroll Partners",
+        href: "/team/payroll-partners", // Replaces /payroll-partners
+        icon: DollarSign,
+        description: "Manage payroll partners",
+        permission: "payroll_partners.manage.view_all",
+      },
+      {
+        label: "Team Members",
+        href: "/team/members", // Replaces /agency/users
+        icon: Users,
+        description: "Manage your team members",
+        permission: "team.view",
+      },
+    ]
   },
-  { 
-    label: "Expenses", 
-    href: "/expenses", 
-    icon: Receipt,
-    description: "Expense tracking and reimbursement",
-    permission: "expense.view"
-  },
-  { 
-    label: "Manage Agency/Clients", 
-    href: "/agencies", 
-    icon: Building2,
-    description: "Client agencies and companies",
-    permission: "agencies.view"
-  },
-  { 
-    label: "Manage Contractors", 
-    href: "/contractors", 
-    icon: UserCheck,
-    description: "Contractor profiles and status",
-    permission: "contractors.view"
-  },
+  
+  // 🎯 LEADS SECTION
   { 
     label: "Leads", 
-    href: "/leads", 
+    href: "/leads",
     icon: TrendingUp,
     description: "Sales leads and prospects",
     permission: "leads.view"
   },
+  
+  // 📊 REPORTS SECTION
   { 
-    label: "Manage Invoices", 
-    href: "/invoices", 
-    icon: Receipt,
-    description: "Invoice management",
-    permission: "invoices.view",
-    submenu: [
-      {
-        label: "Agency Invoices",
-        href: "/invoices/agency",
-        icon: Building2,
-        description: "Agency billing and invoices",
-        permission: "invoices.view"
-      },
-      {
-        label: "Contractor Invoices",
-        href: "/invoices/contractor",
-        icon: UserCheck,
-        description: "Contractor billing and invoices",
-        permission: "invoices.view"
-      },
-      {
-        label: "Payroll Partner Invoices",
-        href: "/invoices/payroll-partner",
-        icon: DollarSign,
-        description: "Payroll partner invoices",
-        permission: "invoices.view"
-      }
-    ]
-  },
-  { 
-    label: "Payslips", 
-    href: "/payslips", 
-    icon: FileText,
-    description: "Employee payslip management",
-    permission: "payslip.view"
-  },
-  { 
-    label: "Settings", 
-    href: "/settings", 
-    icon: Settings,
-    description: "System configuration",
-    permissions: [
-      "tenant.users.view",
-      "settings.view",
-      "tenant.roles.view"
-    ],
-    requireAll: false, // Show if user has ANY of these permissions
-    submenu: [
-      {
-        label: "My Profile",
-        href: "/settings/profile",
-        icon: UserCheck,
-        description: "Personal profile and preferences",
-        // No permission required - everyone can view their profile
-      },
-      {
-        label: "Manage Users",
-        href: "/users",
-        icon: Users,
-        description: "User accounts and permissions",
-        permission: "tenant.users.view"
-      },
-      {
-        label: "Manage Roles",
-        href: "/settings/roles",
-        icon: UserCog,
-        description: "User roles and permissions",
-        permission: "tenant.roles.view"
-      },
-      {
-        label: "Permissions",
-        href: "/settings/permissions",
-        icon: CheckSquare,
-        description: "View and manage system permissions",
-        permission: "tenant.roles.view"
-      },
-      {
-        label: "Manage Document Type",
-        href: "/settings/document-types",
-        icon: FileType,
-        description: "Document type configuration",
-        permission: "settings.view"
-      },
-      {
-        label: "Master Onboarding",
-        href: "/settings/master-onboarding",
-        icon: ListChecks,
-        description: "Onboarding templates and workflows",
-        permission: "onboarding.templates.view"
-      },
-      {
-        label: "Onboarding Templates",
-        href: "/settings/onboarding-templates",
-        icon: ClipboardList,
-        description: "Configure onboarding templates",
-        permission: "onboarding.templates.view"
-      },
-      {
-        label: "Email Templates",
-        href: "/settings/templates/email",
-        icon: Mail,
-        description: "Customize email templates",
-        permission: "tenant.templates.email.view"
-      },
-      {
-        label: "PDF Templates",
-        href: "/settings/templates/pdf",
-        icon: FileSignature,
-        description: "Customize PDF templates",
-        permission: "tenant.templates.pdf.view"
-      },
-      {
-        label: "Webhooks",
-        href: "/settings/webhooks",
-        icon: Webhook,
-        description: "Configure webhook integrations",
-        permission: "webhooks.view"
-      },
-      {
-        label: "Payroll Partners",
-        href: "/payroll-partners",
-        icon: DollarSign,
-        description: "Payroll service providers",
-        permission: "settings.view"
-      },
-      {
-        label: "Manage Companies",
-        href: "/settings/companies",
-        icon: Layers,
-        description: "Company and organization management",
-        permission: "companies.view"
-      },
-      {
-        label: "Manage Banks",
-        href: "/settings/banks",
-        icon: Landmark,
-        description: "Bank accounts management",
-        permission: "banks.view"
-      },
-      {
-        label: "Manage Currencies",
-        href: "/settings/currencies",
-        icon: Coins,
-        description: "Currency configuration",
-        permission: "settings.view"
-      },
-      {
-        label: "Manage Country",
-        href: "/settings/countries",
-        icon: Globe,
-        description: "Country and region settings",
-        permission: "settings.view"
-      },
-      {
-        label: "Customization",
-        href: "/settings/tenant",
-        icon: Palette,
-        description: "Platform logo and colors",
-        permission: "tenant.branding.update"
-      },
-      {
-        label: "Login Branding",
-        href: "/settings/branding/login",
-        icon: Palette,
-        description: "Customize login page branding",
-        permission: "tenant.branding.update"
-      },
-      {
-        label: "Subscription",
-        href: "/settings/subscription",
-        icon: CreditCard,
-        description: "Manage subscription and billing",
-        permission: "tenant.subscription.view"
-      },
-      {
-        label: "Legal",
-        href: "/settings/legal",
-        icon: Scale,
-        description: "Legal documents and policies",
-        permission: "settings.view"
-      }
-    ]
-  },
-  { 
-    label: "Report", 
-    href: "/reports", 
+    label: "Reports", 
+    href: "/reports",
     icon: BarChart3,
     description: "Analytics and reporting",
-    permission: "audit_logs.view",
+    permissions: [
+      "reports.view",
+      "reports.activity_logs",
+      "reports.analytics"
+    ],
+    requireAll: false,
     submenu: [
       {
         label: "Overview",
         href: "/reports",
         icon: BarChart3,
         description: "Report overview",
-        permission: "audit_logs.view"
+        permission: "reports.view"
       },
       {
         label: "Analytics",
         href: "/analytics",
         icon: PieChart,
-        description: "Business intelligence and insights",
-        permission: "audit_logs.view"
+        description: "Business intelligence",
+        permission: "reports.analytics"
       },
       {
         label: "Activity Logs",
         href: "/reports/activity-logs",
-        icon: ListChecks,
-        description: "Track all user actions",
-        permission: "audit_logs.view"
+        icon: Activity,
+        description: "Track user actions",
+        permission: "reports.activity_logs"
       },
       {
         label: "User Activity",
         href: "/reports/user-activity",
-        icon: Activity,
-        description: "Monitor user activity and behavior",
-        permission: "audit_logs.view"
+        icon: UserCheck,
+        description: "Monitor user behavior",
+        permission: "reports.activity_logs"
       },
       {
         label: "Email Logs",
         href: "/reports/email-logs",
         icon: Mail,
-        description: "Email delivery and tracking logs",
-        permission: "audit_logs.view"
+        description: "Email tracking",
+        permission: "reports.activity_logs"
       },
       {
         label: "SMS Logs",
         href: "/reports/sms-logs",
         icon: MessageSquare,
-        description: "SMS delivery and tracking logs",
-        permission: "audit_logs.view"
+        description: "SMS tracking",
+        permission: "reports.activity_logs"
+      },
+    ]
+  },
+  
+  // ⚙️ SETTINGS SECTION
+  { 
+    label: "Settings", 
+    href: "/settings",
+    icon: Settings,
+    description: "System configuration",
+    permissions: [
+      "settings.view",
+      "tenant.view",
+      "tenant.roles.view",
+      "tenant.users.view"
+    ],
+    requireAll: false,
+    submenu: [
+      {
+        label: "Users",
+        href: "/users",
+        icon: Users,
+        description: "Manage user accounts",
+        permission: "tenant.users.view"
+      },
+      {
+        label: "Roles",
+        href: "/settings/roles",
+        icon: UserCog,
+        description: "Manage roles and permissions",
+        permission: "tenant.roles.view"
+      },
+      {
+        label: "Permissions",
+        href: "/settings/permissions",
+        icon: CheckSquare,
+        description: "View system permissions",
+        permission: "tenant.roles.view"
+      },
+      {
+        label: "Document Types",
+        href: "/settings/document-types",
+        icon: FileType,
+        description: "Configure document types",
+        permission: "document_types.view"
+      },
+      {
+        label: "Master Onboarding",
+        href: "/settings/master-onboarding",
+        icon: ListChecks,
+        description: "Onboarding workflows",
+        permission: "tenant.onboarding.view"
+      },
+      {
+        label: "Onboarding Templates",
+        href: "/settings/onboarding-templates",
+        icon: ClipboardList,
+        description: "Configure templates",
+        permission: "onboarding.templates.view"
+      },
+      {
+        label: "Email Templates",
+        href: "/settings/templates/email",
+        icon: Mail,
+        description: "Customize emails",
+        permission: "tenant.templates.email.view"
+      },
+      {
+        label: "PDF Templates",
+        href: "/settings/templates/pdf",
+        icon: FileSignature,
+        description: "Customize PDFs",
+        permission: "tenant.templates.pdf.view"
+      },
+      {
+        label: "Webhooks",
+        href: "/settings/webhooks",
+        icon: Webhook,
+        description: "Webhook integrations",
+        permission: "webhooks.view"
+      },
+      {
+        label: "Companies",
+        href: "/settings/companies",
+        icon: Layers,
+        description: "Organization management",
+        permission: "companies.view"
+      },
+      {
+        label: "Banks",
+        href: "/settings/banks",
+        icon: Landmark,
+        description: "Bank accounts",
+        permission: "banks.view"
+      },
+      {
+        label: "Currencies",
+        href: "/settings/currencies",
+        icon: Coins,
+        description: "Currency settings",
+        permission: "currencies.view"
+      },
+      {
+        label: "Countries",
+        href: "/settings/countries",
+        icon: Globe,
+        description: "Country settings",
+        permission: "countries.view"
+      },
+      {
+        label: "Tenant Settings",
+        href: "/settings/tenant",
+        icon: Palette,
+        description: "Platform customization",
+        permission: "tenant.view"
+      },
+      {
+        label: "Branding",
+        href: "/settings/branding/login",
+        icon: Palette,
+        description: "Login page branding",
+        permission: "tenant.branding.update"
+      },
+      {
+        label: "Subscription",
+        href: "/settings/subscription",
+        icon: CreditCard,
+        description: "Manage subscription",
+        permission: "tenant.subscription.view"
+      },
+      {
+        label: "Legal",
+        href: "/settings/legal",
+        icon: Scale,
+        description: "Legal documents",
+        permission: "settings.view"
       }
     ]
   },
-]
+];
 
 /**
  * Filter menu items based on user permissions
- * @param menuItems - The menu configuration to filter
+ * @param menuItems - Array of menu items to filter
  * @param userPermissions - Array of user's permission keys
  * @param isSuperAdmin - Whether the user is a super admin
- * @returns Filtered menu items
+ * @returns Filtered menu items based on permissions
  */
 export function filterMenuByPermissions(
   menuItems: MenuItem[],
@@ -474,3 +525,38 @@ export function getDynamicMenu(
 ): MenuItem[] {
   return filterMenuByPermissions(dynamicMenuConfig, userPermissions, isSuperAdmin)
 }
+
+/**
+ * CHANGELOG - Phase 2 Migration
+ * 
+ * 🔄 Path Changes:
+ * - /home → /dashboard
+ * - /contractor/* → /profile, /payments/*, /onboarding/my-onboarding, etc.
+ * - /agency/* → /profile, /team/*, /settings/*
+ * - /payroll-partner/* → /profile, /team/*, /settings/*
+ * - /contractors → /team/contractors
+ * - /agencies → /team/agencies
+ * - /payroll-partners → /team/payroll-partners
+ * 
+ * 🔐 Permission Changes:
+ * - contractors.view → contractors.view_own + contractors.manage.view_all
+ * - invoices.view → invoices.view_own + invoices.manage.view_all
+ * - timesheets.* → timesheets.view_own + timesheets.manage.view_all
+ * - expenses.* → expenses.view_own + expenses.manage.view_all
+ * - contracts.view → contracts.view_own + contracts.manage.view_all
+ * 
+ * ✨ New Permissions:
+ * - dashboard.view
+ * - profile.view / profile.update
+ * - payments.payslips.view_own / view_all
+ * - payments.remits.view_own / view_all
+ * - team.view / team.manage
+ * - reports.view / reports.analytics / reports.activity_logs
+ * 
+ * 🎯 Benefits:
+ * - Functional organization (not role-based)
+ * - Adaptive content based on permissions
+ * - No code duplication
+ * - Easy to add new roles
+ * - Clear permission hierarchy
+ */

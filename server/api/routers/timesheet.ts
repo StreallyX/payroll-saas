@@ -2,13 +2,13 @@
 import { z } from "zod"
 import { createTRPCRouter, tenantProcedure } from "../trpc"
 import { hasPermission } from "../trpc"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { TRPCError } from "@trpc/server"
 
 export const timesheetRouter = createTRPCRouter({
   
   getAll: tenantProcedure
-  .use(hasPermission(PERMISSION_TREE.timesheet.view))
+  .use(hasPermission(PERMISSION_TREE_V2.timesheets.manage.view_all))
   .query(async ({ ctx }) => {
     return ctx.prisma.timesheet.findMany({
       where: { tenantId: ctx.tenantId },
@@ -28,7 +28,7 @@ export const timesheetRouter = createTRPCRouter({
   }),
 
   approve: tenantProcedure
-  .use(hasPermission(PERMISSION_TREE.timesheet.approve))
+  .use(hasPermission(PERMISSION_TREE_V2.timesheets.manage.approve))
   .input(z.object({ id: z.string() }))
   .mutation(async ({ ctx, input }) => {
     return ctx.prisma.timesheet.update({
@@ -43,7 +43,7 @@ export const timesheetRouter = createTRPCRouter({
 
   // Get contractor's own timesheets
   getMyTimesheets: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.timesheet.view))
+    .use(hasPermission(PERMISSION_TREE_V2.timesheets.view_own))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -80,7 +80,7 @@ export const timesheetRouter = createTRPCRouter({
   
   // Create timesheet entry
   createEntry: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.timesheet.create))
+    .use(hasPermission(PERMISSION_TREE_V2.timesheets.create))
     .input(z.object({
       contractId: z.string(),
       date: z.date(),
@@ -179,7 +179,7 @@ export const timesheetRouter = createTRPCRouter({
   
   // Update timesheet entry
   updateEntry: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.timesheet.update))
+    .use(hasPermission(PERMISSION_TREE_V2.timesheets.update_own))
     .input(z.object({
       entryId: z.string(),
       date: z.date().optional(),
@@ -248,7 +248,7 @@ export const timesheetRouter = createTRPCRouter({
   
   // Delete timesheet entry
   deleteEntry: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.timesheet.delete))
+    .use(hasPermission(PERMISSION_TREE_V2.timesheets.delete_own))
     .input(z.object({ entryId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.prisma.user.findUnique({
@@ -294,7 +294,7 @@ export const timesheetRouter = createTRPCRouter({
   
   // Submit timesheet for approval
   submitTimesheet: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.timesheet.submit))
+    .use(hasPermission(PERMISSION_TREE_V2.timesheets.submit))
     .input(z.object({ timesheetId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.prisma.user.findUnique({

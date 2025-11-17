@@ -35,13 +35,13 @@ export default function DashboardPage() {
   // Fetch recent activities
   const { data: activities, isLoading: activitiesLoading } = api.dashboard.getRecentActivities.useQuery(
     { limit: 5 },
-    { enabled: hasPermission("audit_logs.view") }
+    { enabled: hasPermission("audit.view") }
   );
 
   // Fetch upcoming contract expirations
   const { data: expiringContracts, isLoading: expirationsLoading } = api.dashboard.getUpcomingExpirations.useQuery(
     { days: 30 },
-    { enabled: hasPermission("contracts.view") }
+    { enabled: hasPermission("contracts.manage.view_all") }
   );
 
   const formatCurrency = (amount: number) => {
@@ -65,7 +65,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Contractors Card */}
         {stats?.contractors && (
-          <Link href="/contractors">
+          <Link href="/team/contractors">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Contractors</CardTitle>
@@ -129,7 +129,7 @@ export default function DashboardPage() {
 
         {/* Agencies Card */}
         {stats?.agencies && (
-          <Link href="/agencies">
+          <Link href="/team/agencies">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Agencies</CardTitle>
