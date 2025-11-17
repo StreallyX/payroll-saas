@@ -4,6 +4,102 @@ import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
 export const documentRouter = createTRPCRouter({
+  // ---------------------------------------------------------
+  // GET OWN DOCUMENTS (Contractors can view their own)
+  // ---------------------------------------------------------
+  getOwn: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE_V2.profile.documents.view))
+    .input(z.object({
+      category: z.string().optional(),
+      limit: z.number().min(1).max(100).default(50),
+      offset: z.number().min(0).default(0),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      // Get documents uploaded by the user or associated with their user ID
+      const where: any = { 
+        tenantId: ctx.tenantId, 
+        isActive: true, 
+        isLatestVersion: true,
+        OR: [
+          { uploadedById: ctx.session.user.id },
+          { entityType: "user", entityId: ctx.session.user.id },
+        ]
+      };
+      if (input?.category) where.category = input.category;
+
+      const [documents, total] = await Promise.all([
+        ctx.prisma.document.findMany({
+          where,
+          orderBy: { uploadedAt: "desc" },
+          take: input?.limit ?? 50,
+          skip: input?.offset ?? 0,
+        }),
+        ctx.prisma.document.count({ where }),
+      ]);
+
+      return { documents, total, hasMore: (input?.offset ?? 0) + documents.length < total };
+    }),
+
+  // ---------------------------------------------------------
+  // UPLOAD OWN DOCUMENT
+  // ---------------------------------------------------------
+  uploadOwn: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE_V2.profile.documents.upload))
+    .input(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      fileUrl: z.string(),
+      fileName: z.string(),
+      fileSize: z.number(),
+      mimeType: z.string(),
+      category: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.document.create({
+        data: {
+          ...input,
+          tenantId: ctx.tenantId,
+          uploadedById: ctx.session.user.id,
+          entityType: "user",
+          entityId: ctx.session.user.id,
+          visibility: "private",
+        },
+      });
+    }),
+
+  // ---------------------------------------------------------
+  // DELETE OWN DOCUMENT
+  // ---------------------------------------------------------
+  deleteOwn: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE_V2.profile.documents.delete))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Ensure user can only delete their own documents
+      const document = await ctx.prisma.document.findFirst({
+        where: { 
+          id: input.id, 
+          tenantId: ctx.tenantId,
+          uploadedById: ctx.session.user.id,
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({ 
+          code: "NOT_FOUND", 
+          message: "Document not found or you don't have permission to delete it" 
+        });
+      }
+
+      // Soft delete by marking as inactive
+      return ctx.prisma.document.update({
+        where: { id: input.id },
+        data: { isActive: false },
+      });
+    }),
+
+  // ---------------------------------------------------------
+  // GET ALL DOCUMENTS (ADMIN)
+  // ---------------------------------------------------------
   getAll: tenantProcedure
     .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
     .input(z.object({
