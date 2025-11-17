@@ -79,6 +79,33 @@ export default withAuth(
       }
     }
 
+    // ====================================================================
+    // PHASE 3: Route Redirections (Old routes → New functional routes)
+    // ====================================================================
+    const ROUTE_REDIRECTS: Record<string, string> = {
+      "/contractor": "/dashboard",
+      "/contractor/information": "/profile",
+      "/contractor/onboarding": "/onboarding/my-onboarding",
+      "/contractor/payslips": "/payments/payslips",
+      "/contractor/remits": "/payments/remits",
+      "/contractor/refer": "/referrals",
+      "/contractors": "/team/contractors",
+      "/agencies": "/team/agencies",
+      "/agency/users": "/team/members",
+      "/payroll-partners": "/team/payroll-partners",
+    };
+
+    // Check if current pathname matches any old route
+    for (const [oldRoute, newRoute] of Object.entries(ROUTE_REDIRECTS)) {
+      if (pathname === oldRoute || pathname.startsWith(oldRoute + "/")) {
+        // Preserve query parameters if any
+        const url = new URL(newRoute, req.url);
+        url.search = req.nextUrl.search;
+        return NextResponse.redirect(url);
+      }
+    }
+    // ====================================================================
+
     return NextResponse.next();
   },
   {
