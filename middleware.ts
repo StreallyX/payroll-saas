@@ -82,25 +82,67 @@ export default withAuth(
     // ====================================================================
     // PHASE 3: Route Redirections (Old routes → New functional routes)
     // ====================================================================
+    // Comprehensive mapping from old role-based routes to new functional routes
     const ROUTE_REDIRECTS: Record<string, string> = {
+      // ==================== CONTRACTOR ROUTES ====================
       "/contractor": "/dashboard",
       "/contractor/information": "/profile",
+      "/contractor/my-onboarding": "/onboarding/my-onboarding",
       "/contractor/onboarding": "/onboarding/my-onboarding",
       "/contractor/payslips": "/payments/payslips",
       "/contractor/remits": "/payments/remits",
       "/contractor/refer": "/referrals",
+      "/contractor/invoices": "/invoices",
+      "/contractor/time-expenses": "/timesheets", // TODO: Split to /timesheets and /expenses
+      "/contractor/timesheets": "/timesheets",
+      "/contractor/expenses": "/expenses",
+      
+      // ==================== AGENCY ROUTES ====================
+      "/agency": "/dashboard",
+      "/agency/information": "/profile",
+      "/agency/dashboard": "/dashboard",
+      "/agency/contractors": "/team/contractors",
+      "/agency/users": "/team/members",
+      "/agency/invoices": "/invoices",
+      "/agency/timesheets": "/timesheets",
+      "/agency/expenses": "/expenses",
+      "/agency/payslips": "/payments/payslips",
+      "/agency/remits": "/payments/remits",
+      "/agency/onboarding": "/onboarding/my-onboarding",
+      
+      // ==================== PAYROLL PARTNER ROUTES ====================
+      "/payroll-partner": "/dashboard",
+      "/payroll-partner/information": "/profile",
+      "/payroll-partner/dashboard": "/dashboard",
+      "/payroll-partner/contractors": "/team/contractors",
+      "/payroll-partner/agencies": "/team/agencies",
+      "/payroll-partner/invoices": "/invoices",
+      "/payroll-partner/timesheets": "/timesheets",
+      "/payroll-partner/expenses": "/expenses",
+      "/payroll-partner/payslips": "/payments/payslips",
+      "/payroll-partner/remits": "/payments/remits",
+      "/payroll-partner/onboarding": "/onboarding/my-onboarding",
+      
+      // ==================== OLD MANAGEMENT ROUTES ====================
       "/contractors": "/team/contractors",
       "/agencies": "/team/agencies",
-      "/agency/users": "/team/members",
       "/payroll-partners": "/team/payroll-partners",
+      "/users": "/team/members",
     };
 
-    // Check if current pathname matches any old route
+    // Check if current pathname matches any old route (exact match or starts with)
     for (const [oldRoute, newRoute] of Object.entries(ROUTE_REDIRECTS)) {
       if (pathname === oldRoute || pathname.startsWith(oldRoute + "/")) {
-        // Preserve query parameters if any
+        // Preserve query parameters and handle sub-paths
         const url = new URL(newRoute, req.url);
         url.search = req.nextUrl.search;
+        
+        // Handle sub-paths (e.g., /contractor/invoices/123 → /invoices/123)
+        const subPath = pathname.slice(oldRoute.length);
+        if (subPath && subPath !== "/" && !pathname.endsWith(oldRoute)) {
+          url.pathname = newRoute + subPath;
+        }
+        
         return NextResponse.redirect(url);
       }
     }
