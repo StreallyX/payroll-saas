@@ -10,7 +10,7 @@ import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
 import bcrypt from "bcryptjs"
-import { PERMISSION_TREE_V2, TENANT_ADMIN_DEFAULT_PERMISSIONS } from "../../rbac/permissions-v2"
+import { PERMISSION_TREE_V2, ALL_PERMISSION_KEYS_V2 } from "../../rbac/permissions-v2"
 
 export const tenantRouter = createTRPCRouter({
 
@@ -201,7 +201,7 @@ export const tenantRouter = createTRPCRouter({
         // 1. Load all permissions from DB
         const allPermissions = await prisma.permission.findMany({
           where: {
-            key: { in: TENANT_ADMIN_DEFAULT_PERMISSIONS }
+            key: { in: ALL_PERMISSION_KEYS_V2 }
           }
         });
 

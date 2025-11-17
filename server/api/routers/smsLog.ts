@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, tenantProcedure, hasPermission } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { PERMISSION_TREE } from '../../rbac/permissions';
+import { PERMISSION_TREE_V2 } from '../../rbac/permissions-v2';
 import { Prisma } from '@prisma/client';
 
 export const smsLogRouter = createTRPCRouter({
