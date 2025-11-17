@@ -366,6 +366,18 @@ export async function seedRolesV2(tenantId: string) {
   let updatedCount = 0;
 
   for (const roleData of DEFAULT_ROLES_V2) {
+    // Check if role exists before upserting
+    const existingRole = await prisma.role.findUnique({
+      where: {
+        tenantId_name: {
+          tenantId,
+          name: roleData.name,
+        },
+      },
+    });
+
+    const isNew = !existingRole;
+
     // Upsert le rôle
     const role = await prisma.role.upsert({
       where: {
@@ -384,10 +396,6 @@ export async function seedRolesV2(tenantId: string) {
       },
     });
 
-    const isNew = !!(await prisma.role.findUnique({
-      where: { id: role.id },
-    }));
-
     if (isNew) {
       createdCount++;
     } else {
@@ -399,9 +407,12 @@ export async function seedRolesV2(tenantId: string) {
       where: { roleId: role.id },
     });
 
+    // Deduplicate permissions array to prevent unique constraint errors
+    const uniquePermissions = Array.from(new Set(roleData.permissions));
+
     // Assigner les nouvelles permissions
-    let assignedCount = 0;
-    for (const permissionKey of roleData.permissions) {
+    const permissionsToCreate = [];
+    for (const permissionKey of uniquePermissions) {
       const permission = await prisma.permission.findUnique({
         where: { key: permissionKey },
       });
@@ -413,18 +424,22 @@ export async function seedRolesV2(tenantId: string) {
         continue;
       }
 
-      await prisma.rolePermission.create({
-        data: {
-          roleId: role.id,
-          permissionId: permission.id,
-        },
+      permissionsToCreate.push({
+        roleId: role.id,
+        permissionId: permission.id,
       });
+    }
 
-      assignedCount++;
+    // Create all permissions at once with skipDuplicates for extra safety
+    if (permissionsToCreate.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: permissionsToCreate,
+        skipDuplicates: true,
+      });
     }
 
     console.log(
-      `   ✓ ${roleData.displayName} (${roleData.name}): ${assignedCount} permissions`
+      `   ✓ ${roleData.displayName} (${roleData.name}): ${permissionsToCreate.length} permissions (${roleData.permissions.length - uniquePermissions.length} duplicates removed)`
     );
   }
 
