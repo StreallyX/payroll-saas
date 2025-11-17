@@ -93,7 +93,7 @@ export default withAuth(
       "/contractor/remits": "/payments/remits",
       "/contractor/refer": "/referrals",
       "/contractor/invoices": "/invoices",
-      "/contractor/time-expenses": "/timesheets", // TODO: Split to /timesheets and /expenses
+      "/contractor/time-expenses": "/timesheets", // Note: Now split into separate /timesheets and /expenses pages
       "/contractor/timesheets": "/timesheets",
       "/contractor/expenses": "/expenses",
       

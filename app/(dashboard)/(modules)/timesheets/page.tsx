@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { LoadingState } from "@/components/shared/loading-state"
 import { EmptyState } from "@/components/shared/empty-state"
+import { RouteGuard } from "@/components/guards/route-guard"
 import { api } from "@/lib/trpc"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Clock, CheckCircle, XCircle, Calendar } from "lucide-react"
@@ -15,7 +16,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 
-export default function TimesheetsPage() {
+/**
+ * Adaptive Timesheets Page
+ * 
+ * Permissions:
+ * - timesheets.view_own: User sees only their own timesheets
+ * - timesheets.manage.view_all: Admin sees all timesheets
+ * 
+ * Adaptive behavior:
+ * - Contractors see only their timesheets
+ * - Admins see all timesheets with management actions
+ */
+function TimesheetsPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
@@ -233,5 +245,20 @@ export default function TimesheetsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Timesheets page with route guard
+ * Users need either view_own OR manage.view_all permission
+ */
+export default function TimesheetsPage() {
+  return (
+    <RouteGuard
+      permissions={["timesheets.view_own", "timesheets.manage.view_all"]}
+      requireAll={false}
+    >
+      <TimesheetsPageContent />
+    </RouteGuard>
   )
 }

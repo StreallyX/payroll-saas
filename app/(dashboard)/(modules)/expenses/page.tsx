@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { LoadingState } from "@/components/shared/loading-state"
 import { EmptyState } from "@/components/shared/empty-state"
+import { RouteGuard } from "@/components/guards/route-guard"
 import { api } from "@/lib/trpc"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, DollarSign, CheckCircle, XCircle, Clock, Eye, Download } from "lucide-react"
@@ -18,7 +19,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-export default function ExpensesPage() {
+/**
+ * Adaptive Expenses Page
+ * 
+ * Permissions:
+ * - expenses.view_own: User sees only their own expenses
+ * - expenses.manage.view_all: Admin sees all expenses
+ * 
+ * Adaptive behavior:
+ * - Contractors see only their expenses
+ * - Admins see all expenses with management actions
+ */
+function ExpensesPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -489,5 +501,20 @@ export default function ExpensesPage() {
         </Dialog>
       )}
     </div>
+  )
+}
+
+/**
+ * Expenses page with route guard
+ * Users need either view_own OR manage.view_all permission
+ */
+export default function ExpensesPage() {
+  return (
+    <RouteGuard
+      permissions={["expenses.view_own", "expenses.manage.view_all"]}
+      requireAll={false}
+    >
+      <ExpensesPageContent />
+    </RouteGuard>
   )
 }
