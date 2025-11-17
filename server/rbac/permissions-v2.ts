@@ -111,6 +111,8 @@ export const PERMISSION_TREE_V2 = {
   contracts: {
     // Permissions personnelles
     view_own: "contracts.view_own",            // Voir ses propres contrats
+    view: "contracts.view",                    // Permission générique de vue (pour compatibilité)
+    update: "contracts.update",                // Permission générique de mise à jour (pour compatibilité)
     
     // Permissions de gestion (admin)
     manage: {
@@ -134,6 +136,7 @@ export const PERMISSION_TREE_V2 = {
     // Permissions personnelles
     view_own: "invoices.view_own",             // Voir ses propres factures
     create_own: "invoices.create_own",         // Créer ses factures (contractor)
+    view: "invoices.view",                     // Permission générique de vue (pour compatibilité)
     
     // Permissions de gestion (admin/finance)
     manage: {
@@ -354,6 +357,26 @@ export const PERMISSION_TREE_V2 = {
       view: "tenant.subscription.view",
       manage: "tenant.subscription.manage",
       billing: "tenant.subscription.billing",
+    },
+
+    domain: {
+      manage: "tenant.domain.manage",
+      verify: "tenant.domain.verify",
+    },
+
+    features: {
+      view: "tenant.features.view",
+      manage: "tenant.features.manage",
+    },
+
+    localization: {
+      view: "tenant.localization.view",
+      manage: "tenant.localization.manage",
+    },
+
+    quotas: {
+      view: "tenant.quotas.view",
+      manage: "tenant.quotas.manage",
     },
 
     templates: {

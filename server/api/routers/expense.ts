@@ -1,29 +1,55 @@
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure } from "../trpc"
+import { createTRPCRouter, tenantProcedure, hasAnyPermission } from "../trpc"
 import { hasPermission } from "../trpc"
 import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 import { TRPCError } from "@trpc/server"
+import { 
+  getPermissionScope, 
+  PermissionScope, 
+  buildWhereClause,
+  getContractorFilter 
+} from "../../../lib/rbac-helpers"
 
 export const expenseRouter = createTRPCRouter({
 
   // ================================
-  // 🔵 CONTRACTOR — GET OWN EXPENSES
+  // 🔵 GET EXPENSES (DEEL Pattern: view_own OR view_all)
   // ================================
   getMyExpenses: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.view_all))
+    .use(hasAnyPermission([
+      PERMISSION_TREE_V2.expenses.view_own,
+      PERMISSION_TREE_V2.expenses.manage.view_all
+    ]))
     .query(async ({ ctx }) => {
+      // Determine permission scope
+      const scope = getPermissionScope(
+        ctx.session.user.permissions || [],
+        PERMISSION_TREE_V2.expenses.view_own,
+        PERMISSION_TREE_V2.expenses.manage.view_all,
+        ctx.session.user.isSuperAdmin
+      );
+
+      // Get contractor info if needed for view_own
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
         include: { contractor: true }
-      })
+      });
 
-      if (!user?.contractor) throw new TRPCError({ code: "NOT_FOUND", message: "Contractor profile not found" })
+      // Build where clause based on scope
+      const scopeFilter = scope === PermissionScope.OWN 
+        ? { contractorId: user?.contractor?.id } 
+        : {};
+
+      if (scope === PermissionScope.OWN && !user?.contractor) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Contractor profile not found" });
+      }
 
       return ctx.prisma.expense.findMany({
-        where: {
-          tenantId: ctx.tenantId,
-          contractorId: user.contractor.id
-        },
+        where: buildWhereClause(
+          scope,
+          scopeFilter,
+          { tenantId: ctx.tenantId }
+        ),
         include: {
           contractor: true,
           contract: {
@@ -35,7 +61,7 @@ export const expenseRouter = createTRPCRouter({
           }
         },
         orderBy: { expenseDate: "desc" }
-      })
+      });
     }),
 
   // ================================
@@ -94,10 +120,13 @@ export const expenseRouter = createTRPCRouter({
     }),
 
   // ================================
-  // 🔵 CONTRACTOR — UPDATE EXPENSE
+  // 🔵 UPDATE EXPENSE (DEEL Pattern: update_own OR manage.update)
   // ================================
   updateExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.update))
+    .use(hasAnyPermission([
+      PERMISSION_TREE_V2.expenses.update_own,
+      PERMISSION_TREE_V2.expenses.manage.update
+    ]))
     .input(z.object({
       expenseId: z.string(),
       title: z.string().optional(),
@@ -110,51 +139,97 @@ export const expenseRouter = createTRPCRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Determine permission scope
+      const scope = getPermissionScope(
+        ctx.session.user.permissions || [],
+        PERMISSION_TREE_V2.expenses.update_own,
+        PERMISSION_TREE_V2.expenses.manage.update,
+        ctx.session.user.isSuperAdmin
+      );
+
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
         include: { contractor: true }
-      })
+      });
+
+      // Build where clause based on scope
+      const whereClause: any = {
+        id: input.expenseId,
+        tenantId: ctx.tenantId,
+      };
+
+      // If view_own, can only update own expenses in draft/rejected status
+      if (scope === PermissionScope.OWN) {
+        whereClause.contractorId = user?.contractor?.id;
+        whereClause.status = { in: ["draft", "rejected"] };
+      }
 
       const expense = await ctx.prisma.expense.findFirst({
-        where: {
-          id: input.expenseId,
-          contractorId: user?.contractor?.id,
-          tenantId: ctx.tenantId,
-          status: { in: ["draft", "rejected"] }
-        }
-      })
+        where: whereClause
+      });
 
-      if (!expense) throw new TRPCError({ code: "NOT_FOUND", message: "Expense not found or not editable" })
+      if (!expense) {
+        throw new TRPCError({ 
+          code: "NOT_FOUND", 
+          message: "Expense not found or not editable" 
+        });
+      }
 
       return ctx.prisma.expense.update({
         where: { id: input.expenseId },
         data: input
-      })
+      });
     }),
 
+  // ================================
+  // 🔵 DELETE EXPENSE (DEEL Pattern: delete_own OR manage.delete)
+  // ================================
   deleteExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.delete))
+    .use(hasAnyPermission([
+      PERMISSION_TREE_V2.expenses.delete_own,
+      PERMISSION_TREE_V2.expenses.manage.delete
+    ]))
     .input(z.object({ expenseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Determine permission scope
+      const scope = getPermissionScope(
+        ctx.session.user.permissions || [],
+        PERMISSION_TREE_V2.expenses.delete_own,
+        PERMISSION_TREE_V2.expenses.manage.delete,
+        ctx.session.user.isSuperAdmin
+      );
+
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
         include: { contractor: true }
-      })
+      });
+
+      // Build where clause based on scope
+      const whereClause: any = {
+        id: input.expenseId,
+        tenantId: ctx.tenantId,
+      };
+
+      // If delete_own, can only delete own expenses in draft status
+      if (scope === PermissionScope.OWN) {
+        whereClause.contractorId = user?.contractor?.id;
+        whereClause.status = "draft";
+      }
 
       const expense = await ctx.prisma.expense.findFirst({
-        where: {
-          id: input.expenseId,
-          contractorId: user?.contractor?.id,
-          tenantId: ctx.tenantId,
-          status: "draft"
-        }
-      })
+        where: whereClause
+      });
 
-      if (!expense) throw new TRPCError({ code: "NOT_FOUND", message: "Expense cannot be deleted" })
+      if (!expense) {
+        throw new TRPCError({ 
+          code: "NOT_FOUND", 
+          message: "Expense cannot be deleted" 
+        });
+      }
 
-      await ctx.prisma.expense.delete({ where: { id: input.expenseId } })
+      await ctx.prisma.expense.delete({ where: { id: input.expenseId } });
 
-      return { success: true }
+      return { success: true };
     }),
 
   submitExpense: tenantProcedure

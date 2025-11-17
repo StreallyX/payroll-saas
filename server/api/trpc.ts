@@ -160,6 +160,23 @@ export const requirePermission = (permission: string) =>
     return next();
   });
 
+// Check if user has ANY of the specified permissions (DEEL pattern)
+export const requireAnyPermission = (permissions: string[]) =>
+  t.middleware(({ ctx, next }) => {
+    const userPermissions = ctx.session!.user.permissions || [];
+    const hasAny = permissions.some(p => userPermissions.includes(p));
+    
+    if (!hasAny && !ctx.session!.user.isSuperAdmin) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `Missing required permissions: ${permissions.join(" or ")}`,
+      });
+    }
+
+    return next();
+  });
+
 export const protectedProcedure = t.procedure.use(requireAuth);
 export const tenantProcedure = protectedProcedure.use(requireTenant);
 export const hasPermission = (permission: string) => requirePermission(permission);
+export const hasAnyPermission = (permissions: string[]) => requireAnyPermission(permissions);
