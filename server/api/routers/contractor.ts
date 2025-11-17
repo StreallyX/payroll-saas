@@ -219,7 +219,77 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE CONTRACTOR
+  // UPDATE OWN CONTRACTOR PROFILE
+  // -------------------------------------------------------
+  updateOwn: tenantProcedure
+    .use(hasPermission(PERMISSION_TREE_V2.contractors.update_own))
+    .input(
+      z.object({
+        name: z.string().optional(),
+        phone: z.string().optional(),
+        alternatePhone: z.string().optional(),
+        dateOfBirth: z.string().optional(),
+        skypeId: z.string().optional(),
+        notes: z.string().optional(),
+
+        officeBuilding: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { dateOfBirth, ...updateData } = input
+
+      // Find contractor by userId (current session user)
+      const existingContractor = await ctx.prisma.contractor.findFirst({
+        where: { userId: ctx.session.user.id, tenantId: ctx.tenantId },
+      })
+
+      if (!existingContractor) {
+        throw new Error("Contractor profile not found")
+      }
+
+      const contractor = await ctx.prisma.contractor.update({
+        where: { id: existingContractor.id, tenantId: ctx.tenantId },
+        data: {
+          ...updateData,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        },
+        include: {
+          user: { select: { name: true, email: true } },
+          agency: { select: { name: true } },
+          country: true,
+          onboardingTemplate: true,
+          contracts: {
+            include: {
+              agency: { select: { name: true } },
+              payrollPartner: { select: { name: true } },
+            },
+          },
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "System",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.CONTRACTOR,
+        entityId: contractor.id,
+        entityName: contractor.user.name ?? contractor.user.email,
+        metadata: { updatedFields: updateData, selfUpdate: true },
+        tenantId: ctx.tenantId,
+      })
+
+      return contractor
+    }),
+
+  // -------------------------------------------------------
+  // UPDATE CONTRACTOR (ADMIN/MANAGER)
   // -------------------------------------------------------
   update: tenantProcedure
     .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.update))
