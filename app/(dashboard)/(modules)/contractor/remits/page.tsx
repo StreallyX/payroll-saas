@@ -1,88 +1,99 @@
-
 "use client";
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { Search, Download, Eye, TrendingUp } from "lucide-react";
+import { Search, Download, Eye, TrendingUp, DollarSign, AlertCircle, FileText } from "lucide-react";
+import { api } from "@/lib/trpc";
+import { useToast } from "@/hooks/use-toast";
+import { StatsCard } from "@/components/contractor/stats-card";
+import { StatusBadge } from "@/components/contractor/status-badge";
+import { DataTable, Column } from "@/components/contractor/data-table";
+import { EmptyState } from "@/components/contractor/empty-state";
+import { StatsCardSkeleton, TableSkeleton } from "@/components/contractor/loading-skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /**
  * Contractor Remits Page
  * 
- * This page displays payment remittances received by the contractor.
- * 
- * TODO:
- * - Implement tRPC query to fetch remittance data from database
- * - Add remittance detail view with breakdown
- * - Implement payment history tracking
- * - Add filters (date range, status, amount)
- * - Show payment trends and analytics
- * - Implement download of payment statements
- * - Add bank account information
- * - Show tax withholding details
+ * Displays payment remittances received by the contractor.
+ * Shows payment history, status tracking, and detailed breakdowns.
  */
 
-// Mock data - TODO: Replace with real data from tRPC
-const mockRemits = [
-  {
-    id: "1",
-    remitNumber: "REM-2024-001",
-    period: "Jan 1-15, 2024",
-    grossPay: "$6,800",
-    deductions: "$1,360",
-    netPay: "$5,440",
-    paymentDate: "2024-01-20",
-    status: "paid",
-  },
-  {
-    id: "2",
-    remitNumber: "REM-2024-002",
-    period: "Jan 16-31, 2024",
-    grossPay: "$6,460",
-    deductions: "$1,292",
-    netPay: "$5,168",
-    paymentDate: "2024-02-05",
-    status: "processing",
-  },
-  {
-    id: "3",
-    remitNumber: "REM-2023-024",
-    period: "Dec 16-31, 2023",
-    grossPay: "$6,120",
-    deductions: "$1,224",
-    netPay: "$4,896",
-    paymentDate: "2024-01-05",
-    status: "paid",
-  },
-];
-
 export default function ContractorRemitsPage() {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRemit, setSelectedRemit] = useState<any>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      paid: "default",
-      processing: "secondary",
-      pending: "secondary",
-      failed: "destructive",
-    };
-    return <Badge variant={variants[status] || "default"}>{status}</Badge>;
+  // Fetch remittances
+  const { data: remittances, isLoading, error } = api.remittance.getMyRemittances.useQuery();
+
+  // Fetch remittance summary
+  const { data: summary } = api.remittance.getMyRemittanceSummary.useQuery();
+
+  // Remittance columns
+  const columns: Column<any>[] = [
+    {
+      key: "remitNumber",
+      label: "Remit #",
+      sortable: true,
+      render: (remit) => <span className="font-medium">{remit.remitNumber}</span>,
+    },
+    {
+      key: "periodStart",
+      label: "Pay Period",
+      sortable: true,
+      render: (remit) => {
+        const start = new Date(remit.periodStart).toLocaleDateString();
+        const end = new Date(remit.periodEnd).toLocaleDateString();
+        return `${start} - ${end}`;
+      },
+    },
+    {
+      key: "grossPay",
+      label: "Gross Pay",
+      sortable: true,
+      render: (remit) => `$${parseFloat(remit.grossPay).toFixed(2)}`,
+    },
+    {
+      key: "deductions",
+      label: "Deductions",
+      sortable: true,
+      render: (remit) => <span className="text-red-600">-${parseFloat(remit.deductions).toFixed(2)}</span>,
+    },
+    {
+      key: "netPay",
+      label: "Net Pay",
+      sortable: true,
+      render: (remit) => <span className="font-semibold">${parseFloat(remit.netPay).toFixed(2)}</span>,
+    },
+    {
+      key: "paymentDate",
+      label: "Payment Date",
+      sortable: true,
+      render: (remit) => new Date(remit.paymentDate).toLocaleDateString(),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (remit) => <StatusBadge status={remit.status} />,
+    },
+  ];
+
+  const handleViewDetails = (remit: any) => {
+    setSelectedRemit(remit);
+    setDetailsOpen(true);
   };
-
-  const totalReceived = "$15,504";
-  const pendingPayment = "$5,168";
-  const thisMonthTotal = "$10,608";
 
   return (
     <div className="space-y-6">
@@ -93,30 +104,38 @@ export default function ContractorRemitsPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Total Received</CardDescription>
-            <CardTitle className="text-3xl">{totalReceived}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Processing</CardDescription>
-            <CardTitle className="text-3xl">{pendingPayment}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>This Month</CardDescription>
-            <CardTitle className="text-3xl">{thisMonthTotal}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Avg Per Period</CardDescription>
-            <CardTitle className="text-3xl">$5,168</CardTitle>
-          </CardHeader>
-        </Card>
+        {!summary ? (
+          <>
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatsCard
+              title="Total Received"
+              value={`$${summary.totalReceived?.toFixed(2) || '0.00'}`}
+              icon={DollarSign}
+            />
+            <StatsCard
+              title="Processing"
+              value={`$${summary.processingAmount?.toFixed(2) || '0.00'}`}
+              icon={TrendingUp}
+              description={`${summary.processingCount || 0} payments`}
+            />
+            <StatsCard
+              title="This Month"
+              value={`$${summary.monthlyAverage?.toFixed(2) || '0.00'}`}
+              icon={DollarSign}
+            />
+            <StatsCard
+              title="Avg Per Period"
+              value={`$${summary.monthlyAverage?.toFixed(2) || '0.00'}`}
+              icon={TrendingUp}
+            />
+          </>
+        )}
       </div>
 
       {/* Remits Table */}
@@ -132,93 +151,183 @@ export default function ContractorRemitsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search */}
-          <div className="mb-4 flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search payments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export Report
-            </Button>
-          </div>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error.message}</AlertDescription>
+            </Alert>
+          )}
 
-          {/* Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Remit #</TableHead>
-                  <TableHead>Pay Period</TableHead>
-                  <TableHead>Gross Pay</TableHead>
-                  <TableHead>Deductions</TableHead>
-                  <TableHead>Net Pay</TableHead>
-                  <TableHead>Payment Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockRemits.map((remit) => (
-                  <TableRow key={remit.id}>
-                    <TableCell className="font-medium">
-                      {remit.remitNumber}
-                    </TableCell>
-                    <TableCell>{remit.period}</TableCell>
-                    <TableCell>{remit.grossPay}</TableCell>
-                    <TableCell className="text-red-600">{remit.deductions}</TableCell>
-                    <TableCell className="font-semibold">{remit.netPay}</TableCell>
-                    <TableCell>{remit.paymentDate}</TableCell>
-                    <TableCell>{getStatusBadge(remit.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" title="View Details">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" title="Download Statement">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          {isLoading ? (
+            <TableSkeleton />
+          ) : !remittances || remittances.length === 0 ? (
+            <EmptyState
+              icon={DollarSign}
+              title="No payments yet"
+              description="Your payment history will appear here once you receive your first remittance."
+            />
+          ) : (
+            <>
+              <div className="mb-4 flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search payments..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Button variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Report
+                </Button>
+              </div>
+
+              <DataTable
+                data={remittances.filter((remit: any) =>
+                  searchTerm
+                    ? remit.remitNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+                    : true
+                )}
+                columns={columns}
+                actions={(remit) => (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="View Details"
+                      onClick={() => handleViewDetails(remit)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" title="Download Statement">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              />
+            </>
+          )}
 
           {/* Payment Method Info */}
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg bg-muted p-4">
-              <h4 className="mb-2 font-medium">Payment Method</h4>
-              <p className="text-sm text-muted-foreground">
-                Direct Deposit to Bank Account ending in •••• 5678
-              </p>
-              <Button variant="link" size="sm" className="h-auto p-0 mt-2">
-                Update Payment Method
-              </Button>
-            </div>
+          {remittances && remittances.length > 0 && (
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg bg-muted p-4">
+                <div className="flex items-start gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <h4 className="mb-2 font-medium">Payment Method</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Direct Deposit to Bank Account
+                    </p>
+                    <Button variant="link" size="sm" className="h-auto p-0 mt-2">
+                      Update Payment Method
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-start gap-3">
-                <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <h4 className="font-medium">Payment Schedule</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Payments are processed bi-weekly, typically 5 business days after
-                    period end.
-                  </p>
+              <div className="rounded-lg bg-muted p-4">
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <h4 className="font-medium mb-2">Payment Schedule</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Payments are processed bi-weekly, typically 5 business days after
+                      period end.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Remittance Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Remittance Details</DialogTitle>
+            <DialogDescription>
+              Detailed breakdown of payment #{selectedRemit?.remitNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedRemit && (
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="grid grid-cols-2 gap-4 pb-4 border-b">
+                <div>
+                  <p className="text-sm text-muted-foreground">Remit Number</p>
+                  <p className="font-semibold">{selectedRemit.remitNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <div className="mt-1">
+                    <StatusBadge status={selectedRemit.status} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Pay Period</p>
+                  <p className="font-semibold">
+                    {new Date(selectedRemit.periodStart).toLocaleDateString()} - {new Date(selectedRemit.periodEnd).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Payment Date</p>
+                  <p className="font-semibold">{new Date(selectedRemit.paymentDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Payment Breakdown */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Payment Breakdown</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">Gross Pay</span>
+                    <span className="font-semibold">${parseFloat(selectedRemit.grossPay).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-t">
+                    <span className="text-muted-foreground">Deductions</span>
+                    <span className="font-semibold text-red-600">-${parseFloat(selectedRemit.deductions).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between py-3 border-t-2 border-primary/20">
+                    <span className="font-semibold text-lg">Net Pay</span>
+                    <span className="font-bold text-lg text-primary">${parseFloat(selectedRemit.netPay).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Info */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Currency</p>
+                    <p className="font-medium">{selectedRemit.currency || "USD"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Payment Method</p>
+                    <p className="font-medium">{selectedRemit.paymentMethod || "Direct Deposit"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+                  Close
+                </Button>
+                <Button>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Statement
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
