@@ -1,108 +1,267 @@
-// seed.ts
-import { seedPermissions } from "./seed/00-permissions"
-import { seedDefaultRoles } from "./seed/01-roles"
-import { seedSuperAdmin } from "./seed/02-superadmin"
-import { seedTenant } from "./seed/03-tenant"
-import { seedUsers } from "./seed/04-users"
-import { seedSampleAgencies } from "./seed/05-sample-agencies"
-import { seedSampleCompanies } from "./seed/06-sample-companies"
-import { seedSamplePayrollPartners } from "./seed/07-sample-payroll"
-import { seedSampleContractors } from "./seed/08-sample-contractors"
-import { seedSampleContracts } from "./seed/09-sample-contracts"
-import { seedSampleInvoices } from "./seed/10-sample-invoices"
-import { seedSamplePayslips } from "./seed/11-sample-payslips"
-import { seedSampleOnboarding } from "./seed/12-sample-onboarding"
-import { seedSampleTasks } from "./seed/13-sample-tasks"
-import { seedSampleLeads } from "./seed/14-sample-leads"
+/**
+ * ============================================================
+ * MAIN SEED SCRIPT
+ * Dynamic RBAC Payroll SaaS Database Seeder
+ * ============================================================
+ * 
+ * This script populates the database with comprehensive test data
+ * for the new RBAC system including:
+ * - Permissions and Roles
+ * - Users with different permission sets
+ * - Organizations (companies, agencies, payroll partners)
+ * - Teams and organizational hierarchy
+ * - Contracts linking users and organizations
+ * - Timesheets, Invoices, Payments
+ * - Tasks, Leads, Onboarding data
+ * 
+ * Run: npm run seed
+ */
+
+import { PrismaClient } from "@prisma/client";
+import { seedPermissions } from "./seed/00-permissions";
+import { seedDefaultRoles } from "./seed/01-roles";
+import { seedSuperAdmin } from "./seed/02-superadmin";
+import { seedTenant } from "./seed/03-tenant";
+import { seedReferenceData } from "./seed/04-reference-data";
+import { seedUsers } from "./seed/05-users";
+import { seedOrganizations } from "./seed/06-organizations";
+import { seedOrganizationMembers } from "./seed/07-org-members";
+import { seedTeams } from "./seed/08-teams";
+import { seedBanks } from "./seed/09-banks";
+import { seedContracts } from "./seed/10-contracts";
+import { seedTimesheets } from "./seed/11-timesheets";
+import { seedInvoices } from "./seed/12-invoices";
+import { seedPayments } from "./seed/13-payments";
+import { seedTasks } from "./seed/14-tasks";
+import { seedLeads } from "./seed/15-leads";
+import { seedOnboarding } from "./seed/16-onboarding";
+
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 STARTING FULL DATABASE SEED\n")
+  console.log("\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║                                                            ║");
+  console.log("║   🌱 PAYROLL SAAS - DYNAMIC RBAC DATABASE SEEDER          ║");
+  console.log("║                                                            ║");
+  console.log("╚════════════════════════════════════════════════════════════╝");
+  console.log("\n");
 
-  // ---------------------------
-  // 1. SYSTEM-LEVEL SEED
-  // ---------------------------
-  await seedPermissions()
-  await seedSuperAdmin()
+  try {
+    // ----------------------------------------------------------
+    // PHASE 1: SYSTEM-LEVEL DATA
+    // ----------------------------------------------------------
+    console.log("📦 PHASE 1: System-Level Data");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedPermissions();
+    await seedSuperAdmin();
+    await seedReferenceData();
 
-  // ---------------------------
-  // 2. TENANT
-  // ---------------------------
-  const tenantId = await seedTenant()
+    console.log("\n");
 
-  // ---------------------------
-  // 3. ROLES (Dynamic RBAC)
-  // ---------------------------
-  await seedDefaultRoles(tenantId)
+    // ----------------------------------------------------------
+    // PHASE 2: TENANT SETUP
+    // ----------------------------------------------------------
+    console.log("🏢 PHASE 2: Tenant Setup");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    const tenantId = await seedTenant();
 
-  // ---------------------------
-  // 4. USERS
-  // ---------------------------
-  await seedUsers(tenantId)
+    console.log("\n");
 
-  // ---------------------------
-  // 5. AGENCIES
-  // ---------------------------
-  const agencies = await seedSampleAgencies(tenantId)
+    // ----------------------------------------------------------
+    // PHASE 3: RBAC SETUP
+    // ----------------------------------------------------------
+    console.log("🔐 PHASE 3: RBAC Setup (Roles & Permissions)");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedDefaultRoles(tenantId);
 
-  // ---------------------------
-  // 6. COMPANIES
-  // ---------------------------
-  const companies = await seedSampleCompanies(tenantId)
+    console.log("\n");
 
-  // ---------------------------
-  // 7. PAYROLL PARTNERS
-  // ---------------------------
-  const payrollPartners = await seedSamplePayrollPartners(tenantId)
+    // ----------------------------------------------------------
+    // PHASE 4: USERS & PROFILES
+    // ----------------------------------------------------------
+    console.log("👥 PHASE 4: Users & Profiles");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    const users = await seedUsers(tenantId);
 
-  // ---------------------------
-  // 8. CONTRACTORS
-  // ---------------------------
-  const contractors = await seedSampleContractors(
-    tenantId,
-    agencies,
-  )
+    console.log("\n");
 
-  // ---------------------------
-  // 9. CONTRACTS
-  // ---------------------------
-  const contracts = await seedSampleContracts(
-    tenantId,
-    agencies,
-    companies,
-    contractors,
-    payrollPartners,
-  )
+    // ----------------------------------------------------------
+    // PHASE 5: ORGANIZATIONS
+    // ----------------------------------------------------------
+    console.log("🏢 PHASE 5: Organizations");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    const organizations = await seedOrganizations(tenantId, users);
+    await seedOrganizationMembers(organizations, users);
 
-  // ---------------------------
-  // 10. INVOICES
-  // ---------------------------
-  await seedSampleInvoices(tenantId, contracts)
+    console.log("\n");
 
-  // ---------------------------
-  // 11. PAYSLIPS
-  // ---------------------------
-  await seedSamplePayslips(tenantId, contracts)
+    // ----------------------------------------------------------
+    // PHASE 6: TEAMS
+    // ----------------------------------------------------------
+    console.log("👨‍👩‍👧‍👦 PHASE 6: Teams");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedTeams(tenantId, organizations, users);
 
-  // ---------------------------
-  // 12. ONBOARDING
-  // ---------------------------
-  await seedSampleOnboarding(tenantId)
+    console.log("\n");
 
-  // ---------------------------
-  // 13. TASKS
-  // ---------------------------
-  await seedSampleTasks(tenantId)
+    // ----------------------------------------------------------
+    // PHASE 7: BANKING
+    // ----------------------------------------------------------
+    console.log("🏦 PHASE 7: Banking");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedBanks(tenantId);
 
-  // ---------------------------
-  // 14. LEADS
-  // ---------------------------
-  await seedSampleLeads(tenantId)
+    console.log("\n");
 
-  console.log("\n🎉 SEED COMPLETE! Everything is ready to use.")
+    // ----------------------------------------------------------
+    // PHASE 8: CONTRACTS
+    // ----------------------------------------------------------
+    console.log("📄 PHASE 8: Contracts");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    const contracts = await seedContracts(tenantId, organizations, users);
+
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // PHASE 9: TIMESHEETS
+    // ----------------------------------------------------------
+    console.log("⏰ PHASE 9: Timesheets");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedTimesheets(tenantId, contracts, users);
+
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // PHASE 10: INVOICES
+    // ----------------------------------------------------------
+    console.log("🧾 PHASE 10: Invoices");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedInvoices(tenantId, contracts, users);
+
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // PHASE 11: PAYMENTS
+    // ----------------------------------------------------------
+    console.log("💰 PHASE 11: Payments");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedPayments(tenantId, contracts, users);
+
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // PHASE 12: TASKS
+    // ----------------------------------------------------------
+    console.log("✅ PHASE 12: Tasks");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedTasks(tenantId, users);
+
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // PHASE 13: LEADS (CRM)
+    // ----------------------------------------------------------
+    console.log("📈 PHASE 13: Leads");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedLeads(tenantId);
+
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // PHASE 14: ONBOARDING
+    // ----------------------------------------------------------
+    console.log("🎯 PHASE 14: Onboarding");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    await seedOnboarding(tenantId, users);
+
+    console.log("\n");
+    console.log("╔════════════════════════════════════════════════════════════╗");
+    console.log("║                                                            ║");
+    console.log("║   ✅ DATABASE SEEDING COMPLETED SUCCESSFULLY!             ║");
+    console.log("║                                                            ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log("\n");
+
+    // ----------------------------------------------------------
+    // SUMMARY
+    // ----------------------------------------------------------
+    console.log("📊 SEED SUMMARY");
+    console.log("─────────────────────────────────────────────────────────────");
+    
+    const counts = await Promise.all([
+      prisma.permission.count(),
+      prisma.role.count(),
+      prisma.user.count(),
+      prisma.organization.count(),
+      prisma.team.count(),
+      prisma.contract.count(),
+      prisma.invoice.count(),
+      prisma.timesheet.count(),
+      prisma.payment.count(),
+      prisma.task.count(),
+      prisma.lead.count(),
+      prisma.onboardingTemplate.count(),
+    ]);
+
+    console.log(`   Permissions:       ${counts[0]}`);
+    console.log(`   Roles:             ${counts[1]}`);
+    console.log(`   Users:             ${counts[2]}`);
+    console.log(`   Organizations:     ${counts[3]}`);
+    console.log(`   Teams:             ${counts[4]}`);
+    console.log(`   Contracts:         ${counts[5]}`);
+    console.log(`   Invoices:          ${counts[6]}`);
+    console.log(`   Timesheets:        ${counts[7]}`);
+    console.log(`   Payments:          ${counts[8]}`);
+    console.log(`   Tasks:             ${counts[9]}`);
+    console.log(`   Leads:             ${counts[10]}`);
+    console.log(`   Onboarding Templates: ${counts[11]}`);
+
+    console.log("\n");
+    console.log("🔑 TEST CREDENTIALS");
+    console.log("─────────────────────────────────────────────────────────────");
+    console.log("   Super Admin:       superadmin@payrollsaas.com");
+    console.log("   Password:          SuperAdmin@2024!");
+    console.log("\n");
+    console.log("   Tenant Admin:      admin@demo.com");
+    console.log("   Finance Manager:   finance@demo.com");
+    console.log("   HR Manager:        hr@demo.com");
+    console.log("   Operations Mgr:    operations@demo.com");
+    console.log("   Accountant:        accountant@demo.com");
+    console.log("   Team Lead:         teamlead@demo.com");
+    console.log("   Contractor 1:      contractor1@demo.com");
+    console.log("   Contractor 2:      contractor2@demo.com");
+    console.log("   Contractor 3:      contractor3@demo.com");
+    console.log("   Viewer:            viewer@demo.com");
+    console.log("\n");
+    console.log("   All tenant passwords: Password@123");
+    console.log("\n");
+
+  } catch (error) {
+    console.error("\n❌ ERROR DURING SEEDING:");
+    console.error(error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 main()
-  .catch((err) => {
-    console.error("❌ Seed failed:", err)
-    process.exit(1)
-  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

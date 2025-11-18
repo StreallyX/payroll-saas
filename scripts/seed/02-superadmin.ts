@@ -1,33 +1,28 @@
-// /seed/02-superadmin.ts
-import { PrismaClient } from "@prisma/client"
-import bcrypt from "bcryptjs"
 
-export const prisma = new PrismaClient()
+/**
+ * Seed Super Admin
+ * Creates the platform super admin
+ */
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+
+export const prisma = new PrismaClient();
 
 export async function seedSuperAdmin() {
-  console.log("👉 Seeding SuperAdmin account...")
+  console.log("👉 Seeding super admin...");
 
-  const email = "superadmin@platform.com"
-  const password = "SuperAdmin123!"
+  const hash = await bcrypt.hash("SuperAdmin@2024!", 10);
 
-  const existing = await prisma.superAdmin.findUnique({
-    where: { email },
-  })
+  await prisma.superAdmin.upsert({
+    where: { email: "superadmin@payrollsaas.com" },
+    update: {},
+    create: {
+      email: "superadmin@payrollsaas.com",
+      name: "Super Admin",
+      passwordHash: hash,
+      isActive: true,
+    },
+  });
 
-  if (!existing) {
-    const hash = await bcrypt.hash(password, 10)
-
-    await prisma.superAdmin.create({
-      data: {
-        email,
-        name: "Platform SuperAdmin",
-        passwordHash: hash,
-        isActive: true,
-      },
-    })
-
-    console.log("✅ SuperAdmin created!")
-  } else {
-    console.log("ℹ️ SuperAdmin already exists, skipping.")
-  }
+  console.log("✅ Super admin created: superadmin@payrollsaas.com");
 }

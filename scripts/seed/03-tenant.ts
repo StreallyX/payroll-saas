@@ -1,39 +1,28 @@
-// /seed/03-tenant.ts
-import { PrismaClient } from "@prisma/client"
 
-export const prisma = new PrismaClient()
+/**
+ * Seed Tenant
+ * Creates demo tenant
+ */
+import { PrismaClient } from "@prisma/client";
+
+export const prisma = new PrismaClient();
 
 export async function seedTenant() {
-  console.log("👉 Seeding base tenant...")
+  console.log("👉 Seeding demo tenant...");
 
-  // The demo tenant name
-  const TENANT_NAME = "Demo Company"
+  const tenant = await prisma.tenant.upsert({
+    where: { id: "demo-tenant-001" },
+    update: {},
+    create: {
+      id: "demo-tenant-001",
+      name: "Demo Payroll Company",
+      logoUrl: "https://i.ytimg.com/vi/a3zxTVgRB_w/maxresdefault.jpg",
+      primaryColor: "#3b82f6",
+      accentColor: "#10b981",
+      isActive: true,
+    },
+  });
 
-  // Check if exists
-  let tenant = await prisma.tenant.findFirst({
-    where: { name: TENANT_NAME },
-  })
-
-  // Create if missing
-  if (!tenant) {
-    tenant = await prisma.tenant.create({
-      data: {
-        name: TENANT_NAME,
-        primaryColor: "#3b82f6",
-        accentColor: "#10b981",
-        backgroundColor: "#f8fafc",
-        sidebarBgColor: "#ffffff",
-        sidebarTextColor: "#111827",
-        headerBgColor: "#ffffff",
-        headerTextColor: "#111827",
-        isActive: true,
-      },
-    })
-
-    console.log("✅ Tenant created:", tenant.id)
-  } else {
-    console.log("ℹ️ Tenant already exists:", tenant.id)
-  }
-
-  return tenant.id
+  console.log(`✅ Tenant created: ${tenant.name} (${tenant.id})`);
+  return tenant.id;
 }
