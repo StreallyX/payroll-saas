@@ -7,15 +7,27 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey
+} from "../../rbac/permissions-v2"  // V3 builder
+
 
 export const onboardingRouter = createTRPCRouter({
 
+
   // -------------------------------------------------------
-  // TEMPLATES — VIEW ALL
+  // TEMPLATES — VIEW ALL (tenant)
   // -------------------------------------------------------
   getAllTemplates: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.view))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_TEMPLATE, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .query(async ({ ctx }) => {
       return ctx.prisma.onboardingTemplate.findMany({
         where: { tenantId: ctx.tenantId },
@@ -27,11 +39,16 @@ export const onboardingRouter = createTRPCRouter({
       })
     }),
 
+
   // -------------------------------------------------------
-  // TEMPLATE — GET BY ID
+  // TEMPLATE — GET BY ID (tenant)
   // -------------------------------------------------------
   getTemplateById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.view))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_TEMPLATE, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.onboardingTemplate.findFirst({
@@ -43,20 +60,27 @@ export const onboardingRouter = createTRPCRouter({
       })
     }),
 
+
   // -------------------------------------------------------
-  // TEMPLATE — CREATE (Admin only)
+  // TEMPLATE — CREATE (tenant)
   // -------------------------------------------------------
   createTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.create))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_TEMPLATE, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       name: z.string().min(1),
       description: z.string().optional(),
       isActive: z.boolean().default(true),
     }))
     .mutation(async ({ ctx, input }) => {
-
       const template = await ctx.prisma.onboardingTemplate.create({
-        data: { ...input, tenantId: ctx.tenantId },
+        data: {
+          ...input,
+          tenantId: ctx.tenantId,
+        },
       })
 
       await createAuditLog({
@@ -73,11 +97,16 @@ export const onboardingRouter = createTRPCRouter({
       return template
     }),
 
+
   // -------------------------------------------------------
-  // TEMPLATE — UPDATE (Admin only)
+  // TEMPLATE — UPDATE (tenant)
   // -------------------------------------------------------
   updateTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_TEMPLATE, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -85,7 +114,6 @@ export const onboardingRouter = createTRPCRouter({
       isActive: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-
       const { id, ...updateData } = input
 
       const template = await ctx.prisma.onboardingTemplate.update({
@@ -108,20 +136,25 @@ export const onboardingRouter = createTRPCRouter({
       return template
     }),
 
+
   // -------------------------------------------------------
-  // TEMPLATE — DELETE (Admin only)
+  // TEMPLATE — DELETE (tenant)
   // -------------------------------------------------------
   deleteTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.templates.delete))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_TEMPLATE, Action.DELETE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
-      const template = await ctx.prisma.onboardingTemplate.findUnique({
-        where: { id: input.id },
+      const existing = await ctx.prisma.onboardingTemplate.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
       })
+      if (!existing) throw new Error("Template not found")
 
       await ctx.prisma.onboardingTemplate.delete({
-        where: { id: input.id, tenantId: ctx.tenantId },
+        where: { id: input.id },
       })
 
       await createAuditLog({
@@ -131,18 +164,23 @@ export const onboardingRouter = createTRPCRouter({
         entityType: AuditEntityType.ONBOARDING_TEMPLATE,
         action: AuditAction.DELETE,
         entityId: input.id,
-        entityName: template?.name ?? "Unknown",
+        entityName: existing.name,
         tenantId: ctx.tenantId,
       })
 
       return { success: true }
     }),
 
+
   // -------------------------------------------------------
-  // QUESTIONS — CREATE
+  // QUESTIONS — CREATE (tenant)
   // -------------------------------------------------------
   addQuestion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.questions.add))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_QUESTION, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       onboardingTemplateId: z.string(),
       questionText: z.string().min(1),
@@ -151,15 +189,23 @@ export const onboardingRouter = createTRPCRouter({
       order: z.number(),
     }))
     .mutation(async ({ ctx, input }) => {
-
-      return ctx.prisma.onboardingQuestion.create({ data: input })
+      return ctx.prisma.onboardingQuestion.create({
+        data: {
+          ...input,
+        },
+      })
     }),
 
+
   // -------------------------------------------------------
-  // QUESTIONS — UPDATE
+  // QUESTIONS — UPDATE (tenant)
   // -------------------------------------------------------
   updateQuestion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.questions.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_QUESTION, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       id: z.string(),
       questionText: z.string().optional(),
@@ -168,7 +214,6 @@ export const onboardingRouter = createTRPCRouter({
       order: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-
       const { id, ...updateData } = input
 
       return ctx.prisma.onboardingQuestion.update({
@@ -177,14 +222,18 @@ export const onboardingRouter = createTRPCRouter({
       })
     }),
 
+
   // -------------------------------------------------------
-  // QUESTIONS — DELETE
+  // QUESTIONS — DELETE (tenant)
   // -------------------------------------------------------
   deleteQuestion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.questions.delete))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_QUESTION, Action.DELETE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
       await ctx.prisma.onboardingQuestion.delete({
         where: { id: input.id },
       })
@@ -192,26 +241,35 @@ export const onboardingRouter = createTRPCRouter({
       return { success: true }
     }),
 
+
   // -------------------------------------------------------
-  // ADMIN VIEW — Contractors Onboarding Status
+  // ADMIN VIEW — All contractor onboardings (tenant)
   // -------------------------------------------------------
   getAllContractorOnboarding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .query(async ({ ctx }) => {
-
       const contractors = await ctx.prisma.contractor.findMany({
-        where: { tenantId: ctx.tenantId, onboardingTemplateId: { not: null }},
+        where: {
+          tenantId: ctx.tenantId,
+          onboardingTemplateId: { not: null }
+        },
         include: {
           user: { select: { name: true, email: true }},
-          onboardingTemplate: { include: {
-            questions: { orderBy: { order: "asc" }},
-          }},
-          onboardingResponses: { include: { question: true }},
+          onboardingTemplate: {
+            include: { questions: { orderBy: { order: "asc" }} },
+          },
+          onboardingResponses: {
+            include: { question: true }
+          },
         },
         orderBy: { createdAt: "desc" },
       })
 
-      return contractors.map((c) => {
+      return contractors.map(c => {
         const total = c.onboardingTemplate?.questions.length ?? 0
         const approved = c.onboardingResponses.filter(r => r.status === "approved").length
 
@@ -229,42 +287,50 @@ export const onboardingRouter = createTRPCRouter({
       })
     }),
 
+
   // -------------------------------------------------------
-  // CONTRACTOR VIEW — Own responses
+  // CONTRACTOR — View own onboarding (own scope)
   // -------------------------------------------------------
   getMyOnboardingResponses: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.view_own))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN)
+      )
+    )
     .query(async ({ ctx }) => {
-
       return ctx.prisma.contractor.findFirst({
         where: {
           userId: ctx.session!.user.id,
           tenantId: ctx.tenantId,
         },
         include: {
-          onboardingTemplate: { include: {
-            questions: { orderBy: { order: "asc" }},
-          }},
+          onboardingTemplate: {
+            include: { questions: { orderBy: { order: "asc" }}},
+          },
           onboardingResponses: { include: { question: true }},
         },
       })
     }),
 
+
   // -------------------------------------------------------
-  // ADMIN VIEW — Specific contractor
+  // ADMIN VIEW — Single contractor onboarding
   // -------------------------------------------------------
   getContractorOnboarding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ contractorId: z.string() }))
     .query(async ({ ctx, input }) => {
-
       return ctx.prisma.contractor.findFirst({
         where: { id: input.contractorId, tenantId: ctx.tenantId },
         include: {
           user: { select: { name: true, email: true }},
-          onboardingTemplate: { include: {
-            questions: { orderBy: { order: "asc" }},
-          }},
+          onboardingTemplate: {
+            include: { questions: { orderBy: { order: "asc" }}},
+          },
           onboardingResponses: {
             include: { question: true },
             orderBy: { question: { order: "asc" }},
@@ -273,11 +339,16 @@ export const onboardingRouter = createTRPCRouter({
       })
     }),
 
+
   // -------------------------------------------------------
   // CONTRACTOR — Submit response
   // -------------------------------------------------------
   submitResponse: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.submit))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.CREATE, PermissionScope.OWN)
+      )
+    )
     .input(z.object({
       contractorId: z.string(),
       questionId: z.string(),
@@ -285,17 +356,20 @@ export const onboardingRouter = createTRPCRouter({
       responseFilePath: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-
       const { contractorId, questionId, ...data } = input
 
       const existing = await ctx.prisma.onboardingResponse.findUnique({
-        where: { contractorId_questionId: { contractorId, questionId }},
+        where: { contractorId_questionId: { contractorId, questionId } },
       })
 
       if (existing) {
         return ctx.prisma.onboardingResponse.update({
           where: { contractorId_questionId: { contractorId, questionId }},
-          data: { ...data, submittedAt: new Date(), status: "pending" },
+          data: {
+            ...data,
+            submittedAt: new Date(),
+            status: "pending",
+          },
         })
       }
 
@@ -310,17 +384,24 @@ export const onboardingRouter = createTRPCRouter({
       })
     }),
 
+
   // -------------------------------------------------------
-  // REVIEW — Approve response
+  // REVIEW — Approve response (tenant)
   // -------------------------------------------------------
   approveResponse: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.review))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ responseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
       const response = await ctx.prisma.onboardingResponse.update({
         where: { id: input.responseId },
-        data: { status: "approved", reviewedAt: new Date() },
+        data: {
+          status: "approved",
+          reviewedAt: new Date(),
+        },
         include: {
           contractor: { include: { user: true }},
           question: true,
@@ -342,17 +423,21 @@ export const onboardingRouter = createTRPCRouter({
       return response
     }),
 
+
   // -------------------------------------------------------
-  // REVIEW — Reject response
+  // REVIEW — Reject response (tenant)
   // -------------------------------------------------------
   rejectResponse: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.onboarding.responses.review))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       responseId: z.string(),
       adminNotes: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-
       const response = await ctx.prisma.onboardingResponse.update({
         where: { id: input.responseId },
         data: {
@@ -374,10 +459,14 @@ export const onboardingRouter = createTRPCRouter({
         entityType: AuditEntityType.ONBOARDING_RESPONSE,
         entityId: response.id,
         entityName: `${response.contractor.user.name} - ${response.question.questionText}`,
-        metadata: { status: "rejected", notes: input.adminNotes },
+        metadata: {
+          status: "rejected",
+          notes: input.adminNotes,
+        },
         tenantId: ctx.tenantId,
       })
 
       return response
     }),
+
 })

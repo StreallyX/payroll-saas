@@ -1,20 +1,26 @@
-/**
- * Email Template Management Router
- * Compatible with your Prisma EmailTemplate model
- */
-
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { Prisma } from "@prisma/client";
 
+import {
+  buildPermissionKey,
+  Resource,
+  Action,
+  PermissionScope,
+} from "../../rbac/permissions-v2";
+
 export const emailTemplateRouter = createTRPCRouter({
+
   // ----------------------------------------------------
   // LIST ALL TEMPLATES
   // ----------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.emailTemplate.findMany({
         where: { tenantId: ctx.tenantId! },
@@ -28,14 +34,15 @@ export const emailTemplateRouter = createTRPCRouter({
   // GET BY ID
   // ----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const template = await ctx.prisma.emailTemplate.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId!,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId! },
       });
 
       if (!template) {
@@ -52,62 +59,43 @@ export const emailTemplateRouter = createTRPCRouter({
   // CREATE TEMPLATE
   // ----------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(
       z.object({
+        key: z.string().min(1),
         name: z.string().min(1),
-        displayName: z.string().min(1),
-        category: z.string().min(1),
-
         subject: z.string().min(1),
-        htmlBody: z.string().min(1),
-        textBody: z.string().optional(),
-
-        description: z.string().optional(),
+        body: z.string().min(1), // HTML content
         variables: z.record(z.any()).optional(),
-
-        headerHtml: z.string().optional(),
-        footerHtml: z.string().optional(),
-        styles: z.record(z.any()).optional(),
-
         isActive: z.boolean().default(true),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const exists = await ctx.prisma.emailTemplate.findFirst({
-        where: {
-          tenantId: ctx.tenantId!,
-          name: input.name,
-        },
+        where: { tenantId: ctx.tenantId!, key: input.key },
       });
 
       if (exists) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "A template with this name already exists",
+          message: "A template with this key already exists",
         });
       }
 
       const template = await ctx.prisma.emailTemplate.create({
         data: {
           tenantId: ctx.tenantId!,
-
+          key: input.key,
           name: input.name,
-          displayName: input.displayName,
-          category: input.category,
-
           subject: input.subject,
-          htmlBody: input.htmlBody,
-          textBody: input.textBody ?? null,
-
-          description: input.description ?? null,
+          body: input.body,
           variables: input.variables ?? Prisma.JsonNull,
-          headerHtml: input.headerHtml ?? null,
-          footerHtml: input.footerHtml ?? null,
-          styles: input.styles ?? Prisma.JsonNull,
-
           isActive: input.isActive,
-          version: "1.0",
+          createdBy: ctx.session.user.id,
         },
       });
 
@@ -118,58 +106,48 @@ export const emailTemplateRouter = createTRPCRouter({
   // UPDATE TEMPLATE
   // ----------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(
       z.object({
         id: z.string(),
-
-        displayName: z.string().optional(),
-        category: z.string().optional(),
-
+        name: z.string().optional(),
         subject: z.string().optional(),
-        htmlBody: z.string().optional(),
-        textBody: z.string().optional(),
-
-        description: z.string().optional(),
+        body: z.string().optional(),
         variables: z.record(z.any()).optional(),
-
-        headerHtml: z.string().optional(),
-        footerHtml: z.string().optional(),
-        styles: z.record(z.any()).optional(),
-
         isActive: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
 
-      const template = await ctx.prisma.emailTemplate.update({
-        where: {
-          id,
-          tenantId: ctx.tenantId!,
-        },
+      const updated = await ctx.prisma.emailTemplate.update({
+        where: { id, tenantId: ctx.tenantId! },
         data: {
           ...data,
           variables: data.variables ?? Prisma.JsonNull,
-          styles: data.styles ?? Prisma.JsonNull,
         },
       });
 
-      return { success: true, data: template };
+      return { success: true, data: updated };
     }),
 
   // ----------------------------------------------------
   // DELETE TEMPLATE
   // ----------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.emailTemplate.delete({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId!,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId! },
       });
 
       return { success: true };
@@ -179,7 +157,11 @@ export const emailTemplateRouter = createTRPCRouter({
   // PREVIEW TEMPLATE
   // ----------------------------------------------------
   preview: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.view))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(
       z.object({
         id: z.string(),
@@ -188,10 +170,7 @@ export const emailTemplateRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const template = await ctx.prisma.emailTemplate.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId!,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId! },
       });
 
       if (!template) {
@@ -202,15 +181,13 @@ export const emailTemplateRouter = createTRPCRouter({
       }
 
       let subject = template.subject;
-      let html = template.htmlBody;
-      let text = template.textBody ?? "";
+      let body = template.body;
 
       if (input.sampleData) {
         for (const [key, value] of Object.entries(input.sampleData)) {
           const regex = new RegExp(`{{${key}}}`, "g");
           subject = subject.replace(regex, String(value));
-          html = html.replace(regex, String(value));
-          text = text.replace(regex, String(value));
+          body = body.replace(regex, String(value));
         }
       }
 
@@ -218,11 +195,9 @@ export const emailTemplateRouter = createTRPCRouter({
         success: true,
         data: {
           subject,
-          html,
-          text,
+          body,
           originalSubject: template.subject,
-          originalHtml: template.htmlBody,
-          originalText: template.textBody,
+          originalBody: template.body,
         },
       };
     }),
@@ -231,14 +206,15 @@ export const emailTemplateRouter = createTRPCRouter({
   // DUPLICATE TEMPLATE
   // ----------------------------------------------------
   duplicate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const original = await ctx.prisma.emailTemplate.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId!,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId! },
       });
 
       if (!original) {
@@ -252,39 +228,35 @@ export const emailTemplateRouter = createTRPCRouter({
         data: {
           tenantId: ctx.tenantId!,
 
-          name: `${original.name}_copy_${Date.now()}`,
-          displayName: `${original.displayName} (Copy)`,
-          category: original.category,
+          key: `${original.key}_copy_${Date.now()}`,
+          name: `${original.name} (Copy)`,
 
           subject: original.subject,
-          htmlBody: original.htmlBody,
-          textBody: original.textBody ?? null,
-
-          description: original.description,
+          body: original.body,
           variables: original.variables ?? Prisma.JsonNull,
-          headerHtml: original.headerHtml ?? null,
-          footerHtml: original.footerHtml ?? null,
-          styles: original.styles ?? Prisma.JsonNull,
 
           isActive: false,
-          version: original.version,
+          createdBy: ctx.session.user.id,
         },
       });
 
       return { success: true, data: copy };
     }),
 
-    // ----------------------------------------------------
-    // GET AVAILABLE VARIABLES
-    // ----------------------------------------------------
-    getVariables: tenantProcedure
-      .use(hasPermission(PERMISSION_TREE_V2.settings.view))
-      .query(async () => {
-        return [
-          { key: "name", description: "User full name", example: "John Smith" },
-          { key: "email", description: "User email address", example: "john@example.com" },
-          { key: "company", description: "Company name", example: "Acme Inc." },
-          { key: "date", description: "Current date", example: "2025-11-16" },
-        ];
-      }),
+  // ----------------------------------------------------
+  // AVAILABLE VARIABLES
+  // ----------------------------------------------------
+  getVariables: tenantProcedure
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.SETTINGS, Action.READ, PermissionScope.TENANT)
+      )
+    )
+    .query(async () => {
+      return [
+        { key: "user_name", description: "Full name of the user", example: "John Doe" },
+        { key: "company_name", description: "Company name", example: "Acme Inc." },
+        { key: "date", description: "Current date", example: "2025-12-01" },
+      ];
+    }),
 });

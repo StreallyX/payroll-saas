@@ -2,7 +2,23 @@ import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+import { TRPCError } from "@trpc/server";
+
+// --------------------------------------
+// PERMISSION KEYS (V3 FORMAT)
+// --------------------------------------
+const VIEW_ALL   = buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.GLOBAL);
+const VIEW_OWN   = buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN);
+const CREATE     = buildPermissionKey(Resource.TASK, Action.CREATE, PermissionScope.GLOBAL);
+const UPDATE_OWN = buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN);
+const DELETE     = buildPermissionKey(Resource.TASK, Action.DELETE, PermissionScope.GLOBAL);
+const COMPLETE   = buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN);
 
 export const taskRouter = createTRPCRouter({
 
@@ -10,7 +26,7 @@ export const taskRouter = createTRPCRouter({
   // GET ALL TASKS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
+    .use(hasPermission(VIEW_ALL))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
         where: { tenantId: ctx.tenantId },
@@ -26,7 +42,7 @@ export const taskRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
+    .use(hasPermission(VIEW_ALL))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.task.findFirst({
@@ -42,10 +58,10 @@ export const taskRouter = createTRPCRouter({
   // GET MY TASKS
   // -------------------------------------------------------
   getMyTasks: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_own))
+    .use(hasPermission(VIEW_OWN))
     .query(async ({ ctx }) => {
       return ctx.prisma.task.findMany({
-        where: { 
+        where: {
           tenantId: ctx.tenantId,
           assignedTo: ctx.session!.user.id,
         },
@@ -61,14 +77,16 @@ export const taskRouter = createTRPCRouter({
   // CREATE TASK
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.create))
-    .input(z.object({
-      title: z.string().min(1),
-      description: z.string().optional(),
-      assignedTo: z.string(),
-      priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
-      dueDate: z.date().optional(),
-    }))
+    .use(hasPermission(CREATE))
+    .input(
+      z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        assignedTo: z.string(),
+        priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+        dueDate: z.date().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const task = await ctx.prisma.task.create({
         data: {
@@ -101,23 +119,24 @@ export const taskRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE TASK
+  // UPDATE TASK (OWN)
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.update_own))
-    .input(z.object({
-      id: z.string(),
-      title: z.string().optional(),
-      description: z.string().optional(),
-      assignedTo: z.string().optional(),
-      priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-      status: z.enum(["pending", "completed"]).optional(),
-      dueDate: z.date().optional(),
-      isCompleted: z.boolean().optional(),
-      completedAt: z.date().optional(),
-    }))
+    .use(hasPermission(UPDATE_OWN))
+    .input(
+      z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        assignedTo: z.string().optional(),
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+        status: z.enum(["pending", "completed"]).optional(),
+        dueDate: z.date().optional(),
+        isCompleted: z.boolean().optional(),
+        completedAt: z.date().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-
       const { id, ...updateData } = input;
 
       const task = await ctx.prisma.task.update({
@@ -148,15 +167,14 @@ export const taskRouter = createTRPCRouter({
   // DELETE TASK
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.delete))
+    .use(hasPermission(DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
       const task = await ctx.prisma.task.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
 
-      if (!task) throw new Error("Task not found");
+      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
 
       const result = await ctx.prisma.task.delete({
         where: { id: input.id },
@@ -181,13 +199,14 @@ export const taskRouter = createTRPCRouter({
   // TOGGLE COMPLETE
   // -------------------------------------------------------
   toggleComplete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.complete))
-    .input(z.object({
-      id: z.string(),
-      isCompleted: z.boolean(),
-    }))
+    .use(hasPermission(COMPLETE))
+    .input(
+      z.object({
+        id: z.string(),
+        isCompleted: z.boolean(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-
       const task = await ctx.prisma.task.update({
         where: { id: input.id, tenantId: ctx.tenantId },
         data: {
@@ -222,9 +241,8 @@ export const taskRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tasks.view_all))
+    .use(hasPermission(VIEW_ALL))
     .query(async ({ ctx }) => {
-
       const total = await ctx.prisma.task.count({
         where: { tenantId: ctx.tenantId },
       });
@@ -238,7 +256,7 @@ export const taskRouter = createTRPCRouter({
       });
 
       const overdue = await ctx.prisma.task.count({
-        where: { 
+        where: {
           tenantId: ctx.tenantId,
           status: "pending",
           dueDate: { lt: new Date() },

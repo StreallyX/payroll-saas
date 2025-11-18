@@ -1,105 +1,114 @@
-
-import { z } from "zod";
+import { z } from "zod"
 import {
   createTRPCRouter,
   tenantProcedure,
   hasPermission,
-} from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
-import { TRPCError } from "@trpc/server";
-import { PaymentMethodType } from "@prisma/client";
+} from "../trpc"
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2"
+
+import { TRPCError } from "@trpc/server"
+import { PaymentMethodType } from "@prisma/client"
+
 
 /**
- * Payment Method Router - Phase 2
- * 
- * Handles payment method management for companies, contractors, and agencies
+ * Payment Method Router - STRICT RBAC V3
  */
-
 export const paymentMethodRouter = createTRPCRouter({
-  
+
   // ---------------------------------------------------------
-  // GET ALL PAYMENT METHODS
+  // GET ALL PAYMENT METHODS (tenant)
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
-    .input(z.object({
-      ownerId: z.string().optional(),
-      ownerType: z.enum(["user", "company", "agency"]).optional(),
-    }).optional())
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        ownerId: z.string().optional(),
+        ownerType: z.enum(["user", "company", "agency"]).optional(),
+      }).optional()
+    )
     .query(async ({ ctx, input }) => {
-      const where: any = {
-        tenantId: ctx.tenantId,
-      };
+      const where: any = { tenantId: ctx.tenantId }
 
-      if (input?.ownerId) {
-        where.ownerId = input.ownerId;
-      }
+      if (input?.ownerId) where.ownerId = input.ownerId
+      if (input?.ownerType) where.ownerType = input.ownerType
 
-      if (input?.ownerType) {
-        where.ownerType = input.ownerType;
-      }
-
-      const paymentMethods = await ctx.prisma.paymentMethod.findMany({
+      return ctx.prisma.paymentMethod.findMany({
         where,
         orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-      });
-
-      return paymentMethods;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // GET PAYMENT METHOD BY ID
+  // GET BY ID (tenant)
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-      });
+      const pm = await ctx.prisma.paymentMethod.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
 
-      if (!paymentMethod) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment method not found",
-        });
-      }
+      if (!pm)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payment method not found" })
 
-      return paymentMethod;
+      return pm
     }),
 
+
   // ---------------------------------------------------------
-  // CREATE PAYMENT METHOD
+  // CREATE PAYMENT METHOD (tenant)
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
-    .input(z.object({
-      ownerId: z.string(),
-      ownerType: z.enum(["user", "company", "agency"]),
-      type: z.nativeEnum(PaymentMethodType),
-      isDefault: z.boolean().default(false),
-      // Bank account fields
-      bankName: z.string().optional(),
-      accountHolderName: z.string().optional(),
-      accountNumber: z.string().optional(),
-      routingNumber: z.string().optional(),
-      swiftCode: z.string().optional(),
-      iban: z.string().optional(),
-      // Card fields
-      cardLast4: z.string().optional(),
-      cardBrand: z.string().optional(),
-      cardExpMonth: z.number().optional(),
-      cardExpYear: z.number().optional(),
-      cardholderName: z.string().optional(),
-      // Gateway fields
-      gatewayType: z.string().optional(),
-      gatewayToken: z.string().optional(),
-    }))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        ownerId: z.string(),
+        ownerType: z.enum(["user", "company", "agency"]),
+        type: z.nativeEnum(PaymentMethodType),
+        isDefault: z.boolean().default(false),
+
+        // Bank
+        bankName: z.string().optional(),
+        accountHolderName: z.string().optional(),
+        accountNumber: z.string().optional(),
+        routingNumber: z.string().optional(),
+        swiftCode: z.string().optional(),
+        iban: z.string().optional(),
+
+        // Card
+        cardLast4: z.string().optional(),
+        cardBrand: z.string().optional(),
+        cardExpMonth: z.number().optional(),
+        cardExpYear: z.number().optional(),
+        cardholderName: z.string().optional(),
+
+        // Gateway
+        gatewayType: z.string().optional(),
+        gatewayToken: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      // If setting as default, unset other default payment methods for this owner
+
       if (input.isDefault) {
         await ctx.prisma.paymentMethod.updateMany({
           where: {
@@ -107,170 +116,153 @@ export const paymentMethodRouter = createTRPCRouter({
             ownerId: input.ownerId,
             ownerType: input.ownerType,
           },
-          data: {
-            isDefault: false,
-          },
-        });
+          data: { isDefault: false },
+        })
       }
 
-      const paymentMethod = await ctx.prisma.paymentMethod.create({
+      return ctx.prisma.paymentMethod.create({
         data: {
           ...input,
           tenantId: ctx.tenantId,
         },
-      });
-
-      return paymentMethod;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // UPDATE PAYMENT METHOD
+  // UPDATE PAYMENT METHOD (tenant)
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
-    .input(z.object({
-      id: z.string(),
-      isDefault: z.boolean().optional(),
-      isActive: z.boolean().optional(),
-      isVerified: z.boolean().optional(),
-      // Bank account fields
-      bankName: z.string().optional(),
-      accountHolderName: z.string().optional(),
-      // Card fields
-      cardExpMonth: z.number().optional(),
-      cardExpYear: z.number().optional(),
-    }))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        id: z.string(),
+        isDefault: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+        isVerified: z.boolean().optional(),
+
+        bankName: z.string().optional(),
+        accountHolderName: z.string().optional(),
+
+        cardExpMonth: z.number().optional(),
+        cardExpYear: z.number().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const pm = await ctx.prisma.paymentMethod.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
 
-      const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
-        where: { id, tenantId: ctx.tenantId },
-      });
+      if (!pm)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payment method not found" })
 
-      if (!paymentMethod) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment method not found",
-        });
-      }
-
-      // If setting as default, unset other default payment methods for this owner
       if (input.isDefault) {
         await ctx.prisma.paymentMethod.updateMany({
           where: {
             tenantId: ctx.tenantId,
-            ownerId: paymentMethod.ownerId,
-            ownerType: paymentMethod.ownerType,
-            id: { not: id },
+            ownerId: pm.ownerId,
+            ownerType: pm.ownerType,
+            id: { not: input.id },
           },
-          data: {
-            isDefault: false,
-          },
-        });
+          data: { isDefault: false },
+        })
       }
 
-      const updated = await ctx.prisma.paymentMethod.update({
-        where: { id },
-        data,
-      });
-
-      return updated;
+      return ctx.prisma.paymentMethod.update({
+        where: { id: input.id },
+        data: input,
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // DELETE PAYMENT METHOD
+  // DELETE PAYMENT METHOD (tenant)
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.DELETE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
+      const pm = await ctx.prisma.paymentMethod.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!paymentMethod) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment method not found",
-        });
-      }
+      if (!pm)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payment method not found" })
 
-      await ctx.prisma.paymentMethod.delete({
-        where: { id: input.id },
-      });
+      await ctx.prisma.paymentMethod.delete({ where: { id: input.id } })
 
-      return { success: true };
+      return { success: true }
     }),
 
+
   // ---------------------------------------------------------
-  // SET AS DEFAULT
+  // SET DEFAULT (tenant)
   // ---------------------------------------------------------
   setDefault: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
+      const pm = await ctx.prisma.paymentMethod.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!paymentMethod) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment method not found",
-        });
-      }
+      if (!pm)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payment method not found" })
 
-      // Unset other default payment methods for this owner
       await ctx.prisma.paymentMethod.updateMany({
         where: {
           tenantId: ctx.tenantId,
-          ownerId: paymentMethod.ownerId,
-          ownerType: paymentMethod.ownerType,
+          ownerId: pm.ownerId,
+          ownerType: pm.ownerType,
           id: { not: input.id },
         },
-        data: {
-          isDefault: false,
-        },
-      });
+        data: { isDefault: false },
+      })
 
-      // Set this one as default
-      const updated = await ctx.prisma.paymentMethod.update({
+      return ctx.prisma.paymentMethod.update({
         where: { id: input.id },
-        data: {
-          isDefault: true,
-        },
-      });
-
-      return updated;
+        data: { isDefault: true },
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // VERIFY PAYMENT METHOD
+  // VERIFY (tenant)
   // ---------------------------------------------------------
   verify: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
+      const pm = await ctx.prisma.paymentMethod.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!paymentMethod) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment method not found",
-        });
-      }
+      if (!pm)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payment method not found" })
 
-      // In a real implementation, this would verify the payment method with a payment gateway
-      const updated = await ctx.prisma.paymentMethod.update({
+      return ctx.prisma.paymentMethod.update({
         where: { id: input.id },
         data: {
           isVerified: true,
           verifiedAt: new Date(),
         },
-      });
-
-      return updated;
+      })
     }),
-});
+
+})

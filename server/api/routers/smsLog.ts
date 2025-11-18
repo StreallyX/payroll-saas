@@ -1,13 +1,25 @@
 /**
- * SMS Log Router
- * Handles SMS log viewing and monitoring
+ * SMS Log Router (Permission v3)
  */
 
-import { z } from 'zod';
-import { createTRPCRouter, tenantProcedure, hasPermission } from '../trpc';
-import { TRPCError } from '@trpc/server';
-import { PERMISSION_TREE_V2 } from '../../rbac/permissions-v2';
-import { Prisma } from '@prisma/client';
+import { z } from "zod";
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+
+// ----------------------------------------------------
+// BUILD PERMISSION KEYS
+// ----------------------------------------------------
+const VIEW_LIST = buildPermissionKey(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL);
+const VIEW_ONE  = buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.GLOBAL);
+const RESEND    = buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.GLOBAL);
 
 export const smsLogRouter = createTRPCRouter({
 
@@ -15,11 +27,11 @@ export const smsLogRouter = createTRPCRouter({
   // LIST ALL SMS LOGS
   // ----------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
+    .use(hasPermission(VIEW_LIST))
     .input(
       z.object({
         to: z.string().optional(),
-        status: z.enum(['SENT', 'FAILED', 'PENDING', 'QUEUED', 'DELIVERED']).optional(),
+        status: z.enum(["SENT", "FAILED", "PENDING", "QUEUED", "DELIVERED"]).optional(),
         startDate: z.date().optional(),
         endDate: z.date().optional(),
         page: z.number().min(1).default(1),
@@ -36,13 +48,11 @@ export const smsLogRouter = createTRPCRouter({
       if (to) {
         where.to = {
           contains: to,
-          mode: 'insensitive',
+          mode: "insensitive",
         };
       }
 
-      if (status) {
-        where.status = status;
-      }
+      if (status) where.status = status;
 
       if (startDate || endDate) {
         where.sentAt = {
@@ -54,7 +64,7 @@ export const smsLogRouter = createTRPCRouter({
       const [logs, total] = await Promise.all([
         ctx.prisma.sMSLog.findMany({
           where,
-          orderBy: { sentAt: 'desc' },
+          orderBy: { sentAt: "desc" },
           skip: (page - 1) * pageSize,
           take: pageSize,
         }),
@@ -81,7 +91,7 @@ export const smsLogRouter = createTRPCRouter({
   // GET ONE SMS LOG
   // ----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
+    .use(hasPermission(VIEW_ONE))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({
@@ -90,8 +100,8 @@ export const smsLogRouter = createTRPCRouter({
 
       if (!log) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'SMS log not found',
+          code: "NOT_FOUND",
+          message: "SMS log not found",
         });
       }
 
@@ -102,12 +112,14 @@ export const smsLogRouter = createTRPCRouter({
   // GET SMS STATS
   // ----------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
+    .use(hasPermission(VIEW_LIST))
     .input(
-      z.object({
-        startDate: z.date().optional(),
-        endDate: z.date().optional(),
-      }).optional()
+      z
+        .object({
+          startDate: z.date().optional(),
+          endDate: z.date().optional(),
+        })
+        .optional()
     )
     .query(async ({ ctx, input }) => {
       const where: Prisma.SMSLogWhereInput = {
@@ -123,9 +135,9 @@ export const smsLogRouter = createTRPCRouter({
 
       const [total, sent, failed, pending] = await Promise.all([
         ctx.prisma.sMSLog.count({ where }),
-        ctx.prisma.sMSLog.count({ where: { ...where, status: 'SENT' } }),
-        ctx.prisma.sMSLog.count({ where: { ...where, status: 'FAILED' } }),
-        ctx.prisma.sMSLog.count({ where: { ...where, status: 'PENDING' } }),
+        ctx.prisma.sMSLog.count({ where: { ...where, status: "SENT" } }),
+        ctx.prisma.sMSLog.count({ where: { ...where, status: "FAILED" } }),
+        ctx.prisma.sMSLog.count({ where: { ...where, status: "PENDING" } }),
       ]);
 
       return {
@@ -144,12 +156,12 @@ export const smsLogRouter = createTRPCRouter({
   // RECENT SMS LOGS
   // ----------------------------------------------------
   getRecent: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
+    .use(hasPermission(VIEW_LIST))
     .input(z.object({ limit: z.number().min(1).max(50).default(10) }).optional())
     .query(async ({ ctx, input }) => {
       const logs = await ctx.prisma.sMSLog.findMany({
         where: { tenantId: ctx.tenantId! },
-        orderBy: { sentAt: 'desc' },
+        orderBy: { sentAt: "desc" },
         take: input?.limit ?? 10,
       });
 
@@ -160,7 +172,7 @@ export const smsLogRouter = createTRPCRouter({
   // RESEND SMS
   // ----------------------------------------------------
   resend: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.settings.update))
+    .use(hasPermission(RESEND))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({
@@ -169,28 +181,28 @@ export const smsLogRouter = createTRPCRouter({
 
       if (!log) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'SMS log not found',
+          code: "NOT_FOUND",
+          message: "SMS log not found",
         });
       }
 
-      if (log.status === 'SENT') {
+      if (log.status === "SENT") {
         throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'SMS was already sent successfully',
+          code: "BAD_REQUEST",
+          message: "SMS was already sent successfully",
         });
       }
 
       await ctx.prisma.sMSLog.update({
         where: { id: log.id },
         data: {
-          status: 'PENDING',
+          status: "PENDING",
           error: null,
         },
       });
 
-      // TODO: trigger SMS sending service here
+      // TODO later: Trigger background SMS resend job
 
-      return { success: true, message: 'SMS queued for resending' };
+      return { success: true, message: "SMS queued for resending" };
     }),
 });

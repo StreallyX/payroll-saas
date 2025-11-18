@@ -1,6 +1,9 @@
 import { z } from "zod";
-import { createTRPCRouter, tenantProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { buildPermissionKey, Resource, Action, PermissionScope } from "../../rbac/permissions-v2";
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+
+
 
 export const documentRouter = createTRPCRouter({
 
@@ -8,6 +11,11 @@ export const documentRouter = createTRPCRouter({
   // GET ALL DOCUMENTS
   // ------------------------------------------------------------------
   getAll: tenantProcedure
+   .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       entityType: z.string().optional(),
       entityId: z.string().optional(),
@@ -17,11 +25,8 @@ export const documentRouter = createTRPCRouter({
     }).optional())
     .query(async ({ ctx, input }) => {
 
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.view_all");
+     
 
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const where: any = {
         tenantId: ctx.tenantId,
@@ -54,14 +59,13 @@ export const documentRouter = createTRPCRouter({
   // GET BY ID
   // ------------------------------------------------------------------
   getById: tenantProcedure
+  .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.view_all");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const document = await ctx.prisma.document.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
@@ -81,17 +85,16 @@ export const documentRouter = createTRPCRouter({
   // GET BY ENTITY
   // ------------------------------------------------------------------
   getByEntity: tenantProcedure
+  .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.view_all");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       return ctx.prisma.document.findMany({
         where: {
@@ -109,6 +112,11 @@ export const documentRouter = createTRPCRouter({
   // CREATE DOCUMENT
   // ------------------------------------------------------------------
   create: tenantProcedure
+  .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       name: z.string(),
       description: z.string().optional(),
@@ -124,17 +132,11 @@ export const documentRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
 
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.update");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
-
       return ctx.prisma.document.create({
         data: {
           ...input,
           tenantId: ctx.tenantId,
-          uploadedById: ctx.session.user.id,
+          uploadedBy: ctx.session.user.id,
         },
       });
     }),
@@ -143,6 +145,7 @@ export const documentRouter = createTRPCRouter({
   // UPDATE DOCUMENT
   // ------------------------------------------------------------------
   update: tenantProcedure
+    .use(hasPermission(buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.TENANT)))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
@@ -151,12 +154,6 @@ export const documentRouter = createTRPCRouter({
       visibility: z.enum(["private", "tenant", "public"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.update");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const document = await ctx.prisma.document.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
@@ -174,14 +171,9 @@ export const documentRouter = createTRPCRouter({
   // SOFT DELETE
   // ------------------------------------------------------------------
   delete: tenantProcedure
+    .use(hasPermission(buildPermissionKey(Resource.DOCUMENT, Action.DELETE, PermissionScope.TENANT)))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.update");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const document = await ctx.prisma.document.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
@@ -199,6 +191,11 @@ export const documentRouter = createTRPCRouter({
   // CREATE VERSION
   // ------------------------------------------------------------------
   createVersion: tenantProcedure
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       parentDocumentId: z.string(),
       fileUrl: z.string(),
@@ -207,12 +204,6 @@ export const documentRouter = createTRPCRouter({
       mimeType: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.update");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const parent = await ctx.prisma.document.findFirst({
         where: { id: input.parentDocumentId, tenantId: ctx.tenantId },
@@ -241,7 +232,7 @@ export const documentRouter = createTRPCRouter({
           isLatestVersion: true,
           parentDocumentId: parent.id,
           tenantId: ctx.tenantId,
-          uploadedById: ctx.session.user.id,
+          uploadedBy: ctx.session.user.id,
         },
       });
     }),
@@ -250,14 +241,13 @@ export const documentRouter = createTRPCRouter({
   // SIGN DOCUMENT
   // ------------------------------------------------------------------
   sign: tenantProcedure
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.update");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const document = await ctx.prisma.document.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
@@ -282,14 +272,13 @@ export const documentRouter = createTRPCRouter({
   // VERSION HISTORY
   // ------------------------------------------------------------------
   getVersionHistory: tenantProcedure
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-
-      const hasPermission =
-        ctx.session.user.isSuperAdmin ||
-        ctx.session.user.permissions.includes("contracts.manage.view_all");
-
-      if (!hasPermission) throw new TRPCError({ code: "FORBIDDEN" });
 
       const document = await ctx.prisma.document.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },

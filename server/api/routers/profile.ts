@@ -4,7 +4,19 @@ import {
   tenantProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+
+// ---------------------------------------------------------
+// BUILD PERMISSION KEYS (RBAC v3)
+// ---------------------------------------------------------
+const VIEW_OWN = buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN);
+const UPDATE_OWN = buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN);
 
 export const profileRouter = createTRPCRouter({
 
@@ -12,7 +24,7 @@ export const profileRouter = createTRPCRouter({
   // GET OWN PROFILE
   // ---------------------------------------------------------
   getOwn: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.profile.view))
+    .use(hasPermission(VIEW_OWN))   // ⬅️ SANS []
     .query(async ({ ctx }) => {
       const userId = ctx.session!.user.id;
 
@@ -35,7 +47,7 @@ export const profileRouter = createTRPCRouter({
   // UPDATE OWN PROFILE
   // ---------------------------------------------------------
   updateOwn: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.profile.update))
+    .use(hasPermission(UPDATE_OWN))   // ⬅️ SANS []
     .input(
       z.object({
         name: z.string().min(2),
@@ -43,7 +55,7 @@ export const profileRouter = createTRPCRouter({
         timezone: z.string().nullable().optional(),
         language: z.string().nullable().optional(),
         profilePictureUrl: z.string().nullable().optional(),
-        preferences: z.any().optional(), // JSON
+        preferences: z.any().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -65,17 +77,17 @@ export const profileRouter = createTRPCRouter({
 
       await ctx.prisma.auditLog.create({
         data: {
-            tenantId,
-            userId,
-            userName: ctx.session!.user.name ?? "Unknown",
-            userRole: ctx.session!.user.roleName,
-            action: "PROFILE_UPDATE",
-            entityType: "profile",
-            entityId: userId,
-            entityName: updated.name || "User",
-            description: "User updated own profile",
+          tenantId,
+          userId,
+          userName: ctx.session!.user.name ?? "Unknown",
+          userRole: ctx.session!.user.roleName,
+          action: "PROFILE_UPDATE",
+          entityType: "profile",
+          entityId: userId,
+          entityName: updated.name || "User",
+          description: "User updated own profile",
         },
-        });
+      });
 
       return updated;
     }),

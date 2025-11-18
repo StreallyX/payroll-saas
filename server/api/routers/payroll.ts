@@ -1,21 +1,32 @@
-import { z } from "zod";
+import { z } from "zod"
 import {
   createTRPCRouter,
   tenantProcedure,
   hasPermission,
-} from "../trpc";
+} from "../trpc"
 
-import { createAuditLog } from "@/lib/audit";
-import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2"
+
+import { createAuditLog } from "@/lib/audit"
+import { AuditAction, AuditEntityType } from "@/lib/types"
+
 
 export const payrollRouter = createTRPCRouter({
 
   // -------------------------------------------------------
-  // GET ALL PAYROLL PARTNERS
+  // GET ALL PAYROLL PARTNERS (tenant)
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYROLL_PARTNER, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .query(async ({ ctx }) => {
       return ctx.prisma.payrollPartner.findMany({
         where: { tenantId: ctx.tenantId },
@@ -33,21 +44,23 @@ export const payrollRouter = createTRPCRouter({
           _count: { select: { contracts: true } },
         },
         orderBy: { createdAt: "desc" },
-      });
+      })
     }),
 
+
   // -------------------------------------------------------
-  // GET BY ID
+  // GET BY ID (tenant)
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYROLL_PARTNER, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.payrollPartner.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           contracts: {
             include: {
@@ -61,14 +74,19 @@ export const payrollRouter = createTRPCRouter({
             },
           },
         },
-      });
+      })
     }),
 
+
   // -------------------------------------------------------
-  // CREATE PAYROLL PARTNER
+  // CREATE PAYROLL PARTNER (tenant)
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.generate))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYROLL_PARTNER, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
     .input(
       z.object({
         name: z.string().min(1),
@@ -84,7 +102,7 @@ export const payrollRouter = createTRPCRouter({
           ...input,
           tenantId: ctx.tenantId,
         },
-      });
+      })
 
       await createAuditLog({
         userId: ctx.session!.user.id,
@@ -99,16 +117,21 @@ export const payrollRouter = createTRPCRouter({
           status: partner.status,
         },
         tenantId: ctx.tenantId,
-      });
+      })
 
-      return partner;
+      return partner
     }),
 
+
   // -------------------------------------------------------
-  // UPDATE PAYROLL PARTNER
+  // UPDATE PAYROLL PARTNER (tenant)
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYROLL_PARTNER, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(
       z.object({
         id: z.string(),
@@ -120,15 +143,12 @@ export const payrollRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input;
+      const { id, ...updateData } = input
 
       const partner = await ctx.prisma.payrollPartner.update({
-        where: {
-          id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id, tenantId: ctx.tenantId },
         data: updateData,
-      });
+      })
 
       await createAuditLog({
         userId: ctx.session!.user.id,
@@ -140,33 +160,33 @@ export const payrollRouter = createTRPCRouter({
         entityName: partner.name,
         metadata: { updatedFields: updateData },
         tenantId: ctx.tenantId,
-      });
+      })
 
-      return partner;
+      return partner
     }),
 
+
   // -------------------------------------------------------
-  // DELETE PAYROLL PARTNER
+  // DELETE PAYROLL PARTNER (tenant)
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYROLL_PARTNER, Action.DELETE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const partner = await ctx.prisma.payrollPartner.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-      });
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
 
-      if (!partner) throw new Error("Payroll partner not found");
+      // TS fix (non-null assertion)
+      const partnerSafe = partner!
 
       const deleted = await ctx.prisma.payrollPartner.delete({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-      });
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
 
       await createAuditLog({
         userId: ctx.session!.user.id,
@@ -174,33 +194,40 @@ export const payrollRouter = createTRPCRouter({
         userRole: ctx.session!.user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.PAYROLL_PARTNER,
-        entityId: input.id,
-        entityName: partner.name,
-        metadata: { email: partner.contactEmail },
+        entityId: partnerSafe.id,
+        entityName: partnerSafe.name,
+        metadata: { email: partnerSafe.contactEmail },
         tenantId: ctx.tenantId,
-      });
+      })
 
-      return deleted;
+      return deleted
+
     }),
 
+
   // -------------------------------------------------------
-  // STATS
+  // STATS (tenant)
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payroll.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYROLL_PARTNER, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.payrollPartner.count({
         where: { tenantId: ctx.tenantId },
-      });
+      })
 
       const active = await ctx.prisma.payrollPartner.count({
         where: { tenantId: ctx.tenantId, status: "active" },
-      });
+      })
 
       const inactive = await ctx.prisma.payrollPartner.count({
         where: { tenantId: ctx.tenantId, status: "inactive" },
-      });
+      })
 
-      return { total, active, inactive };
+      return { total, active, inactive }
     }),
-});
+
+})

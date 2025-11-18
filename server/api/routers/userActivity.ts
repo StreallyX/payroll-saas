@@ -1,33 +1,45 @@
-
 import { z } from "zod";
-import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission,
+} from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 
-/**
- * User Activity Router - Phase 2
- * 
- * Handles user activity tracking and audit logs
- */
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+
+// -----------------------------------------------------
+// PERMISSIONS V3
+// -----------------------------------------------------
+const VIEW = buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.GLOBAL);
 
 export const userActivityRouter = createTRPCRouter({
+
+  // -----------------------------------------------------
+  // LIST ALL ACTIVITIES
+  // -----------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
-    .input(z.object({
-      userId: z.string().optional(),
-      action: z.string().optional(),
-      entityType: z.string().optional(),
-      entityId: z.string().optional(),
-      startDate: z.date().optional(),
-      endDate: z.date().optional(),
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }).optional())
+    .use(hasPermission(VIEW))
+    .input(
+      z.object({
+        userId: z.string().optional(),
+        action: z.string().optional(),
+        entityType: z.string().optional(),
+        entityId: z.string().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }).optional()
+    )
     .query(async ({ ctx, input }) => {
-      const where: Prisma.UserActivityWhereInput = {
-        tenantId: ctx.tenantId,
-      };
+      const where: Prisma.UserActivityWhereInput = { tenantId: ctx.tenantId };
 
       if (input?.userId) where.userId = input.userId;
       if (input?.action) where.action = input.action;
@@ -35,7 +47,7 @@ export const userActivityRouter = createTRPCRouter({
       if (input?.entityId) where.entityId = input.entityId;
 
       if (input?.startDate || input?.endDate) {
-        where.occurredAt = {
+        where.createdAt = {
           ...(input.startDate && { gte: input.startDate }),
           ...(input.endDate && { lte: input.endDate }),
         };
@@ -45,14 +57,9 @@ export const userActivityRouter = createTRPCRouter({
         ctx.prisma.userActivity.findMany({
           where,
           include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
+            user: { select: { name: true, email: true } },
           },
-          orderBy: { occurredAt: "desc" },
+          orderBy: { createdAt: "desc" },
           take: input?.limit ?? 50,
           skip: input?.offset ?? 0,
         }),
@@ -66,19 +73,17 @@ export const userActivityRouter = createTRPCRouter({
       };
     }),
 
+  // -----------------------------------------------------
+  // GET BY ID
+  // -----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
+    .use(hasPermission(VIEW))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const activity = await ctx.prisma.userActivity.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
+          user: { select: { name: true, email: true } },
         },
       });
 
@@ -92,103 +97,99 @@ export const userActivityRouter = createTRPCRouter({
       return activity;
     }),
 
+  // -----------------------------------------------------
+  // GET ACTIVITIES FOR A USER
+  // -----------------------------------------------------
   getByUser: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
-    .input(z.object({
-      userId: z.string(),
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }))
+    .use(hasPermission(VIEW))
+    .input(
+      z.object({
+        userId: z.string(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      const activities = await ctx.prisma.userActivity.findMany({
+      return ctx.prisma.userActivity.findMany({
         where: {
           userId: input.userId,
           tenantId: ctx.tenantId,
         },
-        orderBy: { occurredAt: "desc" },
+        orderBy: { createdAt: "desc" },
         take: input.limit,
         skip: input.offset,
       });
-
-      return activities;
     }),
 
+  // -----------------------------------------------------
+  // GET ACTIVITIES FOR A SPECIFIC ENTITY
+  // -----------------------------------------------------
   getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
-    .input(z.object({
-      entityType: z.string(),
-      entityId: z.string(),
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }))
+    .use(hasPermission(VIEW))
+    .input(
+      z.object({
+        entityType: z.string(),
+        entityId: z.string(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      const activities = await ctx.prisma.userActivity.findMany({
+      return ctx.prisma.userActivity.findMany({
         where: {
           entityType: input.entityType,
           entityId: input.entityId,
           tenantId: ctx.tenantId,
         },
         include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
+          user: { select: { name: true, email: true } },
         },
-        orderBy: { occurredAt: "desc" },
+        orderBy: { createdAt: "desc" },
         take: input.limit,
         skip: input.offset,
       });
-
-      return activities;
     }),
 
+  // -----------------------------------------------------
+  // GET RECENT ACTIVITY
+  // -----------------------------------------------------
   getRecent: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.audit.view))
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(20),
-    }).optional())
+    .use(hasPermission(VIEW))
+    .input(z.object({ limit: z.number().min(1).max(100).default(20) }).optional())
     .query(async ({ ctx, input }) => {
-      const activities = await ctx.prisma.userActivity.findMany({
-        where: {
-          tenantId: ctx.tenantId,
-        },
+      return ctx.prisma.userActivity.findMany({
+        where: { tenantId: ctx.tenantId },
         include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
+          user: { select: { name: true, email: true } },
         },
-        orderBy: { occurredAt: "desc" },
+        orderBy: { createdAt: "desc" },
         take: input?.limit ?? 20,
       });
-
-      return activities;
     }),
 
+  // -----------------------------------------------------
+  // INTERNAL LOG (no permission — logged user only)
+  // -----------------------------------------------------
   log: tenantProcedure
-    .input(z.object({
-      action: z.string(),
-      entityType: z.string(),
-      entityId: z.string().optional(),
-      entityName: z.string().optional(),
-      description: z.string(),
-      metadata: z.record(z.any()).optional(),
-      ipAddress: z.string().optional(),
-      userAgent: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        action: z.string(),
+        entityType: z.string(),
+        entityId: z.string().optional(),
+        entityName: z.string().optional(),
+        description: z.string(),
+        metadata: z.record(z.any()).optional(),
+        ipAddress: z.string().optional(),
+        userAgent: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const activity = await ctx.prisma.userActivity.create({
+      return ctx.prisma.userActivity.create({
         data: {
           ...input,
           tenantId: ctx.tenantId,
           userId: ctx.session.user.id,
         },
       });
-
-      return activity;
     }),
 });

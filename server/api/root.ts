@@ -42,7 +42,6 @@ import { referralRouter } from "./routers/referral";
 
 // PHASE 3 ROUTERS - UI Enhancement
 import { emailTemplateRouter } from "./routers/emailTemplate";
-import { pdfTemplateRouter } from "./routers/pdfTemplate";
 import { emailLogRouter } from "./routers/emailLog";
 import { smsLogRouter } from "./routers/smsLog";
 
@@ -94,7 +93,6 @@ export const appRouter = createTRPCRouter({
   
   // PHASE 3 ROUTERS
   emailTemplate: emailTemplateRouter,
-  pdfTemplate: pdfTemplateRouter,
   emailLog: emailLogRouter,
   smsLog: smsLogRouter,
 })

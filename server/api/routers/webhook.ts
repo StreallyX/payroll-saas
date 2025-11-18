@@ -1,35 +1,45 @@
-
 /**
- * Webhook Management Router
- * Handles webhook subscription CRUD and delivery tracking
+ * Webhook Management Router (Permissions V3)
  */
 
-import { z } from 'zod';
-import { createTRPCRouter, tenantProcedure, hasPermission } from '../trpc';
-import { webhookService, WebhookEvents } from '@/lib/webhooks';
-import { TRPCError } from '@trpc/server';
-import crypto from 'crypto';
+import { z } from "zod";
+import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+import { webhookService, WebhookEvents } from "@/lib/webhooks";
+import { TRPCError } from "@trpc/server";
+import crypto from "crypto";
+
+// PERMISSIONS V3
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+
+const VIEW = buildPermissionKey(Resource.SETTINGS, Action.READ, PermissionScope.GLOBAL);
+const UPDATE = buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.GLOBAL);
 
 export const webhookRouter = createTRPCRouter({
-  /**
-   * List all webhook subscriptions for the tenant
-   */
+
+  // ---------------------------------------------------------
+  // LIST SUBSCRIPTIONS
+  // ---------------------------------------------------------
   list: tenantProcedure
-    .use(hasPermission('settings.view'))
+    .use(hasPermission(VIEW))
     .query(async ({ ctx }) => {
       const subscriptions = await ctx.prisma.webhookSubscription.findMany({
         where: { tenantId: ctx.tenantId! },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       return { success: true, data: subscriptions };
     }),
 
-  /**
-   * Get a single webhook subscription
-   */
+  // ---------------------------------------------------------
+  // GET BY ID
+  // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission('settings.view'))
+    .use(hasPermission(VIEW))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const subscription = await ctx.prisma.webhookSubscription.findFirst({
@@ -40,26 +50,26 @@ export const webhookRouter = createTRPCRouter({
         include: {
           deliveryLogs: {
             take: 10,
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: "desc" },
           },
         },
       });
 
       if (!subscription) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Webhook subscription not found',
+          code: "NOT_FOUND",
+          message: "Webhook subscription not found",
         });
       }
 
       return { success: true, data: subscription };
     }),
 
-  /**
-   * Create a new webhook subscription
-   */
+  // ---------------------------------------------------------
+  // CREATE SUBSCRIPTION
+  // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission('settings.update'))
+    .use(hasPermission(UPDATE))
     .input(
       z.object({
         url: z.string().url(),
@@ -68,8 +78,7 @@ export const webhookRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Generate a secure secret for webhook signature
-      const secret = crypto.randomBytes(32).toString('hex');
+      const secret = crypto.randomBytes(32).toString("hex");
 
       const subscription = await ctx.prisma.webhookSubscription.create({
         data: {
@@ -82,7 +91,6 @@ export const webhookRouter = createTRPCRouter({
         },
       });
 
-      // Register with webhook service
       webhookService.registerSubscription({
         id: subscription.id,
         tenantId: subscription.tenantId,
@@ -96,11 +104,11 @@ export const webhookRouter = createTRPCRouter({
       return { success: true, data: subscription };
     }),
 
-  /**
-   * Update a webhook subscription
-   */
+  // ---------------------------------------------------------
+  // UPDATE SUBSCRIPTION
+  // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission('settings.update'))
+    .use(hasPermission(UPDATE))
     .input(
       z.object({
         id: z.string(),
@@ -121,7 +129,6 @@ export const webhookRouter = createTRPCRouter({
         data,
       });
 
-      // Update webhook service
       webhookService.registerSubscription({
         id: subscription.id,
         tenantId: subscription.tenantId,
@@ -135,11 +142,11 @@ export const webhookRouter = createTRPCRouter({
       return { success: true, data: subscription };
     }),
 
-  /**
-   * Delete a webhook subscription
-   */
+  // ---------------------------------------------------------
+  // DELETE SUBSCRIPTION
+  // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission('settings.update'))
+    .use(hasPermission(UPDATE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.webhookSubscription.delete({
@@ -149,17 +156,16 @@ export const webhookRouter = createTRPCRouter({
         },
       });
 
-      // Unregister from webhook service
       webhookService.unregisterSubscription(input.id);
 
       return { success: true };
     }),
 
-  /**
-   * Test a webhook subscription
-   */
+  // ---------------------------------------------------------
+  // TEST DELIVERY
+  // ---------------------------------------------------------
   test: tenantProcedure
-    .use(hasPermission('settings.update'))
+    .use(hasPermission(UPDATE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const subscription = await ctx.prisma.webhookSubscription.findFirst({
@@ -171,12 +177,11 @@ export const webhookRouter = createTRPCRouter({
 
       if (!subscription) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Webhook subscription not found',
+          code: "NOT_FOUND",
+          message: "Webhook subscription not found",
         });
       }
 
-      // Register if not in service
       webhookService.registerSubscription({
         id: subscription.id,
         tenantId: subscription.tenantId,
@@ -187,16 +192,14 @@ export const webhookRouter = createTRPCRouter({
         headers: subscription.headers as Record<string, string> | undefined,
       });
 
-      // Test the webhook
       const result = await webhookService.testSubscription(input.id);
 
-      // Log the delivery
       await ctx.prisma.webhookDelivery.create({
         data: {
           subscriptionId: subscription.id,
-          event: 'webhook.test',
+          event: "webhook.test",
           payload: {
-            message: 'This is a test webhook event',
+            message: "This is a test webhook event",
             subscriptionId: subscription.id,
           },
           statusCode: result.statusCode,
@@ -209,11 +212,11 @@ export const webhookRouter = createTRPCRouter({
       return { success: true, data: result };
     }),
 
-  /**
-   * Get delivery logs for a webhook subscription
-   */
+  // ---------------------------------------------------------
+  // DELIVERY LOGS
+  // ---------------------------------------------------------
   deliveryLogs: tenantProcedure
-    .use(hasPermission('settings.view'))
+    .use(hasPermission(VIEW))
     .input(
       z.object({
         subscriptionId: z.string(),
@@ -224,7 +227,6 @@ export const webhookRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { subscriptionId, page, pageSize } = input;
 
-      // Verify subscription belongs to tenant
       const subscription = await ctx.prisma.webhookSubscription.findFirst({
         where: {
           id: subscriptionId,
@@ -234,15 +236,15 @@ export const webhookRouter = createTRPCRouter({
 
       if (!subscription) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Webhook subscription not found',
+          code: "NOT_FOUND",
+          message: "Webhook subscription not found",
         });
       }
 
       const [logs, total] = await Promise.all([
         ctx.prisma.webhookDelivery.findMany({
           where: { subscriptionId },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           skip: (page - 1) * pageSize,
           take: pageSize,
         }),
@@ -267,24 +269,21 @@ export const webhookRouter = createTRPCRouter({
       };
     }),
 
-  /**
-   * Get available webhook events
-   */
+  // ---------------------------------------------------------
+  // AVAILABLE EVENTS
+  // ---------------------------------------------------------
   availableEvents: tenantProcedure
-    .use(hasPermission('settings.view'))
+    .use(hasPermission(VIEW))
     .query(() => {
       const events = Object.entries(WebhookEvents).map(([key, value]) => ({
         key,
         value,
-        category: value.split('.')[0],
-        action: value.split('.')[1],
+        category: value.split(".")[0],
+        action: value.split(".")[1],
       }));
 
-      // Group by category
       const grouped = events.reduce((acc, event) => {
-        if (!acc[event.category]) {
-          acc[event.category] = [];
-        }
+        if (!acc[event.category]) acc[event.category] = [];
         acc[event.category].push(event);
         return acc;
       }, {} as Record<string, typeof events>);
@@ -292,26 +291,23 @@ export const webhookRouter = createTRPCRouter({
       return { success: true, data: grouped };
     }),
 
-  /**
-   * Regenerate webhook secret
-   */
+  // ---------------------------------------------------------
+  // REGENERATE SECRET
+  // ---------------------------------------------------------
   regenerateSecret: tenantProcedure
-    .use(hasPermission('settings.update'))
+    .use(hasPermission(UPDATE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const newSecret = crypto.randomBytes(32).toString('hex');
+      const newSecret = crypto.randomBytes(32).toString("hex");
 
       const subscription = await ctx.prisma.webhookSubscription.update({
         where: {
           id: input.id,
           tenantId: ctx.tenantId!,
         },
-        data: {
-          secret: newSecret,
-        },
+        data: { secret: newSecret },
       });
 
-      // Update webhook service
       webhookService.registerSubscription({
         id: subscription.id,
         tenantId: subscription.tenantId,

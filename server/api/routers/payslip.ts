@@ -2,8 +2,24 @@ import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+
 import { TRPCError } from "@trpc/server";
+
+// -------------------------------------------------------
+// BUILD NEW PERMISSION KEYS
+// -------------------------------------------------------
+const VIEW_ALL = buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.GLOBAL);
+const VIEW_OWN = buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN);
+const CREATE   = buildPermissionKey(Resource.PAYSLIP, Action.CREATE, PermissionScope.GLOBAL);
+const UPDATE   = buildPermissionKey(Resource.PAYSLIP, Action.UPDATE, PermissionScope.GLOBAL);
+const DELETE   = buildPermissionKey(Resource.PAYSLIP, Action.DELETE, PermissionScope.GLOBAL);
 
 export const payslipRouter = createTRPCRouter({
 
@@ -11,7 +27,7 @@ export const payslipRouter = createTRPCRouter({
   // GET ALL PAYSLIPS
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
+    .use(hasPermission(VIEW_ALL))
     .query(async ({ ctx }) => {
       return ctx.prisma.payslip.findMany({
         where: { tenantId: ctx.tenantId },
@@ -31,10 +47,10 @@ export const payslipRouter = createTRPCRouter({
   // GET BY ID
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
+    .use(hasPermission(VIEW_ALL))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.payslip.findFirst({
+      const payslip = await ctx.prisma.payslip.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           contractor: {
@@ -45,13 +61,19 @@ export const payslipRouter = createTRPCRouter({
           },
         },
       });
+
+      if (!payslip) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payslip not found" });
+      }
+
+      return payslip;
     }),
 
   // -------------------------------------------------------
   // GET BY CONTRACTOR
   // -------------------------------------------------------
   getByContractorId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
+    .use(hasPermission(VIEW_ALL))
     .input(z.object({ contractorId: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.payslip.findMany({
@@ -69,7 +91,7 @@ export const payslipRouter = createTRPCRouter({
   // CREATE PAYSLIP
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.generate))
+    .use(hasPermission(CREATE))
     .input(
       z.object({
         contractorId: z.string(),
@@ -127,7 +149,7 @@ export const payslipRouter = createTRPCRouter({
   // UPDATE PAYSLIP
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.generate))
+    .use(hasPermission(UPDATE))
     .input(
       z.object({
         id: z.string(),
@@ -177,7 +199,7 @@ export const payslipRouter = createTRPCRouter({
   // DELETE PAYSLIP
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.generate))
+    .use(hasPermission(DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payslip = await ctx.prisma.payslip.findFirst({
@@ -185,7 +207,9 @@ export const payslipRouter = createTRPCRouter({
         include: { contractor: { include: { user: true } } },
       });
 
-      if (!payslip) throw new Error("Payslip not found");
+      if (!payslip) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payslip not found" });
+      }
 
       await ctx.prisma.payslip.delete({ where: { id: input.id } });
 
@@ -205,10 +229,10 @@ export const payslipRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // STATISTICS
+  // GET STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_all))
+    .use(hasPermission(VIEW_ALL))
     .query(async ({ ctx }) => {
       const now = new Date();
       const month = now.getMonth() + 1;
@@ -233,10 +257,10 @@ export const payslipRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // CONTRACTOR-SPECIFIC: GET MY PAYSLIPS
+  // CONTRACTOR: GET MY PAYSLIPS
   // -------------------------------------------------------
   getMyPayslips: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.payments.payslips.view_own))
+    .use(hasPermission(VIEW_OWN))
     .query(async ({ ctx }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
@@ -263,4 +287,5 @@ export const payslipRouter = createTRPCRouter({
         orderBy: [{ year: "desc" }, { month: "desc" }],
       });
     }),
+
 });

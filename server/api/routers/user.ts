@@ -4,10 +4,24 @@ import {
   tenantProcedure,
   hasPermission,
 } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions-v2";
+
+// -------------------------------------------------------
+// PERMISSIONS V3
+// -------------------------------------------------------
+const VIEW   = buildPermissionKey(Resource.USER, Action.READ, PermissionScope.GLOBAL);
+const CREATE = buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL);
+const UPDATE = buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL);
+const DELETE = buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL);
 
 export const userRouter = createTRPCRouter({
 
@@ -15,13 +29,11 @@ export const userRouter = createTRPCRouter({
   // GET ALL USERS
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
+    .use(hasPermission(VIEW))
     .query(async ({ ctx }) => {
       return ctx.prisma.user.findMany({
         where: { tenantId: ctx.tenantId },
-        include: {
-          role: true,
-        },
+        include: { role: true },
         orderBy: { createdAt: "desc" },
       });
     }),
@@ -30,7 +42,7 @@ export const userRouter = createTRPCRouter({
   // GET ONE USER
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.view))
+    .use(hasPermission(VIEW))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.user.findFirst({
@@ -38,17 +50,15 @@ export const userRouter = createTRPCRouter({
           id: input.id,
           tenantId: ctx.tenantId,
         },
-        include: {
-          role: true,
-        },
+        include: { role: true },
       });
     }),
 
   // ---------------------------------------------------------
-  // CREATE USER (ENTERPRISE DEEL STYLE)
+  // CREATE USER
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.create))
+    .use(hasPermission(CREATE))
     .input(
       z.object({
         name: z.string().min(2),
@@ -61,12 +71,10 @@ export const userRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-
-      // 1. Use provided password or generate a random one
       const passwordToUse = input.password || generateRandomPassword(12);
       const passwordHash = await bcrypt.hash(passwordToUse, 10);
 
-      // 2. Create the user
+      // Create user
       const user = await ctx.prisma.user.create({
         data: {
           name: input.name,
@@ -81,7 +89,7 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      // 3. Create a password reset token (for setup page) only if password was not provided
+      // If password was not provided → send setup token
       if (!input.password) {
         const token = crypto.randomBytes(48).toString("hex");
 
@@ -89,13 +97,12 @@ export const userRouter = createTRPCRouter({
           data: {
             userId: user.id,
             token,
-            expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
           },
         });
 
         const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password?token=${token}`;
 
-        // 4. Audit log
         await ctx.prisma.auditLog.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -115,34 +122,34 @@ export const userRouter = createTRPCRouter({
           success: true,
           message: "User created. Password setup email sent.",
         };
-      } else {
-        // 4. Audit log (password was provided)
-        await ctx.prisma.auditLog.create({
-          data: {
-            tenantId: ctx.tenantId!,
-            userId: ctx.session!.user.id,
-            userName: ctx.session!.user.name ?? "Unknown",
-            userRole: ctx.session!.user.roleName,
-            action: "USER_CREATED",
-            entityType: "user",
-            entityId: user.id,
-            entityName: user.name,
-            description: `Created user ${user.name} with provided password.`,
-          },
-        });
-
-        return {
-          success: true,
-          message: "User created successfully with the provided password.",
-        };
       }
+
+      // If password provided
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name ?? "Unknown",
+          userRole: ctx.session!.user.roleName,
+          action: "USER_CREATED",
+          entityType: "user",
+          entityId: user.id,
+          entityName: user.name,
+          description: `Created user ${user.name} with provided password.`,
+        },
+      });
+
+      return {
+        success: true,
+        message: "User created successfully with the provided password.",
+      };
     }),
 
   // ---------------------------------------------------------
   // UPDATE USER
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission(UPDATE))
     .input(
       z.object({
         id: z.string(),
@@ -155,9 +162,8 @@ export const userRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Check tenant matches
       const existing = await ctx.prisma.user.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId }
+        where: { id: input.id, tenantId: ctx.tenantId },
       });
 
       if (!existing) {
@@ -197,20 +203,15 @@ export const userRouter = createTRPCRouter({
   // DELETE USER
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.delete))
+    .use(hasPermission(DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
-      // 1. Check tenant matches
       const existing = await ctx.prisma.user.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId }
+        where: { id: input.id, tenantId: ctx.tenantId },
       });
 
-      if (!existing) {
-        throw new Error("User not found in tenant.");
-      }
+      if (!existing) throw new Error("User not found in tenant.");
 
-      // 2. Delete
       const removed = await ctx.prisma.user.delete({
         where: { id: input.id },
       });
@@ -232,4 +233,3 @@ export const userRouter = createTRPCRouter({
       return removed;
     }),
 });
-

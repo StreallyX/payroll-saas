@@ -1,108 +1,132 @@
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, hasAnyPermission } from "../trpc"
-import { hasPermission } from "../trpc"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
-import { TRPCError } from "@trpc/server"
-import { 
-  getPermissionScope, 
-  PermissionScope, 
+import { z } from "zod";
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasPermission,
+  hasAnyPermission,
+} from "../trpc";
+import { TRPCError } from "@trpc/server";
+
+import {
+  buildPermissionKey,
+  Resource,
+  Action,
+  PermissionScope,
+} from "../../rbac/permissions-v2";
+
+import {
+  getPermissionScope,
   buildWhereClause,
-  getContractorFilter 
-} from "../../../lib/rbac-helpers"
+  PermissionScope as LegacyScope,
+} from "../../../lib/rbac-helpers";
 
 export const expenseRouter = createTRPCRouter({
 
-  // ================================
-  // 🔵 GET EXPENSES (DEEL Pattern: view_own OR view_all)
-  // ================================
+  // ========================================================
+  // GET MY EXPENSES (own OR all)
+  // ========================================================
   getMyExpenses: tenantProcedure
-    .use(hasAnyPermission([
-      PERMISSION_TREE_V2.expenses.view_own,
-      PERMISSION_TREE_V2.expenses.manage.view_all
-    ]))
+    .use(
+      hasAnyPermission([
+        buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
+        buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.TENANT),
+      ])
+    )
     .query(async ({ ctx }) => {
-      // Determine permission scope
+      // Determine RBAC scope
       const scope = getPermissionScope(
         ctx.session.user.permissions || [],
-        PERMISSION_TREE_V2.expenses.view_own,
-        PERMISSION_TREE_V2.expenses.manage.view_all,
+        buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
+        buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.TENANT),
         ctx.session.user.isSuperAdmin
       );
 
-      // Get contractor info if needed for view_own
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
-        include: { contractor: true }
+        include: { contractor: true },
       });
 
-      // Build where clause based on scope
-      const scopeFilter = scope === PermissionScope.OWN 
-        ? { contractorId: user?.contractor?.id } 
-        : {};
-
-      if (scope === PermissionScope.OWN && !user?.contractor) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Contractor profile not found" });
+      if (scope === LegacyScope.OWN && !user?.contractor) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contractor profile not found",
+        });
       }
 
+      const scopeFilter =
+        scope === LegacyScope.OWN ? { contractorId: user!.contractor!.id } : {};
+
       return ctx.prisma.expense.findMany({
-        where: buildWhereClause(
-          scope,
-          scopeFilter,
-          { tenantId: ctx.tenantId }
-        ),
+        where: buildWhereClause(scope, scopeFilter, { tenantId: ctx.tenantId }),
         include: {
           contractor: true,
           contract: {
             select: {
               id: true,
               contractReference: true,
-              agency: { select: { name: true } }
-            }
-          }
+              agency: { select: { name: true } },
+            },
+          },
         },
-        orderBy: { expenseDate: "desc" }
+        orderBy: { expenseDate: "desc" },
       });
     }),
 
-  // ================================
-  // 🔵 CONTRACTOR — CREATE EXPENSE
-  // ================================
+  // ========================================================
+  // CREATE EXPENSE (contractor only)
+  // ========================================================
   createExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.create))
-    .input(z.object({
-      contractId: z.string(),
-      title: z.string().min(1).max(200),
-      description: z.string().optional(),
-      amount: z.number().positive(),
-      currency: z.string().default("USD"),
-      category: z.string(),
-      expenseDate: z.date(),
-      receiptUrl: z.string().optional(),
-      receiptFileName: z.string().optional(),
-      notes: z.string().optional(),
-    }))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        contractId: z.string(),
+        title: z.string().min(1).max(200),
+        description: z.string().optional(),
+        amount: z.number().positive(),
+        currency: z.string().default("USD"),
+        category: z.string(),
+        expenseDate: z.date(),
+        receiptUrl: z.string().optional(),
+        receiptFileName: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
-        include: { contractor: true }
-      })
+        include: { contractor: true },
+      });
 
-      if (!user?.contractor) throw new TRPCError({ code: "NOT_FOUND", message: "Contractor profile not found" })
+      if (!user?.contractor) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contractor profile not found",
+        });
+      }
 
       const contract = await ctx.prisma.contract.findFirst({
         where: {
           id: input.contractId,
           contractorId: user.contractor.id,
-          tenantId: ctx.tenantId
-        }
-      })
+          tenantId: ctx.tenantId,
+        },
+      });
 
-      if (!contract) throw new TRPCError({ code: "FORBIDDEN", message: "Contract not found or not yours" })
+      if (!contract) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Contract not found or not yours",
+        });
+      }
 
       return ctx.prisma.expense.create({
         data: {
           tenantId: ctx.tenantId,
-          submittedById: ctx.session.user.id,
+          submittedBy: ctx.session.user.id,
           contractorId: user.contractor.id,
           contractId: input.contractId,
           title: input.title,
@@ -115,115 +139,113 @@ export const expenseRouter = createTRPCRouter({
           receiptFileName: input.receiptFileName,
           notes: input.notes,
           status: "draft",
-        }
-      })
+        },
+      });
     }),
 
-  // ================================
-  // 🔵 UPDATE EXPENSE (DEEL Pattern: update_own OR manage.update)
-  // ================================
+  // ========================================================
+  // UPDATE EXPENSE (own OR admin)
+  // ========================================================
   updateExpense: tenantProcedure
-    .use(hasAnyPermission([
-      PERMISSION_TREE_V2.expenses.update_own,
-      PERMISSION_TREE_V2.expenses.manage.update
-    ]))
-    .input(z.object({
-      expenseId: z.string(),
-      title: z.string().optional(),
-      description: z.string().optional(),
-      amount: z.number().optional(),
-      category: z.string().optional(),
-      expenseDate: z.date().optional(),
-      receiptUrl: z.string().optional(),
-      receiptFileName: z.string().optional(),
-      notes: z.string().optional(),
-    }))
+    .use(
+      hasAnyPermission([
+        buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.OWN),
+        buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.TENANT),
+      ])
+    )
+    .input(
+      z.object({
+        expenseId: z.string(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        amount: z.number().optional(),
+        category: z.string().optional(),
+        expenseDate: z.date().optional(),
+        receiptUrl: z.string().optional(),
+        receiptFileName: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      // Determine permission scope
       const scope = getPermissionScope(
         ctx.session.user.permissions || [],
-        PERMISSION_TREE_V2.expenses.update_own,
-        PERMISSION_TREE_V2.expenses.manage.update,
+        buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.OWN),
+        buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.TENANT),
         ctx.session.user.isSuperAdmin
       );
 
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
-        include: { contractor: true }
+        include: { contractor: true },
       });
 
-      // Build where clause based on scope
       const whereClause: any = {
         id: input.expenseId,
         tenantId: ctx.tenantId,
       };
 
-      // If view_own, can only update own expenses in draft/rejected status
-      if (scope === PermissionScope.OWN) {
+      if (scope === LegacyScope.OWN) {
         whereClause.contractorId = user?.contractor?.id;
         whereClause.status = { in: ["draft", "rejected"] };
       }
 
-      const expense = await ctx.prisma.expense.findFirst({
-        where: whereClause
-      });
+      const expense = await ctx.prisma.expense.findFirst({ where: whereClause });
 
       if (!expense) {
-        throw new TRPCError({ 
-          code: "NOT_FOUND", 
-          message: "Expense not found or not editable" 
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Expense not found or not editable",
         });
       }
 
       return ctx.prisma.expense.update({
         where: { id: input.expenseId },
-        data: input
+        data: input,
       });
     }),
 
-  // ================================
-  // 🔵 DELETE EXPENSE (DEEL Pattern: delete_own OR manage.delete)
-  // ================================
+  // ========================================================
+  // DELETE EXPENSE (own OR admin)
+  // ========================================================
   deleteExpense: tenantProcedure
-    .use(hasAnyPermission([
-      PERMISSION_TREE_V2.expenses.delete_own,
-      PERMISSION_TREE_V2.expenses.manage.delete
-    ]))
+    .use(
+      hasAnyPermission([
+        buildPermissionKey(Resource.EXPENSE, Action.DELETE, PermissionScope.OWN),
+        buildPermissionKey(Resource.EXPENSE, Action.DELETE, PermissionScope.TENANT),
+      ])
+    )
     .input(z.object({ expenseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Determine permission scope
       const scope = getPermissionScope(
         ctx.session.user.permissions || [],
-        PERMISSION_TREE_V2.expenses.delete_own,
-        PERMISSION_TREE_V2.expenses.manage.delete,
+        buildPermissionKey(Resource.EXPENSE, Action.DELETE, PermissionScope.OWN),
+        buildPermissionKey(Resource.EXPENSE, Action.DELETE, PermissionScope.TENANT),
         ctx.session.user.isSuperAdmin
       );
 
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
-        include: { contractor: true }
+        include: { contractor: true },
       });
 
-      // Build where clause based on scope
       const whereClause: any = {
         id: input.expenseId,
         tenantId: ctx.tenantId,
       };
 
-      // If delete_own, can only delete own expenses in draft status
-      if (scope === PermissionScope.OWN) {
+      if (scope === LegacyScope.OWN) {
         whereClause.contractorId = user?.contractor?.id;
         whereClause.status = "draft";
       }
 
       const expense = await ctx.prisma.expense.findFirst({
-        where: whereClause
+        where: whereClause,
       });
 
       if (!expense) {
-        throw new TRPCError({ 
-          code: "NOT_FOUND", 
-          message: "Expense cannot be deleted" 
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Expense cannot be deleted",
         });
       }
 
@@ -232,43 +254,62 @@ export const expenseRouter = createTRPCRouter({
       return { success: true };
     }),
 
+  // ========================================================
+  // SUBMIT EXPENSE
+  // ========================================================
   submitExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.submit))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.SUBMIT, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ expenseId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const expense = await ctx.prisma.expense.findFirst({
         where: {
           id: input.expenseId,
           tenantId: ctx.tenantId,
-          contractorId: ctx.session.user.contractorId ?? undefined
-        }
-      })
+        },
+      });
 
-      if (!expense) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" })
+      if (!expense) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Expense not found" });
+      }
 
-      if (!["draft", "rejected"].includes(expense.status))
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Already submitted" })
+      if (!["draft", "rejected"].includes(expense.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Already submitted",
+        });
+      }
 
       return ctx.prisma.expense.update({
         where: { id: input.expenseId },
-        data: { status: "submitted", submittedAt: new Date() }
-      })
+        data: { status: "submitted", submittedAt: new Date() },
+      });
     }),
 
-  // ================================
-  // 🔴 ADMIN — LIST ALL EXPENSES
-  // ================================
+  // ========================================================
+  // ADMIN: LIST ALL
+  // ========================================================
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.view_all))
-    .input(z.object({
-      status: z.string().optional(),
-      contractorId: z.string().optional(),
-      contractId: z.string().optional(),
-      category: z.string().optional(),
-      search: z.string().optional(),
-    }).optional())
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z
+        .object({
+          status: z.string().optional(),
+          contractorId: z.string().optional(),
+          contractId: z.string().optional(),
+          category: z.string().optional(),
+          search: z.string().optional(),
+        })
+        .optional()
+    )
     .query(async ({ ctx, input }) => {
-
       return ctx.prisma.expense.findMany({
         where: {
           tenantId: ctx.tenantId,
@@ -276,87 +317,107 @@ export const expenseRouter = createTRPCRouter({
           contractorId: input?.contractorId,
           contractId: input?.contractId,
           category: input?.category,
-          OR: input?.search ? [
-            { title: { contains: input.search, mode: "insensitive" }},
-            { description: { contains: input.search, mode: "insensitive" }},
-            { contractor: { name: { contains: input.search, mode: "insensitive" }}}
-          ] : undefined
+          OR: input?.search
+            ? [
+                { title: { contains: input.search, mode: "insensitive" } },
+                { description: { contains: input.search, mode: "insensitive" } },
+                {
+                  contractor: {
+                    name: { contains: input.search, mode: "insensitive" },
+                  },
+                },
+              ]
+            : undefined,
         },
         include: {
           contractor: true,
           contract: true,
         },
-        orderBy: { expenseDate: "desc" }
-      })
+        orderBy: { expenseDate: "desc" },
+      });
     }),
 
-  // ================================
-  // 🔴 ADMIN — STATISTICS
-  // ================================
+  // ========================================================
+  // ADMIN: STATS
+  // ========================================================
   getStatistics: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .query(async ({ ctx }) => {
       const expenses = await ctx.prisma.expense.findMany({
-        where: { tenantId: ctx.tenantId }
-      })
+        where: { tenantId: ctx.tenantId },
+      });
 
       return {
         totalAmount: expenses.reduce((s, e) => s + Number(e.amount), 0),
-        submittedExpenses: expenses.filter(e => e.status === "submitted").length,
-        approvedExpenses: expenses.filter(e => e.status === "approved").length,
-        paidExpenses: expenses.filter(e => e.status === "paid").length,
-      }
+        submittedExpenses: expenses.filter((e) => e.status === "submitted").length,
+        approvedExpenses: expenses.filter((e) => e.status === "approved").length,
+        paidExpenses: expenses.filter((e) => e.status === "paid").length,
+      };
     }),
 
-  // ================================
-  // 🔴 ADMIN — APPROVE
-  // ================================
+  // ========================================================
+  // ADMIN: APPROVE
+  // ========================================================
   approve: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.approve))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.APPROVE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
       return ctx.prisma.expense.update({
         where: { id: input.id },
-        data: { status: "approved", approvedAt: new Date() }
-      })
+        data: { status: "approved", approvedAt: new Date() },
+      });
     }),
 
-  // ================================
-  // 🔴 ADMIN — REJECT
-  // ================================
+  // ========================================================
+  // ADMIN: REJECT
+  // ========================================================
   reject: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.reject))
-    .input(z.object({
-      id: z.string(),
-      reason: z.string().optional()
-    }))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.REJECT, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        id: z.string(),
+        reason: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-
       return ctx.prisma.expense.update({
         where: { id: input.id },
         data: {
           status: "rejected",
-          rejectionReason: input.reason ?? null
-        }
-      })
+          rejectionReason: input.reason ?? null,
+        },
+      });
     }),
 
-  // ================================
-  // 🔴 ADMIN — MARK AS PAID
-  // ================================
+  // ========================================================
+  // ADMIN: MARK AS PAID
+  // ========================================================
   markPaid: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.expenses.manage.mark_paid))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.EXPENSE, Action.PAY, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
       return ctx.prisma.expense.update({
         where: { id: input.id },
         data: {
           status: "paid",
-          paidAt: new Date()
-        }
-      })
+          paidAt: new Date(),
+        },
+      });
     }),
-
-})
+});
