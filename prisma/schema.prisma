@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // =============================================================
 // DYNAMIC RBAC PAYROLL SAAS - DEEL-INSPIRED ARCHITECTURE
 // =============================================================
@@ -5,6 +6,12 @@
 // a flexible, permission-based system where everything revolves 
 // around Users with dynamic role assignments.
 // =============================================================
+=======
+// -------------------------------------------------------------
+// Multi-Tenant Payroll & Staffing Platform (DEEL-Like RBAC Structure)
+// Phase 2 Refactoring - PRESERVING ALL PHASE 3 Enhancements
+// -------------------------------------------------------------
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 
 generator client {
   provider      = "prisma-client-js"
@@ -17,7 +24,11 @@ datasource db {
 }
 
 // =============================================================
+<<<<<<< HEAD
 // CORE: TENANT
+=======
+// TENANT (WITH ALL PHASE 3 ENHANCEMENTS PRESERVED)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 // =============================================================
 model Tenant {
   id               String   @id @default(cuid())
@@ -44,6 +55,7 @@ model Tenant {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+<<<<<<< HEAD
   // Relations
   users                    User[]
   roles                    Role[]
@@ -60,18 +72,106 @@ model Tenant {
   payslips                 Payslip[]
   auditLogs                AuditLog[]
   webhookSubscriptions     WebhookSubscription[]
+=======
+  // PHASE 3: Multi-tenancy Enhancements (PRESERVED)
+  customFont          String? @default("Inter")
+  customEmailDomain   String?
+  emailDomainVerified Boolean @default(false)
+
+  // Subscription Management (PRESERVED)
+  subscriptionPlan      String    @default("free") // free, starter, professional, enterprise
+  subscriptionStatus    String    @default("active") // active, trial, suspended, cancelled
+  subscriptionStartDate DateTime  @default(now())
+  subscriptionEndDate   DateTime?
+
+  // Usage & Limits (PRESERVED)
+  currentStorageUsed BigInt @default(0) // in bytes
+  usageMetrics       Json? // { apiCalls: 0, emailsSent: 0, invoicesCreated: 0, contractsCreated: 0 }
+
+  // Localization (PRESERVED)
+  timezone        String @default("UTC")
+  defaultLanguage String @default("en") // en, fr, es, de
+  defaultCurrency String @default("USD")
+  dateFormat      String @default("MM/DD/YYYY") // MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD
+  timeFormat      String @default("12h") // 12h, 24h
+
+  // Domain Management (PRESERVED)
+  subdomain            String?   @unique
+  customDomain         String?   @unique
+  customDomainVerified Boolean   @default(false)
+  sslCertificateStatus String? // pending, active, expired, failed
+  sslCertificateExpiry DateTime?
+
+  // White-label Configuration (PRESERVED)
+  loginPageConfig      Json? // { backgroundImage, welcomeMessage, customCss }
+  navigationConfig     Json? // Custom menu structure and ordering
+  termsOfService       String? @db.Text
+  termsVersion         String? @default("1.0")
+  privacyPolicy        String? @db.Text
+  privacyPolicyVersion String? @default("1.0")
+
+  // Onboarding (PRESERVED)
+  onboardingCompleted Boolean @default(false)
+  onboardingStep      Int     @default(1)
+  onboardingData      Json? // Progress tracking data
+
+  // Core Relations
+  users                User[]
+  roles                Role[]
+  organizations        Organization[] // NEW: Replaces companies, agencies, payrollPartners
+  contracts            Contract[]
+  invoices             Invoice[]
+  banks                Bank[]
+  documentTypes        DocumentType[]
+  leads                Lead[]
+  tasks                Task[]
+  onboardingTemplates  OnboardingTemplate[]
+  payslips             Payslip[]
+  auditLogs            AuditLog[]
+  webhookSubscriptions WebhookSubscription[]
+
+  // PHASE 2 RELATIONS (PRESERVED)
+  payments          Payment[]
+  paymentMethods    PaymentMethod[]
+  expenses          Expense[]
+  timesheets        Timesheet[]
+  approvalWorkflows ApprovalWorkflow[]
+  documents         Document[]
+  comments          Comment[]
+  tags              Tag[]
+  tagAssignments    TagAssignment[]
+  customFields      CustomField[]
+  customFieldValues CustomFieldValue[]
+  userActivities    UserActivity[]
+  apiKeys           ApiKey[]
+  remittances       Remittance[]
+  referrals         Referral[]
+
+  // PHASE 3 RELATIONS (PRESERVED)
+  featureFlags     TenantFeatureFlag[]
+  quotas           TenantQuota?
+  emailTemplates   EmailTemplate[]
+  pdfTemplates     PDFTemplate[]
+  securitySettings TenantSecuritySettings?
+  dataExports      DataExport[]
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 
   @@map("tenants")
 }
 
 // =============================================================
+<<<<<<< HEAD
 // CORE: USER (Center of Everything)
+=======
+// USER (REFACTORED - No more rigid entity attachments)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 // =============================================================
 model User {
   id                 String   @id @default(cuid())
   tenantId           String
   email              String
   passwordHash       String
+<<<<<<< HEAD
   name               String?
   avatar             String?
   phone              String?
@@ -79,6 +179,9 @@ model User {
   locale             String?  @default("en")
   
   // Status & Security
+=======
+  mustChangePassword Boolean  @default(true)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   isActive           Boolean  @default(true)
   mustChangePassword Boolean  @default(true)
   emailVerified      Boolean  @default(false)
@@ -87,6 +190,7 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+<<<<<<< HEAD
   // Relations
   tenant                   Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userRoles                UserRole[]                 // Many-to-many with roles
@@ -112,6 +216,62 @@ model User {
   auditLogs                AuditLog[]
   notificationPreferences  NotificationPreference[]
   onboardingResponses      OnboardingResponse[]
+=======
+  // PROFILE INFORMATION (Phase 2 - PRESERVED)
+  profilePictureUrl String?
+  phone             String?
+  timezone          String? @default("UTC")
+  language          String? @default("en")
+
+  // AUTHENTICATION & SECURITY (Phase 2 - PRESERVED)
+  emailVerified    Boolean   @default(false)
+  lastLoginAt      DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+
+  // PREFERENCES (Phase 2 - PRESERVED)
+  preferences Json? // JSON object for flexible preferences
+
+  // METADATA (Phase 2 - PRESERVED)
+  lastActivityAt DateTime?
+
+  // RELATIONS
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // NEW: Many-to-many relationships for flexible RBAC
+  userRoles         UserRole[] // User can have multiple roles
+  userOrganizations UserOrganization[] // User can belong to multiple organizations
+  userProfile       UserProfile? // Extended profile information
+
+  // Business Relations
+  contractsAsContractor Contract[] @relation("ContractorUser")
+  contractsCreated      Contract[] @relation("ContractCreatedBy")
+  invoicesCreated       Invoice[]  @relation("InvoiceCreatedBy")
+  payslips              Payslip[]
+
+  // Auth Relations
+  accounts            Account[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+
+  // Task Relations
+  tasksAssignedTo         Task[]                   @relation("TasksAssignedTo")
+  tasksAssignedBy         Task[]                   @relation("TasksAssignedBy")
+  notificationPreferences NotificationPreference[]
+
+  // PHASE 2 RELATIONS (PRESERVED)
+  activities          UserActivity[]
+  apiKeys             ApiKey[]
+  comments            Comment[]
+  customFieldValues   CustomFieldValue[]
+  expenses            Expense[]
+  timesheets          Timesheet[]
+  remittances         Remittance[]
+  referralsMade       Referral[]           @relation("ReferralsMade")
+  referralsReceived   Referral[]           @relation("ReferralsReceived")
+  onboardingResponses OnboardingResponse[]
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -121,6 +281,7 @@ model User {
 }
 
 // =============================================================
+<<<<<<< HEAD
 // USER PROFILE (Flexible Metadata)
 // =============================================================
 model UserProfile {
@@ -170,11 +331,54 @@ model UserProfile {
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   country           Country?  @relation(fields: [countryId], references: [id])
 
+=======
+// USER PROFILE (NEW - Replaces Contractor model's extra fields)
+// =============================================================
+model UserProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Personal Information
+  dateOfBirth    DateTime?
+  alternatePhone String?
+  skypeId        String?
+  referredBy     String?
+  notes          String?   @db.Text
+
+  // Address
+  officeBuilding String?
+  address1       String?
+  address2       String?
+  city           String?
+  countryId      String?
+  state          String?
+  postCode       String?
+
+  // Onboarding
+  onboardingTemplateId String?
+
+  // Additional flexible data
+  profileData Json? // JSON for any additional profile fields
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  country            Country?            @relation(fields: [countryId], references: [id])
+  onboardingTemplate OnboardingTemplate? @relation(fields: [onboardingTemplateId], references: [id])
+
+  @@index([userId])
+  @@index([countryId])
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   @@map("user_profiles")
 }
 
 // =============================================================
+<<<<<<< HEAD
 // RBAC: ROLE, PERMISSION, USER-ROLE
+=======
+// ROLE & PERMISSIONS (Dynamic RBAC - PRESERVED)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 // =============================================================
 model Role {
   id          String   @id @default(cuid())
@@ -188,8 +392,12 @@ model Role {
   updatedAt   DateTime @updatedAt
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+<<<<<<< HEAD
   userRoles       UserRole[]
+=======
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   rolePermissions RolePermission[]
+  userRoles       UserRole[] // NEW: Many-to-many with users
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -222,6 +430,7 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+<<<<<<< HEAD
 // Many-to-many: User can have multiple roles
 model UserRole {
   userId       String
@@ -236,10 +445,33 @@ model UserRole {
   @@id([userId, roleId])
   @@index([userId])
   @@index([roleId])
+=======
+// =============================================================
+// USER ROLE (NEW - Many-to-many: User can have multiple roles)
+// =============================================================
+model UserRole {
+  id             String    @id @default(cuid())
+  userId         String
+  roleId         String
+  organizationId String? // Optional: Role can be scoped to an organization
+  assignedAt     DateTime  @default(now())
+  assignedBy     String? // User ID who assigned the role
+  expiresAt      DateTime? // Optional: Time-limited roles
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, roleId, organizationId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([organizationId])
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   @@map("user_roles")
 }
 
 // =============================================================
+<<<<<<< HEAD
 // ORGANIZATION (Replaces Agency, PayrollPartner, Company)
 // =============================================================
 model Organization {
@@ -285,6 +517,178 @@ model Organization {
 
   @@index([tenantId])
   @@index([type])
+=======
+// ORGANIZATION (NEW - Unified model for Company, Agency, PayrollPartner)
+// =============================================================
+model Organization {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Organization Type (replaces separate models)
+  type String // "client", "agency", "payroll_partner", "vendor", "other"
+
+  // Basic Information
+  name                   String
+  contactEmail           String?
+  contactPhone           String?
+  alternateContactPhone  String?
+  primaryContactName     String?
+  primaryContactJobTitle String?
+  fax                    String?
+  website                String?
+  notes                  String? @db.Text
+
+  // Address
+  officeBuilding String?
+  address1       String?
+  address2       String?
+  city           String?
+  countryId      String?
+  state          String?
+  postCode       String?
+
+  // Invoicing Details
+  invoicingContactName    String?
+  invoicingContactPhone   String?
+  invoicingContactEmail   String?
+  alternateInvoicingEmail String?
+  vatNumber               String?
+
+  // Status
+  status    String   @default("active") // active, inactive, suspended
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  country Country? @relation(fields: [countryId], references: [id])
+
+  // Relations
+  userOrganizations  UserOrganization[] // Users who belong to this organization
+  userRoles          UserRole[] // Organization-scoped roles
+  contractsAsClient  Contract[]         @relation("ClientOrganization")
+  contractsAsAgency  Contract[]         @relation("AgencyOrganization")
+  contractsAsPayroll Contract[]         @relation("PayrollOrganization")
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([status])
+  @@index([countryId])
+  @@map("organizations")
+}
+
+// =============================================================
+// USER ORGANIZATION (NEW - Many-to-many: User belongs to organizations)
+// =============================================================
+model UserOrganization {
+  id             String @id @default(cuid())
+  userId         String
+  organizationId String
+
+  // Role in this organization (optional, flexible)
+  organizationRole String? // "owner", "admin", "member", "contractor", etc.
+
+  // Permissions (optional, organization-specific overrides)
+  customPermissions Json?
+
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+  isActive Boolean   @default(true)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("user_organizations")
+}
+
+// =============================================================
+// CONTRACT (REFACTORED - uses User and Organization)
+// =============================================================
+model Contract {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // NEW: References to Organizations instead of rigid models
+  clientOrganizationId  String? // Client company (optional)
+  agencyOrganizationId  String // Agency organization
+  payrollOrganizationId String // Payroll partner organization
+
+  // NEW: Reference to the contractor User
+  contractorUserId String // The contractor (User)
+
+  // Contract Details
+  status      String  @default("draft")
+  title       String?
+  description String?
+  notes       String? @db.Text
+
+  // Workflow Status
+  workflowStatus    String    @default("draft") // draft, pending_agency_sign, pending_contractor_sign, active, paused, completed, cancelled, terminated
+  terminationReason String?   @db.Text
+  terminatedAt      DateTime?
+  terminatedBy      String?
+
+  // Financial Terms
+  rate       Decimal? @db.Decimal(10, 2)
+  rateType   String?
+  currencyId String?
+  rateCycle  String?
+
+  margin       Decimal? @db.Decimal(10, 2)
+  marginType   String?
+  marginPaidBy String?
+
+  salaryType     String?
+  bankId         String?
+  invoiceDueDays Int?
+
+  // Contract Details
+  contractReference  String?  @unique
+  contractCountryId  String?
+  contractVatRate    Decimal? @db.Decimal(5, 2)
+  signedContractPath String?
+
+  // Dates
+  startDate          DateTime?
+  endDate            DateTime?
+  agencySignDate     DateTime?
+  contractorSignDate DateTime?
+
+  // Audit
+  createdById String? // User who created this contract
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant              Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientOrganization  Organization? @relation("ClientOrganization", fields: [clientOrganizationId], references: [id])
+  agencyOrganization  Organization  @relation("AgencyOrganization", fields: [agencyOrganizationId], references: [id])
+  payrollOrganization Organization  @relation("PayrollOrganization", fields: [payrollOrganizationId], references: [id])
+  contractorUser      User          @relation("ContractorUser", fields: [contractorUserId], references: [id])
+  createdBy           User?         @relation("ContractCreatedBy", fields: [createdById], references: [id])
+  currency            Currency?     @relation(fields: [currencyId], references: [id])
+  bank                Bank?         @relation(fields: [bankId], references: [id])
+  contractCountry     Country?      @relation(fields: [contractCountryId], references: [id])
+
+  // Child Relations
+  invoices      Invoice[]
+  payslips      Payslip[]
+  documents     ContractDocument[]
+  statusHistory ContractStatusHistory[]
+  notifications ContractNotification[]
+  expenses      Expense[]
+  timesheets    Timesheet[]
+  remittances   Remittance[]
+
+  @@index([tenantId])
+  @@index([clientOrganizationId])
+  @@index([agencyOrganizationId])
+  @@index([payrollOrganizationId])
+  @@index([contractorUserId])
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   @@index([status])
   @@map("organizations")
 }
@@ -375,6 +779,10 @@ model Contract {
   @@map("contracts")
 }
 
+<<<<<<< HEAD
+=======
+// Contract Supporting Models (PRESERVED)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 model ContractDocument {
   id           String   @id @default(cuid())
   contractId   String
@@ -409,8 +817,30 @@ model ContractStatusHistory {
   @@map("contract_status_history")
 }
 
+<<<<<<< HEAD
 // =============================================================
 // BUSINESS: INVOICE
+=======
+model ContractNotification {
+  id          String    @id @default(cuid())
+  contractId  String
+  recipientId String
+  type        String // "signature_request", "renewal_reminder", "termination_notice", "status_change"
+  title       String
+  message     String    @db.Text
+  sentAt      DateTime  @default(now())
+  readAt      DateTime?
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@index([recipientId])
+  @@map("contract_notifications")
+}
+
+// =============================================================
+// INVOICE (REFACTORED - simpler relations)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 // =============================================================
 model Invoice {
   id              String    @id @default(cuid())
@@ -446,11 +876,29 @@ model Invoice {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+<<<<<<< HEAD
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   creator     User               @relation("InvoiceCreator", fields: [createdById], references: [id])
   contract    Contract?          @relation(fields: [contractId], references: [id], onDelete: SetNull)
   lineItems   InvoiceLineItem[]
   payments    Payment[]
+=======
+  // Legacy fields
+  invoiceRef String?
+  paidAt     DateTime?
+
+  // Audit
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract   Contract          @relation(fields: [contractId], references: [id])
+  createdBy  User?             @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  lineItems  InvoiceLineItem[]
+  payments   Payment[]
+  timesheets Timesheet[]
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 
   @@index([tenantId])
   @@index([contractId])
@@ -475,6 +923,7 @@ model InvoiceLineItem {
 }
 
 // =============================================================
+<<<<<<< HEAD
 // BUSINESS: TIMESHEET
 // =============================================================
 model Timesheet {
@@ -631,10 +1080,39 @@ model Payslip {
   @@index([tenantId])
   @@index([userId])
   @@index([status])
+=======
+// PAYSLIP (REFACTORED - references User directly)
+// =============================================================
+model Payslip {
+  id               String @id @default(cuid())
+  tenantId         String
+  contractId       String
+  contractorUserId String // NEW: Direct reference to User
+
+  payslipNumber String?  @unique
+  period        String?
+  payDate       DateTime @default(now())
+  grossPay      Decimal  @db.Decimal(10, 2)
+  netPay        Decimal  @db.Decimal(10, 2)
+  deductions    Decimal  @default(0) @db.Decimal(10, 2)
+  status        String   @default("draft")
+  pdfPath       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract       Contract @relation(fields: [contractId], references: [id])
+  contractorUser User     @relation(fields: [contractorUserId], references: [id])
+
+  @@index([tenantId])
+  @@index([contractId])
+  @@index([contractorUserId])
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   @@map("payslips")
 }
 
 // =============================================================
+<<<<<<< HEAD
 // BUSINESS: BANK
 // =============================================================
 model Bank {
@@ -814,6 +1292,9 @@ model OnboardingResponse {
 
 // =============================================================
 // AUTH MODELS
+=======
+// AUTH MODELS (PRESERVED)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 // =============================================================
 model Account {
   id                String  @id @default(cuid())
@@ -855,6 +1336,7 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+<<<<<<< HEAD
 model PasswordResetToken {
   id        String   @id @default(cuid())
   userId    String
@@ -866,15 +1348,208 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+=======
+// =============================================================
+// REFERENCE DATA (PRESERVED)
+// =============================================================
+model Currency {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  symbol    String
+  contracts Contract[]
+
+  @@map("currencies")
+}
+
+model Country {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  contracts     Contract[]
+  organizations Organization[]
+  userProfiles  UserProfile[]
+  banks         Bank[]
+
+  @@map("countries")
+}
+
+model Bank {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  accountNumber String?
+  accountName   String?
+  swiftCode     String?
+  iban          String?
+  sortCode      String?
+  routingNumber String?
+  bankAddress   String?
+  countryId     String?
+  currencyId    String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  country   Country?   @relation(fields: [countryId], references: [id])
+  contracts Contract[]
+
+  @@map("banks")
+}
+
+model DocumentType {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isRequired  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("document_types")
 }
 
 // =============================================================
-// SUPER ADMIN
+// LEAD MANAGEMENT (PRESERVED)
 // =============================================================
+model Lead {
+  id            String    @id @default(cuid())
+  tenantId      String
+  name          String
+  email         String
+  phone         String?
+  company       String?
+  jobTitle      String?
+  source        String? // "website", "referral", "advertising", etc.
+  status        String    @default("new") // new, contacted, qualified, converted, lost
+  notes         String?   @db.Text
+  convertedToId String? // User ID if converted
+  convertedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([email])
+  @@map("leads")
+}
+
+// =============================================================
+// TASK MANAGEMENT (PRESERVED)
+// =============================================================
+model Task {
+  id          String    @id @default(cuid())
+  tenantId    String
+  title       String
+  description String?   @db.Text
+  status      String    @default("todo") // todo, in_progress, done, cancelled
+  priority    String    @default("medium") // low, medium, high, urgent
+  dueDate     DateTime?
+  assignedTo  String?
+  assignedBy  String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedToUser User?  @relation("TasksAssignedTo", fields: [assignedTo], references: [id])
+  assignedByUser User?  @relation("TasksAssignedBy", fields: [assignedBy], references: [id])
+
+  @@index([tenantId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+// =============================================================
+// ONBOARDING (PRESERVED)
+// =============================================================
+model OnboardingTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  questions    OnboardingQuestion[]
+  userProfiles UserProfile[]
+
+  @@map("onboarding_templates")
+}
+
+model OnboardingQuestion {
+  id         String  @id @default(cuid())
+  templateId String
+  question   String
+  type       String // text, textarea, select, checkbox, file
+  options    Json? // For select/checkbox types
+  required   Boolean @default(false)
+  order      Int     @default(0)
+
+  template  OnboardingTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  responses OnboardingResponse[]
+
+  @@index([templateId])
+  @@map("onboarding_questions")
+}
+
+model OnboardingResponse {
+  id         String   @id @default(cuid())
+  questionId String
+  userId     String
+  answer     String?  @db.Text
+  fileUrl    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  question OnboardingQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([userId])
+  @@map("onboarding_responses")
+}
+
+// =============================================================
+// AUDIT & LOGGING (PRESERVED)
+// =============================================================
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
+}
+
 model SuperAdmin {
   id           String   @id @default(cuid())
-  email        String   @unique
   name         String
+  email        String   @unique
   passwordHash String
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -883,6 +1558,7 @@ model SuperAdmin {
   @@map("super_admins")
 }
 
+<<<<<<< HEAD
 // =============================================================
 // AUDIT LOG
 // =============================================================
@@ -898,34 +1574,56 @@ model AuditLog {
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
+=======
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 
   tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+<<<<<<< HEAD
   @@index([tenantId])
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+=======
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 }
 
 // =============================================================
-// WEBHOOKS
+// WEBHOOKS (PRESERVED)
 // =============================================================
 model WebhookSubscription {
   id        String   @id @default(cuid())
   tenantId  String
   url       String
+<<<<<<< HEAD
   events    String[]
   secret    String
   isActive  Boolean  @default(true)
   headers   Json?
+=======
+  events    Json // Array of event types
+  isActive  Boolean  @default(true)
+  secret    String
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deliveryLogs WebhookDelivery[]
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
 
+  @@index([tenantId])
   @@map("webhook_subscriptions")
 }
 
@@ -934,22 +1632,24 @@ model WebhookDelivery {
   subscriptionId String
   event          String
   payload        Json
+  response       String?   @db.Text
   statusCode     Int?
-  response       String?
-  success        Boolean
-  attempt        Int       @default(1)
+  success        Boolean   @default(false)
+  attempts       Int       @default(1)
+  nextRetryAt    DateTime?
   deliveredAt    DateTime?
   createdAt      DateTime  @default(now())
 
   subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@index([subscriptionId])
-  @@index([event])
-  @@index([createdAt])
+  @@index([success])
+  @@index([nextRetryAt])
   @@map("webhook_deliveries")
 }
 
 // =============================================================
+<<<<<<< HEAD
 // NOTIFICATION PREFERENCES
 // =============================================================
 model NotificationPreference {
@@ -969,57 +1669,1010 @@ model NotificationPreference {
 
 // =============================================================
 // EMAIL & SMS LOGS
+=======
+// PERMISSION AUDITING (PRESERVED)
+// =============================================================
+model PermissionAudit {
+  id            String   @id @default(cuid())
+  userId        String
+  roleId        String
+  permissionKey String
+  action        String // granted, revoked
+  performedBy   String
+  performedAt   DateTime @default(now())
+  reason        String?  @db.Text
+
+  @@index([userId])
+  @@index([roleId])
+  @@index([permissionKey])
+  @@map("permission_audits")
+}
+
+// =============================================================
+// NOTIFICATIONS (PRESERVED)
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 // =============================================================
 model EmailLog {
   id        String    @id @default(cuid())
-  tenantId  String?
   to        String
   from      String
   subject   String
+<<<<<<< HEAD
   template  String?
   status    String    // queued, sent, failed, bounced
   messageId String?
   error     String?
+=======
+  body      String    @db.Text
+  status    String // sent, failed, pending
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   sentAt    DateTime?
+  error     String?   @db.Text
+  metadata  Json?
   createdAt DateTime  @default(now())
 
-  @@index([tenantId])
+  @@index([to])
   @@index([status])
-  @@index([createdAt])
+  @@index([sentAt])
   @@map("email_logs")
 }
 
 model SMSLog {
   id        String    @id @default(cuid())
-  tenantId  String?
   to        String
   from      String
   message   String
+<<<<<<< HEAD
   template  String?
   status    String    // queued, sent, failed, delivered
   messageId String?
   error     String?
+=======
+  status    String // sent, failed, pending
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
   sentAt    DateTime?
+  error     String?   @db.Text
+  metadata  Json?
   createdAt DateTime  @default(now())
 
-  @@index([tenantId])
+  @@index([to])
   @@index([status])
-  @@index([createdAt])
+  @@index([sentAt])
   @@map("sms_logs")
 }
 
+<<<<<<< HEAD
 // =============================================================
 // SYSTEM CONFIGURATION
 // =============================================================
+=======
+model NotificationPreference {
+  id                    String  @id @default(cuid())
+  userId                String
+  emailNotifications    Boolean @default(true)
+  smsNotifications      Boolean @default(false)
+  pushNotifications     Boolean @default(true)
+  contractNotifications Boolean @default(true)
+  invoiceNotifications  Boolean @default(true)
+  taskNotifications     Boolean @default(true)
+  systemNotifications   Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("notification_preferences")
+}
+
+// =============================================================
+// SYSTEM MANAGEMENT (PRESERVED)
+// =============================================================
+model ScheduledJob {
+  id            String    @id @default(cuid())
+  name          String
+  type          String // email, report, cleanup, etc.
+  schedule      String // Cron expression
+  lastRunAt     DateTime?
+  nextRunAt     DateTime?
+  status        String    @default("active") // active, paused, failed
+  configuration Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([nextRunAt])
+  @@map("scheduled_jobs")
+}
+
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
 model SystemConfig {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     Json
-  category  String
-  isPublic  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  type        String // string, number, boolean, json
+  category    String // email, payment, security, feature, etc.
+  description String?  @db.Text
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([category])
   @@map("system_configs")
 }
+<<<<<<< HEAD
+=======
+
+// =============================================================
+// PHASE 2: PAYMENT SYSTEM (PRESERVED)
+// =============================================================
+enum PaymentMethodType {
+  BANK_TRANSFER
+  CREDIT_CARD
+  PAYPAL
+  STRIPE
+  WISE
+  CRYPTO
+  OTHER
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  invoiceId   String?
+  amount      Decimal  @db.Decimal(10, 2)
+  currency    String   @default("USD")
+  paymentDate DateTime @default(now())
+
+  paymentMethod    String? // bank_transfer, credit_card, paypal, etc.
+  paymentReference String?
+
+  status String @default("pending") // pending, processing, completed, failed, refunded
+
+  notes String? @db.Text
+
+  // Audit
+  processedBy String?
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model PaymentMethod {
+  id       String            @id @default(cuid())
+  tenantId String
+  name     String
+  type     PaymentMethodType
+
+  // Bank details
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  routingNumber String?
+  swiftCode     String?
+  iban          String?
+
+  // Card details (tokenized)
+  cardLast4    String?
+  cardBrand    String?
+  cardExpMonth Int?
+  cardExpYear  Int?
+
+  // Digital wallet
+  walletEmail String?
+  walletId    String?
+
+  // Crypto
+  cryptoAddress String?
+  cryptoNetwork String?
+
+  // Integration tokens
+  stripePaymentMethodId String?
+  externalId            String?
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+  @@map("payment_methods")
+}
+
+// =============================================================
+// PHASE 2: EXPENSE MANAGEMENT (PRESERVED)
+// =============================================================
+model Expense {
+  id         String  @id @default(cuid())
+  tenantId   String
+  userId     String
+  contractId String?
+
+  title       String
+  description String?  @db.Text
+  amount      Decimal  @db.Decimal(10, 2)
+  currency    String   @default("USD")
+  category    String // travel, meals, equipment, software, etc.
+  expenseDate DateTime @default(now())
+
+  status String @default("pending") // pending, approved, rejected, reimbursed
+
+  receiptUrl String?
+
+  // Approval
+  approvedBy   String?
+  approvedAt   DateTime?
+  rejectedBy   String?
+  rejectedAt   DateTime?
+  rejectReason String?   @db.Text
+
+  // Reimbursement
+  reimbursedBy String?
+  reimbursedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id])
+  contract Contract? @relation(fields: [contractId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([contractId])
+  @@index([status])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// =============================================================
+// PHASE 2: TIMESHEET SYSTEM (PRESERVED)
+// =============================================================
+model Timesheet {
+  id         String  @id @default(cuid())
+  tenantId   String
+  userId     String
+  contractId String?
+  invoiceId  String?
+
+  weekStartDate DateTime
+  weekEndDate   DateTime
+
+  totalHours Decimal @default(0) @db.Decimal(10, 2)
+  status     String  @default("draft") // draft, submitted, approved, rejected, invoiced
+
+  notes String? @db.Text
+
+  // Approval
+  submittedAt  DateTime?
+  approvedBy   String?
+  approvedAt   DateTime?
+  rejectedBy   String?
+  rejectedAt   DateTime?
+  rejectReason String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id])
+  contract Contract?        @relation(fields: [contractId], references: [id])
+  invoice  Invoice?         @relation(fields: [invoiceId], references: [id])
+  entries  TimesheetEntry[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([contractId])
+  @@index([status])
+  @@index([weekStartDate])
+  @@map("timesheets")
+}
+
+model TimesheetEntry {
+  id          String   @id @default(cuid())
+  timesheetId String
+  date        DateTime
+  hours       Decimal  @db.Decimal(10, 2)
+  description String?  @db.Text
+  taskType    String? // development, meeting, support, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  @@index([timesheetId])
+  @@index([date])
+  @@map("timesheet_entries")
+}
+
+// =============================================================
+// PHASE 2: APPROVAL WORKFLOWS (PRESERVED)
+// =============================================================
+model ApprovalWorkflow {
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  description String? @db.Text
+  entityType  String // expense, timesheet, invoice, contract, etc.
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  steps  ApprovalStep[]
+
+  @@index([tenantId])
+  @@index([entityType])
+  @@map("approval_workflows")
+}
+
+model ApprovalStep {
+  id         String @id @default(cuid())
+  workflowId String
+  stepOrder  Int // 1, 2, 3, etc.
+
+  approverRole String? // Role ID or role name
+  approverUser String? // Specific user ID
+
+  // Conditions
+  requiresAll           Boolean @default(false) // If false, any approver can approve
+  autoApproveAfterHours Int? // Auto-approve if no action taken
+
+  // Actions
+  allowReject       Boolean @default(true)
+  allowDelegate     Boolean @default(false)
+  notificationEmail Boolean @default(true)
+  notificationSMS   Boolean @default(false)
+
+  workflow ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@map("approval_steps")
+}
+
+// =============================================================
+// PHASE 2: DOCUMENT MANAGEMENT (PRESERVED)
+// =============================================================
+model Document {
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  description String? @db.Text
+  fileUrl     String
+  fileSize    Int // in bytes
+  mimeType    String
+  category    String // contract, invoice, identity, tax, other
+
+  // Relations (polymorphic)
+  entityType String? // contract, user, invoice, etc.
+  entityId   String?
+
+  // Metadata
+  uploadedBy String
+
+  tags String? // Comma-separated tags
+
+  isPublic   Boolean @default(false)
+  isArchived Boolean @default(false)
+
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([category])
+  @@map("documents")
+}
+
+// =============================================================
+// PHASE 2: COMMENTS & COLLABORATION (PRESERVED)
+// =============================================================
+model Comment {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  // Polymorphic relation
+  entityType String // contract, invoice, task, etc.
+  entityId   String
+
+  content String @db.Text
+
+  // Threading
+  parentId String?
+
+  isEdited Boolean   @default(false)
+  editedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("comments")
+}
+
+// =============================================================
+// PHASE 2: TAG SYSTEM (PRESERVED)
+// =============================================================
+model Tag {
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  color       String? @default("#3b82f6")
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignments TagAssignment[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("tags")
+}
+
+model TagAssignment {
+  id       String @id @default(cuid())
+  tenantId String
+  tagId    String
+
+  // Polymorphic relation
+  entityType String // contract, invoice, user, etc.
+  entityId   String
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, entityType, entityId])
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@map("tag_assignments")
+}
+
+// =============================================================
+// PHASE 2: CUSTOM FIELDS (PRESERVED)
+// =============================================================
+model CustomField {
+  id         String @id @default(cuid())
+  tenantId   String
+  name       String
+  fieldType  String // text, number, date, select, checkbox, etc.
+  entityType String // contract, user, organization, etc.
+
+  options      Json? // For select/checkbox types
+  isRequired   Boolean @default(false)
+  defaultValue String?
+
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  values CustomFieldValue[]
+
+  @@index([tenantId])
+  @@index([entityType])
+  @@map("custom_fields")
+}
+
+model CustomFieldValue {
+  id            String  @id @default(cuid())
+  tenantId      String
+  customFieldId String
+  entityId      String // ID of the entity (contract, user, etc.)
+  value         String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      String?
+
+  @@unique([customFieldId, entityId])
+  @@index([tenantId])
+  @@index([entityId])
+  @@map("custom_field_values")
+}
+
+// =============================================================
+// PHASE 2: USER ACTIVITY TRACKING (PRESERVED)
+// =============================================================
+model UserActivity {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  activityType String // login, logout, view, create, update, delete, etc.
+  entityType   String? // contract, invoice, user, etc.
+  entityId     String?
+  description  String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([activityType])
+  @@index([createdAt])
+  @@map("user_activities")
+}
+
+// =============================================================
+// PHASE 2: API KEYS (PRESERVED)
+// =============================================================
+model ApiKey {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+  name     String
+  key      String @unique
+
+  permissions Json? // Array of allowed permissions
+
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([key])
+  @@map("api_keys")
+}
+
+// =============================================================
+// PHASE 2: REMITTANCE (Contractor Portal) (PRESERVED)
+// =============================================================
+model Remittance {
+  id         String  @id @default(cuid())
+  tenantId   String
+  userId     String
+  contractId String?
+
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("USD")
+
+  period      String // e.g., "2024-01", "Q1 2024"
+  description String? @db.Text
+
+  status String @default("pending") // pending, processing, paid, failed
+
+  paymentDate      DateTime?
+  paymentMethod    String?
+  paymentReference String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id])
+  contract Contract? @relation(fields: [contractId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([contractId])
+  @@index([status])
+  @@map("remittances")
+}
+
+// =============================================================
+// PHASE 2: REFERRAL SYSTEM (Contractor Portal) (PRESERVED)
+// =============================================================
+model Referral {
+  id             String  @id @default(cuid())
+  tenantId       String
+  referrerId     String // User who made the referral
+  referredUserId String? // User who was referred (null until they sign up)
+
+  referredEmail String
+  referredName  String?
+
+  status String @default("pending") // pending, signed_up, activated, rewarded
+
+  rewardAmount   Decimal?  @db.Decimal(10, 2)
+  rewardCurrency String?   @default("USD")
+  rewardPaidAt   DateTime?
+
+  signedUpAt  DateTime?
+  activatedAt DateTime?
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  referrer     User   @relation("ReferralsMade", fields: [referrerId], references: [id])
+  referredUser User?  @relation("ReferralsReceived", fields: [referredUserId], references: [id])
+
+  @@index([tenantId])
+  @@index([referrerId])
+  @@index([referredUserId])
+  @@index([status])
+  @@map("referrals")
+}
+
+// =============================================================
+// PHASE 3: TENANT QUOTAS (PRESERVED)
+// =============================================================
+model TenantQuota {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  // User Limits
+  maxUsers       Int @default(10)
+  maxAdmins      Int @default(5)
+  maxContractors Int @default(50)
+
+  // Contract & Invoice Limits
+  maxContracts       Int @default(50)
+  maxInvoices        Int @default(100)
+  maxActiveContracts Int @default(25)
+
+  // Storage Limits
+  maxStorage        BigInt @default(1073741824) // 1GB in bytes
+  maxFileSize       BigInt @default(10485760) // 10MB in bytes
+  maxFilesPerUpload Int    @default(10)
+
+  // API & Email Limits
+  maxAPICallsPerMonth Int @default(10000)
+  maxAPICallsPerDay   Int @default(1000)
+  maxEmailsPerMonth   Int @default(1000)
+  maxEmailsPerDay     Int @default(100)
+  maxSMSPerMonth      Int @default(500)
+
+  // Features Quotas
+  maxCustomFields Int @default(20)
+  maxWebhooks     Int @default(10)
+  maxAPIKeys      Int @default(5)
+  maxReports      Int @default(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_quotas")
+}
+
+// =============================================================
+// PHASE 3: FEATURE FLAGS (PRESERVED)
+// =============================================================
+model TenantFeatureFlag {
+  id         String  @id @default(cuid())
+  tenantId   String
+  featureKey String // e.g., "advanced_analytics", "custom_domain", "api_access", "white_label", "sso"
+  enabled    Boolean @default(true)
+
+  // Feature metadata
+  enabledAt DateTime?
+  enabledBy String? // User ID who enabled the feature
+  expiresAt DateTime? // For trial features
+  metadata  Json? // Additional feature-specific data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, featureKey])
+  @@index([tenantId])
+  @@index([featureKey])
+  @@index([enabled])
+  @@map("tenant_feature_flags")
+}
+
+// =============================================================
+// PHASE 3: EMAIL TEMPLATES (PRESERVED)
+// =============================================================
+model EmailTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Template identification
+  name        String // welcome_email, invoice_email, contract_signed, password_reset, etc.
+  displayName String // User-friendly name
+  description String? @db.Text
+  category    String // authentication, notifications, invoicing, contracts
+
+  // Template content
+  subject  String
+  htmlBody String  @db.Text
+  textBody String? @db.Text
+
+  // Template variables
+  variables Json? // { "user_name": "string", "invoice_number": "string", etc. }
+
+  // Customization
+  headerHtml String? @db.Text
+  footerHtml String? @db.Text
+  styles     Json? // Custom CSS styles
+
+  // Status
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false) // System default templates
+  version   String  @default("1.0")
+
+  // Usage tracking
+  sentCount  Int       @default(0)
+  lastSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([category])
+  @@index([isActive])
+  @@map("email_templates")
+}
+
+// =============================================================
+// PHASE 3: PDF TEMPLATES (PRESERVED)
+// =============================================================
+model PDFTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Template identification
+  name        String // contract_template, invoice_template, payslip_template, report_template
+  displayName String
+  description String? @db.Text
+  type        String // contract, invoice, payslip, report
+
+  // Template content (Handlebars syntax)
+  template   String  @db.Text
+  headerHtml String? @db.Text
+  footerHtml String? @db.Text
+
+  // Styling
+  styles      Json? // CSS styles as JSON
+  pageSize    String @default("A4") // A4, Letter, Legal
+  orientation String @default("portrait") // portrait, landscape
+  margins     Json? // { top: 20, right: 20, bottom: 20, left: 20 }
+
+  // Watermark
+  watermarkText    String?
+  watermarkOpacity Float?  @default(0.3)
+
+  // Status
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+  version   String  @default("1.0")
+
+  // Usage tracking
+  generatedCount Int       @default(0)
+  lastUsedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+  @@map("pdf_templates")
+}
+
+// =============================================================
+// PHASE 3: TENANT SECURITY SETTINGS (PRESERVED)
+// =============================================================
+model TenantSecuritySettings {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  // Password Policy
+  minPasswordLength    Int     @default(8)
+  requireUppercase     Boolean @default(true)
+  requireLowercase     Boolean @default(true)
+  requireNumbers       Boolean @default(true)
+  requireSpecialChars  Boolean @default(false)
+  passwordExpiryDays   Int? // null = never expires
+  passwordHistoryCount Int     @default(5) // Prevent reusing last N passwords
+
+  // Session Management
+  sessionTimeoutMinutes Int     @default(60) // Auto logout after inactivity
+  maxConcurrentSessions Int     @default(3)
+  enforceSessionTimeout Boolean @default(true)
+
+  // IP Restrictions
+  ipWhitelist         Json? // ["IP1", "IP2"] - only these IPs can access
+  ipBlacklist         Json? // ["IP1", "IP2"] - these IPs are blocked
+  enableIPRestriction Boolean @default(false)
+
+  // 2FA / MFA
+  enforce2FA          Boolean @default(false)
+  enforce2FAForAdmins Boolean @default(false)
+  allowed2FAMethods   Json?   @default("[\"totp\", \"sms\"]") // totp, sms, email
+
+  // Account Lockout
+  maxLoginAttempts       Int     @default(5)
+  lockoutDurationMinutes Int     @default(30)
+  enableAccountLockout   Boolean @default(true)
+
+  // Login Security
+  requireEmailVerification Boolean @default(true)
+  allowSocialLogin         Boolean @default(true)
+  allowedSocialProviders   Json?   @default("[\"google\", \"microsoft\"]")
+
+  // API Security
+  requireAPIKeyForAPI   Boolean @default(true)
+  enableAPIRateLimiting Boolean @default(true)
+  apiRateLimitPerHour   Int     @default(1000)
+
+  // Data Security
+  enableDataEncryption   Boolean @default(true)
+  enableAuditLogging     Boolean @default(true)
+  dataRetentionDays      Int     @default(2555) // 7 years default
+  enableAutoDataDeletion Boolean @default(false)
+
+  // Compliance
+  gdprCompliant  Boolean @default(true)
+  hipaaCompliant Boolean @default(false)
+  soc2Compliant  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_security_settings")
+}
+
+// =============================================================
+// PHASE 3: DATA EXPORT REQUESTS (PRESERVED)
+// =============================================================
+model DataExport {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Export details
+  requestedBy  String // User ID
+  exportType   String // full_export, users_only, contracts_only, invoices_only, etc.
+  exportFormat String // json, csv, excel, zip
+  status       String @default("pending") // pending, processing, completed, failed
+
+  // Export scope
+  entities      Json? // List of entities to export: ["users", "contracts", "invoices"]
+  dateRangeFrom DateTime?
+  dateRangeTo   DateTime?
+  filters       Json? // Additional filters
+
+  // Export file
+  fileUrl   String?
+  fileName  String?
+  fileSize  BigInt? // in bytes
+  expiresAt DateTime? // Auto-delete after expiry
+
+  // Processing
+  startedAt       DateTime?
+  completedAt     DateTime?
+  errorMessage    String?   @db.Text
+  recordsExported Int?      @default(0)
+
+  // Download tracking
+  downloadCount  Int       @default(0)
+  lastDownloadAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([requestedBy])
+  @@map("data_exports")
+}
+
+// =============================================================
+// PHASE 3: TENANT IMPERSONATION (PRESERVED)
+// =============================================================
+model TenantImpersonation {
+  id                 String  @id @default(cuid())
+  superAdminId       String // SuperAdmin who is impersonating
+  tenantId           String
+  impersonatedUserId String? // Specific user being impersonated (optional)
+
+  reason    String    @db.Text
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  ipAddress String?
+
+  actionsPerformed Json? // Log of actions taken during impersonation
+
+  @@index([superAdminId])
+  @@index([tenantId])
+  @@index([impersonatedUserId])
+  @@index([startedAt])
+  @@map("tenant_impersonations")
+}
+
+// =============================================================
+// PHASE 3: SUBSCRIPTION INVOICES (PRESERVED)
+// =============================================================
+model SubscriptionInvoice {
+  id       String @id @default(cuid())
+  tenantId String // Not a foreign key - tenant might be deleted
+
+  invoiceNumber    String @unique
+  subscriptionPlan String // Plan at time of invoice
+
+  // Billing period
+  periodStart DateTime
+  periodEnd   DateTime
+
+  // Amounts
+  subtotal       Decimal @db.Decimal(10, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal @default(0) @db.Decimal(10, 2)
+  totalAmount    Decimal @db.Decimal(10, 2)
+
+  currency String @default("USD")
+
+  // Payment
+  status        String    @default("pending") // pending, paid, failed, refunded
+  paymentMethod String?
+  paidAt        DateTime?
+
+  // Stripe/Payment Gateway
+  stripeInvoiceId       String? @unique
+  stripePaymentIntentId String?
+
+  // Invoice file
+  invoicePdfUrl String?
+
+  dueDate   DateTime
+  issueDate DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("subscription_invoices")
+}
+>>>>>>> 5f66330563348da8ade4b1939f77df8cc233d71a
