@@ -1,190 +1,68 @@
-// /seed/00-permissions.ts
-import { PrismaClient } from "@prisma/client"
 
-export const prisma = new PrismaClient()
+// =============================================================
+// SEED: PERMISSIONS
+// =============================================================
+import { PrismaClient } from "@prisma/client";
+import { ALL_PERMISSIONS, PERMISSION_CATEGORIES } from "../../server/rbac/permissions-v2";
 
-// 📌 MASTER LIST OF ALL PERMISSIONS
-export const PERMISSIONS = [
-  // --- TENANT ---
-  "tenant.view",
-  "tenant.update",
-  "tenant.branding.update",
-  "tenant.billing.view",
-  "tenant.billing.update",
-  "tenant.roles.view",
-  "tenant.roles.create",
-  "tenant.roles.update",
-  "tenant.roles.delete",
-  "tenant.users.invite",
-  "tenant.users.view",
-  "tenant.users.update",
-  "tenant.users.disable",
-  "tenant.users.delete",
-  "tenant.users.create",
-
-  // --- AGENCIES ---
-  "agencies.view",
-  "agencies.create",
-  "agencies.update",
-  "agencies.delete",
-  "agencies.assign_contractor",
-  "agencies.manage_team",
-  "agencies.notes.add",
-  "agencies.notes.view",
-
-  // --- COMPANIES ---
-  "companies.view",
-  "companies.create",
-  "companies.update",
-  "companies.delete",
-
-  // --- CONTRACTORS ---
-  "contractors.view",
-  "contractors.create",
-  "contractors.update",
-  "contractors.delete",
-  "contractors.assign_to_agency",
-  "contractors.change_status",
-
-  "contractors.documents.upload",
-  "contractors.documents.view",
-  "contractors.documents.delete",
-
-  "contractors.onboarding.start",
-  "contractors.onboarding.update",
-  "contractors.onboarding.review",
-  "contractors.onboarding.validate",
-
-  // --- CONTRACTS ---
-  "contracts.view",
-  "contracts.create",
-  "contracts.update",
-  "contracts.delete",
-
-  "contracts.send",
-  "contracts.approve",
-  "contracts.reject",
-
-  "contracts.upload_pdf",
-  "contracts.download_pdf",
-  "contracts.generate_reference",
-
-  // --- INVOICES ---
-  "invoices.view",
-  "invoices.create",
-  "invoices.update",
-  "invoices.delete",
-  "invoices.send",
-  "invoices.mark_paid",
-  "invoices.export",
-
-  // --- PAYROLL ---
-  "payroll.view",
-  "payroll.create",
-  "payroll.update",
-  "payroll.delete",
-  "payroll.generate",
-  "payroll.send",
-  "payroll.mark_paid",
-
-  // --- PAYSLIP ---
-  "payslip.view",
-  "payslip.create",
-  "payslip.update",
-  "payslip.send",
-  "payslip.mark_paid",
-  "payslip.delete",
-  "payslip.generate",
-
-  // --- BANKS ---
-  "banks.view",
-  "banks.create",
-  "banks.update",
-  "banks.delete",
-
-  // --- SETTINGS ---
-  "settings.view",
-  "settings.update",
-
-  // --- ONBOARDING ---
-  "onboarding.templates.view",
-  "onboarding.templates.create",
-  "onboarding.templates.update",
-  "onboarding.templates.delete",
-
-  "onboarding.questions.add",
-  "onboarding.questions.update",
-  "onboarding.questions.delete",
-
-  "onboarding.responses.view",
-  "onboarding.responses.view_own",
-  "onboarding.responses.submit",
-  "onboarding.responses.review",
-
-  // --- TASKS ---
-  "tasks.view",
-  "tasks.create",
-  "tasks.update",
-  "tasks.delete",
-  "tasks.assign",
-  "tasks.complete",
-
-  // --- LEADS ---
-  "leads.view",
-  "leads.create",
-  "leads.update",
-  "leads.delete",
-  "leads.export",
-
-  // --- AUDIT ---
-  "audit_logs.view",
-  "audit_logs.export",
-
-  // --- TIMESHEETS ---
-  "timesheet.view",
-  "timesheet.create",
-  "timesheet.update",
-  "timesheet.delete",
-  "timesheet.approve",
-  "timesheet.submit",
-
-  // --- EXPENSES ---
-  "expense.view",
-  "expense.create",
-  "expense.update",
-  "expense.delete",
-  "expense.approve",
-  "expense.submit",
-
-  // --- REFERRALS ---
-  "referrals.view",
-  "referrals.create",
-  "referrals.update",
-  "referrals.delete",
-  "referrals.track",
-
-  // --- SUPERADMIN ---
-  "superadmin.tenants.create",
-  "superadmin.tenants.suspend",
-  "superadmin.tenants.delete",
-  "superadmin.users.create",
-  "superadmin.users.update",
-  "superadmin.users.delete",
-]
+const prisma = new PrismaClient();
 
 export async function seedPermissions() {
-  console.log("👉 Seeding permissions...")
+  console.log("🔐 Seeding permissions...");
 
-  for (const key of PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { key },
-      update: {},
-      create: {
-        key,
-        description: key,
+  let created = 0;
+  let updated = 0;
+
+  for (const permission of ALL_PERMISSIONS) {
+    // Extract category from permission key (e.g., "users.view" -> "users")
+    const category = permission.split(".")[0];
+
+    const result = await prisma.permission.upsert({
+      where: { key: permission },
+      update: {
+        category,
+        description: generatePermissionDescription(permission),
       },
-    })
+      create: {
+        key: permission,
+        category,
+        description: generatePermissionDescription(permission),
+        isActive: true,
+      },
+    });
+
+    if (result) {
+      // Check if it was created or updated
+      const existing = await prisma.permission.findUnique({
+        where: { key: permission },
+      });
+      if (existing) {
+        updated++;
+      } else {
+        created++;
+      }
+    }
   }
 
-  console.log(`✅ Permissions inserted: ${PERMISSIONS.length}`)
+  console.log(`✅ Permissions seeded: ${ALL_PERMISSIONS.length} total (${created} created, ${updated} updated)`);
+}
+
+function generatePermissionDescription(permission: string): string {
+  // Convert "users.profile.view" to "Users Profile View"
+  const parts = permission.split(".");
+  return parts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).replace(/_/g, " "))
+    .join(" ");
+}
+
+// Run if executed directly
+if (require.main === module) {
+  seedPermissions()
+    .catch((e) => {
+      console.error("❌ Error seeding permissions:", e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
 }
