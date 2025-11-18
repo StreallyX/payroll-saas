@@ -24,6 +24,7 @@ import { dashboardRouter } from "./routers/dashboard";
 import { analyticsRouter } from "./routers/analytics";
 import { webhookRouter } from "./routers/webhook";
 import { permissionAuditRouter } from "./routers/admin/permissionAudit";
+import { profileRouter } from "./routers/profile";
 
 // PHASE 2 ROUTERS
 import { paymentRouter } from "./routers/payment";
@@ -53,6 +54,7 @@ import { smsLogRouter } from "./routers/smsLog";
  */
 export const appRouter = createTRPCRouter({
   user: userRouter,
+  profile: profileRouter,
   agency: agencyRouter,
   auth: authRouter,
   contractor: contractorRouter,

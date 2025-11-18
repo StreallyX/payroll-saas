@@ -28,6 +28,9 @@ import { ContractModal } from "@/components/modals/contract-modal"
 import { ContractViewModal } from "@/components/modals/contract-view-modal"
 import { toast } from "sonner"
 import { downloadFile } from "@/lib/s3"
+import { useSession } from "next-auth/react"
+import { RouteGuard } from "@/components/guards/RouteGuard";
+
 
 export default function ManageContractsPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -37,12 +40,26 @@ export default function ManageContractsPage() {
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [viewingContractId, setViewingContractId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("active")
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
+  const canViewAll = permissions.includes("contracts.manage.view_all");
+  const canViewOwn = permissions.includes("contracts.view_own");
 
   // Fetch contracts
-  const { data: contracts, isLoading, refetch } = api.contract.getAll.useQuery()
+  const {
+    data: contracts,
+    isLoading,
+    refetch
+  } = canViewAll
+    ? api.contract.getAll.useQuery()
+    : api.contract.getMyContracts.useQuery();
+
   
   // Fetch stats
-  const { data: stats } = api.contract.getStats.useQuery()
+  const { data: stats } = canViewAll
+    ? api.contract.getStats.useQuery()
+    : { data: { total: contracts?.length || 0 } };
+
 
   // Check prerequisites
   const { data: contractors = [] } = api.contractor.getAll.useQuery()
@@ -199,33 +216,34 @@ export default function ManageContractsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewContract(contract.id)}
-                            title="View contract details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingContract(contract)
-                              setModalOpen(true)
-                            }}
-                            title="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteId(contract.id)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                          <RouteGuard permission="contracts.view">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewContract(contract.id)}
+                              title="View contract details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </RouteGuard>
+                          <RouteGuard permission="contracts.manage.edit">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingContract(contract)
+                                setModalOpen(true)
+                              }}
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </RouteGuard>
+                          <RouteGuard permission="contracts.manage.delete">
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteId(contract.id)}>
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </RouteGuard>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -359,15 +377,17 @@ export default function ManageContractsPage() {
                 <FileDown className="mr-2 h-4 w-4" />
                 Export
               </Button>
-              <Button
-                onClick={() => {
-                  setEditingContract(null)
-                  setModalOpen(true)
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Contrat
-              </Button>
+              <RouteGuard permission="contracts.manage.create">
+                <Button
+                  onClick={() => {
+                    setEditingContract(null)
+                    setModalOpen(true)
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Contrat
+                </Button>
+              </RouteGuard>
             </div>
           </div>
         </CardContent>
