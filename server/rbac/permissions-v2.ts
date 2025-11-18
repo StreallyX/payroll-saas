@@ -418,6 +418,65 @@ export const PERMISSION_TREE_V2 = {
     update: "settings.update",
   },
 
+  // =================================================================
+  // ORGANIZATIONS (NEW - Unified model for clients, agencies, payroll partners)
+  // =================================================================
+  organizations: {
+    // Permissions personnelles (pour un member de l'organisation)
+    view_own: "organizations.view_own",             // Voir sa propre organisation
+    update_own: "organizations.update_own",         // Modifier son organisation
+    
+    // Permissions de gestion (admin)
+    manage: {
+      view_all: "organizations.manage.view_all",    // Voir toutes les organisations
+      create: "organizations.manage.create",        // Créer une organisation
+      update: "organizations.manage.update",        // Modifier une organisation
+      delete: "organizations.manage.delete",        // Supprimer une organisation
+    },
+
+    // Gestion des membres (organization owner/admin)
+    members: {
+      view: "organizations.members.view",           // Voir les membres
+      add: "organizations.members.add",             // Ajouter des membres
+      remove: "organizations.members.remove",       // Retirer des membres
+      update_roles: "organizations.members.update_roles", // Modifier les rôles des membres
+    },
+  },
+
+  // =================================================================
+  // USER MANAGEMENT (NEW - Managing users and their roles)
+  // =================================================================
+  users: {
+    // Permissions personnelles
+    view_own: "users.view_own",                     // Voir son propre profil utilisateur
+    
+    // Permissions de gestion (admin)
+    manage: {
+      view_all: "users.manage.view_all",            // Voir tous les utilisateurs
+      create: "users.manage.create",                // Créer un utilisateur
+      update: "users.manage.update",                // Modifier un utilisateur
+      delete: "users.manage.delete",                // Supprimer un utilisateur
+      activate: "users.manage.activate",            // Activer un utilisateur
+      deactivate: "users.manage.deactivate",        // Désactiver un utilisateur
+      reset_password: "users.manage.reset_password", // Réinitialiser mot de passe
+    },
+
+    // Gestion des rôles
+    roles: {
+      view: "users.roles.view",                     // Voir les rôles des utilisateurs
+      assign: "users.roles.assign",                 // Assigner des rôles
+      revoke: "users.roles.revoke",                 // Révoquer des rôles
+    },
+
+    // Gestion des organisations
+    organizations: {
+      view: "users.organizations.view",             // Voir les organisations d'un utilisateur
+      assign: "users.organizations.assign",         // Assigner à une organisation
+      remove: "users.organizations.remove",         // Retirer d'une organisation
+    },
+  },
+
+  // Legacy permissions (kept for backward compatibility)
   companies: {
     view: "companies.view",
     create: "companies.create",
@@ -433,7 +492,7 @@ export const PERMISSION_TREE_V2 = {
   },
 
   // =================================================================
-  // PAYROLL PARTNERS
+  // PAYROLL PARTNERS (Legacy - kept for backward compatibility)
   // =================================================================
   payrollPartners: {
     // Permissions personnelles
@@ -604,7 +663,7 @@ export const PERMISSION_GROUPS = {
     "tasks.update_own",
   ],
 
-  // Agency Owner
+  // Agency Owner (updated for new RBAC)
   AGENCY_OWNER: [
     ...extractPermissionKeys(PERMISSION_TREE_V2.profile),
     "agencies.view_own",
@@ -613,6 +672,11 @@ export const PERMISSION_GROUPS = {
     "agencies.team.invite",
     "agencies.team.remove",
     "agencies.team.assign_contractor",
+    "organizations.view_own",
+    "organizations.update_own",
+    "organizations.members.view",
+    "organizations.members.add",
+    "organizations.members.remove",
     "contractors.manage.view_all",
     "contracts.view_own",
     "contracts.manage.view_all",
@@ -622,6 +686,27 @@ export const PERMISSION_GROUPS = {
     "timesheets.manage.approve",
     "expenses.manage.view_all",
     "expenses.manage.approve",
+    "team.view",
+    "team.manage",
+  ],
+
+  // Organization Admin (NEW)
+  ORGANIZATION_ADMIN: [
+    ...extractPermissionKeys(PERMISSION_TREE_V2.profile),
+    "organizations.view_own",
+    "organizations.update_own",
+    "organizations.members.view",
+    "organizations.members.add",
+    "organizations.members.remove",
+    "organizations.members.update_roles",
+    "users.manage.view_all",
+    "users.roles.view",
+    "users.roles.assign",
+    "contracts.manage.view_all",
+    "invoices.manage.view_all",
+    "timesheets.manage.view_all",
+    "expenses.manage.view_all",
+    "payments.manage.view_all",
     "team.view",
     "team.manage",
   ],
