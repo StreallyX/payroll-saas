@@ -1,50 +1,42 @@
-
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
-/**
- * API Key Router - Phase 2
- * 
- * Handles API key management for external integrations
- */
-
 export const apiKeyRouter = createTRPCRouter({
+
+  // ---------------------------------------------------------
+  // GET ALL API KEYS
+  // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
-    .input(z.object({
-      isActive: z.boolean().optional(),
-    }).optional())
+    .use(hasPermission("tenant.users.update.global"))
+    .input(z.object({ isActive: z.boolean().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const where: any = {
-        tenantId: ctx.tenantId,
-      };
-
-      if (input?.isActive !== undefined) {
-        where.isActive = input.isActive;
-      }
-
       const apiKeys = await ctx.prisma.apiKey.findMany({
-        where,
+        where: {
+          tenantId: ctx.tenantId,
+          ...(input?.isActive !== undefined && { isActive: input.isActive }),
+        },
         select: {
           id: true,
           name: true,
           description: true,
           keyPrefix: true,
           scopes: true,
+          permissions: true,
           rateLimit: true,
+          allowedIPs: true,
           usageCount: true,
           lastUsedAt: true,
           isActive: true,
           expiresAt: true,
-          allowedIPs: true,
+          metadata: true,
           createdAt: true,
           updatedAt: true,
           revokedAt: true,
-          // Exclude the actual key hash
+          createdById: true,
+          revokedById: true,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -52,8 +44,11 @@ export const apiKeyRouter = createTRPCRouter({
       return apiKeys;
     }),
 
+  // ---------------------------------------------------------
+  // GET API KEY BY ID
+  // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission("tenant.users.update.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
@@ -64,79 +59,78 @@ export const apiKeyRouter = createTRPCRouter({
           description: true,
           keyPrefix: true,
           scopes: true,
+          permissions: true,
           rateLimit: true,
+          allowedIPs: true,
           usageCount: true,
           lastUsedAt: true,
           isActive: true,
           expiresAt: true,
-          allowedIPs: true,
           metadata: true,
           createdAt: true,
           updatedAt: true,
           revokedAt: true,
-          // Exclude the actual key hash
+          createdById: true,
+          revokedById: true,
         },
       });
 
-      if (!apiKey) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "API key not found",
-        });
-      }
+      if (!apiKey) throw new TRPCError({ code: "NOT_FOUND", message: "API key not found" });
 
       return apiKey;
     }),
 
+  // ---------------------------------------------------------
+  // CREATE API KEY
+  // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission("tenant.users.create.global"))
     .input(z.object({
       name: z.string().min(1),
       description: z.string().optional(),
       scopes: z.array(z.string()).default([]),
+      permissions: z.array(z.string()).default([]),
       rateLimit: z.number().optional(),
       expiresAt: z.date().optional(),
       allowedIPs: z.array(z.string()).default([]),
       metadata: z.record(z.any()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Generate a random API key
-      const rawKey = `sk_live_${crypto.randomBytes(32).toString('hex')}`;
+      const rawKey = `sk_live_${crypto.randomBytes(32).toString("hex")}`;
       const keyPrefix = rawKey.substring(0, 12);
-
-      // Hash the key for storage
-      const hashedKey = await bcrypt.hash(rawKey, 10);
+      const hashed = await bcrypt.hash(rawKey, 10);
 
       const apiKey = await ctx.prisma.apiKey.create({
         data: {
+          tenantId: ctx.tenantId,
+          createdById: ctx.session.user.id,
           name: input.name,
           description: input.description,
-          key: hashedKey,
+          key: hashed,
           keyPrefix,
           scopes: input.scopes,
+          permissions: input.permissions,
           rateLimit: input.rateLimit,
           expiresAt: input.expiresAt,
           allowedIPs: input.allowedIPs,
           metadata: input.metadata,
-          tenantId: ctx.tenantId,
-          createdById: ctx.session.user.id,
         },
       });
 
-      // Return the raw key ONLY ONCE - it will never be shown again
-      return {
-        ...apiKey,
-        rawKey, // Only returned on creation
-      };
+      return { ...apiKey, rawKey };
     }),
 
+  // ---------------------------------------------------------
+  // UPDATE API KEY
+  // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission("tenant.users.update.global"))
     .input(z.object({
       id: z.string(),
       name: z.string().optional(),
       description: z.string().optional(),
       scopes: z.array(z.string()).optional(),
+      permissions: z.array(z.string()).optional(),
       rateLimit: z.number().optional(),
       expiresAt: z.date().optional(),
       allowedIPs: z.array(z.string()).optional(),
@@ -146,18 +140,13 @@ export const apiKeyRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
 
-      const apiKey = await ctx.prisma.apiKey.findFirst({
+      const existing = await ctx.prisma.apiKey.findFirst({
         where: { id, tenantId: ctx.tenantId },
       });
 
-      if (!apiKey) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "API key not found",
-        });
-      }
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "API key not found" });
 
-      const updated = await ctx.prisma.apiKey.update({
+      return ctx.prisma.apiKey.update({
         where: { id },
         data,
         select: {
@@ -166,6 +155,7 @@ export const apiKeyRouter = createTRPCRouter({
           description: true,
           keyPrefix: true,
           scopes: true,
+          permissions: true,
           rateLimit: true,
           usageCount: true,
           lastUsedAt: true,
@@ -177,55 +167,43 @@ export const apiKeyRouter = createTRPCRouter({
           updatedAt: true,
         },
       });
-
-      return updated;
     }),
 
+  // ---------------------------------------------------------
+  // DELETE
+  // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission("tenant.users.update.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
 
-      if (!apiKey) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "API key not found",
-        });
-      }
+      if (!apiKey) throw new TRPCError({ code: "NOT_FOUND", message: "API key not found" });
 
-      await ctx.prisma.apiKey.delete({
-        where: { id: input.id },
-      });
+      await ctx.prisma.apiKey.delete({ where: { id: input.id } });
 
       return { success: true };
     }),
 
+  // ---------------------------------------------------------
+  // REVOKE (SOFT DELETE)
+  // ---------------------------------------------------------
   revoke: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission("tenant.users.update.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
 
-      if (!apiKey) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "API key not found",
-        });
-      }
+      if (!apiKey) throw new TRPCError({ code: "NOT_FOUND", message: "API key not found" });
 
-      if (apiKey.revokedAt) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "API key is already revoked",
-        });
-      }
+      if (apiKey.revokedAt)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "API key already revoked" });
 
-      const updated = await ctx.prisma.apiKey.update({
+      return ctx.prisma.apiKey.update({
         where: { id: input.id },
         data: {
           isActive: false,
@@ -238,48 +216,38 @@ export const apiKeyRouter = createTRPCRouter({
           keyPrefix: true,
           isActive: true,
           revokedAt: true,
+          revokedById: true,
         },
       });
-
-      return updated;
     }),
 
+  // ---------------------------------------------------------
+  // REGENERATE (NEW KEY, KEEP SAME RECORD)
+  // ---------------------------------------------------------
   regenerate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.users.update))
+    .use(hasPermission("tenant.users.update.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = await ctx.prisma.apiKey.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
 
-      if (!apiKey) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "API key not found",
-        });
-      }
+      if (!apiKey) throw new TRPCError({ code: "NOT_FOUND", message: "API key not found" });
 
-      // Generate a new API key
-      const rawKey = `sk_live_${crypto.randomBytes(32).toString('hex')}`;
+      const rawKey = `sk_live_${crypto.randomBytes(32).toString("hex")}`;
       const keyPrefix = rawKey.substring(0, 12);
-
-      // Hash the new key
-      const hashedKey = await bcrypt.hash(rawKey, 10);
+      const hashed = await bcrypt.hash(rawKey, 10);
 
       const updated = await ctx.prisma.apiKey.update({
         where: { id: input.id },
         data: {
-          key: hashedKey,
+          key: hashed,
           keyPrefix,
           usageCount: 0,
           lastUsedAt: null,
         },
       });
 
-      // Return the raw key ONLY ONCE
-      return {
-        ...updated,
-        rawKey,
-      };
+      return { ...updated, rawKey };
     }),
 });

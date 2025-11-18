@@ -6,15 +6,14 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const contractorRouter = createTRPCRouter({
 
   // -------------------------------------------------------
-  // GET ALL CONTRACTORS
+  // GET ALL CONTRACTORS (GLOBAL ONLY)
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
+    .use(hasPermission("contractor.read.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.contractor.findMany({
         where: { tenantId: ctx.tenantId },
@@ -36,10 +35,10 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY ID
+  // GET CONTRACTOR BY ID (GLOBAL ONLY)
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
+    .use(hasPermission("contractor.read.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractor.findFirst({
@@ -59,15 +58,17 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY USER ID (unified profile page - for viewing own profile)
+  // GET MY OWN CONTRACTOR PROFILE
   // -------------------------------------------------------
   getByUserId: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.profile.view))
+    .use(hasPermission("contractor.read.own"))
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Ensure user can only view their own contractor profile
-      if (input.userId !== ctx.session.user.id && !ctx.session.user.isSuperAdmin && 
-          !ctx.session.user.permissions?.includes(PERMISSION_TREE_V2.contractors.manage.view_all)) {
+
+      const isOwner = input.userId === ctx.session.user.id
+      const hasGlobal = ctx.session.user.permissions?.includes("contractor.read.global")
+
+      if (!isOwner && !hasGlobal && !ctx.session.user.isSuperAdmin) {
         throw new Error("You can only view your own contractor profile")
       }
 
@@ -80,17 +81,18 @@ export const contractorRouter = createTRPCRouter({
             include: {
               agency: { select: { name: true } },
               payrollPartner: { select: { name: true } },
-              invoices: true },
+              invoices: true
             },
           },
-        })
+        },
+      })
     }),
 
   // -------------------------------------------------------
-  // CREATE CONTRACTOR
+  // CREATE CONTRACTOR (GLOBAL ONLY)
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.create))
+    .use(hasPermission("contractor.create.global"))
     .input(
       z.object({
         name: z.string().min(1),
@@ -181,7 +183,7 @@ export const contractorRouter = createTRPCRouter({
           },
         })
 
-        // Create initial onboarding entries
+        // Auto-create onboarding responses
         if (input.onboardingTemplateId) {
           const questions = await tx.onboardingQuestion.findMany({
             where: { onboardingTemplateId: input.onboardingTemplateId },
@@ -219,10 +221,10 @@ export const contractorRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE CONTRACTOR
+  // UPDATE CONTRACTOR (GLOBAL or OWN)
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.profile.update))
+    .use(hasPermission("contractor.update.global"))
     .input(
       z.object({
         id: z.string(),
@@ -253,20 +255,17 @@ export const contractorRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id, dateOfBirth, ...updateData } = input
 
-      // Verify the contractor belongs to the current user (unless admin)
-      const existingContractor = await ctx.prisma.contractor.findFirst({
+      const existing = await ctx.prisma.contractor.findFirst({
         where: { id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!existingContractor) {
-        throw new Error("Contractor not found");
-      }
+      if (!existing) throw new Error("Contractor not found")
 
-      // Only allow users to update their own profile unless they have manage permission
-      if (existingContractor.userId !== ctx.session.user.id && 
-          !ctx.session.user.isSuperAdmin &&
-          !ctx.session.user.permissions?.includes(PERMISSION_TREE_V2.contractors.manage.update)) {
-        throw new Error("You can only update your own profile");
+      const isOwner = existing.userId === ctx.session.user.id
+      const hasGlobal = ctx.session.user.permissions?.includes("contractor.update.global")
+
+      if (!isOwner && !hasGlobal && !ctx.session.user.isSuperAdmin) {
+        throw new Error("You can only update your own contractor profile")
       }
 
       const contractor = await ctx.prisma.contractor.update({
@@ -302,7 +301,7 @@ export const contractorRouter = createTRPCRouter({
   // DELETE CONTRACTOR
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.delete))
+    .use(hasPermission("contractor.delete.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -336,7 +335,7 @@ export const contractorRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contractors.manage.view_all))
+    .use(hasPermission("contractor.read.global"))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.contractor.count({
         where: { tenantId: ctx.tenantId },

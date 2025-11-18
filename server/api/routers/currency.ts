@@ -7,7 +7,6 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const currencyRouter = createTRPCRouter({
 
@@ -36,7 +35,7 @@ export const currencyRouter = createTRPCRouter({
   // CREATE CURRENCY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   create: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.users.create))
+    .use(hasPermission("superadmin.currencies.create"))
     .input(
       z.object({
         code: z.string().length(3, "Code must be 3 characters (e.g., USD)"),
@@ -61,7 +60,6 @@ export const currencyRouter = createTRPCRouter({
           code: currency.code,
           symbol: currency.symbol,
         },
-        tenantId: ctx.session!.user.tenantId ?? undefined,
       })
 
       return currency
@@ -71,7 +69,7 @@ export const currencyRouter = createTRPCRouter({
   // UPDATE CURRENCY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   update: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.users.update ?? PERMISSION_TREE_V2.superadmin.users.create))
+    .use(hasPermission("superadmin.currencies.update"))
     .input(
       z.object({
         id: z.string(),
@@ -97,10 +95,7 @@ export const currencyRouter = createTRPCRouter({
         entityType: AuditEntityType.CURRENCY,
         entityId: currency.id,
         entityName: `${currency.code} - ${currency.name}`,
-        metadata: {
-          updatedFields: data,
-        },
-        tenantId: ctx.session!.user.tenantId ?? undefined,
+        metadata: { updatedFields: data },
       })
 
       return currency
@@ -110,7 +105,7 @@ export const currencyRouter = createTRPCRouter({
   // DELETE CURRENCY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   delete: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.users.delete))
+    .use(hasPermission("superadmin.currencies.delete"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -134,10 +129,7 @@ export const currencyRouter = createTRPCRouter({
         entityType: AuditEntityType.CURRENCY,
         entityId: input.id,
         entityName: `${currency.code} - ${currency.name}`,
-        metadata: {
-          code: currency.code,
-        },
-        tenantId: ctx.session!.user.tenantId ?? undefined,
+        metadata: { code: currency.code },
       })
 
       return { success: true }

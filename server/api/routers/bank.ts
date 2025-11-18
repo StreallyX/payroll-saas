@@ -6,15 +6,14 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const bankRouter = createTRPCRouter({
 
   // -------------------------------------------------------
-  // GET ALL BANKS
+  // GET ALL BANKS — GLOBAL
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.banks.view))
+    .use(hasPermission("banks.read.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.bank.findMany({
         where: { tenantId: ctx.tenantId },
@@ -23,25 +22,55 @@ export const bankRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET ONE BANK
+  // GET BANKS CREATED BY CURRENT USER — OWN
+  // -------------------------------------------------------
+  getMine: tenantProcedure
+    .use(hasPermission("banks.read.own"))
+    .query(async ({ ctx }) => {
+      const userId = ctx.session!.user.id
+
+      return ctx.prisma.bank.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          createdBy: userId,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    }),
+
+  // -------------------------------------------------------
+  // GET ONE BANK (GLOBAL or OWN)
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.banks.view))
+    .use(hasPermission("banks.read.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.bank.findFirst({
+      const userId = ctx.session!.user.id
+
+      const bank = await ctx.prisma.bank.findFirst({
         where: {
           id: input.id,
           tenantId: ctx.tenantId,
         },
       })
+
+      if (!bank) return null
+
+      // Own-scope → Interdit de voir si pas créateur
+      const canSeeGlobal = ctx.session!.user.hasPermission("banks.read.global")
+
+      if (!canSeeGlobal && bank.createdBy !== userId) {
+        throw new Error("You do not have access to this bank")
+      }
+
+      return bank
     }),
 
   // -------------------------------------------------------
   // CREATE BANK
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.banks.create))
+    .use(hasPermission("banks.create.global"))
     .input(
       z.object({
         name: z.string().min(1, "Bank name is required"),
@@ -53,18 +82,21 @@ export const bankRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+
       const tenantId = ctx.tenantId!
+      const userId = ctx.session!.user.id
 
       const bank = await ctx.prisma.bank.create({
         data: {
           ...input,
           tenantId,
+          createdBy: userId,
         },
       })
 
       await createAuditLog({
         tenantId,
-        userId: ctx.session!.user.id,
+        userId,
         userName: ctx.session!.user.name ?? "Unknown",
         userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
@@ -81,7 +113,7 @@ export const bankRouter = createTRPCRouter({
   // UPDATE BANK
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.banks.update))
+    .use(hasPermission("banks.update.global"))
     .input(
       z.object({
         id: z.string(),
@@ -94,17 +126,15 @@ export const bankRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+
       const { id, ...data } = input
       const tenantId = ctx.tenantId!
 
-      // Sécurité multi-tenant : vérifier que la banque appartient bien au tenant
       const existing = await ctx.prisma.bank.findFirst({
         where: { id, tenantId },
       })
 
-      if (!existing) {
-        throw new Error("Bank not found in tenant")
-      }
+      if (!existing) throw new Error("Bank not found in tenant")
 
       const bank = await ctx.prisma.bank.update({
         where: { id },
@@ -130,18 +160,17 @@ export const bankRouter = createTRPCRouter({
   // DELETE BANK
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.banks.delete))
+    .use(hasPermission("banks.delete.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+
       const tenantId = ctx.tenantId!
 
       const bank = await ctx.prisma.bank.findFirst({
         where: { id: input.id, tenantId },
       })
 
-      if (!bank) {
-        throw new Error("Bank not found in tenant")
-      }
+      if (!bank) throw new Error("Bank not found in tenant")
 
       await ctx.prisma.bank.delete({
         where: { id: input.id },

@@ -6,15 +6,14 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
 
 export const companyRouter = createTRPCRouter({
 
   // ======================================================
-  // GET ALL COMPANIES
+  // GET ALL COMPANIES (GLOBAL)
   // ======================================================
   getAll: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.companies.view))
+    .use(hasPermission("companies.read.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.company.findMany({
         where: { tenantId: ctx.session!.user.tenantId },
@@ -24,23 +23,54 @@ export const companyRouter = createTRPCRouter({
     }),
 
   // ======================================================
-  // GET ONE COMPANY
+  // GET MINE (OWN)
+  // ======================================================
+  getMine: protectedProcedure
+    .use(hasPermission("companies.read.own"))
+    .query(async ({ ctx }) => {
+      const userId = ctx.session!.user.id
+
+      return ctx.prisma.company.findMany({
+        where: {
+          tenantId: ctx.session!.user.tenantId,
+          createdBy: userId,
+        },
+        include: { country: true },
+        orderBy: { createdAt: "desc" },
+      })
+    }),
+
+  // ======================================================
+  // GET ONE (GLOBAL or OWN)
   // ======================================================
   getById: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.companies.view))
+    .use(hasPermission("companies.read.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.company.findUnique({
+      const userId = ctx.session!.user.id
+
+      const company = await ctx.prisma.company.findUnique({
         where: { id: input.id },
         include: { country: true },
       })
+
+      if (!company) return null
+
+      const canSeeGlobal = ctx.session!.user.hasPermission("companies.read.global")
+
+      // OWN-SCOPE restriction → forbidden if not creator
+      if (!canSeeGlobal && company.createdBy !== userId) {
+        throw new Error("You do not have access to this company")
+      }
+
+      return company
     }),
 
   // ======================================================
   // CREATE COMPANY
   // ======================================================
   create: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.companies.create))
+    .use(hasPermission("companies.create.global"))
     .input(
       z.object({
         name: z.string().min(1),
@@ -56,16 +86,8 @@ export const companyRouter = createTRPCRouter({
         postCode: z.string().optional(),
         invoicingContactName: z.string().optional(),
         invoicingContactPhone: z.string().optional(),
-        invoicingContactEmail: z
-          .string()
-          .email()
-          .optional()
-          .or(z.literal("")),
-        alternateInvoicingEmail: z
-          .string()
-          .email()
-          .optional()
-          .or(z.literal("")),
+        invoicingContactEmail: z.string().email().optional().or(z.literal("")),
+        alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
         vatNumber: z.string().optional(),
         website: z.string().url().optional().or(z.literal("")),
         status: z.enum(["active", "inactive"]).default("active"),
@@ -73,16 +95,18 @@ export const companyRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.session!.user.tenantId
+      const userId = ctx.session!.user.id
 
       const company = await ctx.prisma.company.create({
         data: {
           ...input,
           tenantId,
+          createdBy: userId, // ⬅ ESSENTIEL POUR OWN-SCOPE
         },
       })
 
       await createAuditLog({
-        userId: ctx.session!.user.id,
+        userId,
         userName: ctx.session!.user.name ?? "Unknown",
         userRole: ctx.session!.user.roleName,
         action: AuditAction.CREATE,
@@ -99,7 +123,7 @@ export const companyRouter = createTRPCRouter({
   // UPDATE COMPANY
   // ======================================================
   update: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.companies.update))
+    .use(hasPermission("companies.update.global"))
     .input(
       z.object({
         id: z.string(),
@@ -116,16 +140,8 @@ export const companyRouter = createTRPCRouter({
         postCode: z.string().optional(),
         invoicingContactName: z.string().optional(),
         invoicingContactPhone: z.string().optional(),
-        invoicingContactEmail: z
-          .string()
-          .email()
-          .optional()
-          .or(z.literal("")),
-        alternateInvoicingEmail: z
-          .string()
-          .email()
-          .optional()
-          .or(z.literal("")),
+        invoicingContactEmail: z.string().email().optional().or(z.literal("")),
+        alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
         vatNumber: z.string().optional(),
         website: z.string().url().optional().or(z.literal("")),
         status: z.enum(["active", "inactive"]).optional(),
@@ -158,7 +174,7 @@ export const companyRouter = createTRPCRouter({
   // DELETE COMPANY
   // ======================================================
   delete: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.companies.delete))
+    .use(hasPermission("companies.delete.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.session!.user.tenantId
@@ -189,7 +205,7 @@ export const companyRouter = createTRPCRouter({
   // STATS
   // ======================================================
   getStats: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.companies.view))
+    .use(hasPermission("companies.read.global"))
     .query(async ({ ctx }) => {
       const tenantId = ctx.session!.user.tenantId
 

@@ -33,7 +33,6 @@ import { expenseRouter } from "./routers/expense";
 import { timesheetRouter } from "./routers/timesheet";
 import { approvalWorkflowRouter } from "./routers/approvalWorkflow";
 import { documentRouter } from "./routers/document";
-import { commentRouter } from "./routers/comment";
 import { tagRouter } from "./routers/tag";
 import { customFieldRouter } from "./routers/customField";
 import { userActivityRouter } from "./routers/userActivity";
@@ -86,7 +85,6 @@ export const appRouter = createTRPCRouter({
   timesheet: timesheetRouter,
   approvalWorkflow: approvalWorkflowRouter,
   document: documentRouter,
-  comment: commentRouter,
   tag: tagRouter,
   customField: customFieldRouter,
   userActivity: userActivityRouter,
