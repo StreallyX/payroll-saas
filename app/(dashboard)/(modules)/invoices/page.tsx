@@ -265,7 +265,7 @@ function InvoicesPageContent() {
 export default function InvoicesPage() {
   return (
     <RouteGuard
-      permissions={["invoices.view_own", "invoices.manage.view_all"]}
+      permissions={["invoices.read.own", "invoices.manage.view_all"]}
       requireAll={false}
     >
       <InvoicesPageContent />

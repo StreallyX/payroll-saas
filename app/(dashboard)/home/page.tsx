@@ -30,19 +30,23 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const { permissions, hasPermission } = usePermissions();
 
+  const hasDashboardAccess =
+  hasPermission("dashboard.read.global") ||
+  hasPermission("dashboard.read.own");
+
   // Fetch dashboard statistics
   const { data: stats, isLoading: statsLoading } = api.dashboard.getStats.useQuery();
 
   // Fetch recent activities
   const { data: activities, isLoading: activitiesLoading } = api.dashboard.getRecentActivities.useQuery(
     { limit: 5 },
-    { enabled: hasPermission("audit.view") }
+    { enabled: hasPermission("audit.read.global") }
   );
 
   // Fetch upcoming contract expirations
   const { data: expiringContracts, isLoading: expirationsLoading } = api.dashboard.getUpcomingExpirations.useQuery(
     { days: 30 },
-    { enabled: hasPermission("contracts.manage.view_all") }
+    { enabled: hasPermission("contracts.read.global") }
   );
 
   const formatCurrency = (amount: number) => {
@@ -53,7 +57,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <RouteGuard permission="dashboard.view">
+    <RouteGuard permission="dashboard.read.own">
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-2">
@@ -349,9 +353,10 @@ export default function DashboardPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       )}
-
+      
+      
       {/* No Access Message */}
-      {!statsLoading && !stats?.contractors && !stats?.contracts && !stats?.invoices && (
+      {!statsLoading && !hasDashboardAccess && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -363,6 +368,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">
               You have limited permissions. Contact your administrator to request access to more features.
             </p>
+
             <div className="mt-4">
               <p className="text-sm font-medium mb-2">
                 You currently have {permissions.length} permission{permissions.length !== 1 ? "s" : ""}:
@@ -374,6 +380,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
       </div>
     </RouteGuard>
   );

@@ -13,7 +13,7 @@ export const contractorRouter = createTRPCRouter({
   // GET ALL CONTRACTORS (GLOBAL ONLY)
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission("contractor.read.global"))
+    .use(hasPermission("contractor.list.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.contractor.findMany({
         where: { tenantId: ctx.tenantId },
@@ -38,7 +38,7 @@ export const contractorRouter = createTRPCRouter({
   // GET CONTRACTOR BY ID (GLOBAL ONLY)
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission("contractor.read.global"))
+    .use(hasPermission("contractor.list.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.contractor.findFirst({
@@ -66,7 +66,7 @@ export const contractorRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
 
       const isOwner = input.userId === ctx.session.user.id
-      const hasGlobal = ctx.session.user.permissions?.includes("contractor.read.global")
+      const hasGlobal = ctx.session.user.permissions?.includes("contractor.list.global")
 
       if (!isOwner && !hasGlobal && !ctx.session.user.isSuperAdmin) {
         throw new Error("You can only view your own contractor profile")
@@ -335,7 +335,7 @@ export const contractorRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission("contractor.read.global"))
+    .use(hasPermission("contractor.list.global"))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.contractor.count({
         where: { tenantId: ctx.tenantId },

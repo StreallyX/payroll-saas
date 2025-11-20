@@ -86,7 +86,7 @@ export default function DashboardPage() {
     ];
 
     return (
-      <RouteGuard permission="dashboard.view">
+      <RouteGuard permission="dashboard.read.own">
         <div className="space-y-6">
           <PageHeader
             title="Contractor Dashboard"
@@ -220,7 +220,7 @@ export default function DashboardPage() {
     ];
 
     return (
-      <RouteGuard permission="dashboard.view">
+      <RouteGuard permission="dashboard.read.own">
         <div className="space-y-6">
           <PageHeader
             title="Agency Dashboard"
@@ -262,7 +262,7 @@ export default function DashboardPage() {
 
   // Admin/Default Dashboard
   return (
-    <RouteGuard permission="dashboard.view">
+    <RouteGuard permission="dashboard.read.own">
       <div className="space-y-6">
         <PageHeader
           title="Dashboard"

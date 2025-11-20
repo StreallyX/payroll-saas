@@ -14,7 +14,7 @@ export const agencyRouter = createTRPCRouter({
   // GET ALL
   // ------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission("agencies.read.global"))
+    .use(hasPermission("agency.list.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.agency.findMany({
         where: { tenantId: ctx.tenantId },
@@ -41,7 +41,7 @@ export const agencyRouter = createTRPCRouter({
   // GET BY ID
   // ------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission("agencies.read.global"))
+    .use(hasPermission("agency.list.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.agency.findFirst({
@@ -68,7 +68,7 @@ export const agencyRouter = createTRPCRouter({
   // CREATE
   // ------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission("agencies.create.global"))
+    .use(hasPermission("agency.create.global"))
     .input(
       z.object({
         name: z.string().min(1),
@@ -110,7 +110,7 @@ export const agencyRouter = createTRPCRouter({
   // UPDATE
   // ------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission("agencies.update.global"))
+    .use(hasPermission("agency.update.global"))
     .input(
       z.object({
         id: z.string(),
@@ -165,7 +165,7 @@ export const agencyRouter = createTRPCRouter({
   // DELETE
   // ------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission("agencies.delete.global"))
+    .use(hasPermission("agency.delete.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -195,7 +195,7 @@ export const agencyRouter = createTRPCRouter({
   // STATS
   // ------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission("agencies.read.global"))
+    .use(hasPermission("agency.list.global"))
     .query(async ({ ctx }) => {
       const total = await ctx.prisma.agency.count({
         where: { tenantId: ctx.tenantId },

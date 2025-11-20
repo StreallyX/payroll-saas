@@ -77,7 +77,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <RouteGuard permission="profile.view">
+      <RouteGuard permission="user.read.own">
         <div className="space-y-6">
           <PageHeader
             title="My Profile"
@@ -100,7 +100,7 @@ export default function ProfilePage() {
 
   if (error || !user) {
     return (
-      <RouteGuard permission="profile.view">
+      <RouteGuard permission="user.read.own">
         <div className="space-y-6">
           <PageHeader
             title="My Profile"
@@ -144,7 +144,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <RouteGuard permission="profile.view">
+    <RouteGuard permission="user.read.own">
       <div className="space-y-6">
         <PageHeader
           title="My Profile"

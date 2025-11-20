@@ -13,7 +13,7 @@ import {
 // -------------------------------------------------------
 // BUILD PERMISSION KEYS FOR ROLES MODULE
 // -------------------------------------------------------
-const VIEW   = buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.GLOBAL)
+const VIEW   = buildPermissionKey(Resource.ROLE, Action.LIST, PermissionScope.GLOBAL)
 const LIST   = buildPermissionKey(Resource.ROLE, Action.LIST, PermissionScope.GLOBAL)
 const CREATE = buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.GLOBAL)
 const UPDATE = buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.GLOBAL)
