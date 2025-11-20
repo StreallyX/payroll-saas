@@ -148,7 +148,9 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!data?.user) return;
 
-    const { user, company, bank } = data;
+    const { user, companies, bank, documents } = data;
+
+    const company = companies && companies.length > 0 ? companies[0] : null;
 
     setUserForm({
       name: user.name || "",
@@ -229,7 +231,9 @@ export default function ProfilePage() {
     );
   }
 
-  const { user, company, bank, documents } = data;
+ const { user, companies, bank, documents } = data;
+
+ const company = companies && companies.length > 0 ? companies[0] : null;
 
   // --- Handlers ------------------------------------------------------
 
@@ -476,7 +480,7 @@ export default function ProfilePage() {
                   onClick={() => setIsEditingCompany(true)}
                 >
                   <Edit className="mr-2 h-4 w-4" />
-                  {company ? "Edit" : "Create"}
+                  {companies ? "Edit" : "Create"}
                 </Button>
               ) : null}
             </CardHeader>

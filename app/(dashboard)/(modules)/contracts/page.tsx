@@ -9,13 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Search, Plus, FileDown, Pencil, Trash2, FileText, Eye, 
-  Calendar, TrendingUp, AlertTriangle, Users, Building2, UserPlus 
+  Calendar, TrendingUp, AlertTriangle 
 } from "lucide-react"
-import Link from "next/link"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api } from "@/lib/trpc"
 import { StatsCard } from "@/components/shared/stats-card"
 import { LoadingState } from "@/components/shared/loading-state"
@@ -42,54 +38,34 @@ export default function ManageContractsPage() {
   const { data: session } = useSession()
   const permissions = session?.user?.permissions || []
 
-  const canListGlobal = permissions.includes("contract.list.global")
-  const canListTeam = permissions.includes("contract.list.team")
+  const canListAll = permissions.includes("contract.list.global")
   const canReadOwn = permissions.includes("contract.read.own")
-
   const canCreate = permissions.includes("contract.create.global")
-  const canUpdateGlobal = permissions.includes("contract.update.global")
-  const canUpdateOwn = permissions.includes("contract.update.own")
+  const canUpdate = permissions.includes("contract.update.global")
   const canDelete = permissions.includes("contract.delete.global")
   const canExport = permissions.includes("contract.export.global")
 
   // ------------------------------------------
-  // API CALLS ACCORDING TO PERMISSIONS
+  // API CALLS
   // ------------------------------------------
-  let contractQuery
+  const emptyQuery = {
+    data: [],
+    isLoading: false,
+    refetch: async () => {},      // mock
+  };
 
-  if (canListGlobal) {
-    contractQuery = api.contract.getAll.useQuery()
-  } else if (canListTeam) {
-    // TODO: when implemented
-    contractQuery = api.contract.getAll.useQuery() // fallback
-  } else if (canReadOwn) {
-    contractQuery = api.contract.getMyContracts.useQuery()
-  } else {
-    contractQuery = {
-      data: [],
-      isLoading: false,
-      refetch: async () => ({ data: [], error: null })
-    }
-  }
+  const contractQuery = canListAll
+    ? api.contract.getAll.useQuery()
+    : canReadOwn
+      ? api.contract.getMyContracts.useQuery()
+      : emptyQuery;
+
+  const { data: contracts = [], isLoading, refetch } = contractQuery;
 
 
-  const { data: contracts = [], isLoading, refetch } = contractQuery
-
-  const { data: stats } = canListGlobal
+  const { data: stats } = canListAll
     ? api.contract.getStats.useQuery()
-    : { data: { total: contracts?.length || 0 } }
-
-  // ------------------------------------------
-  // Prerequisites
-  // ------------------------------------------
-  const { data: contractors = [] } = api.contractor.getAll.useQuery()
-  const { data: agencies = [] } = api.agency.getAll.useQuery()
-  const { data: payrollPartners = [] } = api.payroll.getAll.useQuery()
-
-  const hasPrerequisites =
-    contractors.length > 0 &&
-    agencies.length > 0 &&
-    payrollPartners.length > 0
+    : { data: { total: contracts?.length ?? 0 }}
 
   // ------------------------------------------
   // DELETE
@@ -100,8 +76,7 @@ export default function ManageContractsPage() {
       refetch()
       setDeleteId(null)
     },
-    onError: (err) =>
-      toast.error(err.message || "Erreur lors de la suppression"),
+    onError: (err) => toast.error(err.message),
   })
 
   const handleDelete = () => {
@@ -109,19 +84,9 @@ export default function ManageContractsPage() {
   }
 
   // ------------------------------------------
-  // VIEW
-  // ------------------------------------------
-  const handleViewContract = (id: string) => {
-    setViewingContractId(id)
-    setViewModalOpen(true)
-  }
-
-  // ------------------------------------------
   // CATEGORISATION
   // ------------------------------------------
   const categorizedContracts = useMemo(() => {
-    if (!contracts) return { active: [], expired: [], expiringSoon: [] }
-
     const now = new Date()
     const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
@@ -129,20 +94,18 @@ export default function ManageContractsPage() {
     const expired: any[] = []
     const expiringSoon: any[] = []
 
-    contracts.forEach((c) => {
+    contracts?.forEach((c) => {
+      const end = c.endDate ? new Date(c.endDate) : null
+
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const matches =
           c.title?.toLowerCase().includes(q) ||
-          c.agency.name.toLowerCase().includes(q) ||
-          c.contractor.user.name?.toLowerCase().includes(q)
-
+          c.participants.some((p) =>
+            p.user.name?.toLowerCase().includes(q)
+          )
         if (!matches) return
       }
-
-      if (c.status !== "active") return
-
-      const end = c.endDate ? new Date(c.endDate) : null
 
       if (!end) active.push(c)
       else if (end < now) expired.push(c)
@@ -163,11 +126,7 @@ export default function ManageContractsPage() {
       return (
         <Card>
           <CardContent className="p-6">
-            <EmptyState
-              icon={FileText}
-              title="Aucun contrat"
-              description={emptyMessage}
-            />
+            <EmptyState icon={FileText} title="Aucun contrat" description={emptyMessage} />
           </CardContent>
         </Card>
       )
@@ -180,8 +139,8 @@ export default function ManageContractsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Agence/Client</TableHead>
-                  <TableHead>Contractor</TableHead>
+                  <TableHead>Titre</TableHead>
+                  <TableHead>Participants</TableHead>
                   <TableHead>Tarif</TableHead>
                   <TableHead>Début</TableHead>
                   <TableHead>Fin</TableHead>
@@ -194,40 +153,34 @@ export default function ManageContractsPage() {
                 {contracts.map((c: any) => {
                   const end = c.endDate ? new Date(c.endDate) : null
                   const days = end
-                    ? Math.ceil(
-                        (end.getTime() - Date.now()) /
-                          (1000 * 60 * 60 * 24)
-                      )
+                    ? Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                     : null
-
-                  const canEdit =
-                    canUpdateGlobal ||
-                    (canUpdateOwn && c.createdBy === session?.user.id)
 
                   return (
                     <TableRow key={c.id}>
-                      <TableCell>{c.agency.name}</TableCell>
+                      <TableCell>{c.title || "Sans titre"}</TableCell>
+
                       <TableCell>
-                        {c.contractor.user.name ||
-                          c.contractor.user.email}
+                        <div className="flex flex-col gap-1">
+                          {c.participants.map((p: any) => (
+                            <div key={p.id}>
+                              <span className="font-medium">{p.user.name}</span>{" "}
+                              <span className="text-xs text-gray-500">({p.role})</span>
+                            </div>
+                          ))}
+                        </div>
                       </TableCell>
 
                       <TableCell>
-                        {c.rate
-                          ? `${c.rate}/${c.rateType || "hr"}`
-                          : "-"}
+                        {c.rate ? `${c.rate}/${c.rateType}` : "-"}
                       </TableCell>
 
                       <TableCell>
-                        {c.startDate
-                          ? new Date(c.startDate).toLocaleDateString("fr-FR")
-                          : "-"}
+                        {c.startDate ? new Date(c.startDate).toLocaleDateString("fr-FR") : "-"}
                       </TableCell>
 
                       <TableCell>
-                        {end
-                          ? end.toLocaleDateString("fr-FR")
-                          : "-"}
+                        {end ? end.toLocaleDateString("fr-FR") : "-"}
                       </TableCell>
 
                       <TableCell>
@@ -239,8 +192,8 @@ export default function ManageContractsPage() {
                               days < 0
                                 ? "destructive"
                                 : days <= 30
-                                ? "default"
-                                : "secondary"
+                                  ? "default"
+                                  : "secondary"
                             }
                           >
                             {days < 0 ? "Expiré" : `${days}j`}
@@ -250,17 +203,18 @@ export default function ManageContractsPage() {
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <RouteGuard permission="contract.list.global">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewContract(c.id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </RouteGuard>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setViewingContractId(c.id)
+                              setViewModalOpen(true)
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
 
-                          {canEdit && (
+                          {canUpdate && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -302,49 +256,18 @@ export default function ManageContractsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Gestion des Contrats"
-        description="Visualisez et gérez vos contrats"
+        description="Contrats multi-participants (contractor, client, approvers...)"
       />
-
-      {/* PREREQUISITES */}
-      {!hasPrerequisites && (
-        <Alert className="bg-orange-50 border-orange-200">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
-          <AlertDescription>
-            Vous devez d’abord configurer vos agences, contractors et
-            payroll partners.
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Actifs"
-          value={categorizedContracts.active.length}
-          icon={TrendingUp}
-          iconColor="text-green-600"
-        />
-        <StatsCard
-          title="Bientôt expirés"
-          value={categorizedContracts.expiringSoon.length}
-          icon={AlertTriangle}
-          iconColor="text-yellow-600"
-        />
-        <StatsCard
-          title="Expirés"
-          value={categorizedContracts.expired.length}
-          icon={Calendar}
-          iconColor="text-red-600"
-        />
-        <StatsCard
-          title="Total"
-          value={stats?.total || 0}
-          icon={FileText}
-          iconColor="text-blue-600"
-        />
+        <StatsCard title="Actifs" value={categorizedContracts.active.length} icon={TrendingUp} iconColor="text-green-600" />
+        <StatsCard title="Bientôt expirés" value={categorizedContracts.expiringSoon.length} icon={AlertTriangle} iconColor="text-yellow-600" />
+        <StatsCard title="Expirés" value={categorizedContracts.expired.length} icon={Calendar} iconColor="text-red-600" />
+        <StatsCard title="Total" value={stats?.total || 0} icon={FileText} iconColor="text-blue-600" />
       </div>
 
-      {/* ACTION BAR */}
+      {/* Action bar */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -367,12 +290,10 @@ export default function ManageContractsPage() {
               )}
 
               {canCreate && (
-                <Button
-                  onClick={() => {
-                    setEditingContract(null)
-                    setModalOpen(true)
-                  }}
-                >
+                <Button onClick={() => {
+                  setEditingContract(null)
+                  setModalOpen(true)
+                }}>
                   <Plus className="mr-2 h-4 w-4" />
                   Nouveau Contrat
                 </Button>
@@ -382,7 +303,7 @@ export default function ManageContractsPage() {
         </CardContent>
       </Card>
 
-      {/* TABS */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="active">
@@ -391,14 +312,12 @@ export default function ManageContractsPage() {
               {categorizedContracts.active.length}
             </Badge>
           </TabsTrigger>
-
           <TabsTrigger value="expiring">
             Bientôt expirés
             <Badge variant="secondary" className="ml-2">
               {categorizedContracts.expiringSoon.length}
             </Badge>
           </TabsTrigger>
-
           <TabsTrigger value="expired">
             Expirés
             <Badge variant="secondary" className="ml-2">
@@ -408,28 +327,17 @@ export default function ManageContractsPage() {
         </TabsList>
 
         <TabsContent value="active">
-          <ContractTable
-            contracts={categorizedContracts.active}
-            emptyMessage="Aucun contrat actif."
-          />
+          <ContractTable contracts={categorizedContracts.active} emptyMessage="Aucun contrat actif." />
         </TabsContent>
-
         <TabsContent value="expiring">
-          <ContractTable
-            contracts={categorizedContracts.expiringSoon}
-            emptyMessage="Aucun contrat expire bientôt."
-          />
+          <ContractTable contracts={categorizedContracts.expiringSoon} emptyMessage="Aucun contrat expire bientôt." />
         </TabsContent>
-
         <TabsContent value="expired">
-          <ContractTable
-            contracts={categorizedContracts.expired}
-            emptyMessage="Aucun contrat expiré."
-          />
+          <ContractTable contracts={categorizedContracts.expired} emptyMessage="Aucun contrat expiré." />
         </TabsContent>
       </Tabs>
 
-      {/* DELETE CONFIRMATION */}
+      {/* Delete */}
       <DeleteConfirmDialog
         open={deleteId !== null}
         onOpenChange={(o) => !o && setDeleteId(null)}
@@ -439,18 +347,18 @@ export default function ManageContractsPage() {
         isLoading={deleteMutation.isPending}
       />
 
-      {/* EDIT MODAL */}
+      {/* Edit modal */}
       <ContractModal
         open={modalOpen}
-        onOpenChange={(o) => {
-          setModalOpen(o)
-          if (!o) setEditingContract(null)
+        onOpenChange={(open: boolean) => {
+          setModalOpen(open)
+          if (!open) setEditingContract(null)
         }}
         contract={editingContract}
         onSuccess={() => refetch()}
       />
 
-      {/* VIEW MODAL */}
+      {/* View modal */}
       <ContractViewModal
         open={viewModalOpen}
         onOpenChange={(o) => {

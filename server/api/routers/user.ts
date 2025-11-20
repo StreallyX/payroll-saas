@@ -18,7 +18,7 @@ import {
 // -------------------------------------------------------
 // PERMISSIONS V3
 // -------------------------------------------------------
-const VIEW   = buildPermissionKey(Resource.USER, Action.READ, PermissionScope.GLOBAL);
+const VIEW   = buildPermissionKey(Resource.USER, Action.LIST, PermissionScope.GLOBAL);
 const CREATE = buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL);
 const UPDATE = buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL);
 const DELETE = buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL);

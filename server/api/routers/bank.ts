@@ -13,7 +13,7 @@ export const bankRouter = createTRPCRouter({
   // GET ALL BANKS — GLOBAL
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission("banks.read.global"))
+    .use(hasPermission("bank.list.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.bank.findMany({
         where: { tenantId: ctx.tenantId },

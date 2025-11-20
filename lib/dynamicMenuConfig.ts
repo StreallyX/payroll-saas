@@ -64,7 +64,6 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: FileText,
     permissions: [
       P(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
-      P(Resource.CONTRACT, Action.LIST, PermissionScope.TEAM),
       P(Resource.CONTRACT, Action.LIST, PermissionScope.GLOBAL),
     ],
   },
@@ -78,7 +77,6 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: Receipt,
     permissions: [
       P(Resource.INVOICE, Action.READ, PermissionScope.OWN),
-      P(Resource.INVOICE, Action.LIST, PermissionScope.TEAM),
       P(Resource.INVOICE, Action.LIST, PermissionScope.GLOBAL),
     ],
   },
@@ -92,7 +90,6 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: Clock,
     permissions: [
       P(Resource.TIMESHEET, Action.READ, PermissionScope.OWN),
-      P(Resource.TIMESHEET, Action.LIST, PermissionScope.TEAM),
       P(Resource.TIMESHEET, Action.LIST, PermissionScope.GLOBAL),
     ],
   },
@@ -106,7 +103,6 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: Upload,
     permissions: [
       P(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
-      P(Resource.EXPENSE, Action.LIST, PermissionScope.TEAM),
       P(Resource.EXPENSE, Action.LIST, PermissionScope.GLOBAL),
     ],
   },
@@ -213,46 +209,6 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // TEAM MANAGEMENT
-  // ===========================
-  {
-    label: "Team Management",
-    href: "/team",
-    icon: Users,
-    permissions: [
-      P(Resource.CONTRACTOR, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.AGENCY, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
-    ],
-    submenu: [
-      {
-        label: "Contractors",
-        href: "/team/contractors",
-        icon: UserCheck,
-        permissions: [
-          P(Resource.CONTRACTOR, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      },
-      {
-        label: "Agencies",
-        href: "/team/agencies",
-        icon: Building2,
-        permissions: [
-          P(Resource.AGENCY, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      },
-      {
-        label: "Team Members",
-        href: "/team/members",
-        icon: Users,
-        permissions: [
-          P(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      }
-    ]
-  },
-
-  // ===========================
   // LEADS
   // ===========================
   {
@@ -345,14 +301,6 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: CheckSquare,
         permissions: [
           P(Resource.PERMISSION, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      },
-      {
-        label: "Document Types",
-        href: "/settings/document-types",
-        icon: FileType,
-        permissions: [
-          P(Resource.DOCUMENT_TYPE, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
       {

@@ -1,9 +1,6 @@
 
 import { createTRPCRouter } from "./trpc"
 import { userRouter } from "./routers/user"
-import { agencyRouter } from "./routers/agency"
-import { contractorRouter } from "./routers/contractor"
-import { payrollRouter } from "./routers/payroll"
 import { contractRouter } from "./routers/contract"
 import { invoiceRouter } from "./routers/invoice"
 import { tenantRouter } from "./routers/tenant"
@@ -53,10 +50,7 @@ import { smsLogRouter } from "./routers/smsLog";
 export const appRouter = createTRPCRouter({
   user: userRouter,
   profile: profileRouter,
-  agency: agencyRouter,
   auth: authRouter,
-  contractor: contractorRouter,
-  payroll: payrollRouter,
   contract: contractRouter,
   invoice: invoiceRouter,
   tenant: tenantRouter,

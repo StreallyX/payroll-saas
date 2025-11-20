@@ -3,6 +3,7 @@ import {
   createTRPCRouter,
   tenantProcedure,
   hasPermission,
+  hasAnyPermission,
 } from "../trpc";
 
 import {
@@ -21,7 +22,7 @@ const UPDATE_OWN = buildPermissionKey(Resource.USER, Action.UPDATE, PermissionSc
 export const profileRouter = createTRPCRouter({
 
   // =========================================================
-  // GET OWN PROFILE (USER + COMPANY + BANK + DOCUMENTS)
+  // GET OWN PROFILE (USER + COMPANIES + BANK + DOCUMENTS)
   // =========================================================
   getOwn: tenantProcedure
     .use(hasPermission(VIEW_OWN))
@@ -29,36 +30,42 @@ export const profileRouter = createTRPCRouter({
       const userId = ctx.session!.user.id;
       const tenantId = ctx.tenantId!;
 
-      // USER + Relations (company included)
+      // USER
       const user = await ctx.prisma.user.findFirst({
         where: { id: userId, tenantId },
         include: {
           role: true,
-          agency: true,
-          payrollPartner: true,
-          company: true,
         },
       });
 
       if (!user) throw new Error("User not found.");
+
+      // ALL COMPANIES user belongs to via CompanyUser
+      const memberships = await ctx.prisma.companyUser.findMany({
+        where: { userId },
+        include: {
+          company: {
+            include: { country: true },
+          },
+        },
+      });
+
+      const companies = memberships.map((m) => m.company);
 
       // BANK created by user
       const bank = await ctx.prisma.bank.findFirst({
         where: { tenantId, createdBy: userId },
       });
 
-      // DOCUMENTS uploaded by user (adapt fields if needed)
+      // DOCUMENTS uploaded by user
       const documents = await ctx.prisma.contractDocument.findMany({
-        where: {
-          uploadedBy: userId,
-        },
+        where: { uploadedBy: userId },
         orderBy: { uploadedAt: "desc" },
       });
 
-
       return {
         user,
-        company: user.company ?? null,
+        companies,
         bank,
         documents,
       };
@@ -96,7 +103,6 @@ export const profileRouter = createTRPCRouter({
         },
       });
 
-      // Log audit
       await ctx.prisma.auditLog.create({
         data: {
           tenantId,
@@ -121,6 +127,7 @@ export const profileRouter = createTRPCRouter({
     .use(hasPermission(UPDATE_OWN))
     .input(
       z.object({
+        companyId: z.string().optional(), // NEW FIELD
         name: z.string().min(1),
         contactPerson: z.string().optional(),
         contactEmail: z.string().optional(),
@@ -144,34 +151,42 @@ export const profileRouter = createTRPCRouter({
       const userId = ctx.session!.user.id;
       const tenantId = ctx.tenantId!;
 
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: userId },
-      });
-      if (!user) throw new Error("User not found.");
-
-      // NO COMPANY → CREATE
-      if (!user.companyId) {
+      // Case 1: CREATE NEW COMPANY
+      if (!input.companyId) {
         const newCompany = await ctx.prisma.company.create({
           data: {
+            ...input,
             tenantId,
             createdBy: userId,
-            ...input,
           },
         });
 
-        // Attach new company to user
-        await ctx.prisma.user.update({
-          where: { id: userId },
-          data: { companyId: newCompany.id },
+        // Link user → company as OWNER
+        await ctx.prisma.companyUser.create({
+          data: {
+            userId,
+            companyId: newCompany.id,
+            role: "owner",
+          },
         });
 
         return newCompany;
       }
 
-      // HAS COMPANY → UPDATE
+      // Case 2: UPDATE EXISTING COMPANY (only if user belongs to it)
+      const membership = await ctx.prisma.companyUser.findFirst({
+        where: { companyId: input.companyId, userId },
+      });
+
+      if (!membership) {
+        throw new Error("You do not have permissions to update this company");
+      }
+
+      const { companyId, ...data } = input;
+
       return ctx.prisma.company.update({
-        where: { id: user.companyId },
-        data: input,
+        where: { id: companyId },
+        data,
       });
     }),
 
@@ -200,7 +215,6 @@ export const profileRouter = createTRPCRouter({
         },
       });
 
-      // NO BANK → CREATE
       if (!bank) {
         return ctx.prisma.bank.create({
           data: {
@@ -211,11 +225,9 @@ export const profileRouter = createTRPCRouter({
         });
       }
 
-      // HAS BANK → UPDATE
       return ctx.prisma.bank.update({
         where: { id: bank.id },
         data: input,
       });
     }),
-
 });

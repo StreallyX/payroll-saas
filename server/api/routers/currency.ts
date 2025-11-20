@@ -31,11 +31,7 @@ export const currencyRouter = createTRPCRouter({
       })
     }),
 
-  // -------------------------------------------------------
-  // CREATE CURRENCY (SUPERADMIN ONLY)
-  // -------------------------------------------------------
   create: protectedProcedure
-    .use(hasPermission("superadmin.currencies.create"))
     .input(
       z.object({
         code: z.string().length(3, "Code must be 3 characters (e.g., USD)"),

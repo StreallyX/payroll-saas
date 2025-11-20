@@ -19,20 +19,17 @@ export type TRPCContext = {
 };
 
 /* -------------------------------------------------------------
- * 2) NEW CONTEXT CREATION — FIX SUPERADMIN + SESSION
+ * 2) CONTEXT CREATION — SUPERADMIN FIX
  * ------------------------------------------------------------- */
 
 export async function createTRPCContext(opts: { req: Request }): Promise<TRPCContext> {
-  // ⭐ FIX: In App Router, getServerSession automatically accesses request context
-  // Passing headers/cookies manually can prevent the session callback from executing properly
   const session = await getServerSession(authOptions);
 
-  // No session → public access
   if (!session?.user?.id) {
     return { prisma, session: null, tenantId: null };
   }
 
-  // ⭐ SUPERADMIN FIX → does not exist in prisma.user
+  // ⭐ Superadmin = bypass DB
   if (session.user.isSuperAdmin) {
     return {
       prisma,
@@ -53,7 +50,7 @@ export async function createTRPCContext(opts: { req: Request }): Promise<TRPCCon
     };
   }
 
-  // Regular tenant user → load from DB
+  // Load tenant user from DB
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
@@ -69,7 +66,7 @@ export async function createTRPCContext(opts: { req: Request }): Promise<TRPCCon
     return { prisma, session: null, tenantId: null };
   }
 
-  const permissions = dbUser.role.rolePermissions.map(p => p.permission.key);
+  const permissions = dbUser.role.rolePermissions.map((p) => p.permission.key);
 
   return {
     prisma,
@@ -81,9 +78,6 @@ export async function createTRPCContext(opts: { req: Request }): Promise<TRPCCon
         roleId: dbUser.roleId,
         roleName: dbUser.role.name,
         permissions,
-        agencyId: dbUser.agencyId,
-        payrollPartnerId: dbUser.payrollPartnerId,
-        companyId: dbUser.companyId,
       },
     },
     tenantId: dbUser.tenantId,
@@ -119,7 +113,6 @@ const requireAuth = t.middleware(({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
-
   return next();
 });
 
@@ -137,7 +130,7 @@ const requireTenant = t.middleware(({ ctx, next }) => {
   });
 });
 
-// Permission check
+// Require a SINGLE permission
 export const requirePermission = (permission: string) =>
   t.middleware(({ ctx, next }) => {
     if (!ctx.session!.user.permissions.includes(permission)) {
@@ -150,23 +143,38 @@ export const requirePermission = (permission: string) =>
     return next();
   });
 
-// Check if user has ANY of the specified permissions (DEEL pattern)
-export const requireAnyPermission = (permissions: string[]) =>
+/* -------------------------------------------------------------
+ * NEW: REQUIRE ANY PERMISSION (for arrays)
+ * ------------------------------------------------------------- */
+
+export const requireAny = (permissions: string[]) =>
   t.middleware(({ ctx, next }) => {
     const userPermissions = ctx.session!.user.permissions || [];
-    const hasAny = permissions.some(p => userPermissions.includes(p));
-    
-    if (!hasAny && !ctx.session!.user.isSuperAdmin) {
+
+    const allowed = permissions.some((p) => userPermissions.includes(p));
+
+    if (!allowed && !ctx.session!.user.isSuperAdmin) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: `Missing required permissions: ${permissions.join(" or ")}`,
+        message: `Missing required permissions (${permissions.join(" OR ")})`,
       });
     }
 
     return next();
   });
 
+/* -------------------------------------------------------------
+ * EXPORTS FOR ROUTERS
+ * ------------------------------------------------------------- */
+
 export const protectedProcedure = t.procedure.use(requireAuth);
 export const tenantProcedure = protectedProcedure.use(requireTenant);
-export const hasPermission = (permission: string) => requirePermission(permission);
-export const hasAnyPermission = (permissions: string[]) => requireAnyPermission(permissions);
+
+// Aliases for convenience
+export const hasPermission = (permission: string) =>
+  requirePermission(permission);
+
+export const hasAny = (permissions: string[]) =>
+  requireAny(permissions);
+
+export const hasAnyPermission = hasAny;

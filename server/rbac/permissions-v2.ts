@@ -31,7 +31,6 @@
 export enum PermissionScope {
   GLOBAL = "global",   // Accès à toutes les ressources du tenant
   OWN = "own",        // Accès uniquement à ses propres ressources
-  TEAM = "team",      // Accès aux ressources de son équipe/agence
   TENANT = "tenant",  // Accès au niveau tenant (équivalent à global pour certaines ressources)
 }
 
@@ -43,62 +42,60 @@ export enum Resource {
   USER = "user",
   ROLE = "role",
   PERMISSION = "permission",
-  
+
   // Business entities
   CONTRACT = "contract",
-  CONTRACTOR = "contractor",
+  CONTRACT_PARTICIPANT = "contract_participant",
   COMPANY = "company",
-  AGENCY = "agency",
-  PAYROLL_PARTNER = "payroll_partner",
-  
+
   // Financial
   INVOICE = "invoice",
   PAYMENT = "payment",
   EXPENSE = "expense",
   PAYSLIP = "payslip",
   REMITTANCE = "remittance",
-  
+
   // Time & Work
   TIMESHEET = "timesheet",
   TASK = "task",
-  
+
   // Documents & Files
   DOCUMENT = "document",
   CONTRACT_DOCUMENT = "contract_document",
-  
+
   // Onboarding
   ONBOARDING_TEMPLATE = "onboarding_template",
   ONBOARDING_QUESTION = "onboarding_question",
   ONBOARDING_RESPONSE = "onboarding_response",
-  
+
   // Communication
   COMMENT = "comment",
   NOTIFICATION = "notification",
-  
+
   // Marketing & Sales
   LEAD = "lead",
   REFERRAL = "referral",
-  
+
   // Administration
   TENANT = "tenant",
   BANK = "bank",
-  DOCUMENT_TYPE = "document_type",
   WEBHOOK = "webhook",
   API_KEY = "api_key",
-  
+
   // Workflow
   APPROVAL_WORKFLOW = "approval_workflow",
-  
+
   // System
   AUDIT_LOG = "audit_log",
   REPORT = "report",
   DASHBOARD = "dashboard",
   SETTINGS = "settings",
-  
+
   // Custom
   CUSTOM_FIELD = "custom_field",
   TAG = "tag",
 }
+
 
 /**
  * Actions disponibles
@@ -405,74 +402,6 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
 
   // ================================================================
-  // CONTRACTORS
-  // ================================================================
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.READ,
-    PermissionScope.OWN,
-    "Voir son profil contractor",
-    "Consulter ses propres informations de freelance",
-    PermissionCategory.CORE
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.UPDATE,
-    PermissionScope.OWN,
-    "Modifier son profil contractor",
-    "Mettre à jour ses informations professionnelles",
-    PermissionCategory.CORE
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.LIST,
-    PermissionScope.TEAM,
-    "Voir les contractors de son équipe",
-    "Lister les contractors de son agence",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.LIST,
-    PermissionScope.GLOBAL,
-    "Voir tous les contractors",
-    "Lister et rechercher tous les contractors",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.CREATE,
-    PermissionScope.GLOBAL,
-    "Créer des contractors",
-    "Ajouter de nouveaux contractors",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.UPDATE,
-    PermissionScope.GLOBAL,
-    "Modifier les contractors",
-    "Mettre à jour les informations des contractors",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.DELETE,
-    PermissionScope.GLOBAL,
-    "Supprimer des contractors",
-    "Supprimer des profils contractors",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.CONTRACTOR,
-    Action.ASSIGN,
-    PermissionScope.GLOBAL,
-    "Assigner des contractors",
-    "Assigner des contractors à des agences",
-    PermissionCategory.BUSINESS
-  ),
-
-  // ================================================================
   // COMPANIES (Clients)
   // ================================================================
   createPermission(
@@ -509,110 +438,6 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
 
   // ================================================================
-  // AGENCIES
-  // ================================================================
-  createPermission(
-    Resource.AGENCY,
-    Action.READ,
-    PermissionScope.OWN,
-    "Voir son agence",
-    "Consulter les informations de son agence",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.UPDATE,
-    PermissionScope.OWN,
-    "Modifier son agence",
-    "Mettre à jour les informations de son agence",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.LIST,
-    PermissionScope.GLOBAL,
-    "Voir toutes les agences",
-    "Lister toutes les agences",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.CREATE,
-    PermissionScope.GLOBAL,
-    "Créer des agences",
-    "Ajouter de nouvelles agences",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.UPDATE,
-    PermissionScope.GLOBAL,
-    "Modifier les agences",
-    "Mettre à jour les informations des agences",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.DELETE,
-    PermissionScope.GLOBAL,
-    "Supprimer des agences",
-    "Supprimer des agences",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.INVITE,
-    PermissionScope.OWN,
-    "Inviter des membres",
-    "Inviter des membres dans son agence",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.AGENCY,
-    Action.REMOVE,
-    PermissionScope.OWN,
-    "Retirer des membres",
-    "Retirer des membres de son agence",
-    PermissionCategory.BUSINESS
-  ),
-
-  // ================================================================
-  // PAYROLL PARTNERS
-  // ================================================================
-  createPermission(
-    Resource.PAYROLL_PARTNER,
-    Action.LIST,
-    PermissionScope.GLOBAL,
-    "Voir les partenaires payroll",
-    "Lister tous les partenaires de paie",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.PAYROLL_PARTNER,
-    Action.CREATE,
-    PermissionScope.GLOBAL,
-    "Créer des partenaires payroll",
-    "Ajouter de nouveaux partenaires de paie",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.PAYROLL_PARTNER,
-    Action.UPDATE,
-    PermissionScope.GLOBAL,
-    "Modifier les partenaires payroll",
-    "Mettre à jour les informations des partenaires",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.PAYROLL_PARTNER,
-    Action.DELETE,
-    PermissionScope.GLOBAL,
-    "Supprimer des partenaires payroll",
-    "Supprimer des partenaires de paie",
-    PermissionCategory.BUSINESS
-  ),
-
-  // ================================================================
   // CONTRACTS
   // ================================================================
   createPermission(
@@ -621,14 +446,6 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.OWN,
     "Voir ses contrats",
     "Consulter ses propres contrats",
-    PermissionCategory.BUSINESS
-  ),
-  createPermission(
-    Resource.CONTRACT,
-    Action.LIST,
-    PermissionScope.TEAM,
-    "Voir les contrats de son équipe",
-    "Lister les contrats de son agence/équipe",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -773,14 +590,6 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.OWN,
     "Créer ses factures",
     "Créer ses propres factures (contractors)",
-    PermissionCategory.FINANCIAL
-  ),
-  createPermission(
-    Resource.INVOICE,
-    Action.LIST,
-    PermissionScope.TEAM,
-    "Voir les factures de son équipe",
-    "Lister les factures de son équipe",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
@@ -954,25 +763,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(
     Resource.EXPENSE,
     Action.LIST,
-    PermissionScope.TEAM,
-    "Voir les dépenses de son équipe",
-    "Lister les dépenses de son équipe",
-    PermissionCategory.FINANCIAL
-  ),
-  createPermission(
-    Resource.EXPENSE,
-    Action.LIST,
     PermissionScope.GLOBAL,
     "Voir toutes les dépenses",
     "Lister toutes les dépenses",
-    PermissionCategory.FINANCIAL
-  ),
-  createPermission(
-    Resource.EXPENSE,
-    Action.APPROVE,
-    PermissionScope.TEAM,
-    "Approuver les dépenses de son équipe",
-    "Approuver les dépenses de son équipe",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
@@ -1046,25 +839,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(
     Resource.TIMESHEET,
     Action.LIST,
-    PermissionScope.TEAM,
-    "Voir les feuilles de temps de son équipe",
-    "Lister les timesheets de son équipe",
-    PermissionCategory.TIME_TRACKING
-  ),
-  createPermission(
-    Resource.TIMESHEET,
-    Action.LIST,
     PermissionScope.GLOBAL,
     "Voir toutes les feuilles de temps",
     "Lister toutes les timesheets",
-    PermissionCategory.TIME_TRACKING
-  ),
-  createPermission(
-    Resource.TIMESHEET,
-    Action.APPROVE,
-    PermissionScope.TEAM,
-    "Approuver les feuilles de temps de son équipe",
-    "Approuver les timesheets de son équipe",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
@@ -1745,6 +1522,51 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
 
   // ================================================================
+  // CONTRACT PARTICIPANTS (contractors / agency / payroll / client)
+  // ================================================================
+  createPermission(
+    Resource.CONTRACT_PARTICIPANT,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir les participants de contrat",
+    "Lister tous les participants des contrats",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_PARTICIPANT,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Ajouter un participant",
+    "Associer un utilisateur à un contrat",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_PARTICIPANT,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier les participants",
+    "Mettre à jour le rôle ou les informations d’un participant",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_PARTICIPANT,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Retirer un participant",
+    "Retirer un utilisateur d’un contrat",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_PARTICIPANT,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir sa participation aux contrats",
+    "Voir sa propre relation avec les contrats",
+    PermissionCategory.BUSINESS
+  ),
+
+
+  // ================================================================
   // AUDIT LOGS
   // ================================================================
   createPermission(
@@ -1868,17 +1690,6 @@ export function hasPermissionWithContext(
       resourceContext.createdBy === user.userId ||
       resourceContext.assignedTo === user.userId
     ) {
-      return true;
-    }
-  }
-
-  // Vérifier permission "team"
-  if (hasPermission(user, resource, action, PermissionScope.TEAM)) {
-    // Vérifier si l'utilisateur est dans la même agence/équipe
-    if (user.agencyId && resourceContext.agencyId === user.agencyId) {
-      return true;
-    }
-    if (user.companyId && resourceContext.teamId === user.companyId) {
       return true;
     }
   }

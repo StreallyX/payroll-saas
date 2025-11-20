@@ -1,171 +1,165 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Download, Search, Edit, Trash2, Loader2 } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Plus, Search, Edit, Trash2, Send, CheckCircle, DollarSign } from "lucide-react";
+
 import { api } from "@/lib/trpc";
-import { StatsCard } from "@/components/shared/stats-card";
-import { LoadingState } from "@/components/shared/loading-state";
-import { EmptyState } from "@/components/shared/empty-state";
-import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
-import { InvoiceModal } from "@/components/modals/invoice-modal";
 import { RouteGuard } from "@/components/guards/RouteGuard";
-import { PermissionGuard } from "@/components/guards/PermissionGuard";
+import { PermissionGuard, useHasPermission } from "@/components/guards/PermissionGuard";
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { InvoiceModal } from "@/components/modals/invoice-modal";
+import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
+import { EmptyState } from "@/components/shared/empty-state";
+import { LoadingState } from "@/components/shared/loading-state";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Decimal } from "@prisma/client/runtime/library";
 
-/**
- * Adaptive Invoices Page
- */
+// -----------------------------------------------------------
+// PERMISSIONS V3
+// -----------------------------------------------------------
+const P = {
+  READ_OWN: "invoice.read.own",
+  CREATE_OWN: "invoice.create.own",
+  UPDATE_OWN: "invoice.update.own",
+  
+  LIST_GLOBAL: "invoice.list.global",
+  CREATE_GLOBAL: "invoice.create.global",
+  UPDATE_GLOBAL: "invoice.update.global",
+  DELETE_GLOBAL: "invoice.delete.global",
+  SEND_GLOBAL: "invoice.send.global",
+  APPROVE_GLOBAL: "invoice.approve.global",
+  PAY_GLOBAL: "invoice.pay.global",
+  EXPORT_GLOBAL: "invoice.export.global",
+};
+
 function InvoicesPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data: allInvoices, isLoading, refetch } = api.invoice.getAll.useQuery();
+  // ---------------------------
+  // PERMISSION CHECKS
+  // ---------------------------
+  const canListAll = useHasPermission(P.LIST_GLOBAL);
+  const canCreateGlobal = useHasPermission(P.CREATE_GLOBAL);
+  const canCreateOwn = useHasPermission(P.CREATE_OWN);
 
-  const rows = allInvoices?.invoices ?? [];
+  // ---------------------------
+  // LOAD INVOICES
+  // ---------------------------
 
-  // 🔍 Search
-  const filteredInvoices = rows.filter((invoice) => {
+  const {
+    data: globalInvoices,
+    isLoading: loadingGlobal
+  } = api.invoice.getAll.useQuery(
+    { limit: 200 },
+    { enabled: canListAll }
+  );
+
+  const {
+    data: ownInvoices,
+    isLoading: loadingOwn
+  } = api.invoice.getMyInvoices.useQuery(undefined, {
+    enabled: !canListAll
+  });
+
+  const rows = useMemo(() => {
+    if (canListAll) return globalInvoices?.invoices ?? [];
+    return ownInvoices ?? [];
+  }, [canListAll, globalInvoices, ownInvoices]);
+
+  if (loadingGlobal || loadingOwn) {
+    return <LoadingState message="Loading invoices..." />;
+  }
+
+  // ---------------------------
+  // SEARCH FILTER
+  // ---------------------------
   const s = searchQuery.toLowerCase();
+  const filtered = rows.filter((inv) => {
     return (
-      invoice.invoiceNumber?.toLowerCase().includes(s) ||
-      invoice.contract?.contractor?.user?.name?.toLowerCase().includes(s) ||
-      invoice.status?.toLowerCase().includes(s)
+      inv.invoiceNumber?.toLowerCase().includes(s) ||
+      inv.contract?.contractor?.user?.name?.toLowerCase().includes(s) ||
+      inv.status?.toLowerCase().includes(s)
     );
   });
 
-
-  // 📊 Stats
-  const stats = {
-    total: rows.length,
-    pending: rows.filter((i) => i.status === "pending").length,
-    approved: rows.filter((i) => i.status === "approved").length,
-    paid: rows.filter((i) => i.status === "paid").length,
-    totalAmount: rows.reduce(
-      (sum, inv) => sum + Number(inv.totalAmount || 0),
-      0
-    ),
-  };
-
-  // Delete handling
-  const handleDelete = async (id: string) => {
-    try {
-      toast.success("Invoice deleted successfully");
-      refetch();
-    } catch (error) {
-      toast.error("Failed to delete invoice");
-    } finally {
-      setDeleteId(null);
-    }
-  };
-
+  // ---------------------------
+  // ACTIONS
+  // ---------------------------
   const handleEdit = (invoice: any) => {
     setEditingInvoice(invoice);
     setModalOpen(true);
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<
-      string,
-      "default" | "secondary" | "destructive" | "outline"
-    > = {
+  const handleDelete = async (id: string) => {
+    try {
+      await api.invoice.delete.mutateAsync({ id });
+      toast.success("Invoice deleted");
+    } catch {
+      toast.error("Failed to delete invoice");
+    }
+    setDeleteId(null);
+  };
+
+  // ---------------------------
+  // BADGE
+  // ---------------------------
+  const badge = (status: string) => {
+    const variants: any = {
       draft: "secondary",
       pending: "outline",
       approved: "default",
       paid: "default",
       rejected: "destructive",
     };
-
     return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
   };
 
-  if (isLoading) {
-    return <LoadingState message="Loading invoices..." />;
-  }
-
   return (
     <div className="space-y-6">
-      <PageHeader title="Invoices" description="View and manage your invoices">
-        <PermissionGuard permission="invoices.create">
+      {/* HEADER */}
+      <PageHeader
+        title="Invoices"
+        description={canListAll ? "Manage all invoices" : "Your invoices only"}
+      >
+        <PermissionGuard permissions={[P.CREATE_GLOBAL, P.CREATE_OWN]}>
           <Button onClick={() => setModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Invoice
+            <Plus className="mr-2 h-4 w-4" /> Create Invoice
           </Button>
         </PermissionGuard>
       </PageHeader>
 
-      {/* 📊 Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <StatsCard
-          title="Total Invoices"
-          value={stats.total}
-          description="All invoices"
-          icon={Plus}
-        />
-        <StatsCard
-          title="Pending"
-          value={stats.pending}
-          description="Awaiting approval"
-          icon={Loader2}
-        />
-        <StatsCard
-          title="Approved"
-          value={stats.approved}
-          description="Ready for payment"
-          icon={Download}
-        />
-        <StatsCard
-          title="Paid"
-          value={stats.paid}
-          description="Completed"
-          icon={Download}
-        />
-        <StatsCard
-          title="Total Amount"
-          value={`€${stats.totalAmount.toFixed(2)}`}
-          description="Total value"
-          icon={Download}
-        />
-      </div>
-
-      {/* 🔍 Search */}
+      {/* SEARCH */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by invoice number, contractor, or status..."
+              placeholder="Search invoice, contractor, status..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
-      {filteredInvoices.length === 0 ? (
+      {/* TABLE */}
+      {filtered.length === 0 ? (
         <EmptyState
           icon={Plus}
-          title="No invoices found"
-          description="Get started by creating your first invoice"
-          actionLabel="Create Invoice"
+          title="No invoices"
+          description="No invoices match your filters"
+          actionLabel={
+            canCreateGlobal || canCreateOwn ? "Create Invoice" : undefined
+          }
           onAction={() => setModalOpen(true)}
         />
       ) : (
@@ -184,50 +178,51 @@ function InvoicesPageContent() {
               </TableHeader>
 
               <TableBody>
-                {filteredInvoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">
-                      {invoice.invoiceNumber}
-                    </TableCell>
-
+                {filtered.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell>{inv.invoiceNumber}</TableCell>
+                    <TableCell>{inv.contract?.contractor?.user?.name}</TableCell>
                     <TableCell>
-                      {invoice.contract?.contractor?.user?.name || "-"}
+                      {inv.createdAt ? format(new Date(inv.createdAt), "MMM dd yyyy") : "-"}
                     </TableCell>
-
-
-                    <TableCell>
-                      {invoice.createdAt
-                        ? format(new Date(invoice.createdAt), "MMM dd, yyyy")
-                        : "-"}
-                    </TableCell>
-
-                    <TableCell>
-                      €
-                      {Number(invoice.totalAmount || 0).toFixed(2)}
-                    </TableCell>
-
-                    <TableCell>
-                      {getStatusBadge(invoice.status || "draft")}
-                    </TableCell>
+                    <TableCell>{Number(inv.totalAmount).toFixed(2)}</TableCell>
+                    <TableCell>{badge(inv.status)}</TableCell>
 
                     <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <PermissionGuard permission="invoices.update">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(invoice)}
-                          >
+                      <div className="flex justify-end gap-1">
+                        {/* EDIT (OWN OR GLOBAL) */}
+                        <PermissionGuard
+                          permissions={[P.UPDATE_GLOBAL, P.UPDATE_OWN]}
+                        >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </PermissionGuard>
 
-                        <PermissionGuard permission="invoices.delete">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteId(invoice.id)}
-                          >
+                        {/* SEND */}
+                        <PermissionGuard permission={P.SEND_GLOBAL}>
+                          <Button variant="ghost" size="icon">
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </PermissionGuard>
+
+                        {/* APPROVE */}
+                        <PermissionGuard permission={P.APPROVE_GLOBAL}>
+                          <Button variant="ghost" size="icon">
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        </PermissionGuard>
+
+                        {/* PAY */}
+                        <PermissionGuard permission={P.PAY_GLOBAL}>
+                          <Button variant="ghost" size="icon">
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                        </PermissionGuard>
+
+                        {/* DELETE */}
+                        <PermissionGuard permission={P.DELETE_GLOBAL}>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(inv.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </PermissionGuard>
@@ -241,7 +236,7 @@ function InvoicesPageContent() {
         </Card>
       )}
 
-      {/* Modals */}
+      {/* MODALS */}
       <InvoiceModal
         open={modalOpen}
         onOpenChange={setModalOpen}
@@ -250,22 +245,19 @@ function InvoicesPageContent() {
 
       <DeleteConfirmDialog
         open={!!deleteId}
-        onOpenChange={(open) => !open && setDeleteId(null)}
+        onOpenChange={(o) => !o && setDeleteId(null)}
         onConfirm={() => deleteId && handleDelete(deleteId)}
         title="Delete Invoice"
-        description="Are you sure you want to delete this invoice?"
+        description="This action is irreversible"
       />
     </div>
   );
 }
 
-/**
- * Route-guarded wrapper
- */
 export default function InvoicesPage() {
   return (
     <RouteGuard
-      permissions={["invoices.read.own", "invoices.manage.view_all"]}
+      permissions={[P.READ_OWN, P.LIST_GLOBAL]}
       requireAll={false}
     >
       <InvoicesPageContent />
