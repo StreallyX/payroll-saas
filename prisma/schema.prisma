@@ -714,43 +714,44 @@ model Timesheet {
   id         String   @id @default(cuid())
   tenantId   String
   
-  // 🔥 Ownership - qui a soumis le timesheet (un User, généralement le contractor)
   submittedBy String
-  
-  // 🔥 Context - contrat lié (optionnel)
   contractId  String?
+
+  // PERIOD
+  startDate    DateTime
+  endDate      DateTime
   
-  // Period
-  startDate DateTime
-  endDate   DateTime
-  
-  // 🔥 Status & Approval (optionnel)
-  status             String    @default("draft") // draft, submitted, approved, rejected, invoiced
+  // STATUS
+  status             String    @default("draft")
   approvalWorkflowId String?
-  approvedBy         String?   // userId (optionnel)
-  approvedAt         DateTime?
-  rejectionReason    String?   @db.Text
-  
-  // Totals
-  totalHours  Decimal  @db.Decimal(10, 2)
-  totalAmount Decimal? @db.Decimal(10, 2)
-  
-  // 🔥 Invoice linkage (optionnel)
+  approvalWorkflow   ApprovalWorkflow? @relation("WorkflowTimesheets", fields: [approvalWorkflowId], references: [id])
+
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectionReason   String?   @db.Text
+
+  // TOTALS
+  totalHours   Decimal  @db.Decimal(10, 2)
+  totalAmount  Decimal? @db.Decimal(10, 2)
+
+  // FILES + NOTES
+  notes            String?   @db.Text
+  timesheetFileUrl String?
+  expenseFileUrl   String?
+
+  // INVOICE
   invoiceId   String?
-  
-  // Dates
   submittedAt DateTime?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submitter        User              @relation(fields: [submittedBy], references: [id])
-  contract         Contract?         @relation(fields: [contractId], references: [id])
-  entries          TimesheetEntry[]
-  approvalWorkflow ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id])
-  invoice          Invoice?          @relation(fields: [invoiceId], references: [id])
+  // RELATIONS
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submitter  User      @relation(fields: [submittedBy], references: [id])
+  contract   Contract? @relation(fields: [contractId], references: [id])
+  entries    TimesheetEntry[]
+  invoice    Invoice?  @relation(fields: [invoiceId], references: [id])
 
   @@index([tenantId])
   @@index([submittedBy])
@@ -758,6 +759,7 @@ model Timesheet {
   @@index([status])
   @@map("timesheets")
 }
+
 
 model TimesheetEntry {
   id          String   @id @default(cuid())
@@ -935,7 +937,8 @@ model ApprovalWorkflow {
   tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   steps      ApprovalStep[]
   expenses   Expense[]
-  timesheets Timesheet[]
+  timesheets Timesheet[] @relation("WorkflowTimesheets")
+
 
   @@index([tenantId])
   @@index([entityType, entityId])
