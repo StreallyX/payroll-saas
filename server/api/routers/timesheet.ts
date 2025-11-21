@@ -378,7 +378,7 @@ createRange: tenantProcedure
     }),
 
   // ------------------------------------------------------
-  // 8️⃣ APPROVE TIMESHEET + AUTO-INVOICE (DEEL STYLE)
+  // 8️⃣ APPROVE TIMESHEET + AUTO-INVOICE + AUTO-PAYSLIP
   // ------------------------------------------------------
   approve: tenantProcedure
     .use(hasPermission(P.APPROVE))
@@ -393,22 +393,26 @@ createRange: tenantProcedure
           approvedAt: new Date(),
           approvedBy: ctx.session.user.id,
         },
-        include: { contract: true },
+        include: {
+          contract: true, // ✔ ton include d'origine
+        },
       });
 
-      // 2. Auto-generate invoice (if amount and contract exist)
+      // ===========================================
+      // 2. AUTO-GENERATE INVOICE (comme avant)
+      // ===========================================
       if (ts.contractId && ts.totalAmount) {
         await ctx.prisma.invoice.create({
           data: {
             tenantId: ctx.tenantId,
             contractId: ts.contractId,
             createdBy: ctx.session.user.id,
-            amount: ts.totalAmount,
-            currency: ts.contract?.currencyId || "EUR",
+            amount: ts.totalAmount,                  // Decimal OK
+            currency: ts.contract?.currencyId ?? "EUR",
             status: "draft",
             issueDate: new Date(),
             dueDate: new Date(),
-            description: `Timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
+            description: `Timesheet ${ts.startDate.toISOString().slice(0, 10)} → ${ts.endDate.toISOString().slice(0, 10)}`,
             timesheets: {
               connect: { id: ts.id },
             },
@@ -416,8 +420,41 @@ createRange: tenantProcedure
         });
       }
 
+      // ===========================================
+      // 3. AUTO-GENERATE PAYSLIP (NOUVEAU)
+      // ===========================================
+
+      // 🔥 Un timesheet appartient à un contractor → contractor = user
+      const userId = ts.submittedBy; 
+      // ou ts.contract?.contractorId selon ton modèle exact
+
+      if (userId && ts.totalAmount) {
+        await ctx.prisma.payslip.create({
+          data: {
+            tenantId: ctx.tenantId,
+            userId: userId,
+            contractId: ts.contractId,
+
+            month: ts.startDate.getMonth() + 1,
+            year: ts.startDate.getFullYear(),
+
+            grossPay: Number(ts.totalAmount),    // ✔ convert Decimal → number
+            netPay: Number(ts.totalAmount),
+
+            deductions: 0,
+            tax: 0,
+
+            status: "generated",
+            generatedBy: ctx.session.user.id,
+
+            notes: `Payslip auto-généré depuis timesheet ${ts.startDate.toISOString().slice(0, 10)} → ${ts.endDate.toISOString().slice(0, 10)}`,
+          },
+        });
+      }
+
       return { success: true };
     }),
+
 
   // ------------------------------------------------------
   // 9️⃣ REJECT TIMESHEET

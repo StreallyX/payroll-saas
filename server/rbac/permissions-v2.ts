@@ -861,42 +861,80 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionCategory.TIME_TRACKING
   ),
 
-  // ================================================================
-  // PAYSLIPS
-  // ================================================================
+  // =============================
+  // PAYSLIP PERMISSIONS
+  // =============================
   createPermission(
     Resource.PAYSLIP,
     Action.READ,
     PermissionScope.OWN,
     "Voir ses bulletins de paie",
-    "Consulter ses propres bulletins",
+    "Consulter uniquement ses propres bulletins",
     PermissionCategory.FINANCIAL
   ),
+
+  createPermission(
+    Resource.PAYSLIP,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir tous les bulletins de paie",
+    "Consulter les bulletins de tous les utilisateurs",
+    PermissionCategory.FINANCIAL
+  ),
+
   createPermission(
     Resource.PAYSLIP,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les bulletins de paie",
-    "Lister tous les bulletins",
+    "Lister les bulletins de paie",
+    "Accéder à la liste complète des bulletins",
     PermissionCategory.FINANCIAL
   ),
+
   createPermission(
     Resource.PAYSLIP,
     Action.CREATE,
     PermissionScope.GLOBAL,
     "Générer des bulletins de paie",
-    "Créer des bulletins de paie",
+    "Créer de nouveaux bulletins de paie pour un utilisateur",
     PermissionCategory.FINANCIAL
   ),
+
+  createPermission(
+    Resource.PAYSLIP,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier les bulletins de paie",
+    "Mettre à jour les bulletins existants",
+    PermissionCategory.FINANCIAL
+  ),
+
+  createPermission(
+    Resource.PAYSLIP,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer les bulletins de paie",
+    "Supprimer les bulletins de paie existants",
+    PermissionCategory.FINANCIAL
+  ),
+
   createPermission(
     Resource.PAYSLIP,
     Action.SEND,
     PermissionScope.GLOBAL,
     "Envoyer des bulletins de paie",
-    "Envoyer les bulletins aux contractors",
+    "Envoyer les bulletins par email aux utilisateurs",
     PermissionCategory.FINANCIAL
   ),
 
+  createPermission(
+    Resource.PAYSLIP,
+    Action.EXPORT,
+    PermissionScope.GLOBAL,
+    "Exporter les bulletins de paie",
+    "Télécharger ou exporter un bulletin de paie en PDF/CSV",
+    PermissionCategory.FINANCIAL
+  ),
   // ================================================================
   // REMITTANCES
   // ================================================================

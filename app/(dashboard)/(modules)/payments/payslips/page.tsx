@@ -1,212 +1,302 @@
-
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { useSession } from "next-auth/react";
+
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
-import { RouteGuard } from "@/components/guards/RouteGuard";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PageHeader } from "@/components/ui/page-header";
-import { Search, Download, Eye, FileText } from "lucide-react";
+import { Search, Plus, Edit, Trash2 } from "lucide-react";
 
-/**
- * Contractor Payslips Page
- * 
- * This page displays payslips for the contractor.
- * 
- * TODO:
- * - Implement tRPC query to fetch payslips from database
- * - Add payslip detail view with full breakdown
- * - Implement PDF download functionality
- * - Add filters (date range, period)
- * - Show earnings summary and tax information
- * - Implement search functionality
- * - Add year-end tax summary (W-2, 1099)
- * - Show payment breakdown (regular hours, overtime, bonuses)
- */
+import { api } from "@/lib/trpc";
+import { LoadingState } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
+import { PayslipModal } from "@/components/modals/payslip-modal";
 
-// Mock data - TODO: Replace with real data from tRPC
-const mockPayslips = [
-  {
-    id: "1",
-    payslipNumber: "PS-2024-001",
-    period: "Jan 1-15, 2024",
-    issueDate: "2024-01-20",
-    grossPay: "$6,800",
-    taxes: "$1,020",
-    deductions: "$340",
-    netPay: "$5,440",
-  },
-  {
-    id: "2",
-    payslipNumber: "PS-2024-002",
-    period: "Jan 16-31, 2024",
-    issueDate: "2024-02-05",
-    grossPay: "$6,460",
-    taxes: "$969",
-    deductions: "$323",
-    netPay: "$5,168",
-  },
-  {
-    id: "3",
-    payslipNumber: "PS-2023-024",
-    period: "Dec 16-31, 2023",
-    issueDate: "2024-01-05",
-    grossPay: "$6,120",
-    taxes: "$918",
-    deductions: "$306",
-    netPay: "$4,896",
-  },
+import { toast } from "sonner";
+
+const MONTHS = [
+  { value: "1", label: "Janvier" },
+  { value: "2", label: "Février" },
+  { value: "3", label: "Mars" },
+  { value: "4", label: "Avril" },
+  { value: "5", label: "Mai" },
+  { value: "6", label: "Juin" },
+  { value: "7", label: "Juillet" },
+  { value: "8", label: "Août" },
+  { value: "9", label: "Septembre" },
+  { value: "10", label: "Octobre" },
+  { value: "11", label: "Novembre" },
+  { value: "12", label: "Décembre" },
 ];
 
-export default function ContractorPayslipsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
 
-  const ytdGross = "$138,720";
-  const ytdTaxes = "$20,808";
-  const ytdNet = "$110,448";
+export default function PayslipsPage() {
+  // ---------------------------------------------------------
+  // PERMISSIONS
+  // ---------------------------------------------------------
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
 
-  return (
-    <RouteGuard permission="payments.payslips.view_own">
-      <div className="space-y-6">
-      <PageHeader
-        title="Payslips"
-        description="View and download your payment statements"
-      />
+  const canListAll = permissions.includes("payslip.list.global");
+  const canReadOwn = permissions.includes("payslip.read.own");
+  const canCreate = permissions.includes("payslip.create.global");
+  const canUpdate = permissions.includes("payslip.update.global");
+  const canDelete = permissions.includes("payslip.delete.global");
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>YTD Gross Pay</CardDescription>
-            <CardTitle className="text-3xl">{ytdGross}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>YTD Taxes</CardDescription>
-            <CardTitle className="text-3xl">{ytdTaxes}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>YTD Net Pay</CardDescription>
-            <CardTitle className="text-3xl">{ytdNet}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Total Payslips</CardDescription>
-            <CardTitle className="text-3xl">24</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+  // ---------------------------------------------------------
+  // API CALLS
+  // ---------------------------------------------------------
+  const emptyQuery = {
+    data: [],
+    isLoading: false,
+    refetch: async () => {},
+  };
 
-      {/* Payslips Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+  const payslipQuery = canListAll
+    ? api.payslip.getAll.useQuery()
+    : canReadOwn
+    ? api.payslip.getAll.useQuery() // TRPC auto-scope → OWN seulement
+    : emptyQuery;
+
+  const { data: payslips = [], isLoading, refetch } = payslipQuery;
+  const { data: stats } = api.payslip.getStats.useQuery();
+
+  // ---------------------------------------------------------
+  // UI STATES
+  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingPayslip, setEditingPayslip] = useState<any>(null);
+
+  // ---------------------------------------------------------
+  // DELETE
+  // ---------------------------------------------------------
+  const deleteMutation = api.payslip.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Payslip supprimé");
+      refetch();
+      setDeleteId(null);
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleDelete = () => {
+    if (deleteId) deleteMutation.mutate({ id: deleteId });
+  };
+
+  // ---------------------------------------------------------
+  // FILTERS
+  // ---------------------------------------------------------
+  const filteredPayslips = useMemo(() => {
+    if (!searchQuery) return payslips;
+
+    const q = searchQuery.toLowerCase();
+
+    return payslips.filter((p: any) => {
+      const name = p.user?.name?.toLowerCase() || "";
+      const email = p.user?.email?.toLowerCase() || "";
+      const monthLabel = MONTHS.find(m => m.value === String(p.month))?.label.toLowerCase() || "";
+      const year = p.year.toString();
+
+      return (
+        name.includes(q) ||
+        email.includes(q) ||
+        monthLabel.includes(q) ||
+        year.includes(q)
+      );
+    });
+  }, [payslips, searchQuery]);
+
+  // ---------------------------------------------------------
+  // LOADING
+  // ---------------------------------------------------------
+  if (isLoading) return <LoadingState />;
+
+  // ---------------------------------------------------------
+  // COMPONENT : Payslip Card
+  // ---------------------------------------------------------
+  const PayslipCard = ({ p }: { p: any }) => {
+    const employee = p.user?.name || p.user?.email;
+
+    return (
+      <Card className="hover:shadow-md transition-shadow border border-slate-200">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex justify-between items-start">
             <div>
-              <CardTitle>Your Payslips</CardTitle>
-              <CardDescription>
-                Access all your payment statements and tax documents
-              </CardDescription>
+              <p className="font-semibold text-base">{employee}</p>
+              <p className="text-xs text-gray-500">
+                {MONTHS.find(m => m.value === String(p.month))?.label} {p.year}
+              </p>
             </div>
-            <Button variant="outline">
-              <FileText className="mr-2 h-4 w-4" />
-              Tax Summary
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Search */}
-          <div className="mb-4 flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search payslips..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Download All
-            </Button>
+
+            <Badge
+              variant="secondary"
+              className={
+                p.status === "paid"
+                  ? "bg-green-100 text-green-700"
+                  : p.status === "sent"
+                  ? "bg-blue-100 text-blue-700"
+                  : p.status === "generated"
+                  ? "bg-purple-100 text-purple-700"
+                  : "bg-gray-100 text-gray-700"
+              }
+            >
+              {p.status}
+            </Badge>
           </div>
 
-          {/* Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Payslip #</TableHead>
-                  <TableHead>Pay Period</TableHead>
-                  <TableHead>Issue Date</TableHead>
-                  <TableHead>Gross Pay</TableHead>
-                  <TableHead>Taxes</TableHead>
-                  <TableHead>Deductions</TableHead>
-                  <TableHead>Net Pay</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockPayslips.map((payslip) => (
-                  <TableRow key={payslip.id}>
-                    <TableCell className="font-medium">
-                      {payslip.payslipNumber}
-                    </TableCell>
-                    <TableCell>{payslip.period}</TableCell>
-                    <TableCell>{payslip.issueDate}</TableCell>
-                    <TableCell>{payslip.grossPay}</TableCell>
-                    <TableCell className="text-red-600">{payslip.taxes}</TableCell>
-                    <TableCell className="text-red-600">{payslip.deductions}</TableCell>
-                    <TableCell className="font-semibold">{payslip.netPay}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" title="View Payslip">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" title="Download PDF">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-gray-500">Brut</p>
+              <p className="font-semibold">${p.grossPay}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Net</p>
+              <p className="font-semibold text-emerald-600">${p.netPay}</p>
+            </div>
           </div>
 
-          {/* Tax Information */}
-          <div className="mt-6 rounded-lg bg-muted p-4">
-            <div className="flex items-start gap-3">
-              <FileText className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <h4 className="font-medium">Tax Information</h4>
-                <p className="text-sm text-muted-foreground">
-                  Your W-2 and 1099 forms will be available by January 31st for the
-                  previous tax year. You can download them from this page.
-                </p>
-                <Button variant="link" size="sm" className="h-auto p-0 mt-2">
-                  View Tax Documents
-                </Button>
-              </div>
-            </div>
+          <div className="flex gap-2 pt-2">
+            {canUpdate && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  setEditingPayslip(p);
+                  setModalOpen(true);
+                }}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            )}
+
+            {canDelete && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteId(p.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
+    );
+  };
+
+  // ---------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Payslips"
+        description="Visualisez et gérez les bulletins de paie."
+      >
+        {canCreate && (
+          <Button
+            onClick={() => {
+              setEditingPayslip(null);
+              setModalOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Payslip
+          </Button>
+        )}
+      </PageHeader>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">Ce mois</p>
+            <p className="text-2xl font-bold">{stats?.thisMonth}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">Générés</p>
+            <p className="text-2xl font-bold">{stats?.generated}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">Envoyés</p>
+            <p className="text-2xl font-bold">{stats?.sent}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">En attente</p>
+            <p className="text-2xl font-bold">{stats?.pending}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Rechercher..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* List */}
+      {filteredPayslips.length === 0 ? (
+        <EmptyState
+          title="Aucun bulletin"
+          description="Créez un bulletin pour commencer."
+          actionLabel={canCreate ? "Créer un bulletin" : undefined}
+          onAction={() => {
+            setEditingPayslip(null);
+            setModalOpen(true);
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredPayslips.map((p: any) => (
+            <PayslipCard key={p.id} p={p} />
+          ))}
+        </div>
+      )}
+
+      {/* MODAL EDIT/CREATE */}
+      <PayslipModal
+        open={modalOpen}
+        onOpenChange={(o) => {
+          setModalOpen(o);
+          if (!o) setEditingPayslip(null);
+        }}
+        payslip={editingPayslip}
+        onSuccess={() => refetch()}
+      />
+
+      {/* DELETE DIALOG */}
+      <DeleteConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Supprimer le bulletin"
+        description="Cette action est définitive."
+        isLoading={deleteMutation.isPending}
+      />
     </div>
-    </RouteGuard>
   );
 }
