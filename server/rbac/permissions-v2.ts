@@ -1057,6 +1057,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.TASK,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir toutes les tâches",
+    "Consulter toutes les tâches du tenant",
+    PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TASK,
     Action.CREATE,
     PermissionScope.GLOBAL,
     "Créer des tâches",

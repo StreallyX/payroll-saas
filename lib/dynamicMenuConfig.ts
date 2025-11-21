@@ -344,6 +344,14 @@ export const dynamicMenuConfig: MenuItem[] = [
         ]
       },
       {
+        label: "Customisation",
+        href: "/settings/tenant",
+        icon: Palette,
+        permissions: [
+          P(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT),
+        ]
+      },
+      {
         label: "Webhooks",
         href: "/settings/webhooks",
         icon: Webhook,

@@ -11,7 +11,7 @@ export const auditLogRouter = createTRPCRouter({
   // GET ALL LOGS (FILTER + PAGINATION)
   // -------------------------------------------------------
   getAll: protectedProcedure
-    .use(hasPermission("audit.read.global"))
+    .use(hasPermission("audit_log.list.global"))
     .input(
       z.object({
         entityType: z.string().optional(),
@@ -61,7 +61,7 @@ export const auditLogRouter = createTRPCRouter({
   // STATS
   // -------------------------------------------------------
   getStats: protectedProcedure
-    .use(hasPermission("audit.read.global"))
+    .use(hasPermission("audit_log.list.global"))
     .query(async ({ ctx }) => {
 
       const tenantFilter = { tenantId: ctx.session!.user.tenantId }

@@ -9,14 +9,8 @@ import {
 } from "@/server/rbac/permissions-v2";
 
 // --------------------------------------------
-// RBAC V2 PERMISSIONS FOR DASHBOARD
+// RBAC V2 PERMISSIONS
 // --------------------------------------------
-const CAN_VIEW_CONTRACTORS_ALL = buildPermissionKey(
-  Resource.CONTRACTOR,
-  Action.LIST,
-  PermissionScope.GLOBAL
-);
-
 const CAN_VIEW_CONTRACTS_ALL = buildPermissionKey(
   Resource.CONTRACT,
   Action.LIST,
@@ -25,12 +19,6 @@ const CAN_VIEW_CONTRACTS_ALL = buildPermissionKey(
 
 const CAN_VIEW_INVOICES_ALL = buildPermissionKey(
   Resource.INVOICE,
-  Action.LIST,
-  PermissionScope.GLOBAL
-);
-
-const CAN_VIEW_AGENCIES_ALL = buildPermissionKey(
-  Resource.AGENCY,
   Action.LIST,
   PermissionScope.GLOBAL
 );
@@ -75,14 +63,12 @@ export const dashboardRouter = createTRPCRouter({
     const userPermissions = ctx.session.user.permissions || [];
     const isSuperAdmin = ctx.session.user.isSuperAdmin;
 
-    const hasPermission = (permissionKey: string) =>
-      isSuperAdmin || userPermissions.includes(permissionKey);
+    const hasPermission = (key: string) =>
+      isSuperAdmin || userPermissions.includes(key);
 
     const stats: any = {
-      contractors: null,
       contracts: null,
       invoices: null,
-      agencies: null,
       payslips: null,
       users: null,
       tasks: null,
@@ -90,27 +76,12 @@ export const dashboardRouter = createTRPCRouter({
     };
 
     try {
-      // ---------------- CONTRACTORS ----------------
-      if (hasPermission(CAN_VIEW_CONTRACTORS_ALL)) {
-        const total = await ctx.prisma.contractor.count({ where: { tenantId: ctx.tenantId } });
-
-        const active = await ctx.prisma.contractor.count({
-          where: {
-            tenantId: ctx.tenantId,
-            contracts: { some: { status: "active" } },
-          },
-        });
-
-        stats.contractors = {
-          total,
-          active,
-          inactive: total - active,
-        };
-      }
 
       // ---------------- CONTRACTS ----------------
       if (hasPermission(CAN_VIEW_CONTRACTS_ALL)) {
-        const total = await ctx.prisma.contract.count({ where: { tenantId: ctx.tenantId } });
+        const total = await ctx.prisma.contract.count({
+          where: { tenantId: ctx.tenantId },
+        });
 
         const active = await ctx.prisma.contract.count({
           where: { tenantId: ctx.tenantId, status: "active" },
@@ -124,17 +95,14 @@ export const dashboardRouter = createTRPCRouter({
           where: { tenantId: ctx.tenantId, status: "draft" },
         });
 
-        stats.contracts = {
-          total,
-          active,
-          pending,
-          draft,
-        };
+        stats.contracts = { total, active, pending, draft };
       }
 
       // ---------------- INVOICES ----------------
       if (hasPermission(CAN_VIEW_INVOICES_ALL)) {
-        const total = await ctx.prisma.invoice.count({ where: { tenantId: ctx.tenantId } });
+        const total = await ctx.prisma.invoice.count({
+          where: { tenantId: ctx.tenantId },
+        });
 
         const paid = await ctx.prisma.invoice.count({
           where: { tenantId: ctx.tenantId, status: "paid" },
@@ -162,24 +130,11 @@ export const dashboardRouter = createTRPCRouter({
         };
       }
 
-      // ---------------- AGENCIES ----------------
-      if (hasPermission(CAN_VIEW_AGENCIES_ALL)) {
-        const total = await ctx.prisma.agency.count({ where: { tenantId: ctx.tenantId } });
-
-        const active = await ctx.prisma.agency.count({
-          where: { tenantId: ctx.tenantId, status: "active" },
-        });
-
-        stats.agencies = {
-          total,
-          active,
-          inactive: total - active,
-        };
-      }
-
       // ---------------- PAYSLIPS ----------------
       if (hasPermission(CAN_VIEW_PAYSLIPS_ALL)) {
-        const total = await ctx.prisma.payslip.count({ where: { tenantId: ctx.tenantId } });
+        const total = await ctx.prisma.payslip.count({
+          where: { tenantId: ctx.tenantId },
+        });
 
         const processed = await ctx.prisma.payslip.count({
           where: { tenantId: ctx.tenantId, status: "processed" },
@@ -194,22 +149,22 @@ export const dashboardRouter = createTRPCRouter({
 
       // ---------------- USERS ----------------
       if (hasPermission(CAN_VIEW_USERS_ALL)) {
-        const total = await ctx.prisma.user.count({ where: { tenantId: ctx.tenantId } });
+        const total = await ctx.prisma.user.count({
+          where: { tenantId: ctx.tenantId },
+        });
 
         const active = await ctx.prisma.user.count({
           where: { tenantId: ctx.tenantId, isActive: true },
         });
 
-        stats.users = {
-          total,
-          active,
-          inactive: total - active,
-        };
+        stats.users = { total, active, inactive: total - active };
       }
 
       // ---------------- TASKS ----------------
       if (hasPermission(CAN_VIEW_TASKS_ALL)) {
-        const total = await ctx.prisma.task.count({ where: { tenantId: ctx.tenantId } });
+        const total = await ctx.prisma.task.count({
+          where: { tenantId: ctx.tenantId },
+        });
 
         const pending = await ctx.prisma.task.count({
           where: { tenantId: ctx.tenantId, status: "pending" },
@@ -219,16 +174,14 @@ export const dashboardRouter = createTRPCRouter({
           where: { tenantId: ctx.tenantId, status: "completed" },
         });
 
-        stats.tasks = {
-          total,
-          pending,
-          completed,
-        };
+        stats.tasks = { total, pending, completed };
       }
 
       // ---------------- LEADS ----------------
       if (hasPermission(CAN_VIEW_LEADS_ALL)) {
-        const total = await ctx.prisma.lead.count({ where: { tenantId: ctx.tenantId } });
+        const total = await ctx.prisma.lead.count({
+          where: { tenantId: ctx.tenantId },
+        });
 
         const newLeads = await ctx.prisma.lead.count({
           where: { tenantId: ctx.tenantId, status: "new" },
@@ -238,17 +191,13 @@ export const dashboardRouter = createTRPCRouter({
           where: { tenantId: ctx.tenantId, status: "converted" },
         });
 
-        stats.leads = {
-          total,
-          new: newLeads,
-          converted,
-        };
+        stats.leads = { total, new: newLeads, converted };
       }
 
       return stats;
 
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+    } catch (err) {
+      console.error("Dashboard error:", err);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch dashboard statistics",
@@ -266,10 +215,9 @@ export const dashboardRouter = createTRPCRouter({
       const perms = ctx.session.user.permissions || [];
       const isSuperAdmin = ctx.session.user.isSuperAdmin;
 
-      const hasPermission = (perm: string) =>
-        isSuperAdmin || perms.includes(perm);
+      const allowed = isSuperAdmin || perms.includes(CAN_VIEW_AUDIT_ALL);
 
-      if (!hasPermission(CAN_VIEW_AUDIT_ALL)) return [];
+      if (!allowed) return [];
 
       return ctx.prisma.auditLog.findMany({
         where: { tenantId: ctx.tenantId },
@@ -279,40 +227,56 @@ export const dashboardRouter = createTRPCRouter({
     }),
 
   // ------------------------------------------------------------------
-  // EXPIRING CONTRACTS
-  // ------------------------------------------------------------------
-  getUpcomingExpirations: tenantProcedure
-    .input(z.object({ days: z.number().min(1).max(365).default(30) }))
-    .query(async ({ ctx, input }) => {
+// EXPIRING CONTRACTS
+// ------------------------------------------------------------------
+getUpcomingExpirations: tenantProcedure
+  .input(z.object({ days: z.number().min(1).max(365).default(30) }))
+  .query(async ({ ctx, input }) => {
+    const perms = ctx.session.user.permissions || [];
+    const isSuperAdmin = ctx.session.user.isSuperAdmin;
 
-      const perms = ctx.session.user.permissions || [];
-      const isSuperAdmin = ctx.session.user.isSuperAdmin;
+    const hasPermission = (perm: string) =>
+      isSuperAdmin || perms.includes(perm);
 
-      const hasPermission = (perm: string) =>
-        isSuperAdmin || perms.includes(perm);
+    if (!hasPermission(CAN_VIEW_CONTRACTS_ALL)) return [];
 
-      if (!hasPermission(CAN_VIEW_CONTRACTS_ALL)) return [];
+    const today = new Date();
+    const future = new Date();
+    future.setDate(today.getDate() + input.days);
 
-      const today = new Date();
-      const future = new Date();
-      future.setDate(today.getDate() + input.days);
-
-      return ctx.prisma.contract.findMany({
-        where: {
-          tenantId: ctx.tenantId,
-          status: "active",
-          endDate: { gte: today, lte: future },
+    return ctx.prisma.contract.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        status: "active",
+        endDate: { gte: today, lte: future },
+      },
+      orderBy: { endDate: "asc" },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        endDate: true,
+        // NEW structure
+        company: {
+          select: {
+            name: true
+          }
         },
-        orderBy: { endDate: "asc" },
-        take: 10,
-        select: {
-          id: true,
-          title: true,
-          endDate: true,
-          contractor: { select: { name: true } },
-          agency: { select: { name: true } },
-        },
-      });
-    }),
+        participants: {
+          select: {
+            role: true,
+            isPrimary: true,
+            user: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
+  })
+
 
 });

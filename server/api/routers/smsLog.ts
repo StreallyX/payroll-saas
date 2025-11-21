@@ -18,7 +18,6 @@ import {
 // BUILD PERMISSION KEYS
 // ----------------------------------------------------
 const VIEW_LIST = buildPermissionKey(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL);
-const VIEW_ONE  = buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.GLOBAL);
 const RESEND    = buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.GLOBAL);
 
 export const smsLogRouter = createTRPCRouter({
@@ -91,7 +90,7 @@ export const smsLogRouter = createTRPCRouter({
   // GET ONE SMS LOG
   // ----------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(VIEW_ONE))
+    .use(hasPermission(VIEW_LIST))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const log = await ctx.prisma.sMSLog.findFirst({

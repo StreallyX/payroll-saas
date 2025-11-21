@@ -13,20 +13,25 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2" // ton builder V3
+} from "../../rbac/permissions-v2"
 
+// ---------------------------------------
+// PERMISSIONS (V3 GLOBAL)
+// ---------------------------------------
+const CAN_LIST    = buildPermissionKey(Resource.LEAD, Action.LIST, PermissionScope.GLOBAL)
+const CAN_CREATE  = buildPermissionKey(Resource.LEAD, Action.CREATE, PermissionScope.GLOBAL)
+const CAN_UPDATE  = buildPermissionKey(Resource.LEAD, Action.UPDATE, PermissionScope.GLOBAL)
+const CAN_DELETE  = buildPermissionKey(Resource.LEAD, Action.DELETE, PermissionScope.GLOBAL)
+const CAN_ASSIGN  = buildPermissionKey(Resource.LEAD, Action.ASSIGN, PermissionScope.GLOBAL)
+const CAN_EXPORT  = buildPermissionKey(Resource.LEAD, Action.EXPORT, PermissionScope.GLOBAL)
 
 export const leadRouter = createTRPCRouter({
 
   // -------------------------------------------------------
-  // GET ALL (tenant)
+  // GET ALL (GLOBAL)
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.READ, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_LIST))
     .query(async ({ ctx }) => {
       return ctx.prisma.lead.findMany({
         where: { tenantId: ctx.tenantId },
@@ -35,14 +40,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY ID (tenant)
+  // GET BY ID (GLOBAL)
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.READ, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_LIST))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.lead.findFirst({
@@ -51,14 +52,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // STATS (tenant)
+  // STATS
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.READ, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_LIST))
     .query(async ({ ctx }) => {
       const tenantId = ctx.tenantId
 
@@ -73,14 +70,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // CREATE LEAD (tenant)
+  // CREATE LEAD (GLOBAL)
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.CREATE, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_CREATE))
     .input(
       z.object({
         name: z.string().min(1),
@@ -118,14 +111,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE LEAD (tenant)
+  // UPDATE LEAD (GLOBAL)
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.UPDATE, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_UPDATE))
     .input(
       z.object({
         id: z.string(),
@@ -166,16 +155,13 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // DELETE LEAD (tenant)
+  // DELETE LEAD (GLOBAL)
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.DELETE, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+
       const lead = await ctx.prisma.lead.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       })
@@ -201,15 +187,12 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // EXPORT LEADS (tenant)
+  // EXPORT LEADS (GLOBAL)
   // -------------------------------------------------------
   export: tenantProcedure
-    .use(
-      hasPermission(
-        buildPermissionKey(Resource.LEAD, Action.EXPORT, PermissionScope.TENANT)
-      )
-    )
+    .use(hasPermission(CAN_EXPORT))
     .mutation(async ({ ctx }) => {
+
       await createAuditLog({
         userId: ctx.session!.user.id,
         userName: ctx.session!.user.name ?? "Unknown",

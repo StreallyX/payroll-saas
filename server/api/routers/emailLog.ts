@@ -17,7 +17,7 @@ export const emailLogRouter = createTRPCRouter({
   getAll: tenantProcedure
     .use(
       hasPermission(
-        buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.TENANT)
+        buildPermissionKey(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL)
       )
     )
     .input(
@@ -84,7 +84,7 @@ export const emailLogRouter = createTRPCRouter({
   getById: tenantProcedure
     .use(
       hasPermission(
-        buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.TENANT)
+        buildPermissionKey(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL)
       )
     )
     .input(z.object({ id: z.string() }))
@@ -109,7 +109,7 @@ export const emailLogRouter = createTRPCRouter({
   getStats: tenantProcedure
     .use(
       hasPermission(
-        buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.TENANT)
+        buildPermissionKey(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL)
       )
     )
     .input(
@@ -157,7 +157,7 @@ export const emailLogRouter = createTRPCRouter({
   getRecent: tenantProcedure
     .use(
       hasPermission(
-        buildPermissionKey(Resource.AUDIT_LOG, Action.READ, PermissionScope.TENANT)
+        buildPermissionKey(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL)
       )
     )
     .input(z.object({ limit: z.number().min(1).max(50).default(10) }).optional())
