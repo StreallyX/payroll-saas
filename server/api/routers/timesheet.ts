@@ -378,7 +378,7 @@ createRange: tenantProcedure
     }),
 
   // ------------------------------------------------------
-  // 8️⃣ APPROVE TIMESHEET + AUTO-INVOICE + AUTO-PAYSLIP
+  // 8️⃣ APPROVE TIMESHEET + AUTO-INVOICE + AUTO-PAYSLIP + AUTO-REMITTANCE
   // ------------------------------------------------------
   approve: tenantProcedure
     .use(hasPermission(P.APPROVE))
@@ -394,12 +394,12 @@ createRange: tenantProcedure
           approvedBy: ctx.session.user.id,
         },
         include: {
-          contract: true, // ✔ ton include d'origine
+          contract: true,
         },
       });
 
       // ===========================================
-      // 2. AUTO-GENERATE INVOICE (comme avant)
+      // 2. AUTO-GENERATE INVOICE
       // ===========================================
       if (ts.contractId && ts.totalAmount) {
         await ctx.prisma.invoice.create({
@@ -407,7 +407,7 @@ createRange: tenantProcedure
             tenantId: ctx.tenantId,
             contractId: ts.contractId,
             createdBy: ctx.session.user.id,
-            amount: ts.totalAmount,                  // Decimal OK
+            amount: ts.totalAmount,
             currency: ts.contract?.currencyId ?? "EUR",
             status: "draft",
             issueDate: new Date(),
@@ -421,12 +421,9 @@ createRange: tenantProcedure
       }
 
       // ===========================================
-      // 3. AUTO-GENERATE PAYSLIP (NOUVEAU)
+      // 3. AUTO-GENERATE PAYSLIP
       // ===========================================
-
-      // 🔥 Un timesheet appartient à un contractor → contractor = user
-      const userId = ts.submittedBy; 
-      // ou ts.contract?.contractorId selon ton modèle exact
+      const userId = ts.submittedBy;
 
       if (userId && ts.totalAmount) {
         await ctx.prisma.payslip.create({
@@ -438,7 +435,7 @@ createRange: tenantProcedure
             month: ts.startDate.getMonth() + 1,
             year: ts.startDate.getFullYear(),
 
-            grossPay: Number(ts.totalAmount),    // ✔ convert Decimal → number
+            grossPay: Number(ts.totalAmount),
             netPay: Number(ts.totalAmount),
 
             deductions: 0,
@@ -452,8 +449,30 @@ createRange: tenantProcedure
         });
       }
 
+      // ===========================================
+      // 4️⃣ AUTO-GENERATE REMITTANCE — 🔥 MANQUAIT !
+      // ===========================================
+      if (userId && ts.totalAmount) {
+        await ctx.prisma.remittance.create({
+          data: {
+            tenantId: ctx.tenantId,
+            userId: userId,
+            contractId: ts.contractId,
+
+            amount: ts.totalAmount,               // Decimal OK
+            currency: ts.contract?.currencyId ?? "EUR",
+
+            status: "pending",
+            description: `Payment for timesheet ${ts.startDate.toISOString().slice(0, 10)} → ${ts.endDate.toISOString().slice(0, 10)}`,
+
+            notes: `Auto-generated remittance after approved timesheet`,
+          },
+        });
+      }
+
       return { success: true };
     }),
+
 
 
   // ------------------------------------------------------

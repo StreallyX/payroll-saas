@@ -971,6 +971,35 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionCategory.FINANCIAL
   ),
 
+  // ⭐️ AJOUTÉS → nouvelles permissions admin
+  createPermission(
+    Resource.REMITTANCE,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir tous les détails des virements",
+    "Consulter les informations détaillées de toutes les remittances du tenant",
+    PermissionCategory.FINANCIAL
+  ),
+
+  createPermission(
+    Resource.REMITTANCE,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Mettre à jour un virement",
+    "Modifier une remittance : notes, statut, dates, etc.",
+    PermissionCategory.FINANCIAL
+  ),
+
+  createPermission(
+    Resource.REMITTANCE,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer un virement",
+    "Supprimer une remittance existante",
+    PermissionCategory.FINANCIAL
+  ),
+
+
   // ================================================================
   // REFERRALS
   // ================================================================
