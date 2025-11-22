@@ -220,9 +220,6 @@ model Tenant {
   @@map("tenants")
 }
 
-// ====
-// USER MODEL (Modèle central du RBAC)
-// ====
 model User {
   id                 String   @id @default(cuid())
   tenantId           String
@@ -230,10 +227,8 @@ model User {
   passwordHash       String
   mustChangePassword Boolean  @default(true)
   
-  // 🔥 RBAC - Un utilisateur = Un rôle principal
   roleId             String
-  
-  // 🔥 Profile général (tout le monde a ces champs)
+
   name               String?
   profilePictureUrl  String?
   phone              String?
@@ -241,14 +236,14 @@ model User {
   dateOfBirth        DateTime?
   timezone           String?  @default("UTC")
   language           String?  @default("en")
-  
-  // 🔥 Données spécifiques au type d'utilisateur (stockées en JSON pour flexibilité)
-  // Ex pour contractor: { "skypeId": "...", "referredBy": "...", "notes": "..." }
-  // Ex pour agency: { "companyRegistrationNumber": "...", "vatNumber": "..." }
-  // Ex pour payroll: { "accountingSystem": "...", "apiEndpoint": "..." }
+
+  // 🔥 Ownership (comme Deel)
+  createdBy          String?   // userId
+  createdUsers       User[]     @relation("UserCreatedUsers")
+  createdByUser      User?      @relation("UserCreatedUsers", fields: [createdBy], references: [id])
+
   profileData        Json?
-  
-  // 🔥 Address (tous les utilisateurs peuvent avoir une adresse)
+
   officeBuilding     String?
   address1           String?
   address2           String?
@@ -256,36 +251,30 @@ model User {
   countryId          String?
   state              String?
   postCode           String?
-  
-  // 🔥 Business info (pour agences, payroll partners, etc.)
-  companyName        String? // Nom de l'entreprise si l'utilisateur représente une entité
+
+  companyName        String?
   vatNumber          String?
   website            String?
-  
-  // 🔥 Invoicing (pour clients/agences qui reçoivent des factures)
+
   invoicingContactName      String?
   invoicingContactPhone     String?
   invoicingContactEmail     String?
   alternateInvoicingEmail   String?
-  
-  // 🔥 Onboarding (pour contractors principalement)
+
   onboardingTemplateId      String?
-  onboardingStatus          String?  @default("pending") // pending, in_progress, completed
-  
-  // Security
+  onboardingStatus          String?  @default("pending")
+
   emailVerified      Boolean   @default(false)
   lastLoginAt        DateTime?
   twoFactorEnabled   Boolean   @default(false)
   twoFactorSecret    String?
   lastActivityAt     DateTime?
-  
-  // Preferences
+
   preferences        Json?
-  
-  // Status
+
   isActive           Boolean  @default(true)
-  status             String   @default("active") // active, suspended, inactive
-  
+  status             String   @default("active")
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -294,35 +283,27 @@ model User {
   role               Role                @relation(fields: [roleId], references: [id])
   country            Country?            @relation(fields: [countryId], references: [id])
   onboardingTemplate OnboardingTemplate? @relation(fields: [onboardingTemplateId], references: [id])
-  
-  // 🔥 Relations pour les entités où l'utilisateur participe
+
   contractParticipants ContractParticipant[]
   companyUsers         CompanyUser[]
-  
-  // Auth
+
   accounts              Account[]
   sessions              Session[]
   passwordResetTokens   PasswordResetToken[]
-  
-  // Activity & Audit
+
   auditLogs            AuditLog[]
   activities           UserActivity[]
-  
-  // Tasks
+
   tasksAssignedTo      Task[]           @relation("TasksAssignedTo")
   tasksAssignedBy      Task[]           @relation("TasksAssignedBy")
-  
-  // Notifications
+
   notificationPreferences NotificationPreference[]
-  
-  // API Keys
+
   apiKeysCreated       ApiKey[]         @relation("ApiKeyCreatedBy")
   apiKeysRevoked       ApiKey[]         @relation("ApiKeyRevokedBy")
-  
-  // Custom fields
+
   customFieldValues    CustomFieldValue[]
-  
-  // 🔥 Payments & Financial
+
   payslips             Payslip[]
   onboardingResponses  OnboardingResponse[]
   expenses             Expense[]
@@ -337,9 +318,12 @@ model User {
   @@index([roleId])
   @@index([isActive])
   @@index([lastLoginAt])
+  @@index([createdBy])
   @@index([status])
+
   @@map("users")
 }
+
 
 // ====
 // COMPANY (Client)

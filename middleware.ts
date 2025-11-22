@@ -102,7 +102,6 @@ export default withAuth(
       "/agency/information": "/profile",
       "/agency/dashboard": "/dashboard",
       "/agency/contractors": "/team/contractors",
-      "/agency/users": "/team/members",
       "/agency/invoices": "/invoices",
       "/agency/timesheets": "/timesheets",
       "/agency/expenses": "/expenses",
@@ -127,7 +126,6 @@ export default withAuth(
       "/contractors": "/team/contractors",
       "/agencies": "/team/agencies",
       "/payroll-partners": "/team/payroll-partners",
-      "/users": "/team/members",
     };
 
     // Check if current pathname matches any old route (exact match or starts with)

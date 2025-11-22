@@ -1,155 +1,184 @@
+// src/server/api/routers/user.ts
 import { z } from "zod";
 import {
   createTRPCRouter,
   tenantProcedure,
   hasPermission,
+  hasAnyPermission,
 } from "../trpc";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
 
-import {
-  Resource,
-  Action,
-  PermissionScope,
-  buildPermissionKey,
-} from "../../rbac/permissions-v2";
+// -----------------------------
+// Permissions (tes clés existantes)
+// -----------------------------
+const PERMS = {
+  READ_OWN: "user.read.own",
+  UPDATE_OWN: "user.update.own",
+  LIST_GLOBAL: "user.list.global",
+  CREATE_GLOBAL: "user.create.global",
+  UPDATE_GLOBAL: "user.update.global",
+  DELETE_GLOBAL: "user.delete.global",
+  ACTIVATE_GLOBAL: "user.activate.global",
+  IMPERSONATE_GLOBAL: "user.impersonate.global",
+} as const;
 
-// -------------------------------------------------------
-// PERMISSIONS V3
-// -------------------------------------------------------
-const VIEW   = buildPermissionKey(Resource.USER, Action.LIST, PermissionScope.GLOBAL);
-const CREATE = buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL);
-const UPDATE = buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL);
-const DELETE = buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL);
+// -------------------------------------------
+// Ownership helper: récupère toute la subtree
+// -------------------------------------------
+async function getSubtreeUserIds(prisma: any, rootUserId: string): Promise<string[]> {
+  const owned: string[] = [];
+  let frontier: string[] = [rootUserId];
+
+  // On ne veut PAS ré-inclure rootUserId dans owned, donc on part de ses enfants
+  while (frontier.length > 0) {
+    const children = await prisma.user.findMany({
+      where: { createdBy: { in: frontier } },
+      select: { id: true },
+    });
+    if (children.length === 0) break;
+
+    const next = children.map((c: { id: string }) => c.id);
+    owned.push(...next);
+    frontier = next;
+  }
+  return owned;
+}
 
 export const userRouter = createTRPCRouter({
-
   // ---------------------------------------------------------
   // GET ALL USERS
+  // - global -> tout voir
+  // - own    -> self + subtree
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(VIEW))
+    .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN]))
     .query(async ({ ctx }) => {
-      return ctx.prisma.user.findMany({
-        where: { tenantId: ctx.tenantId },
-        include: { role: true },
+      const { prisma, session, tenantId } = ctx;
+      const userId = session.user.id;
+      const perms = session.user.permissions || [];
+      const hasGlobal = perms.includes(PERMS.LIST_GLOBAL);
+
+      if (hasGlobal) {
+        return prisma.user.findMany({
+          where: { tenantId },
+          include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      const subtree = await getSubtreeUserIds(prisma, userId);
+      return prisma.user.findMany({
+        where: {
+          tenantId,
+          id: { in: [userId, ...subtree] },
+        },
+        include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "desc" },
       });
     }),
 
   // ---------------------------------------------------------
   // GET ONE USER
+  // - global -> tout voir
+  // - own    -> self + subtree
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(VIEW))
+    .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN]))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.user.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
-        include: { role: true },
+      const { prisma, session, tenantId } = ctx;
+      const userId = session.user.id;
+      const perms = session.user.permissions || [];
+      const hasGlobal = perms.includes(PERMS.LIST_GLOBAL);
+
+      if (hasGlobal) {
+        return prisma.user.findFirst({
+          where: { id: input.id, tenantId },
+          include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
+        });
+      }
+
+      const subtree = await getSubtreeUserIds(prisma, userId);
+      if (![userId, ...subtree].includes(input.id)) {
+        throw new Error("Not allowed to view this user.");
+      }
+
+      return prisma.user.findFirst({
+        where: { id: input.id, tenantId },
+        include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
       });
     }),
 
   // ---------------------------------------------------------
   // CREATE USER
+  // - global uniquement (remplit createdBy)
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(CREATE))
+    .use(hasPermission(PERMS.CREATE_GLOBAL))
     .input(
       z.object({
         name: z.string().min(2),
         email: z.string().email(),
         password: z.string().min(6).optional(),
         roleId: z.string(),
-        agencyId: z.string().nullable().optional(),
-        payrollPartnerId: z.string().nullable().optional(),
-        companyId: z.string().nullable().optional(),
+        // tu peux ajouter d’autres champs optionnels si besoin
       })
     )
     .mutation(async ({ ctx, input }) => {
       const passwordToUse = input.password || generateRandomPassword(12);
       const passwordHash = await bcrypt.hash(passwordToUse, 10);
 
-      // Create user
-      const user = await ctx.prisma.user.create({
+      const newUser = await ctx.prisma.user.create({
         data: {
+          tenantId: ctx.tenantId!,
+          roleId: input.roleId,
           name: input.name,
           email: input.email,
-          roleId: input.roleId,
-          tenantId: ctx.tenantId!,
           passwordHash,
           mustChangePassword: true,
-          agencyId: input.agencyId ?? null,
-          payrollPartnerId: input.payrollPartnerId ?? null,
-          companyId: input.companyId ?? null,
+          createdBy: ctx.session.user.id, // 🔥 ownership
         },
       });
 
-      // If password was not provided → send setup token
+      // Si password non fourni → on crée un token d’activation
       if (!input.password) {
         const token = crypto.randomBytes(48).toString("hex");
-
         await ctx.prisma.passwordResetToken.create({
           data: {
-            userId: user.id,
+            userId: newUser.id,
             token,
-            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h
           },
         });
-
-        const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password?token=${token}`;
-
-        await ctx.prisma.auditLog.create({
-          data: {
-            tenantId: ctx.tenantId!,
-            userId: ctx.session!.user.id,
-            userName: ctx.session!.user.name ?? "Unknown",
-            userRole: ctx.session!.user.roleName,
-            action: "USER_CREATED",
-            entityType: "user",
-            entityId: user.id,
-            entityName: user.name,
-            description: `Created user ${user.name}.`,
-            metadata: { setupUrl },
-          },
-        });
-
-        return {
-          success: true,
-          message: "User created. Password setup email sent.",
-        };
       }
 
-      // If password provided
       await ctx.prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId!,
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.roleName,
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name ?? "Unknown",
+          userRole: ctx.session.user.roleName,
           action: "USER_CREATED",
           entityType: "user",
-          entityId: user.id,
-          entityName: user.name,
-          description: `Created user ${user.name} with provided password.`,
+          entityId: newUser.id,
+          entityName: newUser.name,
+          description: `Created user ${newUser.name} (${newUser.email})`,
+          metadata: { createdBy: ctx.session.user.id },
         },
       });
 
-      return {
-        success: true,
-        message: "User created successfully with the provided password.",
-      };
+      return { success: true, id: newUser.id };
     }),
 
   // ---------------------------------------------------------
   // UPDATE USER
+  // - global → peut tout modifier
+  // - own    → peut modifier self + subtree
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(UPDATE))
+    .use(hasAnyPermission([PERMS.UPDATE_GLOBAL, PERMS.UPDATE_OWN]))
     .input(
       z.object({
         id: z.string(),
@@ -157,37 +186,45 @@ export const userRouter = createTRPCRouter({
         email: z.string().email(),
         roleId: z.string(),
         isActive: z.boolean(),
-        agencyId: z.string().nullable().optional(),
-        payrollPartnerId: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.prisma.user.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      const { prisma, session, tenantId } = ctx;
+      const perms = session.user.permissions || [];
+      const hasGlobal = perms.includes(PERMS.UPDATE_GLOBAL);
 
-      if (!existing) {
-        throw new Error("User not found in tenant.");
+      const target = await prisma.user.findFirst({
+        where: { id: input.id, tenantId },
+        select: { id: true, createdBy: true },
+      });
+      if (!target) throw new Error("User not found.");
+
+      if (!hasGlobal) {
+        // Must have UPDATE_OWN and target ∈ (self + subtree)
+        if (!perms.includes(PERMS.UPDATE_OWN)) throw new Error("Not allowed.");
+        const selfId = session.user.id;
+        const subtree = await getSubtreeUserIds(prisma, selfId);
+        if (![selfId, ...subtree].includes(target.id)) {
+          throw new Error("Not allowed to update this user.");
+        }
       }
 
-      const updated = await ctx.prisma.user.update({
+      const updated = await prisma.user.update({
         where: { id: input.id },
         data: {
           name: input.name,
           email: input.email,
           roleId: input.roleId,
           isActive: input.isActive,
-          agencyId: input.agencyId ?? null,
-          payrollPartnerId: input.payrollPartnerId ?? null,
         },
       });
 
-      await ctx.prisma.auditLog.create({
+      await prisma.auditLog.create({
         data: {
-          tenantId: ctx.tenantId!,
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.roleName,
+          tenantId,
+          userId: session.user.id,
+          userName: session.user.name ?? "Unknown",
+          userRole: session.user.roleName,
           action: "USER_UPDATED",
           entityType: "user",
           entityId: updated.id,
@@ -200,28 +237,61 @@ export const userRouter = createTRPCRouter({
     }),
 
   // ---------------------------------------------------------
-  // DELETE USER
+  // ACTIVATE / DEACTIVATE
+  // - global only
   // ---------------------------------------------------------
-  delete: tenantProcedure
-    .use(hasPermission(DELETE))
-    .input(z.object({ id: z.string() }))
+  setActive: tenantProcedure
+    .use(hasPermission(PERMS.ACTIVATE_GLOBAL))
+    .input(z.object({ id: z.string(), isActive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.prisma.user.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
+      if (!existing) throw new Error("User not found.");
 
-      if (!existing) throw new Error("User not found in tenant.");
-
-      const removed = await ctx.prisma.user.delete({
+      const updated = await ctx.prisma.user.update({
         where: { id: input.id },
+        data: { isActive: input.isActive },
       });
 
       await ctx.prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId!,
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name ?? "Unknown",
-          userRole: ctx.session!.user.roleName,
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name ?? "Unknown",
+          userRole: ctx.session.user.roleName,
+          action: input.isActive ? "USER_ACTIVATED" : "USER_DEACTIVATED",
+          entityType: "user",
+          entityId: updated.id,
+          entityName: updated.name,
+          description: `${input.isActive ? "Activated" : "Deactivated"} user ${updated.name}`,
+        },
+      });
+
+      return { success: true };
+    }),
+
+  // ---------------------------------------------------------
+  // DELETE USER
+  // - global only
+  // ---------------------------------------------------------
+  delete: tenantProcedure
+    .use(hasPermission(PERMS.DELETE_GLOBAL))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.prisma.user.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      });
+      if (!existing) throw new Error("User not found.");
+
+      const removed = await ctx.prisma.user.delete({ where: { id: input.id } });
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name ?? "Unknown",
+          userRole: ctx.session.user.roleName,
           action: "USER_DELETED",
           entityType: "user",
           entityId: removed.id,
@@ -230,6 +300,39 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      return removed;
+      return { success: true };
+    }),
+
+  // ---------------------------------------------------------
+  // IMPERSONATE (squelette)
+  // - global only — à adapter selon ta stack auth
+  // ---------------------------------------------------------
+  impersonate: tenantProcedure
+    .use(hasPermission(PERMS.IMPERSONATE_GLOBAL))
+    .input(z.object({ targetUserId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.prisma.user.findFirst({
+        where: { id: input.targetUserId, tenantId: ctx.tenantId },
+        select: { id: true, email: true, name: true },
+      });
+      if (!target) throw new Error("Target user not found.");
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name ?? "Unknown",
+          userRole: ctx.session.user.roleName,
+          action: "USER_IMPERSONATE_START",
+          entityType: "user",
+          entityId: target.id,
+          entityName: target.name,
+          description: `Impersonation started`,
+          metadata: { targetEmail: target.email },
+        },
+      });
+
+      // TODO: génère un token d'impersonation/établit la session selon ton provider
+      return { success: true, targetUserId: target.id };
     }),
 });
