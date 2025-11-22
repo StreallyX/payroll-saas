@@ -377,103 +377,106 @@ createRange: tenantProcedure
       })
     }),
 
-  // ------------------------------------------------------
-  // 8️⃣ APPROVE TIMESHEET + AUTO-INVOICE + AUTO-PAYSLIP + AUTO-REMITTANCE
-  // ------------------------------------------------------
-  approve: tenantProcedure
-    .use(hasPermission(P.APPROVE))
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
+ approve: tenantProcedure
+  .use(hasPermission(P.APPROVE))
+  .input(z.object({ id: z.string() }))
+  .mutation(async ({ ctx, input }) => {
 
-      // 1. Approve the timesheet
-      const ts = await ctx.prisma.timesheet.update({
-        where: { id: input.id },
-        data: {
-          status: "approved",
-          approvedAt: new Date(),
-          approvedBy: ctx.session.user.id,
+    // 1️⃣ UPDATE → APPROVE
+    await ctx.prisma.timesheet.update({
+      where: { id: input.id },
+      data: {
+        status: "approved",
+        approvedAt: new Date(),
+        approvedBy: ctx.session.user.id,
+      },
+    });
+
+    // 2️⃣ RELOAD - SÛR & PROPRE (montants corrects)
+    const ts = await ctx.prisma.timesheet.findFirst({
+      where: { id: input.id },
+      include: {
+        contract: {
+          include: {
+            currency: true,       // name, id, etc.
+          },
         },
-        include: {
-          contract: true,
+      },
+    });
+
+    if (!ts) throw new TRPCError({ code: "NOT_FOUND" });
+
+    const userId = ts.submittedBy;
+    const currency = ts.contract?.currencyId ?? "EUR";
+
+    // ------------------------------------------
+    // 3️⃣ AUTO-INVOICE
+    // ------------------------------------------
+    if (ts.contractId && ts.totalAmount) {
+      await ctx.prisma.invoice.create({
+        data: {
+          tenantId: ctx.tenantId,
+          contractId: ts.contractId,
+          createdBy: userId,
+
+          amount: ts.totalAmount,
+          totalAmount: ts.totalAmount,
+          currency,
+
+          status: "draft",
+          issueDate: new Date(),
+          dueDate: new Date(),
+
+          description: `Timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
+          timesheets: {
+            connect: { id: ts.id },
+          },
         },
       });
+    }
 
-      // ===========================================
-      // 2. AUTO-GENERATE INVOICE
-      // ===========================================
-      if (ts.contractId && ts.totalAmount) {
-        await ctx.prisma.invoice.create({
-          data: {
-            tenantId: ctx.tenantId,
-            contractId: ts.contractId,
-            createdBy: ctx.session.user.id,
-            amount: ts.totalAmount,
-            currency: ts.contract?.currencyId ?? "EUR",
-            status: "draft",
-            issueDate: new Date(),
-            dueDate: new Date(),
-            description: `Timesheet ${ts.startDate.toISOString().slice(0, 10)} → ${ts.endDate.toISOString().slice(0, 10)}`,
-            timesheets: {
-              connect: { id: ts.id },
-            },
-          },
-        });
-      }
+    // ------------------------------------------
+    // 4️⃣ AUTO-PAYSLIP
+    // ------------------------------------------
+    if (userId && ts.totalAmount) {
+      await ctx.prisma.payslip.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId,
+          contractId: ts.contractId,
+          month: ts.startDate.getMonth() + 1,
+          year: ts.startDate.getFullYear(),
+          grossPay: Number(ts.totalAmount),
+          netPay: Number(ts.totalAmount),
+          deductions: 0,
+          tax: 0,
+          status: "generated",
+          generatedBy: ctx.session.user.id,
+          notes: `Payslip generated from timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
+        },
+      });
+    }
 
-      // ===========================================
-      // 3. AUTO-GENERATE PAYSLIP
-      // ===========================================
-      const userId = ts.submittedBy;
+    // ------------------------------------------
+    // 5️⃣ AUTO-REMITTANCE
+    // ------------------------------------------
+    if (userId && ts.totalAmount) {
+      await ctx.prisma.remittance.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId,
+          contractId: ts.contractId,
+          amount: ts.totalAmount,
+          currency,
+          status: "pending",
+          description: `Payment for timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
+          notes: `Auto-generated remittance after approved timesheet`,
+        },
+      });
+    }
 
-      if (userId && ts.totalAmount) {
-        await ctx.prisma.payslip.create({
-          data: {
-            tenantId: ctx.tenantId,
-            userId: userId,
-            contractId: ts.contractId,
-
-            month: ts.startDate.getMonth() + 1,
-            year: ts.startDate.getFullYear(),
-
-            grossPay: Number(ts.totalAmount),
-            netPay: Number(ts.totalAmount),
-
-            deductions: 0,
-            tax: 0,
-
-            status: "generated",
-            generatedBy: ctx.session.user.id,
-
-            notes: `Payslip auto-généré depuis timesheet ${ts.startDate.toISOString().slice(0, 10)} → ${ts.endDate.toISOString().slice(0, 10)}`,
-          },
-        });
-      }
-
-      // ===========================================
-      // 4️⃣ AUTO-GENERATE REMITTANCE — 🔥 MANQUAIT !
-      // ===========================================
-      if (userId && ts.totalAmount) {
-        await ctx.prisma.remittance.create({
-          data: {
-            tenantId: ctx.tenantId,
-            userId: userId,
-            contractId: ts.contractId,
-
-            amount: ts.totalAmount,               // Decimal OK
-            currency: ts.contract?.currencyId ?? "EUR",
-
-            status: "pending",
-            description: `Payment for timesheet ${ts.startDate.toISOString().slice(0, 10)} → ${ts.endDate.toISOString().slice(0, 10)}`,
-
-            notes: `Auto-generated remittance after approved timesheet`,
-          },
-        });
-      }
-
-      return { success: true };
-    }),
-
-
+    return { success: true };
+  }),
 
   // ------------------------------------------------------
   // 9️⃣ REJECT TIMESHEET
@@ -495,6 +498,69 @@ createRange: tenantProcedure
         },
       });
     }),
+
+    // ------------------------------------------------------
+  // 3️⃣ BIS — GET MY TIMESHEETS (PAGINATED)
+  // ------------------------------------------------------
+  getMyTimesheetsPaginated: tenantProcedure
+    .use(hasPermission(P.READ_OWN))
+    .input(
+      z.object({
+        cursor: z.string().optional(),
+        limit: z.number().min(5).max(50).default(20),
+        search: z.string().optional(),
+        status: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { cursor, limit, search, status } = input;
+
+      const where: any = {
+        tenantId: ctx.tenantId,
+        submittedBy: ctx.session.user.id,
+      };
+
+      // 🔍 Filter: Status
+      if (status) where.status = status;
+
+      // 🔎 Filter: Search (title, notes)
+      if (search) {
+        where.OR = [
+          { notes: { contains: search, mode: "insensitive" } },
+          { contract: { company: { name: { contains: search, mode: "insensitive" } } } },
+        ];
+      }
+
+      // Fetch page
+      const items = await ctx.prisma.timesheet.findMany({
+        where,
+        take: limit + 1,
+        cursor: cursor ? { id: cursor } : undefined,
+        include: {
+          contract: {
+            include: {
+              company: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      let nextCursor: string | null = null;
+
+      if (items.length > limit) {
+        const next = items.pop();
+        nextCursor = next!.id;
+      }
+
+      return {
+        items,
+        nextCursor,
+      };
+    }),
+
 
 
 })
