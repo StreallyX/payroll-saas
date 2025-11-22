@@ -33,34 +33,46 @@ export const invoiceRouter = createTRPCRouter({
   // 1️⃣ LIST ALL (GLOBAL ONLY)
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(P.LIST_GLOBAL))
-    .input(
-      z.object({
-        status: z.string().optional(),
-        contractId: z.string().optional(),
-        limit: z.number().min(1).max(200).default(50),
-        offset: z.number().min(0).default(0),
-      }).optional()
-    )
-    .query(async ({ ctx, input }) => {
-      const where: any = { tenantId: ctx.tenantId }
+  .use(hasAnyPermission([P.LIST_GLOBAL, P.READ_OWN]))
+  .input(
+    z.object({
+      status: z.string().optional(),
+      contractId: z.string().optional(),
+      limit: z.number().min(1).max(200).default(50),
+      offset: z.number().min(0).default(0),
+    }).optional()
+  )
+  .query(async ({ ctx, input }) => {
+    const user = ctx.session.user;
+    const tenantId = ctx.tenantId;
 
-      if (input?.status) where.status = input.status
-      if (input?.contractId) where.contractId = input.contractId
+    const isGlobal = user.permissions.includes(P.LIST_GLOBAL);
 
-      const [invoices, total] = await Promise.all([
-        ctx.prisma.invoice.findMany({
-          where,
-          include: { lineItems: true, contract: true },
-          orderBy: { createdAt: "desc" },
-          skip: input?.offset,
-          take: input?.limit
-        }),
-        ctx.prisma.invoice.count({ where })
-      ])
+    // BASE QUERY
+    const where: any = { tenantId };
 
-      return { invoices, total }
-    }),
+    // FILTER: admin can filter any contract ; own-user only its own
+    if (input?.status) where.status = input.status;
+    if (input?.contractId) where.contractId = input.contractId;
+
+    // OWN → LIMIT to createdBy
+    if (!isGlobal) {
+      where.createdBy = user.id;
+    }
+
+    const [invoices, total] = await Promise.all([
+      ctx.prisma.invoice.findMany({
+        where,
+        include: { lineItems: true, contract: true },
+        orderBy: { createdAt: "desc" },
+        skip: input?.offset,
+        take: input?.limit,
+      }),
+      ctx.prisma.invoice.count({ where }),
+    ]);
+
+    return { invoices, total };
+  }),
 
   // ---------------------------------------------------------
   // 2️⃣ LIST MY OWN INVOICES (OWN)

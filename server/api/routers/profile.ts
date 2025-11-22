@@ -153,6 +153,12 @@ export const profileRouter = createTRPCRouter({
 
       // Case 1: CREATE NEW COMPANY
       if (!input.companyId) {
+
+        // 🚀 Solution 1 : remove invalid countryId
+        if (!input.countryId) {
+          delete input.countryId; 
+        }
+
         const newCompany = await ctx.prisma.company.create({
           data: {
             ...input,
@@ -172,6 +178,7 @@ export const profileRouter = createTRPCRouter({
 
         return newCompany;
       }
+
 
       // Case 2: UPDATE EXISTING COMPANY (only if user belongs to it)
       const membership = await ctx.prisma.companyUser.findFirst({

@@ -69,19 +69,6 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // INVOICES
-  // ===========================
-  {
-    label: "Invoices",
-    href: "/invoices",
-    icon: Receipt,
-    permissions: [
-      P(Resource.INVOICE, Action.READ, PermissionScope.OWN),
-      P(Resource.INVOICE, Action.LIST, PermissionScope.GLOBAL),
-    ],
-  },
-
-  // ===========================
   // TIMESHEETS
   // ===========================
   {
@@ -95,9 +82,24 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // EXPENSES
+  // INVOICES
   // ===========================
   {
+    label: "Invoices",
+    href: "/invoices",
+    icon: Receipt,
+    permissions: [
+      P(Resource.INVOICE, Action.READ, PermissionScope.OWN),
+      P(Resource.INVOICE, Action.LIST, PermissionScope.GLOBAL),
+    ],
+  },
+
+  
+
+  // ===========================
+  // EXPENSES
+  // ===========================
+  /*{
     label: "Expenses",
     href: "/expenses",
     icon: Upload,
@@ -105,12 +107,30 @@ export const dynamicMenuConfig: MenuItem[] = [
       P(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
       P(Resource.EXPENSE, Action.LIST, PermissionScope.GLOBAL),
     ],
+  },*/
+  {
+    label: "Payslips",
+    href: "/payments/payslips",
+    icon: FileText,
+    permissions: [
+      P(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
+      P(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "Remits",
+    href: "/payments/remits",
+    icon: DollarSign,
+    permissions: [
+      P(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
+      P(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL),
+    ]
   },
 
   // ===========================
   // PAYMENTS
   // ===========================
-  {
+  /*{
     label: "Payments",
     href: "/payments",
     icon: DollarSign,
@@ -140,7 +160,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         ]
       }
     ]
-  },
+  },*/
 
   // ===========================
   // ONBOARDING

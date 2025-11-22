@@ -131,6 +131,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 
   CONTRACTOR: [
+    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
   // USER PROFILE
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),

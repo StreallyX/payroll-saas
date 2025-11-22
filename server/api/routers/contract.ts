@@ -54,35 +54,88 @@ export const contractRouter = createTRPCRouter({
     }),
 
   // ======================================================
-  // GET BY ID
+  // GET BY ID (GLOBAL or OWN)
   // ======================================================
   getById: tenantProcedure
-    .use(hasPermission("contract.list.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const contract = await ctx.prisma.contract.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-        include: {
-          company: true,
-          currency: true,
-          bank: true,
-          contractCountry: true,
-          participants: {
-            include: {
-              user: { select: { id: true, name: true, email: true } },
-            },
-          },
-          documents: true,
-          statusHistory: { orderBy: { changedAt: "desc" }},
-        },
-      })
 
-      if (!contract) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found" })
+      const user = ctx.session.user;
+      const userId = user.id;
+      const tenantId = ctx.tenantId!;
+
+      const perms = user.permissions || [];
+      const isSuperAdmin = user.isSuperAdmin;
+
+      const CAN_VIEW_GLOBAL = isSuperAdmin || perms.includes("contract.list.global");
+      const CAN_VIEW_OWN = perms.includes("contract.read.own");
+
+      // 1️⃣ GLOBAL ACCESS
+      if (CAN_VIEW_GLOBAL) {
+        const contract = await ctx.prisma.contract.findFirst({
+          where: { id: input.id, tenantId },
+          include: {
+            company: true,
+            currency: true,
+            bank: true,
+            contractCountry: true,
+            participants: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+              },
+            },
+            documents: true,
+            statusHistory: { orderBy: { changedAt: "desc" } },
+          },
+        });
+
+        if (!contract) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found" });
+        }
+
+        return contract;
       }
 
-      return contract
+      // 2️⃣ OWN ACCESS → must be participant
+      if (CAN_VIEW_OWN) {
+        const contract = await ctx.prisma.contract.findFirst({
+          where: {
+            id: input.id,
+            tenantId,
+            participants: { some: { userId } }, // secure
+          },
+          include: {
+            company: true,
+            currency: true,
+            bank: true,
+            contractCountry: true,
+            participants: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+              },
+            },
+            documents: true,
+            statusHistory: { orderBy: { changedAt: "desc" } },
+          },
+        });
+
+        if (!contract) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this contract",
+          });
+        }
+
+        return contract;
+      }
+
+      // 3️⃣ No permission
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Not authorized to view this contract",
+      });
     }),
+
 
 create: tenantProcedure
   .use(hasPermission("contract.create.global"))

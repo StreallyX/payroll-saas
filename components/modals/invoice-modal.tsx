@@ -1,274 +1,444 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select"
-import { api } from "@/lib/trpc"
-import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
-// ---------------------------------------------------------
-// Helper: Trouver le participant principal du contrat
-// ---------------------------------------------------------
-function getMainParticipant(contract: any) {
-  return (
-    contract?.participants?.find((p: any) => p.isPrimary) ||
-    contract?.participants?.find((p: any) => p.role === "contractor") ||
-    null
-  )
-}
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-type InvoiceModalProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  invoice?: any
-  onSuccess?: () => void
+import { api } from "@/lib/trpc";
+import { toast } from "sonner";
+import { format } from "date-fns";
+
+interface InvoiceModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  invoice?: any;
+  readOnly?: boolean;
 }
 
 export function InvoiceModal({
   open,
   onOpenChange,
-  onSuccess
+  invoice,
+  readOnly = false,
 }: InvoiceModalProps) {
-  const [contractId, setContractId] = useState("")
-  const [fromDate, setFromDate] = useState("")
-  const [toDate, setToDate] = useState("")
-  const [days, setDays] = useState(1)
-  const [expenses, setExpenses] = useState("0")
-  const [notes, setNotes] = useState("")
-  const [sendCopy, setSendCopy] = useState(false)
+  const isEditing = !!invoice && !readOnly;
 
-  const utils = api.useUtils()
+  // FORM STATE
+  const [form, setForm] = useState({
+    invoiceNumber: "",
+    contractId: "",
+    currency: "USD",
+    description: "",
+    notes: "",
+    issueDate: "",
+    dueDate: "",
+    sentDate: "",
+    paidDate: "",
+    status: "draft",
+    lineItems: [{ description: "", quantity: 1, unitPrice: 0 }],
+    attachments: [],
+  });
 
-  // Fetch the user's active contracts
-  const { data: contracts = [], isLoading: contractsLoading } =
-    api.contract.getMyContracts.useQuery()
+  // ───────────────────────────────────────────────
+  // LOAD CONTRACTS
+  // ───────────────────────────────────────────────
+  const { data: contracts } = api.contract.getAll.useQuery(
+    undefined,
+    { enabled: !readOnly }
+  );
 
-  const selectedContract = useMemo(() => {
-    return contracts.find((c: any) => c.id === contractId)
-  }, [contractId, contracts])
+  // ───────────────────────────────────────────────
+  // INITIAL FILLING
+  // ───────────────────────────────────────────────
+  useEffect(() => {
+    if (invoice) {
+      setForm({
+        invoiceNumber: invoice.invoiceNumber ?? "",
+        contractId: invoice.contractId ?? "",
+        currency: invoice.currency ?? "USD",
+        description: invoice.description ?? "",
+        notes: invoice.notes ?? "",
+        issueDate: format(new Date(invoice.issueDate), "yyyy-MM-dd"),
+        dueDate: format(new Date(invoice.dueDate), "yyyy-MM-dd"),
+        sentDate: invoice.sentDate ? format(new Date(invoice.sentDate), "yyyy-MM-dd") : "",
+        paidDate: invoice.paidDate ? format(new Date(invoice.paidDate), "yyyy-MM-dd") : "",
+        status: invoice.status ?? "draft",
+        lineItems:
+          invoice.lineItems?.map((li: any) => ({
+            description: li.description,
+            quantity: Number(li.quantity),
+            unitPrice: Number(li.unitPrice),
+          })) ?? [{ description: "", quantity: 1, unitPrice: 0 }],
+        attachments: invoice.attachments ?? [],
+      });
+    }
+  }, [invoice]);
 
-  const mainParticipant = useMemo(() => {
-    return getMainParticipant(selectedContract)
-  }, [selectedContract])
+  // ───────────────────────────────────────────────
+  // FINANCIAL CALCULATIONS
+  // ───────────────────────────────────────────────
+  const subtotal = useMemo(() => {
+    return form.lineItems.reduce(
+      (sum, li) => sum + li.quantity * li.unitPrice,
+      0
+    );
+  }, [form]);
 
-  // Auto calc: consulting amount = days × rate
-  const consultingAmount = useMemo(() => {
-    if (!selectedContract) return 0
-    return Number(days) * Number(selectedContract.rate ?? 0)
-  }, [days, selectedContract])
+  const taxAmount = subtotal * 0.0; // add VAT if needed
+  const total = subtotal + taxAmount;
 
-  const totalAmount = useMemo(() => {
-    return consultingAmount + Number(expenses || 0)
-  }, [consultingAmount, expenses])
-
+  // ───────────────────────────────────────────────
+  // MUTATIONS
+  // ───────────────────────────────────────────────
   const createMutation = api.invoice.create.useMutation({
     onSuccess: () => {
-      toast.success("Invoice created successfully")
-      utils.invoice.getAll.invalidate()
-      onOpenChange(false)
-      onSuccess?.()
+      toast.success("Invoice created");
+      onOpenChange(false);
     },
-    onError: (err: any) => toast.error(err.message)
-  })
+    onError: () => toast.error("Failed to create invoice"),
+  });
 
-  // ---------------------------------------------------------
-  // SUBMIT NEW INVOICE
-  // ---------------------------------------------------------
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const updateMutation = api.invoice.update.useMutation({
+    onSuccess: () => {
+      toast.success("Invoice updated");
+      onOpenChange(false);
+    },
+    onError: () => toast.error("Failed to update invoice"),
+  });
 
-    if (!contractId) return toast.error("Contract is required")
-    if (!fromDate || !toDate) return toast.error("Billing period required")
-
-    if (!selectedContract) return toast.error("Selected contract not found")
-
-    const consulting = Number(days) * Number(selectedContract.rate ?? 0)
-    const expensesValue = Number(expenses || 0)
-    const total = consulting + expensesValue
+  // ───────────────────────────────────────────────
+  // SAVE
+  // ───────────────────────────────────────────────
+  const handleSave = () => {
+    if (readOnly) return;
 
     const payload = {
-      contractId: contractId || undefined,
-
-      status: "draft",
-
-      issueDate: new Date(),
-      dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-
-      currency: "EUR",
-      taxAmount: 0,
-      amount: total,
+      ...form,
+      issueDate: new Date(form.issueDate),
+      dueDate: new Date(form.dueDate),
+      sentDate: form.sentDate ? new Date(form.sentDate) : null,
+      paidDate: form.paidDate ? new Date(form.paidDate) : null,
       totalAmount: total,
+      taxAmount,
+      amount: subtotal,
+    };
 
-      description: notes || undefined,
-      notes: sendCopy ? "Send copy to accounts" : undefined,
-
-      lineItems: [
-        {
-          description: "Consulting Services",
-          quantity: days,
-          unitPrice: Number(selectedContract.rate ?? 0),
-          amount: consulting,
-        },
-        ...(expensesValue > 0
-          ? [
-              {
-                description: "Expenses",
-                quantity: 1,
-                unitPrice: Number(expensesValue),
-                amount: expensesValue,
-              }
-            ]
-          : []),
-      ]
+    if (isEditing) {
+      updateMutation.mutate({ id: invoice.id, ...payload });
+    } else {
+      createMutation.mutate(payload);
     }
+  };
 
-    createMutation.mutate(payload)
-  }
+  const disabled =
+    readOnly || createMutation.isPending || updateMutation.isPending;
 
-  const isSaving = createMutation.isPending
-
-  // ---------------------------------------------------------
+  // ───────────────────────────────────────────────
   // UI
-  // ---------------------------------------------------------
+  // ───────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+        {/* HEADER */}
         <DialogHeader>
-          <DialogTitle>Create Invoice</DialogTitle>
+          <DialogTitle className="flex justify-between items-center">
+            <span>
+              {readOnly
+                ? `Invoice #${form.invoiceNumber}`
+                : isEditing
+                ? `Edit Invoice #${form.invoiceNumber}`
+                : "Create Invoice"}
+            </span>
+
+            {invoice && (
+              <Badge
+                variant={
+                  form.status === "paid"
+                    ? "default"
+                    : form.status === "overdue"
+                    ? "destructive"
+                    : "secondary"
+                }
+              >
+                {form.status}
+              </Badge>
+            )}
+          </DialogTitle>
+
           <DialogDescription>
-            Fill the billing period and details. Totals are calculated automatically.
+            {readOnly
+              ? "Invoice details"
+              : "Fill the invoice information below"}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6 py-4">
 
-          {/* CONTRACT SELECTION */}
+          {/* SECTION 1 — GENERAL INFO */}
           <div className="space-y-2">
-            <Label>Contract *</Label>
-            <Select value={contractId} onValueChange={setContractId}>
+            <Label>Contract</Label>
+            <Select
+              disabled={disabled}
+              value={form.contractId}
+              onValueChange={(v) => setForm({ ...form, contractId: v })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select contract" />
               </SelectTrigger>
-
               <SelectContent>
-                {contractsLoading && (
-                  <SelectItem value="loading" disabled>Loading...</SelectItem>
-                )}
-
-                {contracts.length === 0 && (
-                  <SelectItem value="none" disabled>No contracts</SelectItem>
-                )}
-
-                {contracts.map((c: any) => {
-                  const main = getMainParticipant(c)
-                  return (
-                    <SelectItem key={c.id} value={c.id}>
-                      {main?.user?.name || "Unknown"} ({c.company?.name})
-                    </SelectItem>
-                  )
-                })}
+                {contracts?.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.contractReference} — {c.title}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* CONTRACT DETAILS */}
-          {selectedContract && (
-            <div className="border p-4 rounded-lg space-y-1 text-sm">
-
-              <p><b>Contract No:</b> {selectedContract.contractReference}</p>
-
-              {selectedContract.rate && (
-                <p><b>Rate:</b> {String(selectedContract.rate)} EUR / Daily</p>
-              )}
-
-              <p><b>Agency/Client:</b> {selectedContract.company?.name}</p>
-
-              <p><b>Worker:</b> {mainParticipant?.user?.name || "Unknown"}</p>
-
-              {selectedContract.startDate && (
-                <p><b>Start:</b> {new Date(selectedContract.startDate).toLocaleDateString()}</p>
-              )}
-
-              {selectedContract.endDate && (
-                <p><b>End:</b> {new Date(selectedContract.endDate).toLocaleDateString()}</p>
-              )}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Invoice Number</Label>
+              <Input
+                disabled={disabled}
+                value={form.invoiceNumber}
+                onChange={(e) =>
+                  setForm({ ...form, invoiceNumber: e.target.value })
+                }
+              />
             </div>
-          )}
 
-          {/* BILLING PERIOD */}
+            <div>
+              <Label>Currency</Label>
+              <Select
+                disabled={disabled}
+                value={form.currency}
+                onValueChange={(v) => setForm({ ...form, currency: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="GBP">GBP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Status</Label>
+              <Select
+                disabled={disabled}
+                value={form.status}
+                onValueChange={(v) => setForm({ ...form, status: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* SECTION 2 — DATES */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Billing From *</Label>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <Label>Issue Date</Label>
+              <Input
+                type="date"
+                disabled={disabled}
+                value={form.issueDate}
+                onChange={(e) =>
+                  setForm({ ...form, issueDate: e.target.value })
+                }
+              />
             </div>
+
             <div>
-              <Label>Billing To *</Label>
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <Label>Due Date</Label>
+              <Input
+                type="date"
+                disabled={disabled}
+                value={form.dueDate}
+                onChange={(e) =>
+                  setForm({ ...form, dueDate: e.target.value })
+                }
+              />
             </div>
           </div>
 
-          {/* NUMBER OF DAYS */}
-          <div>
-            <Label>Number of Days *</Label>
-            <Input
-              type="number"
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-            />
+          {/* Optional dates */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Sent Date</Label>
+              <Input
+                type="date"
+                disabled={disabled}
+                value={form.sentDate}
+                onChange={(e) =>
+                  setForm({ ...form, sentDate: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <Label>Paid Date</Label>
+              <Input
+                type="date"
+                disabled={disabled}
+                value={form.paidDate}
+                onChange={(e) =>
+                  setForm({ ...form, paidDate: e.target.value })
+                }
+              />
+            </div>
           </div>
 
-          {/* CONSULTING */}
-          <div className="border p-4 rounded-lg bg-muted/20">
-            <p className="font-medium">Consulting Services</p>
-            <p>{consultingAmount.toFixed(2)} EUR</p>
+          <Separator />
+
+          {/* SECTION 3 — LINE ITEMS */}
+          <div className="space-y-3">
+            <Label>Line Items</Label>
+
+            {form.lineItems.map((li, index) => (
+              <div key={index} className="grid grid-cols-3 gap-3">
+                <Input
+                  disabled={disabled}
+                  value={li.description}
+                  placeholder="Description"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      lineItems: form.lineItems.map((x, i) =>
+                        i === index
+                          ? { ...x, description: e.target.value }
+                          : x
+                      ),
+                    })
+                  }
+                />
+
+                <Input
+                  type="number"
+                  disabled={disabled}
+                  value={li.quantity}
+                  placeholder="Qty"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      lineItems: form.lineItems.map((x, i) =>
+                        i === index
+                          ? { ...x, quantity: Number(e.target.value) }
+                          : x
+                      ),
+                    })
+                  }
+                />
+
+                <Input
+                  type="number"
+                  disabled={disabled}
+                  value={li.unitPrice}
+                  placeholder="Unit Price"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      lineItems: form.lineItems.map((x, i) =>
+                        i === index
+                          ? { ...x, unitPrice: Number(e.target.value) }
+                          : x
+                      ),
+                    })
+                  }
+                />
+              </div>
+            ))}
+
+            {!readOnly && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    lineItems: [
+                      ...form.lineItems,
+                      { description: "", quantity: 1, unitPrice: 0 },
+                    ],
+                  })
+                }
+              >
+                Add line item
+              </Button>
+            )}
           </div>
 
-          {/* EXPENSES */}
-          <div>
-            <Label>Any Expenses (EUR)</Label>
-            <Input
-              type="number"
-              value={expenses}
-              onChange={(e) => setExpenses(e.target.value)}
-            />
+          <Separator />
+
+          {/* SECTION 4 — FINANCIAL SUMMARY */}
+          <div className="bg-muted p-4 rounded-lg space-y-2">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{subtotal.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>Tax</span>
+              <span>{taxAmount.toFixed(2)}</span>
+            </div>
+
+            <Separator />
+
+            <div className="flex justify-between font-bold text-lg">
+              <span>Total</span>
+              <span>{total.toFixed(2)}</span>
+            </div>
           </div>
 
-          {/* NOTES */}
+          {/* SECTION 5 — NOTES */}
           <div>
             <Label>Notes</Label>
             <Input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Write description"
+              disabled={disabled}
+              value={form.notes}
+              onChange={(e) =>
+                setForm({ ...form, notes: e.target.value })
+              }
             />
           </div>
+        </div>
 
-          {/* TOTAL */}
-          <div className="border p-4 rounded-lg bg-muted/30 text-lg font-bold">
-            Total Invoice Amount: {totalAmount.toFixed(2)} EUR
-          </div>
+        {/* FOOTER */}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {readOnly ? "Close" : "Cancel"}
+          </Button>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+          {!readOnly && (
+            <Button onClick={handleSave} disabled={disabled}>
+              {isEditing ? "Save Changes" : "Create Invoice"}
             </Button>
-
-            <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Invoice
-            </Button>
-          </DialogFooter>
-        </form>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
