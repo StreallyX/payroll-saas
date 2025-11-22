@@ -199,6 +199,14 @@ export const dynamicMenuConfig: MenuItem[] = [
           P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
+      {
+        label: "ALL Onboarding",
+        href: "/onboarding",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      },
     ]
   },
 
