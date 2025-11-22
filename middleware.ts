@@ -84,44 +84,7 @@ export default withAuth(
     // ====================================================================
     // Comprehensive mapping from old role-based routes to new functional routes
     const ROUTE_REDIRECTS: Record<string, string> = {
-      // ==================== CONTRACTOR ROUTES ====================
-      "/contractor": "/dashboard",
-      "/contractor/information": "/profile",
-      "/contractor/my-onboarding": "/onboarding/my-onboarding",
-      "/contractor/onboarding": "/onboarding/my-onboarding",
-      "/contractor/payslips": "/payments/payslips",
-      "/contractor/remits": "/payments/remits",
-      "/contractor/refer": "/referrals",
-      "/contractor/invoices": "/invoices",
-      "/contractor/time-expenses": "/timesheets", // Note: Now split into separate /timesheets and /expenses pages
-      "/contractor/timesheets": "/timesheets",
-      "/contractor/expenses": "/expenses",
-      
-      // ==================== AGENCY ROUTES ====================
-      "/agency": "/dashboard",
-      "/agency/information": "/profile",
-      "/agency/dashboard": "/dashboard",
-      "/agency/contractors": "/team/contractors",
-      "/agency/invoices": "/invoices",
-      "/agency/timesheets": "/timesheets",
-      "/agency/expenses": "/expenses",
-      "/agency/payslips": "/payments/payslips",
-      "/agency/remits": "/payments/remits",
-      "/agency/onboarding": "/onboarding/my-onboarding",
-      
-      // ==================== PAYROLL PARTNER ROUTES ====================
-      "/payroll-partner": "/dashboard",
-      "/payroll-partner/information": "/profile",
-      "/payroll-partner/dashboard": "/dashboard",
-      "/payroll-partner/contractors": "/team/contractors",
-      "/payroll-partner/agencies": "/team/agencies",
-      "/payroll-partner/invoices": "/invoices",
-      "/payroll-partner/timesheets": "/timesheets",
-      "/payroll-partner/expenses": "/expenses",
-      "/payroll-partner/payslips": "/payments/payslips",
-      "/payroll-partner/remits": "/payments/remits",
-      "/payroll-partner/onboarding": "/onboarding/my-onboarding",
-      
+      "/referrals": "/construction",
       // ==================== OLD MANAGEMENT ROUTES ====================
       "/contractors": "/team/contractors",
       "/agencies": "/team/agencies",

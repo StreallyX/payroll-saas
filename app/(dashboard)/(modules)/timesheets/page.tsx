@@ -1,38 +1,62 @@
 "use client";
 
 import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/use-permissions";
 
-// ADMIN
-import { TimesheetListAdmin } from "@/components/modals/timesheets/TimesheetListAdmin";
+import { TimesheetListAdmin } from "@/components/timesheets/TimesheetListAdmin";
+import { TimesheetListContractor } from "@/components/timesheets/TimesheetListContractor";
+import { TimesheetSubmissionFormModal } from "@/components/timesheets/TimesheetSubmissionForm";
 
-// CONTRACTOR
-import { TimesheetListContractor } from "@/components/modals/timesheets/TimesheetListContractor";
-import { TimesheetSubmissionForm } from "@/components/modals/timesheets/TimesheetSubmissionForm";
+import { useState } from "react";
+import { Plus } from "lucide-react";
 
 export default function TimesheetsPage() {
   const { hasPermission } = usePermissions();
 
   const canViewOwn = hasPermission("timesheet.read.own");
   const canViewGlobal = hasPermission("timesheet.list.global");
+
   const canCreateOwn = hasPermission("timesheet.create.own");
+  const canCreateGlobal = hasPermission("timesheet.create.global");
+  const canCreate = canCreateOwn || canCreateGlobal;
+
+  // ✅ correct state variable
+  const [openForm, setOpenForm] = useState(false);
 
   return (
     <div className="space-y-8">
-      <PageHeader 
+      {/* HEADER */}
+      <PageHeader
         title="Timesheets"
-        description="Manage and review work time reports"
+        description="Submit and track your work time reports"
+      >
+        {canCreate && (
+          <Button onClick={() => setOpenForm(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Timesheet
+          </Button>
+        )}
+      </PageHeader>
+
+      {/* FORM MODAL */}
+      <TimesheetSubmissionFormModal 
+        open={openForm} 
+        onOpenChange={setOpenForm} 
       />
 
       {/* ADMIN MODE */}
-      {canViewGlobal && <TimesheetListAdmin />}
+      {canViewGlobal && (
+        <div className="mt-4">
+          <TimesheetListAdmin />
+        </div>
+      )}
 
       {/* CONTRACTOR MODE */}
       {!canViewGlobal && (
-        <>
-          {canCreateOwn && <TimesheetSubmissionForm />}
+        <div className="mt-4 space-y-6">
           {canViewOwn && <TimesheetListContractor />}
-        </>
+        </div>
       )}
     </div>
   );

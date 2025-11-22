@@ -40,10 +40,6 @@ export default function UnderConstructionPage() {
             <Button variant="outline" onClick={() => router.back()}>
               Go Back
             </Button>
-
-            <Button onClick={() => router.push("/")}>
-              Go to Dashboard
-            </Button>
           </div>
         </CardContent>
       </Card>
