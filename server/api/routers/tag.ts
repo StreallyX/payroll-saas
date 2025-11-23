@@ -7,7 +7,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2";
+} from "../../rbac/permissions";
 
 const VIEW = buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.GLOBAL);
 const LIST = buildPermissionKey(Resource.CONTRACT, Action.LIST, PermissionScope.GLOBAL);

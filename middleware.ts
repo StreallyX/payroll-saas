@@ -5,11 +5,8 @@ export const config = {
   ],
 };
 
-
-
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { getFirstAccessibleRoute } from "@/lib/routing/dynamic-router";
 
 export default withAuth(
   function middleware(req) {
@@ -60,13 +57,13 @@ export default withAuth(
     
     // Redirect from root to first accessible route
     if (pathname === "/") {
-      const firstRoute = getFirstAccessibleRoute(permissions);
+      const firstRoute = "/home"
       return NextResponse.redirect(new URL(firstRoute, req.url));
     }
 
     // Redirect from /dashboard to first accessible route if user has limited permissions
     if (pathname === "/home") {
-      const firstRoute = getFirstAccessibleRoute(permissions);
+      const firstRoute = "/home"
       // Only redirect if dashboard is not the first accessible route
       // This allows users with many permissions to see the dashboard
       if (firstRoute !== "/home" && permissions.length > 0) {

@@ -11,7 +11,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "@/server/rbac/permissions-v2";
+} from "@/server/rbac/permissions";
 
 import { TRPCError } from "@trpc/server";
 

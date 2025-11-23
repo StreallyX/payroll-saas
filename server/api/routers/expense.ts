@@ -12,7 +12,7 @@ import {
   Resource,
   Action,
   PermissionScope,
-} from "../../rbac/permissions-v2";
+} from "../../rbac/permissions";
 
 export const expenseRouter = createTRPCRouter({
 

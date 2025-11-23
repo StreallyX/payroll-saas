@@ -14,7 +14,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "@/server/rbac/permissions-v2";
+} from "@/server/rbac/permissions";
 
 // ====================================================================
 // DEFAUT ROLES

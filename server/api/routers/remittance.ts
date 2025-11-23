@@ -7,7 +7,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2";
+} from "../../rbac/permissions";
 
 import { getPermissionScope, buildWhereClause } from "../../../lib/rbac-helpers";
 

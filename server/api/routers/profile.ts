@@ -11,7 +11,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2";
+} from "../../rbac/permissions";
 
 // ---------------------------------------------------------
 // RBAC PERMISSIONS (V3 STYLE)

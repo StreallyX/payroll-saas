@@ -11,7 +11,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2";
+} from "../../rbac/permissions";
 
 import { uploadFileToS3, deleteFromS3, getSignedUrlForKey } from "@/lib/s3";
 import { createAuditLog } from "@/lib/audit";

@@ -13,7 +13,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2"
+} from "../../rbac/permissions"
 
 const LIST_GLOBAL   = buildPermissionKey(Resource.ROLE, Action.LIST, PermissionScope.GLOBAL)
 const READ_OWN      = buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN)

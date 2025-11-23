@@ -14,7 +14,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2";
+} from "../../rbac/permissions";
 
 const VIEW = buildPermissionKey(Resource.SETTINGS, Action.READ, PermissionScope.GLOBAL);
 const UPDATE = buildPermissionKey(Resource.SETTINGS, Action.UPDATE, PermissionScope.GLOBAL);

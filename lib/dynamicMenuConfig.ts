@@ -7,7 +7,7 @@ import {
   CreditCard, Scale, FileSignature, UserCircle
 } from "lucide-react"
 
-import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions-v2"
+import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions"
 
 export interface MenuItem {
   label: string
@@ -27,6 +27,92 @@ const P = (resource: Resource, action: Action, scope: PermissionScope) =>
  * MENU V3 ● Compatible avec permissions: "resource.action.scope"
  */
 export const dynamicMenuConfig: MenuItem[] = [
+
+  {
+    label: "SuperadminDashboard",
+    href: "/superadmin",
+    icon: LayoutDashboard,
+    description: "Your dashboard",
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminUser",
+    href: "/superadmin/users",
+    icon: LayoutDashboard,
+    description: "Your dashboard",
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminTenants",
+    href: "/superadmin/tenants",
+    icon: LayoutDashboard,
+    description: "Your dashboard",
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminSettings",
+    href: "/superadmin/settings",
+    icon: ClipboardList,
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ],
+    submenu: [
+      {
+        label: "SuperAdminCountries",
+        href: "/superadmin/settings/countries",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "SuperAdminCurrencies",
+        href: "/superadmin/settings/currencies",
+        icon: CheckSquare,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "SuperAdminFeatures",
+        href: "/superadmin/settings/features",
+        icon: FileType,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "SuperAdminSubscriptions",
+        href: "/superadmin/settings/subscriptions",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+    ]
+  },
+  {
+    label: "SuperAdminImpersonations",
+    href: "/superadmin/impersonations",
+    icon: LayoutDashboard,
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminAnalytics",
+    href: "/superadmin/analytics",
+    icon: LayoutDashboard,
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
 
   // ===========================
   // DASHBOARD
@@ -395,38 +481,36 @@ export const dynamicMenuConfig: MenuItem[] = [
   }
 
 ]
-
 /**
- * Filter menu by permissions
+ * Filter menu by permissions (RBAC-only)
  */
 export function filterMenuByPermissions(
   menuItems: MenuItem[],
-  userPermissions: string[],
-  isSuperAdmin = false
+  userPermissions: string[]
 ): MenuItem[] {
-
-  if (isSuperAdmin) return menuItems
 
   return menuItems
     .map(item => {
 
+      // Normalize for safety
       const hasAccess = item.permissions
         ? item.permissions.some(p => userPermissions.includes(p))
-        : true
+        : true;
 
-      if (!hasAccess) return null
+      if (!hasAccess) return null;
 
+      // Handle submenus
       if (item.submenu) {
-        const filtered = filterMenuByPermissions(item.submenu, userPermissions, isSuperAdmin)
-        if (filtered.length === 0) return null
-        return { ...item, submenu: filtered }
+        const filteredSubmenu = filterMenuByPermissions(item.submenu, userPermissions);
+        if (filteredSubmenu.length === 0) return null;
+        return { ...item, submenu: filteredSubmenu };
       }
 
-      return item
+      return item;
     })
-    .filter(Boolean) as MenuItem[]
+    .filter(Boolean) as MenuItem[];
 }
 
-export function getDynamicMenu(userPermissions: string[], isSuperAdmin = false) {
-  return filterMenuByPermissions(dynamicMenuConfig, userPermissions, isSuperAdmin)
+export function getDynamicMenu(userPermissions: string[]) {
+  return filterMenuByPermissions(dynamicMenuConfig, userPermissions);
 }

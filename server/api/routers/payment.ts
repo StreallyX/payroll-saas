@@ -10,7 +10,7 @@ import {
   Action,
   PermissionScope,
   buildPermissionKey,
-} from "../../rbac/permissions-v2" // V3 builder
+} from "../../rbac/permissions" // V3 builder
 
 import { TRPCError } from "@trpc/server"
 import { Prisma } from "@prisma/client"

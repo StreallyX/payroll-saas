@@ -6,8 +6,6 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { SUPERADMIN_PERMISSIONS } from "@/server/rbac/permissions";
-
 /* -------------------------------------------------------------
  * 1) CONTEXT TYPE
  * ------------------------------------------------------------- */
@@ -27,27 +25,6 @@ export async function createTRPCContext(opts: { req: Request }): Promise<TRPCCon
 
   if (!session?.user?.id) {
     return { prisma, session: null, tenantId: null };
-  }
-
-  // ⭐ Superadmin = bypass DB
-  if (session.user.isSuperAdmin) {
-    return {
-      prisma,
-      session: {
-        ...session,
-        user: {
-          ...session.user,
-          permissions: SUPERADMIN_PERMISSIONS,
-          tenantId: null,
-          roleName: "superadmin",
-          roleId: null,
-          agencyId: null,
-          payrollPartnerId: null,
-          companyId: null,
-        },
-      },
-      tenantId: null,
-    };
   }
 
   // Load tenant user from DB

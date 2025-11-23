@@ -7,10 +7,6 @@ import {
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
-import {
-  ContractWorkflowStatus,
-  isValidTransition,
-} from "@/lib/types/contracts"
 
 // =====================================
 // PARTICIPANTS SCHEMA

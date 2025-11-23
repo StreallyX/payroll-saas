@@ -19,7 +19,6 @@ import { authRouter } from "./routers/auth";
 import { dashboardRouter } from "./routers/dashboard";
 import { analyticsRouter } from "./routers/analytics";
 import { webhookRouter } from "./routers/webhook";
-import { permissionAuditRouter } from "./routers/admin/permissionAudit";
 import { profileRouter } from "./routers/profile";
 import { onboardingTemplateRouter } from "./routers/onboarding-template"
 
@@ -69,7 +68,6 @@ export const appRouter = createTRPCRouter({
   dashboard: dashboardRouter,
   analytics: analyticsRouter,
   webhook: webhookRouter,
-  permissionAudit: permissionAuditRouter,
   
   // PHASE 2 ROUTERS
   payment: paymentRouter,

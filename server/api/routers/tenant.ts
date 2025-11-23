@@ -17,7 +17,7 @@ import {
   Action,
   PermissionScope,
   getAllPermissionKeys,
-} from "../../rbac/permissions-v2"
+} from "../../rbac/permissions"
 
 export const tenantRouter = createTRPCRouter({
 
@@ -141,7 +141,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 📊 LIST TENANTS
   getAllForSuperAdmin: protectedProcedure
-    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.MANAGE, PermissionScope.GLOBAL)))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .query(async ({ ctx }) => {
 
       const tenants = await ctx.prisma.tenant.findMany({
@@ -166,7 +166,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 🏗️ CREATE TENANT + ADMIN
   createTenantWithAdmin: protectedProcedure
-    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.MANAGE, PermissionScope.GLOBAL)))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(
       z.object({
         tenantName: z.string().min(2),
@@ -260,7 +260,7 @@ export const tenantRouter = createTRPCRouter({
 
   // ⚙️ UPDATE TENANT STATUS
   updateTenantStatus: protectedProcedure
-    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.MANAGE, PermissionScope.GLOBAL)))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(z.object({ tenantId: z.string(), isActive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -285,7 +285,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 🗑️ SOFT DELETE TENANT
   deleteTenant: protectedProcedure
-    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.MANAGE, PermissionScope.GLOBAL)))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(z.object({ tenantId: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -1177,7 +1177,7 @@ export const tenantRouter = createTRPCRouter({
   // -------------------------------------------------------
   /*
   impersonateTenant: protectedProcedure
-    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.MANAGE, PermissionScope.GLOBAL)))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(
       z.object({
         tenantId: z.string(),
