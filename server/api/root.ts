@@ -12,7 +12,6 @@ import { currencyRouter } from "./routers/currency"
 import { countryRouter } from "./routers/country"
 import { roleRouter } from "./routers/role"
 import { permissionRouter } from "./routers/permission"
-import { documentTypeRouter } from "./routers/documentType"
 import { taskRouter } from "./routers/task"
 import { onboardingRouter } from "./routers/onboarding"
 import { payslipRouter } from "./routers/payslip"
@@ -27,7 +26,6 @@ import { onboardingTemplateRouter } from "./routers/onboarding-template"
 
 // PHASE 2 ROUTERS
 import { paymentRouter } from "./routers/payment";
-import { paymentMethodRouter } from "./routers/paymentMethod";
 import { expenseRouter } from "./routers/expense";
 import { timesheetRouter } from "./routers/timesheet";
 import { approvalWorkflowRouter } from "./routers/approvalWorkflow";
@@ -65,7 +63,6 @@ export const appRouter = createTRPCRouter({
   country: countryRouter,
   role: roleRouter,
   permission: permissionRouter,
-  documentType: documentTypeRouter,
   task: taskRouter,
   onboarding: onboardingRouter,
   payslip: payslipRouter,
@@ -76,7 +73,6 @@ export const appRouter = createTRPCRouter({
   
   // PHASE 2 ROUTERS
   payment: paymentRouter,
-  paymentMethod: paymentMethodRouter,
   expense: expenseRouter,
   timesheet: timesheetRouter,
   approvalWorkflow: approvalWorkflowRouter,
