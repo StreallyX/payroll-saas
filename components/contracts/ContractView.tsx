@@ -1,103 +1,110 @@
-"use client"
+"use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { 
-  Users, Building2, DollarSign, FileText, Calendar, 
-  CheckCircle, AlertCircle, Eye
-} from "lucide-react"
-import { api } from "@/lib/trpc"
-import { LoadingState } from "@/components/shared/loading-state"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import { downloadFile } from "@/lib/s3"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+import {
+  Users,
+  Building2,
+  DollarSign,
+  FileText,
+  AlertCircle,
+} from "lucide-react";
+
+import { api } from "@/lib/trpc";
+import { LoadingState } from "@/components/shared/loading-state";
+import { DocumentListView } from "@/components/documents/DocumentListView";
 
 interface ContractViewModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  contractId: string | null
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contractId: string | null;
 }
 
-export function ContractViewModal({ open, onOpenChange, contractId }: ContractViewModalProps) {
+export function ContractViewModal({
+  open,
+  onOpenChange,
+  contractId,
+}: ContractViewModalProps) {
+  const enabled = open && !!contractId;
+
   const { data: contract, isLoading } = api.contract.getById.useQuery(
     { id: contractId || "" },
-    { enabled: open && Boolean(contractId) }
-  )
+    { enabled }
+  );
 
-  const formatDate = (d?: any) =>
-    d ? new Date(d).toLocaleDateString("fr-FR") : "-"
+  const { data: documents = [] } = api.document.list.useQuery(
+    {
+      entityType: "contract",
+      entityId: contractId ?? "",
+    },
+    { enabled }
+  );
 
-  const handleViewDocument = async () => {
-    if (!contract?.signedContractPath) return toast.error("No signed file")
-    try {
-      const url = await downloadFile(contract.signedContractPath)
-      window.open(url, "_blank")
-    } catch {
-      toast.error("Unable to open file")
-    }
-  }
+  const formatDate = (d: any) =>
+    d ? new Date(d).toLocaleDateString("fr-FR") : "-";
 
   const ROLE_LABELS: Record<string, string> = {
     contractor: "Contractor",
     client_admin: "Client Admin",
     approver: "Approver",
     agency: "Agency",
-    payroll_partner: "Payroll Partner"
-  }
+    payroll_partner: "Payroll Partner",
+    reviewer: "Reviewer",
+    finance: "Finance",
+    legal: "Legal",
+  };
 
-  const coloredStatus = (status: string) => ({
-    draft: "bg-gray-100 text-gray-800",
-    active: "bg-green-100 text-green-800",
-    completed: "bg-blue-100 text-blue-800",
-    cancelled: "bg-red-100 text-red-800",
-    paused: "bg-yellow-100 text-yellow-800",
-    terminated: "bg-red-200 text-red-900"
-  }[status] || "bg-gray-100 text-gray-800")
+  const coloredStatus = (status: string) =>
+    (
+      {
+        draft: "bg-gray-100 text-gray-800",
+        active: "bg-green-100 text-green-800",
+        completed: "bg-blue-100 text-blue-800",
+        cancelled: "bg-red-100 text-red-800",
+        paused: "bg-yellow-100 text-yellow-800",
+        terminated: "bg-red-200 text-red-900",
+      } as any
+    )[status] || "bg-gray-100 text-gray-800";
 
-  if (!contractId) return null
+  if (!contractId) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        
-        {/* HEADER */}
         <DialogHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <DialogTitle className="text-2xl font-bold">
-                {contract?.title || `Contract #${contractId.slice(0, 8)}`}
-              </DialogTitle>
+          <DialogTitle className="text-2xl font-bold">
+            {contract?.title || "Contract"}
+          </DialogTitle>
 
-              {contract?.contractReference && (
-                <p className="text-sm text-muted-foreground">
-                  Reference: {contract.contractReference}
-                </p>
-              )}
-            </div>
-
-            {contract?.signedContractPath && (
-              <Button variant="outline" size="sm" onClick={handleViewDocument}>
-                <Eye className="h-4 w-4 mr-2" /> View File
-              </Button>
-            )}
-          </div>
+          {contract?.contractReference && (
+            <p className="text-sm text-muted-foreground">
+              Reference: {contract.contractReference}
+            </p>
+          )}
         </DialogHeader>
 
-        {/* BODY */}
         {isLoading ? (
-          <LoadingState message="Loading contract..." />
+          <LoadingState message="Chargement du contrat..." />
         ) : !contract ? (
-          <p className="text-center py-6 text-muted-foreground">Not found</p>
+          <p className="text-center py-6 text-muted-foreground">
+            Contrat introuvable
+          </p>
         ) : (
           <div className="space-y-6">
-
             {/* STATUS */}
             <Card>
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6">
                 <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
+                  <p className="text-xs text-muted-foreground">Statut</p>
                   <Badge className={coloredStatus(contract.status)}>
                     {contract.status}
                   </Badge>
@@ -111,13 +118,17 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">Start</p>
-                  <p className="font-medium">{formatDate(contract.startDate)}</p>
+                  <p className="text-xs text-muted-foreground">Début</p>
+                  <p className="font-medium">
+                    {formatDate(contract.startDate)}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">End</p>
-                  <p className="font-medium">{formatDate(contract.endDate)}</p>
+                  <p className="text-xs text-muted-foreground">Fin</p>
+                  <p className="font-medium">
+                    {formatDate(contract.endDate)}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -132,10 +143,12 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {contract.participants.map((p) => (
+                {contract.participants.map((p: any) => (
                   <div key={p.id} className="border rounded-md p-3">
                     <p className="font-semibold">{p.user.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.user.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.user.email}
+                    </p>
 
                     <div className="mt-2 flex gap-2 flex-wrap">
                       <Badge variant="secondary">
@@ -143,7 +156,9 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                       </Badge>
 
                       {p.isPrimary && (
-                        <Badge className="bg-purple-100 text-purple-800">Primary</Badge>
+                        <Badge className="bg-purple-100 text-purple-800">
+                          Primary
+                        </Badge>
                       )}
 
                       {p.requiresSignature && (
@@ -153,8 +168,8 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                       )}
 
                       {p.signedAt && (
-                        <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" /> Signed
+                        <Badge className="bg-green-100 text-green-800">
+                          Signed
                         </Badge>
                       )}
                     </div>
@@ -163,12 +178,12 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
               </CardContent>
             </Card>
 
-            {/* OPTIONAL COMPANY */}
+            {/* COMPANY */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Building2 className="h-5 w-5 text-gray-500" />
-                  Company (optional)
+                  Company
                 </CardTitle>
               </CardHeader>
 
@@ -181,7 +196,9 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                     </p>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No company linked</p>
+                  <p className="text-sm text-muted-foreground">
+                    No company linked
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -196,16 +213,19 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
               </CardHeader>
 
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
-
                 <div>
                   <p className="text-xs text-muted-foreground">Rate</p>
-                  <p className="font-semibold">{contract.rate?.toString() ?? "-"}</p>
+                  <p className="font-semibold">
+                    {contract.rate?.toString() ?? "-"}
+                  </p>
                   <p className="text-xs">{contract.rateType}</p>
                 </div>
 
                 <div>
                   <p className="text-xs text-muted-foreground">Currency</p>
-                  <p className="font-semibold">{contract.currencyId || "-"}</p>
+                  <p className="font-semibold">
+                    {contract.currencyId || "-"}
+                  </p>
                 </div>
 
                 <div>
@@ -219,26 +239,27 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
 
                 <div>
                   <p className="text-xs text-muted-foreground">Salary Type</p>
-                  <p className="font-semibold">{contract.salaryType || "-"}</p>
+                  <p className="font-semibold">{contract.salaryType}</p>
                 </div>
-
               </CardContent>
             </Card>
 
-            {/* NOTES & DESCRIPTION */}
+            {/* DESCRIPTION & NOTES */}
             {(contract.description || contract.notes) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileText className="h-5 w-5 text-gray-500" />
-                    Notes & Description
+                    Description & Notes
                   </CardTitle>
                 </CardHeader>
 
                 <CardContent>
                   {contract.description && (
                     <div className="mb-4">
-                      <p className="text-xs text-muted-foreground">Description</p>
+                      <p className="text-xs text-muted-foreground">
+                        Description
+                      </p>
                       <p>{contract.description}</p>
                     </div>
                   )}
@@ -262,6 +283,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                     Termination
                   </CardTitle>
                 </CardHeader>
+
                 <CardContent>
                   <p className="text-sm">{contract.terminationReason}</p>
                   {contract.terminatedAt && (
@@ -273,9 +295,25 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
               </Card>
             )}
 
+            {/* DOCUMENTS */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="h-5 w-5 text-gray-500" />
+                  Attached Documents
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                <DocumentListView
+                  entityType="contract"
+                  entityId={contractId!}
+                />
+              </CardContent>
+            </Card>
           </div>
         )}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

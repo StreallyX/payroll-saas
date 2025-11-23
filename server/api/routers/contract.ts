@@ -84,7 +84,6 @@ export const contractRouter = createTRPCRouter({
                 user: { select: { id: true, name: true, email: true } },
               },
             },
-            documents: true,
             statusHistory: { orderBy: { changedAt: "desc" } },
           },
         });
@@ -114,7 +113,6 @@ export const contractRouter = createTRPCRouter({
                 user: { select: { id: true, name: true, email: true } },
               },
             },
-            documents: true,
             statusHistory: { orderBy: { changedAt: "desc" } },
           },
         });

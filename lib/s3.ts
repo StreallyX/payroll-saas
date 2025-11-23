@@ -19,8 +19,13 @@ const { bucketName, folderPrefix } = getBucketConfig();
  * Build the final S3 key, with optional prefix (folder)
  */
 function buildKey(fileName: string) {
+  // si la key inclut déjà le préfixe → ne pas le rajouter
+  if (fileName.startsWith(folderPrefix)) {
+    return fileName;
+  }
   return `${folderPrefix}${fileName}`;
 }
+
 
 // ------------------------------------------------------------
 // LOW-LEVEL AWS FUNCTIONS (raw operations)

@@ -115,9 +115,11 @@ export const documentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const buffer = Buffer.from(input.buffer, "base64");
 
-      const s3Key = `tenant_${ctx.tenantId}/${input.entityType}/${input.entityId}/v1/${input.fileName}`;
+      const rawKey = `tenant_${ctx.tenantId}/${input.entityType}/${input.entityId}/v1/${input.fileName}`;
 
-      await uploadFileToS3(s3Key, buffer, input.mimeType);
+      const fullKey = `${process.env.AWS_FOLDER_PREFIX}${rawKey}`;
+
+      await uploadFileToS3(fullKey, buffer, input.mimeType);
 
       const doc = await ctx.prisma.document.create({
         data: {
@@ -128,7 +130,7 @@ export const documentRouter = createTRPCRouter({
           mimeType: input.mimeType,
           fileSize: input.fileSize,
           uploadedBy: ctx.session.user.id,
-          s3Key,
+          s3Key: fullKey,
           version: 1,
           isLatestVersion: true,
         },
@@ -173,9 +175,11 @@ export const documentRouter = createTRPCRouter({
       const nextVersion = oldDoc.version + 1;
       const buffer = Buffer.from(input.buffer, "base64");
 
-      const s3Key = `tenant_${ctx.tenantId}/${oldDoc.entityType}/${oldDoc.entityId}/v${nextVersion}/${input.fileName}`;
+      const rawKey = `tenant_${ctx.tenantId}/${oldDoc.entityType}/${oldDoc.entityId}/v${nextVersion}/${input.fileName}`;
 
-      await uploadFileToS3(s3Key, buffer, input.mimeType);
+      const fullKey = `${process.env.AWS_FOLDER_PREFIX}${rawKey}`;
+
+      await uploadFileToS3(fullKey, buffer, input.mimeType);
 
       await ctx.prisma.document.update({
         where: { id: oldDoc.id },
@@ -190,7 +194,7 @@ export const documentRouter = createTRPCRouter({
           fileName: input.fileName,
           mimeType: input.mimeType,
           fileSize: input.fileSize,
-          s3Key,
+          s3Key: fullKey,
           version: nextVersion,
           isLatestVersion: true,
           parentDocumentId: oldDoc.id,

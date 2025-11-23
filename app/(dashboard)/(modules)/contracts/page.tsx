@@ -1,49 +1,57 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { PageHeader } from "@/components/ui/page-header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Search, Plus, FileDown, Pencil, Trash2, FileText, Eye, 
-  Calendar, TrendingUp, AlertTriangle 
-} from "lucide-react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api } from "@/lib/trpc"
-import { StatsCard } from "@/components/shared/stats-card"
-import { LoadingState } from "@/components/shared/loading-state"
-import { EmptyState } from "@/components/shared/empty-state"
-import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
-import { ContractModal } from "@/components/modals/contract-modal"
-import { ContractViewModal } from "@/components/modals/contract-view-modal"
-import { toast } from "sonner"
-import { useSession } from "next-auth/react"
-import { RouteGuard } from "@/components/guards/RouteGuard"
+import { useState, useMemo } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Search, Plus, FileDown, Pencil, Trash2, FileText, Eye,
+  Calendar, TrendingUp, AlertTriangle
+} from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+import { api } from "@/lib/trpc";
+import { StatsCard } from "@/components/shared/stats-card";
+import { LoadingState } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
+
+import { ContractViewModal } from "@/components/contracts/ContractView";
+import { ContractCreateModal } from "@/components/contracts/ContractCreateModal";
+import { ContractEditModal } from "@/components/contracts/ContractEditModal";
+
+import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+
 
 export default function ManageContractsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingContract, setEditingContract] = useState<any>(null)
-  const [viewModalOpen, setViewModalOpen] = useState(false)
-  const [viewingContractId, setViewingContractId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("active")
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Nouvelle gestion des modales
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editContract, setEditContract] = useState<any | null>(null);
+
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewingContractId, setViewingContractId] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState("active");
 
   // ------------------------------------------
   // PERMISSIONS
   // ------------------------------------------
-  const { data: session } = useSession()
-  const permissions = session?.user?.permissions || []
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
 
-  const canListAll = permissions.includes("contract.list.global")
-  const canReadOwn = permissions.includes("contract.read.own")
-  const canCreate = permissions.includes("contract.create.global")
-  const canUpdate = permissions.includes("contract.update.global")
-  const canDelete = permissions.includes("contract.delete.global")
-  const canExport = permissions.includes("contract.export.global")
+  const canListAll = permissions.includes("contract.list.global");
+  const canReadOwn = permissions.includes("contract.read.own");
+  const canCreate = permissions.includes("contract.create.global");
+  const canUpdate = permissions.includes("contract.update.global");
+  const canDelete = permissions.includes("contract.delete.global");
+  const canExport = permissions.includes("contract.export.global");
 
   // ------------------------------------------
   // API CALLS
@@ -51,72 +59,71 @@ export default function ManageContractsPage() {
   const emptyQuery = {
     data: [],
     isLoading: false,
-    refetch: async () => {},      // mock
+    refetch: async () => {},
   };
 
   const contractQuery = canListAll
     ? api.contract.getAll.useQuery()
     : canReadOwn
-      ? api.contract.getMyContracts.useQuery()
-      : emptyQuery;
+    ? api.contract.getMyContracts.useQuery()
+    : emptyQuery;
 
   const { data: contracts = [], isLoading, refetch } = contractQuery;
 
-
   const { data: stats } = canListAll
     ? api.contract.getStats.useQuery()
-    : { data: { total: contracts?.length ?? 0 }}
+    : { data: { total: contracts?.length ?? 0 } };
 
   // ------------------------------------------
   // DELETE
   // ------------------------------------------
   const deleteMutation = api.contract.delete.useMutation({
     onSuccess: () => {
-      toast.success("Contrat supprimé")
-      refetch()
-      setDeleteId(null)
+      toast.success("Contrat supprimé");
+      refetch();
+      setDeleteId(null);
     },
     onError: (err) => toast.error(err.message),
-  })
+  });
 
   const handleDelete = () => {
-    if (deleteId) deleteMutation.mutate({ id: deleteId })
-  }
+    if (deleteId) deleteMutation.mutate({ id: deleteId });
+  };
 
   // ------------------------------------------
   // CATEGORISATION
   // ------------------------------------------
   const categorizedContracts = useMemo(() => {
-    const now = new Date()
-    const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const now = new Date();
+    const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    const active: any[] = []
-    const expired: any[] = []
-    const expiringSoon: any[] = []
+    const active: any[] = [];
+    const expired: any[] = [];
+    const expiringSoon: any[] = [];
 
     contracts?.forEach((c) => {
-      const end = c.endDate ? new Date(c.endDate) : null
+      const end = c.endDate ? new Date(c.endDate) : null;
 
       if (searchQuery) {
-        const q = searchQuery.toLowerCase()
+        const q = searchQuery.toLowerCase();
         const matches =
           c.title?.toLowerCase().includes(q) ||
           c.participants.some((p) =>
             p.user.name?.toLowerCase().includes(q)
-          )
-        if (!matches) return
+          );
+        if (!matches) return;
       }
 
-      if (!end) active.push(c)
-      else if (end < now) expired.push(c)
-      else if (end <= soon) expiringSoon.push(c)
-      else active.push(c)
-    })
+      if (!end) active.push(c);
+      else if (end < now) expired.push(c);
+      else if (end <= soon) expiringSoon.push(c);
+      else active.push(c);
+    });
 
-    return { active, expired, expiringSoon }
-  }, [contracts, searchQuery])
+    return { active, expired, expiringSoon };
+  }, [contracts, searchQuery]);
 
-  if (isLoading) return <LoadingState message="Chargement..." />
+  if (isLoading) return <LoadingState message="Chargement..." />;
 
   // ------------------------------------------
   // TABLE COMPONENT
@@ -129,7 +136,7 @@ export default function ManageContractsPage() {
             <EmptyState icon={FileText} title="Aucun contrat" description={emptyMessage} />
           </CardContent>
         </Card>
-      )
+      );
     }
 
     return (
@@ -151,10 +158,10 @@ export default function ManageContractsPage() {
 
               <TableBody>
                 {contracts.map((c: any) => {
-                  const end = c.endDate ? new Date(c.endDate) : null
+                  const end = c.endDate ? new Date(c.endDate) : null;
                   const days = end
                     ? Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                    : null
+                    : null;
 
                   return (
                     <TableRow key={c.id}>
@@ -192,8 +199,8 @@ export default function ManageContractsPage() {
                               days < 0
                                 ? "destructive"
                                 : days <= 30
-                                  ? "default"
-                                  : "secondary"
+                                ? "default"
+                                : "secondary"
                             }
                           >
                             {days < 0 ? "Expiré" : `${days}j`}
@@ -207,8 +214,8 @@ export default function ManageContractsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setViewingContractId(c.id)
-                              setViewModalOpen(true)
+                              setViewingContractId(c.id);
+                              setViewModalOpen(true);
                             }}
                           >
                             <Eye className="h-4 w-4" />
@@ -218,10 +225,7 @@ export default function ManageContractsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setEditingContract(c)
-                                setModalOpen(true)
-                              }}
+                              onClick={() => setEditContract(c)}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -239,15 +243,15 @@ export default function ManageContractsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  )
+                  );
                 })}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-    )
-  }
+    );
+  };
 
   // ------------------------------------------
   // PAGE UI
@@ -290,10 +294,7 @@ export default function ManageContractsPage() {
               )}
 
               {canCreate && (
-                <Button onClick={() => {
-                  setEditingContract(null)
-                  setModalOpen(true)
-                }}>
+                <Button onClick={() => setShowCreateModal(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Nouveau Contrat
                 </Button>
@@ -347,26 +348,40 @@ export default function ManageContractsPage() {
         isLoading={deleteMutation.isPending}
       />
 
-      {/* Edit modal */}
-      <ContractModal
-        open={modalOpen}
-        onOpenChange={(open: boolean) => {
-          setModalOpen(open)
-          if (!open) setEditingContract(null)
+      {/* CREATE MODAL */}
+      <ContractCreateModal
+        open={showCreateModal}
+        onOpenChange={(o: boolean) => setShowCreateModal(o)}
+        onCreated={() => {
+          setShowCreateModal(false);
+          toast.success("Contrat créé");
+          refetch();
         }}
-        contract={editingContract}
-        onSuccess={() => refetch()}
       />
 
-      {/* View modal */}
+      {/* EDIT MODAL */}
+      <ContractEditModal
+        open={!!editContract}
+        onOpenChange={(o: boolean) => {
+          if (!o) setEditContract(null);
+        }}
+        contract={editContract}
+        onUpdated={() => {
+          toast.success("Contrat mis à jour");
+          setEditContract(null);
+          refetch();
+        }}
+      />
+
+      {/* VIEW MODAL */}
       <ContractViewModal
         open={viewModalOpen}
         onOpenChange={(o) => {
-          setViewModalOpen(o)
-          if (!o) setViewingContractId(null)
+          setViewModalOpen(o);
+          if (!o) setViewingContractId(null);
         }}
         contractId={viewingContractId}
       />
     </div>
-  )
+  );
 }

@@ -403,66 +403,54 @@ model CompanyUser {
 model Contract {
   id       String @id @default(cuid())
   tenantId String
-  
-  // 🔥 Company liée (optionnel - peut être géré via ContractParticipant aussi)
+
   companyId String?
-  
-  // Ownership & Tracking
-  createdBy  String? // userId qui a créé le contrat
-  assignedTo String? // userId responsable du contrat
-  
-  // Basic Info
+
+  createdBy  String?
+  assignedTo String?
+
   status      String  @default("draft")
   title       String?
   description String? @db.Text
   notes       String? @db.Text
-  
-  // Workflow
-  workflowStatus     String    @default("draft") // draft, pending_signatures, active, paused, completed, cancelled, terminated
+
+  workflowStatus     String    @default("draft")
   terminationReason  String?   @db.Text
   terminatedAt       DateTime?
-  terminatedBy       String?   // userId
-  
-  // Financial
+  terminatedBy       String?
+
   rate           Decimal? @db.Decimal(10, 2)
-  rateType       String?  // hourly, daily, monthly, fixed
+  rateType       String?
   currencyId     String?
-  rateCycle      String?  // monthly, weekly, bi-weekly
+  rateCycle      String?
   margin         Decimal? @db.Decimal(10, 2)
-  marginType     String?  // percentage, fixed
-  marginPaidBy   String?  // client, contractor
+  marginType     String?
+  marginPaidBy   String?
   salaryType     String?
   bankId         String?
   invoiceDueDays Int?
-  
-  // Contract Details
+
   contractReference  String?   @unique
   contractCountryId  String?
   contractVatRate    Decimal?  @db.Decimal(5, 2)
-  signedContractPath String?
-  
-  // Dates
+
   startDate  DateTime?
   endDate    DateTime?
   signedAt   DateTime?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company          Company?                  @relation(fields: [companyId], references: [id])
-  currency         Currency?                 @relation(fields: [currencyId], references: [id])
-  bank             Bank?                     @relation(fields: [bankId], references: [id])
-  contractCountry  Country?                  @relation(fields: [contractCountryId], references: [id])
-  
-  // 🔥 NEW: Relations multi-parties via table de jonction
+  tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company          Company? @relation(fields: [companyId], references: [id])
+  currency         Currency? @relation(fields: [currencyId], references: [id])
+  bank             Bank?     @relation(fields: [bankId], references: [id])
+  contractCountry  Country?  @relation(fields: [contractCountryId], references: [id])
+
   participants     ContractParticipant[]
-  
-  // Existing relations
+
   invoices         Invoice[]
   payslips         Payslip[]
-  documents        ContractDocument[]
   statusHistory    ContractStatusHistory[]
   notifications    ContractNotification[]
   expenses         Expense[]
@@ -513,29 +501,6 @@ model ContractParticipant {
   @@index([userId])
   @@index([role])
   @@map("contract_participants")
-}
-
-// ====
-// CONTRACT DOCUMENT MANAGEMENT
-// ====
-model ContractDocument {
-  id         String   @id @default(cuid())
-  contractId String
-  type       String   // "contract", "amendment", "termination", "other"
-  name       String
-  fileUrl    String
-  fileSize   Int
-  mimeType   String
-  version    Int      @default(1)
-  isActive   Boolean  @default(true)
-  uploadedBy String   // userId
-  uploadedAt DateTime @default(now())
-
-  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-
-  @@index([contractId])
-  @@index([uploadedBy])
-  @@map("contract_documents")
 }
 
 model ContractStatusHistory {
