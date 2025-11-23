@@ -40,27 +40,35 @@ export const profileRouter = createTRPCRouter({
 
       if (!user) throw new Error("User not found.");
 
-      // ALL COMPANIES user belongs to via CompanyUser
+      // COMPANIES
       const memberships = await ctx.prisma.companyUser.findMany({
         where: { userId },
         include: {
-          company: {
-            include: { country: true },
-          },
+          company: { include: { country: true } },
         },
       });
 
       const companies = memberships.map((m) => m.company);
 
-      // BANK created by user
+      // BANK
       const bank = await ctx.prisma.bank.findFirst({
         where: { tenantId, createdBy: userId },
       });
 
-      // DOCUMENTS uploaded by user
-      const documents = await ctx.prisma.contractDocument.findMany({
-        where: { uploadedBy: userId },
-        orderBy: { uploadedAt: "desc" },
+      // DOCUMENTS — NEW SYSTEM
+      const documents = await ctx.prisma.document.findMany({
+        where: {
+          uploadedBy: userId,        // who uploaded
+          tenantId: tenantId,        // ensure tenant match
+        },
+        include: {
+          versions: {
+            where: {},
+            orderBy: { uploadedAt: "desc" },
+            take: 1,                 // last version only
+          },
+        },
+        orderBy: { createdAt: "desc" },
       });
 
       return {
@@ -70,6 +78,7 @@ export const profileRouter = createTRPCRouter({
         documents,
       };
     }),
+
 
   // =========================================================
   // UPDATE OWN USER PROFILE
