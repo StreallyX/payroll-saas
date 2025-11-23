@@ -1193,26 +1193,18 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.DOCUMENT,
-    Action.UPLOAD,
-    PermissionScope.OWN,
-    "Uploader des documents",
-    "Ajouter de nouveaux documents",
-    PermissionCategory.DOCUMENTS
-  ),
-  createPermission(
-    Resource.DOCUMENT,
-    Action.DELETE,
-    PermissionScope.OWN,
-    "Supprimer ses documents",
-    "Supprimer ses propres documents",
-    PermissionCategory.DOCUMENTS
-  ),
-  createPermission(
-    Resource.DOCUMENT,
-    Action.LIST,
+    Action.READ,
     PermissionScope.GLOBAL,
     "Voir tous les documents",
-    "Lister tous les documents",
+    "Consulter les documents de toutes les entités du tenant",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.UPLOAD,
+    PermissionScope.OWN,
+    "Uploader ses documents",
+    "Ajouter de nouveaux documents pour ses propres entités",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -1225,10 +1217,42 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.DOCUMENT,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Mettre à jour tous documents",
+    "Mettre à jour (nouvelle version) n'importe quel document du tenant",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.DELETE,
+    PermissionScope.OWN,
+    "Supprimer ses documents",
+    "Supprimer ses propres documents",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
     Action.DELETE,
     PermissionScope.GLOBAL,
     "Supprimer tous documents",
     "Supprimer n'importe quel document",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.UPDATE,
+    PermissionScope.OWN,
+    "Mettre à jour ses documents",
+    "Mettre à jour (nouvelle version) ses propres documents",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Lister tous les documents",
+    "Permet de voir la liste de tous les documents du tenant",
     PermissionCategory.DOCUMENTS
   ),
 

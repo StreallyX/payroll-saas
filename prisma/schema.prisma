@@ -970,58 +970,52 @@ model ApprovalStep {
 // DOCUMENT MANAGEMENT
 // ====
 model Document {
-  id       String @id @default(cuid())
-  tenantId String
-  
-  // Entity (polymorphic)
+  id        String   @id @default(cuid())
+  tenantId  String
+
   entityType String?
   entityId   String?
-  
-  // File details
-  name        String
+
+  // File storage
+  s3Key      String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  fileHash   String?
+
+  fileUrl    String? // signed or cached, optional
+
   description String? @db.Text
-  fileUrl     String
-  fileName    String
-  fileSize    Int
-  mimeType    String
-  
-  // Categorization
-  category String?
-  
-  // Version control
-  version           Int     @default(1)
-  isLatestVersion   Boolean @default(true)
-  parentDocumentId  String?
-  
-  // Access control
-  visibility String @default("private") // private, tenant, public
-  
-  // Status
-  isActive Boolean @default(true)
-  
-  // 🔥 Signature (optionnel)
-  requiresSignature Boolean   @default(false)
-  isSigned          Boolean   @default(false)
+  category    String?
+
+  // Versioning
+  version          Int      @default(1)
+  isLatestVersion  Boolean  @default(true)
+  parentDocumentId String?
+  parentDocument   Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  versions         Document[] @relation("DocumentVersions")
+
+  visibility String @default("private")
+
+  requiresSignature Boolean  @default(false)
+  isSigned          Boolean  @default(false)
   signedAt          DateTime?
-  signedBy          String?   // userId
-  
-  // Upload info
-  uploadedBy String   // userId
+  signedBy          String?
+
+  uploadedBy String
   uploadedAt DateTime @default(now())
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parentDocument Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id], onDelete: SetNull)
-  versions       Document[] @relation("DocumentVersions")
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([entityType, entityId])
   @@index([uploadedBy])
   @@map("documents")
 }
+
 
 // ====
 // TAGGING SYSTEM
