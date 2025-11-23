@@ -305,6 +305,8 @@ export const dynamicMenuConfig: MenuItem[] = [
       P(Resource.SETTINGS, Action.READ, PermissionScope.GLOBAL),
       P(Resource.TENANT, Action.READ, PermissionScope.TENANT),
       P(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.ROLE, Action.READ, PermissionScope.OWN),
+      P(Resource.USER, Action.READ, PermissionScope.OWN),
     ],
     submenu: [
       {
@@ -313,6 +315,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: Users,
         permissions: [
           P(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.USER, Action.READ, PermissionScope.OWN),
         ]
       },
       {
@@ -321,6 +324,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: UserCog,
         permissions: [
           P(Resource.ROLE, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.ROLE, Action.READ, PermissionScope.OWN),
         ]
       },
       {

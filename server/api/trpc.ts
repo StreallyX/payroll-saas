@@ -153,6 +153,7 @@ export const requireAny = (permissions: string[]) =>
 
     const allowed = permissions.some((p) => userPermissions.includes(p));
 
+    console.log(userPermissions)
     if (!allowed && !ctx.session!.user.isSuperAdmin) {
       throw new TRPCError({
         code: "FORBIDDEN",

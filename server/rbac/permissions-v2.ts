@@ -372,6 +372,38 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Supprimer des rôles (sauf système)",
     PermissionCategory.ADMINISTRATION
   ),
+  createPermission(
+    Resource.ROLE,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir ses propres rôles",
+    "Lire uniquement les rôles que l'utilisateur a créés",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.ROLE,
+    Action.CREATE,
+    PermissionScope.OWN,
+    "Créer ses propres rôles",
+    "Créer un rôle qui sera marqué comme appartenant à l’utilisateur",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.ROLE,
+    Action.UPDATE,
+    PermissionScope.OWN,
+    "Modifier ses propres rôles",
+    "Modifier uniquement les rôles que l'utilisateur a créés",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.ROLE,
+    Action.DELETE,
+    PermissionScope.OWN,
+    "Supprimer ses propres rôles",
+    "Supprimer uniquement les rôles créés par l'utilisateur (hors rôles système)",
+    PermissionCategory.ADMINISTRATION
+  ),
 
   // ================================================================
   // PERMISSIONS

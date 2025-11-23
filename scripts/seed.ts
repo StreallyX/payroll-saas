@@ -23,8 +23,8 @@ import {
 export const DEFAULT_ROLES = [
   {
     name: "SUPER_ADMIN",
-    displayName: "Super Administrateur",
-    description: "Accès complet à toutes les fonctionnalités",
+    displayName: "Super Administrator",
+    description: "Full access to all features and settings",
     level: 100,
     homePath: "/admin/dashboard",
     color: "#dc2626",
@@ -33,8 +33,8 @@ export const DEFAULT_ROLES = [
   },
   {
     name: "ADMIN",
-    displayName: "Administrateur",
-    description: "Gestion complète du tenant",
+    displayName: "Administrator",
+    description: "Complete management of the tenant",
     level: 90,
     homePath: "/admin/dashboard",
     color: "#ea580c",
@@ -42,39 +42,9 @@ export const DEFAULT_ROLES = [
     isSystem: true,
   },
   {
-    name: "ACCOUNTANT",
-    displayName: "Comptable",
-    description: "Gestion financière complète",
-    level: 80,
-    homePath: "/finance/dashboard",
-    color: "#16a34a",
-    icon: "calculator",
-    isSystem: true,
-  },
-  {
-    name: "HR_MANAGER",
-    displayName: "Responsable RH",
-    description: "Gestion des ressources humaines",
-    level: 70,
-    homePath: "/hr/dashboard",
-    color: "#7c3aed",
-    icon: "users",
-    isSystem: true,
-  },
-  {
-    name: "CLIENT",
-    displayName: "Client",
-    description: "Accès à son entreprise",
-    level: 40,
-    homePath: "/client/dashboard",
-    color: "#4f46e5",
-    icon: "building-columns",
-    isSystem: true,
-  },
-  {
     name: "CONTRACTOR",
-    displayName: "Freelance",
-    description: "Accès à ses contrats, timesheets et dépenses",
+    displayName: "Contractor",
+    description: "Access to their contracts, timesheets, and expenses",
     level: 30,
     homePath: "/contractor/dashboard",
     color: "#059669",
@@ -82,9 +52,9 @@ export const DEFAULT_ROLES = [
     isSystem: true,
   },
   {
-    name: "PAYROLL_MANAGER",
-    displayName: "Gestionnaire de paie",
-    description: "Gestion des fiches de paie",
+    name: "PAYROLL",
+    displayName: "Payroll Manager",
+    description: "Management of payslips and payroll operations",
     level: 75,
     homePath: "/payroll/dashboard",
     color: "#d97706",
@@ -92,16 +62,17 @@ export const DEFAULT_ROLES = [
     isSystem: true,
   },
   {
-    name: "VIEWER",
-    displayName: "Observateur",
-    description: "Accès en lecture seule",
-    level: 10,
-    homePath: "/dashboard",
-    color: "#64748b",
-    icon: "eye",
+    name: "AGENCY",
+    displayName: "Agency Manager",
+    description: "Management of contractors, clients, and contracts within the agency",
+    level: 70,
+    homePath: "/agency/dashboard",
+    color: "#2563eb",
+    icon: "building",
     isSystem: true,
   },
 ] as const;
+
 
 // ====================================================================
 // ROLE → PERMISSIONS   (clean pour ta DB v4)
@@ -114,25 +85,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     (p) => p.action !== Action.IMPERSONATE
   ).map((p) => p.key),
 
-  ACCOUNTANT: [
-    buildPermissionKey(Resource.INVOICE, Action.LIST, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.PAYMENT, Action.PROCESS, PermissionScope.GLOBAL),
-  ],
-
-  HR_MANAGER: [
-    buildPermissionKey(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
-  ],
-
-  CLIENT: [
-    buildPermissionKey(Resource.COMPANY, Action.READ, PermissionScope.OWN),
-  ],
-
   CONTRACTOR: [
     buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
-  // USER PROFILE
+    // USER PROFILE
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
 
@@ -170,14 +125,79 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
   ],
 
-  PAYROLL_MANAGER: [
-    buildPermissionKey(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.PAYMENT, Action.LIST, PermissionScope.GLOBAL),
+  PAYROLL: [
+    // DASHBOARD
+    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
+
+    // USER MANAGEMENT
+    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
+
+    // INVOICES (own scope)
+    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
+
+    // INVOICES (global)
+    buildPermissionKey(Resource.INVOICE, Action.DELETE, PermissionScope.GLOBAL),
+
+    // REMITTANCE
+    buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
+
+    // PAYSLIPS
+    buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.PAYSLIP, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.PAYSLIP, Action.DELETE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.PAYSLIP, Action.UPDATE, PermissionScope.GLOBAL),
+
+    // ROLE MANAGEMENT (own)
+    buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
+
+    // CONTRACTS (own)
+    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
   ],
 
-  VIEWER: ALL_PERMISSIONS.filter(
-    (p) => p.action === Action.LIST || p.action === Action.READ
-  ).map((p) => p.key),
+  AGENCY: [
+    // DASHBOARD
+    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
+
+    // USER MANAGEMENT (own agency scope)
+    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
+
+    // USER MANAGEMENT (global)
+    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
+
+    // CONTRACTS (own)
+    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.CONTRACT, Action.SIGN, PermissionScope.OWN),
+    buildPermissionKey(Resource.CONTRACT, Action.UPDATE, PermissionScope.OWN),
+
+    // INVOICES (own)
+    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
+
+    // ROLES (own scope)
+    buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
+  ],
+
+
 };
 
 // ====================================================================
@@ -268,7 +288,7 @@ export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
     {
       email: "payroll@demo.com",
       name: "Payroll Manager",
-      role: "PAYROLL_MANAGER",
+      role: "PAYROLL",
       pass: "password123",
     },
     {
@@ -277,6 +297,13 @@ export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
       role: "CONTRACTOR",
       pass: "password123",
     },
+    {
+      email: "agency@demo.com",
+      name: "Agency",
+      role: "AGENCY",
+      pass: "password123",
+    },
+    
   ];
 
   for (const u of USERS) {

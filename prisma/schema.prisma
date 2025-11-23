@@ -29,37 +29,40 @@ datasource db {
 model Role {
   id          String   @id @default(cuid())
   tenantId    String
-  name        String   // Ex: "SUPER_ADMIN", "CONTRACTOR", "CLIENT", "AGENCY_OWNER"
-  displayName String   // Ex: "Super Administrateur", "Freelance", "Agence"
+  name        String
+  displayName String
   description String?  @db.Text
-  
-  // Hiérarchie simple: plus le niveau est élevé, plus les privilèges sont importants
-  // 0 = utilisateur de base, 100 = super admin
+
   level       Int      @default(0)
-  
-  // Configuration
-  homePath    String   @default("/dashboard") // Page d'accueil après login
-  color       String?  @default("#3b82f6")    // Couleur pour UI
-  icon        String?  @default("user")        // Icône pour UI
-  
-  // Status
+
+  homePath    String   @default("/dashboard")
+  color       String?  @default("#3b82f6")
+  icon        String?  @default("user")
+
   isActive    Boolean  @default(true)
-  isSystem    Boolean  @default(false) // Les rôles système ne peuvent pas être supprimés
-  
+  isSystem    Boolean  @default(false)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // 🔥 NOUVEAU : l'utilisateur qui a créé ce rôle (pour OWN scopes)
+  createdBy   String?
+  creator     User?    @relation("RoleCreatedBy", fields: [createdBy], references: [id])
+
   // Relations
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users           User[]
+  users User[] @relation("RoleUsers")
   rolePermissions RolePermission[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
   @@index([isActive])
   @@index([level])
+  @@index([createdBy])     // 🔥 important pour role.own lookups
+
   @@map("roles")
 }
+
 
 /// Table Permission - Permissions granulaires avec resource + action
 model Permission {
@@ -280,9 +283,10 @@ model User {
 
   // Relations
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role               Role                @relation(fields: [roleId], references: [id])
+  role Role @relation("RoleUsers", fields: [roleId], references: [id])
   country            Country?            @relation(fields: [countryId], references: [id])
   onboardingTemplate OnboardingTemplate? @relation(fields: [onboardingTemplateId], references: [id])
+  rolesCreated Role[] @relation("RoleCreatedBy")
 
   contractParticipants ContractParticipant[]
   companyUsers         CompanyUser[]
