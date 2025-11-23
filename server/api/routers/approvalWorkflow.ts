@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
 export const approvalWorkflowRouter = createTRPCRouter({
+
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
+    .use(hasPermission("approval_workflow.list.global"))
     .input(z.object({
       entityType: z.string().optional(),
       entityId: z.string().optional(),
@@ -25,7 +25,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
+    .use(hasPermission("approval_workflow.list.global"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const workflow = await ctx.prisma.approvalWorkflow.findFirst({
@@ -37,7 +37,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
+    .use(hasPermission("approval_workflow.list.global"))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -54,7 +54,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   getPendingApprovals: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
+    .use(hasPermission("approval_workflow.list.global"))
     .query(async ({ ctx }) => {
       return ctx.prisma.approvalWorkflow.findMany({
         where: {
@@ -67,7 +67,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
+    .use(hasPermission("approval_workflow.create.global"))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -88,7 +88,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
           ...workflowData,
           tenantId: ctx.tenantId,
           status: "pending",
-          createdById: ctx.session.user.id,
+          createdBy: ctx.session.user.id,
           steps: steps ? {
             create: steps.map(step => ({
               ...step,
@@ -103,7 +103,7 @@ export const approvalWorkflowRouter = createTRPCRouter({
     }),
 
   cancel: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
+    .use(hasPermission("approval_workflow.update.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const workflow = await ctx.prisma.approvalWorkflow.findFirst({

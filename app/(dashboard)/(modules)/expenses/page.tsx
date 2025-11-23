@@ -1,42 +1,117 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { PageHeader } from "@/components/ui/page-header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { LoadingState } from "@/components/shared/loading-state"
-import { EmptyState } from "@/components/shared/empty-state"
-import { RouteGuard } from "@/components/guards/RouteGuard"
-import { api } from "@/lib/trpc"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, DollarSign, CheckCircle, XCircle, Clock, Eye, Download } from "lucide-react"
-import { toast } from "sonner"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { format } from "date-fns"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useMemo } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { LoadingState } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RouteGuard } from "@/components/guards/RouteGuard";
+import { api } from "@/lib/trpc";
 
-/**
- * Adaptive Expenses Page
- * 
- * Permissions:
- * - expenses.view_own: User sees only their own expenses
- * - expenses.manage.view_all: Admin sees all expenses
- * 
- * Adaptive behavior:
- * - Contractors see only their expenses
- * - Admins see all expenses with management actions
- */
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import {
+  Plus,
+  Search,
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Eye,
+  Download,
+} from "lucide-react";
+
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 function ExpensesPageContent() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedExpense, setSelectedExpense] = useState<any>(null)
-  const { data: contracts } = api.contract.getAll.useQuery()
+  // ---------------------------------------------------------
+  // STATE
+  // ---------------------------------------------------------
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<any>(null);
 
+  const utils = api.useUtils();
+
+  // ---------------------------------------------------------
+  // FETCH DATA (ADAPTIVE)
+  // ---------------------------------------------------------
+  // Admin → getAll
+  // Normal user → getMyExpenses
+  const { data: expensesTenant, isLoading: loadingTenant } =
+    api.expense.getAll.useQuery(undefined, { enabled: true });
+
+  const { data: expensesOwn, isLoading: loadingOwn } =
+    api.expense.getMyExpenses.useQuery(undefined, { enabled: true });
+
+  // Stats (tenant only)
+  const { data: stats } = api.expense.getStatistics.useQuery(undefined, {
+    enabled: true,
+  });
+
+  // ---------------------------------------------------------
+  // CREATE EXPENSE MUTATION
+  // ---------------------------------------------------------
+  const createMutation = api.expense.createExpense.useMutation({
+    onSuccess: () => {
+      toast.success("Expense created successfully!");
+      utils.expense.getAll.invalidate();
+      utils.expense.getMyExpenses.invalidate();
+      setIsModalOpen(false);
+      resetForm();
+    },
+  });
+
+  // ---------------------------------------------------------
+  // APPROVE / REJECT MUTATIONS
+  // ---------------------------------------------------------
+  const approveMutation = api.expense.approve.useMutation({
+    onSuccess: () => {
+      toast.success("Expense approved!");
+      utils.expense.getAll.invalidate();
+    },
+  });
+
+  const rejectMutation = api.expense.reject.useMutation({
+    onSuccess: () => {
+      toast.success("Expense rejected!");
+      utils.expense.getAll.invalidate();
+    },
+  });
+
+  // ---------------------------------------------------------
+  // FORM STATE
+  // ---------------------------------------------------------
   const [formData, setFormData] = useState({
     contractId: "",
     title: "",
@@ -45,39 +120,9 @@ function ExpensesPageContent() {
     category: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
-  })
+  });
 
-  const utils = api.useUtils()
-  const { data: expenses, isLoading } = api.expense.getAll.useQuery()
-  const { data: stats } = api.expense.getStatistics.useQuery()
-
-  const createMutation = api.expense.createExpense.useMutation({
-    onSuccess: () => {
-      toast.success("Expense created successfully!")
-      utils.expense.getAll.invalidate()
-      utils.expense.getStatistics.invalidate()
-      setIsModalOpen(false)
-      resetForm()
-    },
-  })
-
-  const approveMutation = api.expense.approve.useMutation({
-    onSuccess: () => {
-      toast.success("Expense approved successfully!")
-      utils.expense.getAll.invalidate()
-      utils.expense.getStatistics.invalidate()
-    },
-  })
-
-  const rejectMutation = api.expense.reject.useMutation({
-    onSuccess: () => {
-      toast.success("Expense rejected successfully!")
-      utils.expense.getAll.invalidate()
-      utils.expense.getStatistics.invalidate()
-    },
-  })
-
-  const resetForm = () => {
+  const resetForm = () =>
     setFormData({
       contractId: "",
       title: "",
@@ -86,9 +131,7 @@ function ExpensesPageContent() {
       category: "",
       description: "",
       date: new Date().toISOString().split("T")[0],
-    })
-    setSelectedExpense(null)
-  }
+    });
 
   const handleSubmit = () => {
     createMutation.mutate({
@@ -98,30 +141,54 @@ function ExpensesPageContent() {
       category: formData.category,
       currency: formData.currency,
       description: formData.description,
-      expenseDate: new Date(formData.date),
-    })
-  }
+      expenseDate: formData.date,
+    });
+  };
 
-  if (isLoading) return <LoadingState message="Loading expenses..." />
+  // ---------------------------------------------------------
+  // LOADING
+  // ---------------------------------------------------------
+  const isLoadingAll = loadingTenant || loadingOwn;
 
-    const expensesList = expenses ?? []
-    const filteredExpenses = expensesList.filter((e: any) => {
-    const matchesSearch =
-      e.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.contractor?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || e.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  // ---------------------------------------------------------
+  // MERGE EXPENSES BASED ON PERMISSIONS (ALWAYS STABLE)
+  // ---------------------------------------------------------
+  const expenses = useMemo(() => {
+    if (expensesTenant) return expensesTenant;
+    if (expensesOwn) return expensesOwn;
+    return [];
+  }, [expensesTenant, expensesOwn]);
 
+  // ---------------------------------------------------------
+  // FILTERED LIST (SAFE)
+  // ---------------------------------------------------------
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e: any) => {
+      const matchesSearch =
+        e.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.submitter?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "all" || e.status === statusFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [expenses, searchTerm, statusFilter]);
+
+
+  // ---------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------
   return (
     <div className="space-y-6">
-      <PageHeader title="Expenses" description="Manage and approve contractor expenses">
-        <div className="flex items-center space-x-3">
+      {/* HEADER ----------------------------- */}
+      <PageHeader title="Expenses" description="Manage and approve expenses">
+        <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
-              placeholder="Search expenses..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-64"
@@ -129,66 +196,69 @@ function ExpensesPageContent() {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="REIMBURSED">Reimbursed</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
             </SelectContent>
           </Select>
 
-          <Button size="sm" onClick={() => { resetForm(); setIsModalOpen(true) }}>
-            <Plus className="h-4 w-4 mr-2" /> New Expense
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> New Expense
           </Button>
         </div>
       </PageHeader>
 
+      {/* STATS ------------------------------ */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader>
               <CardTitle className="text-sm">Total Amount</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${stats.totalAmount?.toFixed(2) || "0.00"}</div>
+              <div className="text-2xl font-bold">
+                ${stats.totalAmount?.toFixed(2)}
+              </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm">Pending Approval</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-500" />
+            <CardHeader>
+              <CardTitle className="text-sm">Submitted</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.submittedExpenses || 0}</div>
+              <div className="text-2xl font-bold">{stats.submitted}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader>
               <CardTitle className="text-sm">Approved</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.approvedExpenses || 0}</div>
+              <div className="text-2xl font-bold">{stats.approved}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader>
               <CardTitle className="text-sm">Paid</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.paidExpenses || 0}</div>
+              <div className="text-2xl font-bold">{stats.paid}</div>
             </CardContent>
           </Card>
         </div>
       )}
 
+      {/* TABLE --------------------------------- */}
       <Card>
         <CardContent className="p-0">
           {filteredExpenses.length === 0 ? (
@@ -202,7 +272,7 @@ function ExpensesPageContent() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Contractor</TableHead>
+                  <TableHead>Submitter</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Amount</TableHead>
@@ -215,70 +285,68 @@ function ExpensesPageContent() {
               <TableBody>
                 {filteredExpenses.map((expense: any) => (
                   <TableRow key={expense.id}>
+                    {/* SUBMITTER */}
                     <TableCell>
-                      <p className="font-medium">{expense.contractor?.name || "Unknown"}</p>
-                      <p className="text-xs text-gray-500">{expense.contractor?.email}</p>
+                      <p className="font-medium">
+                        {expense.submitter?.name || "Unknown"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {expense.submitter?.email}
+                      </p>
                     </TableCell>
 
+                    {/* CATEGORY */}
                     <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {expense.category}
-                      </Badge>
+                      <Badge>{expense.category}</Badge>
                     </TableCell>
 
-                    <TableCell className="max-w-md truncate">{expense.description}</TableCell>
+                    {/* DESCRIPTION */}
+                    <TableCell>{expense.description}</TableCell>
 
+                    {/* AMOUNT */}
                     <TableCell className="font-semibold">
-                      ${expense.amount.toFixed(2)} {expense.currency}
+                      ${Number(expense.amount).toFixed(2)} {expense.currency}
                     </TableCell>
 
-                    <TableCell className="text-sm text-gray-600">
-                      {expense.expenseDate
-                        ? format(new Date(expense.expenseDate), "MMM dd, yyyy")
-                        : "-"}
-                    </TableCell>
-
+                    {/* DATE */}
                     <TableCell>
-                      <Badge
-                        variant={
-                          expense.status === "APPROVED"
-                            ? "default"
-                            : expense.status === "REJECTED"
-                            ? "destructive"
-                            : expense.status === "REIMBURSED"
-                            ? "default"
-                            : "secondary"
-                        }
-                        className={expense.status === "REIMBURSED" ? "bg-blue-500" : ""}
-                      >
-                        {expense.status}
-                      </Badge>
+                      {format(new Date(expense.expenseDate), "MMM dd yyyy")}
                     </TableCell>
 
+                    {/* STATUS */}
+                    <TableCell>
+                      <Badge className="capitalize">{expense.status}</Badge>
+                    </TableCell>
+
+                    {/* ACTIONS */}
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex gap-2 justify-end">
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => setSelectedExpense(expense)}
                         >
-                          <Eye className="h-3 w-3" />
+                          <Eye className="h-4 w-4" />
                         </Button>
 
                         {expense.receiptUrl && (
-                          <Button size="sm" variant="ghost">
-                            <Download className="h-3 w-3" />
-                          </Button>
+                          <a href={expense.receiptUrl} target="_blank">
+                            <Button size="sm" variant="ghost">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </a>
                         )}
 
-                        {expense.status === "PENDING" && (
+                        {expense.status === "submitted" && (
                           <>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => approveMutation.mutate({ id: expense.id })}
+                              onClick={() =>
+                                approveMutation.mutate({ id: expense.id })
+                              }
                             >
-                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              <CheckCircle className="h-4 w-4 text-green-500" />
                             </Button>
 
                             <Button
@@ -291,7 +359,7 @@ function ExpensesPageContent() {
                                 })
                               }
                             >
-                              <XCircle className="h-3 w-3 text-red-500" />
+                              <XCircle className="h-4 w-4 text-red-500" />
                             </Button>
                           </>
                         )}
@@ -305,123 +373,74 @@ function ExpensesPageContent() {
         </CardContent>
       </Card>
 
-      {/* CREATE EXPENSE MODAL */}
+      {/* CREATE EXPENSE MODAL -------------------------------- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Expense</DialogTitle>
+            <DialogTitle>Create Expense</DialogTitle>
             <DialogDescription>
-              Submit a new expense for approval and reimbursement
+              Submit an expense for approval
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* CONTRACT SELECT */}
-            <div className="space-y-2">
-              <Label>Contract *</Label>
-              <Select
-                value={formData.contractId}
-                onValueChange={(value) => setFormData({ ...formData, contractId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select contract" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {contracts?.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.contractReference || c.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* TITLE */}
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+              <Label>Title *</Label>
               <Input
-                id="title"
-                placeholder="Expense title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
               />
             </div>
 
-            {/* AMOUNT & CURRENCY */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: parseFloat(e.target.value) })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* AMOUNT */}
+            <div className="space-y-2">
+              <Label>Amount *</Label>
+              <Input
+                type="number"
+                value={formData.amount}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    amount: parseFloat(e.target.value),
+                  })
+                }
+              />
             </div>
 
             {/* CATEGORY */}
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select
+              <Label>Category *</Label>
+              <Input
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="travel">Travel</SelectItem>
-                  <SelectItem value="meals">Meals</SelectItem>
-                  <SelectItem value="equipment">Equipment</SelectItem>
-                  <SelectItem value="software">Software</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+              />
             </div>
 
             {/* DATE */}
             <div className="space-y-2">
-              <Label htmlFor="date">Date *</Label>
+              <Label>Date *</Label>
               <Input
-                id="date"
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
               />
             </div>
 
             {/* DESCRIPTION */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label>Description *</Label>
               <Textarea
-                id="description"
-                placeholder="Describe the expense..."
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
               />
             </div>
           </div>
@@ -431,90 +450,85 @@ function ExpensesPageContent() {
               Cancel
             </Button>
 
-            <Button
-              onClick={handleSubmit}
-              disabled={
-                createMutation.isPending ||
-                !formData.amount ||
-                !formData.category ||
-                !formData.description ||
-                !formData.contractId ||
-                !formData.title
-              }
-            >
-              Create Expense
-            </Button>
+            <Button onClick={handleSubmit}>Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* VIEW EXPENSE DETAILS */}
+      {/* EXPENSE DETAILS MODAL ------------------------------- */}
       {selectedExpense && (
-        <Dialog open={!!selectedExpense} onOpenChange={() => setSelectedExpense(null)}>
+        <Dialog
+          open={!!selectedExpense}
+          onOpenChange={() => setSelectedExpense(null)}
+        >
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Expense Details</DialogTitle>
-            </DialogHeader>
+            {selectedExpense && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Expense Details</DialogTitle>
+                </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <div>
-                <Label>Contractor</Label>
-                <p className="text-sm">{selectedExpense.contractor?.name}</p>
-              </div>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label>Submitter</Label>
+                    <p>{selectedExpense.submitter?.name}</p>
+                  </div>
 
-              <div>
-                <Label>Category</Label>
-                <p className="text-sm capitalize">{selectedExpense.category}</p>
-              </div>
+                  <div>
+                    <Label>Category</Label>
+                    <p>{selectedExpense.category}</p>
+                  </div>
 
-              <div>
-                <Label>Amount</Label>
-                <p className="text-sm font-semibold">
-                  ${selectedExpense.amount.toFixed(2)} {selectedExpense.currency}
-                </p>
-              </div>
+                  <div>
+                    <Label>Amount</Label>
+                    <p>
+                      ${Number(selectedExpense.amount).toFixed(2)}{" "}
+                      {selectedExpense.currency}
+                    </p>
+                  </div>
 
-              <div>
-                <Label>Date</Label>
-                <p className="text-sm">
-                  {selectedExpense.expenseDate
-                    ? format(new Date(selectedExpense.expenseDate), "MMMM dd, yyyy")
-                    : "-"}
-                </p>
-              </div>
+                  <div>
+                    <Label>Date</Label>
+                    <p>
+                      {format(new Date(selectedExpense.expenseDate), "MMMM dd yyyy")}
+                    </p>
+                  </div>
 
-              <div>
-                <Label>Description</Label>
-                <p className="text-sm">{selectedExpense.description}</p>
-              </div>
+                  <div>
+                    <Label>Description</Label>
+                    <p>{selectedExpense.description}</p>
+                  </div>
 
-              <div>
-                <Label>Status</Label>
-                <Badge>{selectedExpense.status}</Badge>
-              </div>
-            </div>
+                  <div>
+                    <Label>Status</Label>
+                    <Badge className="capitalize">
+                      {selectedExpense.status}
+                    </Badge>
+                  </div>
+                </div>
 
-            <DialogFooter>
-              <Button onClick={() => setSelectedExpense(null)}>Close</Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button onClick={() => setSelectedExpense(null)}>Close</Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       )}
     </div>
-  )
+  );
 }
 
-/**
- * Expenses page with route guard
- * Users need either view_own OR manage.view_all permission
- */
 export default function ExpensesPage() {
   return (
     <RouteGuard
-      permissions={["expenses.view_own", "expenses.manage.view_all"]}
+      permissions={[
+        "expense.read.own",
+        "expense.read.global",
+      ]}
       requireAll={false}
     >
       <ExpensesPageContent />
     </RouteGuard>
-  )
+  );
 }

@@ -1,9 +1,14 @@
-
-
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,32 +33,26 @@ type UserModalProps = {
 
 export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProps) {
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
+    name: "",
+    email: "",
     password: "",
-    roleId: user?.roleId || "",
-    isActive: user?.isActive ?? true,
-    agencyId: undefined as string | undefined,
-    payrollPartnerId: undefined as string | undefined,
-    companyId: undefined as string | undefined,
+    roleId: "",
+    isActive: true,
   })
 
   const utils = api.useUtils()
 
-  // Fetch roles for the dropdown
+  // Fetch roles
   const { data: roles = [] } = api.role.getAll.useQuery()
 
   useEffect(() => {
     if (user) {
       setFormData({
         name: user.name || "",
-        email: user.email || "",
+        email: user.email,
         password: "",
-        roleId: user.roleId || "",
+        roleId: user.roleId,
         isActive: user.isActive,
-        agencyId: undefined,
-        payrollPartnerId: undefined,
-        companyId: undefined,
       })
     } else {
       resetForm()
@@ -62,26 +61,26 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
   const createMutation = api.user.create.useMutation({
     onSuccess: () => {
-      toast.success("Utilisateur created successfully!")
+      toast.success("Utilisateur créé avec succès.")
       utils.user.getAll.invalidate()
       onOpenChange(false)
       onSuccess?.()
       resetForm()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to create de l'utilisateur")
+      toast.error(error?.message || "Erreur lors de la création.")
     }
   })
 
   const updateMutation = api.user.update.useMutation({
     onSuccess: () => {
-      toast.success("Utilisateur updated successfully!")
+      toast.success("Utilisateur mis à jour.")
       utils.user.getAll.invalidate()
       onOpenChange(false)
       onSuccess?.()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to update de l'utilisateur")
+      toast.error(error?.message || "Erreur lors de la mise à jour.")
     }
   })
 
@@ -92,49 +91,30 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
       password: "",
       roleId: "",
       isActive: true,
-      agencyId: undefined,
-      payrollPartnerId: undefined,
-      companyId: undefined,
     })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Basic validation
-    if (!formData.name) {
-      toast.error("Le nom est requis")
-      return
-    }
-    if (!formData.email) {
-      toast.error("L'email est requis")
-      return
-    }
-    if (!formData.roleId) {
-      toast.error("Le rôle est requis")
-      return
-    }
+    if (!formData.name) return toast.error("Le nom est requis.")
+    if (!formData.email) return toast.error("L'email est requis.")
+    if (!formData.roleId) return toast.error("Le rôle est requis.")
 
     if (user) {
-      // Update existing user
       updateMutation.mutate({
         id: user.id,
         name: formData.name,
         email: formData.email,
         roleId: formData.roleId,
-        isActive: formData.isActive
+        isActive: formData.isActive,
       })
     } else {
-      // Create new user
-      // Password will be used if provided, otherwise backend generates one
       createMutation.mutate({
         name: formData.name,
         email: formData.email,
         password: formData.password || undefined,
         roleId: formData.roleId,
-        agencyId: formData.agencyId || null,
-        payrollPartnerId: formData.payrollPartnerId || null,
-        companyId: formData.companyId || null,
       })
     }
   }
@@ -145,98 +125,84 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{user ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</DialogTitle>
+          <DialogTitle>{user ? "Modifier un utilisateur" : "Créer un utilisateur"}</DialogTitle>
           <DialogDescription>
             {user
-              ? "Modifiez les informations de l'utilisateur"
-              : "Ajoutez un nouvel utilisateur au système"}
+              ? "Modifiez les informations de cet utilisateur."
+              : "Indiquez les détails du nouvel utilisateur."}
           </DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+
             {/* Name */}
             <div className="grid gap-2">
-              <Label htmlFor="name">
-                Full name <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="name">Nom complet *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Jean Dupont"
                 disabled={isLoading}
               />
             </div>
 
             {/* Email */}
             <div className="grid gap-2">
-              <Label htmlFor="email">
-                Email <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="jean.dupont@example.com"
                 disabled={isLoading}
               />
             </div>
 
-            {/* Password - only for new users */}
+            {/* Password — only on create */}
             {!user && (
               <div className="grid gap-2">
-                <Label htmlFor="password">
-                  Password (Optional)
-                </Label>
+                <Label htmlFor="password">Mot de passe (optionnel)</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Min. 6 caractères"
                   disabled={isLoading}
+                  placeholder="Si vide → mot de passe généré"
                 />
-                <p className="text-xs text-muted-foreground">
-                  If left empty, a random password will be generated and a setup link will be created.
-                </p>
               </div>
             )}
 
             {/* Role */}
             <div className="grid gap-2">
-              <Label htmlFor="role">
-                Role <span className="text-red-500">*</span>
-              </Label>
+              <Label>Rôle *</Label>
               <Select
                 value={formData.roleId}
                 onValueChange={(value) => setFormData({ ...formData, roleId: value })}
                 disabled={isLoading}
               >
-                <SelectTrigger id="role">
-                  <SelectValue placeholder="Select un rôle" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez un rôle" />
                 </SelectTrigger>
                 <SelectContent>
                   {roles?.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
-                      {role.name}
+                      {role.displayName || role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Active Status - only for edit */}
+            {/* Active Status - Only for edit */}
             {user && (
               <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="isActive">Status du compte</Label>
-                  <p className="text-sm text-muted-foreground">
-                    L'utilisateur peut se connecter au système
-                  </p>
+                <div>
+                  <Label>Status du compte</Label>
+                  <p className="text-sm text-muted-foreground">Permettre la connexion</p>
                 </div>
                 <Switch
-                  id="isActive"
                   checked={formData.isActive}
                   onCheckedChange={(checked) =>
                     setFormData({ ...formData, isActive: checked })
@@ -245,6 +211,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
                 />
               </div>
             )}
+
           </div>
 
           <DialogFooter>
@@ -254,11 +221,12 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
-              Cancel
+              Annuler
             </Button>
+
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {user ? "Update" : "Create"}
+              {user ? "Mettre à jour" : "Créer"}
             </Button>
           </DialogFooter>
         </form>

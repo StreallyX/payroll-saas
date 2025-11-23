@@ -1,174 +1,216 @@
+import { z } from "zod";
+import { createTRPCRouter, tenantProcedure, hasAnyPermission, hasPermission } from "../trpc";
+import { TRPCError } from "@trpc/server";
 
-import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, hasAnyPermission } from "../trpc"
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2"
-import { TRPCError } from "@trpc/server"
-import { 
-  getPermissionScope, 
-  PermissionScope, 
-  buildWhereClause 
-} from "../../../lib/rbac-helpers"
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions";
+
+import { getPermissionScope, buildWhereClause } from "../../../lib/rbac-helpers";
+
+const READ_OWN = buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN);
+const READ_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.GLOBAL);
+const LIST_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL);
+
+const CREATE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.CREATE, PermissionScope.GLOBAL);
+const UPDATE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.UPDATE, PermissionScope.GLOBAL);
+const DELETE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.DELETE, PermissionScope.GLOBAL);
+
+
+// ==========================================================================
+// 🔥 Helper pour convertir Decimal en number
+// ==========================================================================
+const serializeRemittance = (r: any) => ({
+  ...r,
+  amount: r.amount?.toNumber ? r.amount.toNumber() : r.amount,
+  createdAt: r.createdAt?.toISOString?.() ?? r.createdAt,
+  completedAt: r.completedAt?.toISOString?.() ?? r.completedAt,
+  processedAt: r.processedAt?.toISOString?.() ?? r.processedAt,
+});
 
 export const remittanceRouter = createTRPCRouter({
-  
-  // Get remittances (DEEL Pattern: view_own OR view_all)
+
+  // ============================================================
+  // GET MY REMITTANCES
+  // ============================================================
   getMyRemittances: tenantProcedure
-    .use(hasAnyPermission([
-      PERMISSION_TREE_V2.payments.remits.view_own,
-      PERMISSION_TREE_V2.payments.remits.view_all
-    ]))
+    .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
     .query(async ({ ctx }) => {
-      // Determine permission scope
+
       const scope = getPermissionScope(
         ctx.session.user.permissions || [],
-        PERMISSION_TREE_V2.payments.remits.view_own,
-        PERMISSION_TREE_V2.payments.remits.view_all,
+        READ_OWN,
+        READ_GLOBAL,
         ctx.session.user.isSuperAdmin
       );
 
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: ctx.session.user.id },
-        include: { contractor: true }
-      });
-      
-      // Build where clause based on scope
-      const scopeFilter = scope === PermissionScope.OWN 
-        ? { contractorId: user?.contractor?.id } 
-        : {};
-
-      if (scope === PermissionScope.OWN && !user?.contractor) {
-        throw new TRPCError({ 
-          code: "NOT_FOUND", 
-          message: "Contractor profile not found" 
-        });
-      }
-      
-      return ctx.prisma.remittance.findMany({
-        where: buildWhereClause(
-          scope,
-          scopeFilter,
-          { tenantId: ctx.tenantId }
-        ),
+      const remittances = await ctx.prisma.remittance.findMany({
+        where: buildWhereClause(scope, {}, { tenantId: ctx.tenantId }),
         include: {
-          contract: {
-            select: {
-              id: true,
-              contractReference: true,
-              agency: { select: { name: true } }
-            }
-          }
+          contract: true,
+          user: true
         },
-        orderBy: { paymentDate: 'desc' }
+        orderBy: { completedAt: "desc" }
       });
+
+      return remittances.map(serializeRemittance);
     }),
-  
-  // Get remittance by ID (DEEL Pattern: view_own OR view_all)
+
+
+  // ============================================================
+  // GET BY ID
+  // ============================================================
   getRemittanceById: tenantProcedure
-    .use(hasAnyPermission([
-      PERMISSION_TREE_V2.payments.remits.view_own,
-      PERMISSION_TREE_V2.payments.remits.view_all
-    ]))
+    .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
     .input(z.object({ remitId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // Determine permission scope
+
       const scope = getPermissionScope(
         ctx.session.user.permissions || [],
-        PERMISSION_TREE_V2.payments.remits.view_own,
-        PERMISSION_TREE_V2.payments.remits.view_all,
+        READ_OWN,
+        READ_GLOBAL,
         ctx.session.user.isSuperAdmin
       );
-
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: ctx.session.user.id },
-        include: { contractor: true }
-      });
-      
-      // Build where clause based on scope
-      const whereClause: any = {
-        id: input.remitId,
-        tenantId: ctx.tenantId
-      };
-
-      if (scope === PermissionScope.OWN) {
-        whereClause.contractorId = user?.contractor?.id;
-      }
 
       const remittance = await ctx.prisma.remittance.findFirst({
-        where: whereClause,
-        include: {
-          contract: {
-            include: {
-              agency: { select: { name: true, id: true } },
-              company: { select: { name: true, id: true } }
-            }
-          }
-        }
+        where: buildWhereClause(scope, { id: input.remitId }, { tenantId: ctx.tenantId }),
+        include: { contract: true, user: true }
       });
-      
+
       if (!remittance) {
-        throw new TRPCError({ 
-          code: "NOT_FOUND", 
-          message: "Remittance not found" 
-        });
+        throw new TRPCError({ code: "NOT_FOUND", message: "Remittance not found" });
       }
-      
-      return remittance;
+
+      return serializeRemittance(remittance);
     }),
-  
-  // Get remittance summary stats (DEEL Pattern: view_own OR view_all)
+
+
+  // ============================================================
+  // SUMMARY
+  // ============================================================
   getMyRemittanceSummary: tenantProcedure
-    .use(hasAnyPermission([
-      PERMISSION_TREE_V2.payments.remits.view_own,
-      PERMISSION_TREE_V2.payments.remits.view_all
-    ]))
+    .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
     .query(async ({ ctx }) => {
-      // Determine permission scope
+
       const scope = getPermissionScope(
         ctx.session.user.permissions || [],
-        PERMISSION_TREE_V2.payments.remits.view_own,
-        PERMISSION_TREE_V2.payments.remits.view_all,
+        READ_OWN,
+        READ_GLOBAL,
         ctx.session.user.isSuperAdmin
       );
 
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: ctx.session.user.id },
-        include: { contractor: true }
+      const remittances = (await ctx.prisma.remittance.findMany({
+        where: buildWhereClause(scope, {}, { tenantId: ctx.tenantId }),
+      })).map(serializeRemittance);
+
+      const paid = remittances.filter(r => r.status === "completed");
+      const processing = remittances.filter(r => r.status === "processing");
+
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const thisMonthPaid = paid.filter(r => r.completedAt && new Date(r.completedAt) >= monthStart);
+
+      return {
+        totalReceived: paid.reduce((s, r) => s + r.amount, 0),
+        processing: processing.reduce((s, r) => s + r.amount, 0),
+        thisMonth: thisMonthPaid.reduce((s, r) => s + r.amount, 0),
+        averagePerPeriod: paid.length > 0
+          ? paid.reduce((s, r) => s + r.amount, 0) / paid.length
+          : 0,
+      };
+    }),
+
+
+  // ============================================================
+  // ADMIN: CREATE REMITTANCE
+  // ============================================================
+  createRemittance: tenantProcedure
+    .use(hasPermission(CREATE_GLOBAL))
+    .input(
+      z.object({
+        userId: z.string(),
+        contractId: z.string().optional(),
+        amount: z.number().min(0.01),
+        currency: z.string().default("USD"),
+        description: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+
+      const result = await ctx.prisma.remittance.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          userId: input.userId,
+          contractId: input.contractId || null,
+          amount: input.amount,
+          currency: input.currency,
+          description: input.description || "",
+          notes: input.notes || "",
+          status: "pending",
+        }
       });
 
-      // Build where clause based on scope
-      const scopeFilter = scope === PermissionScope.OWN 
-        ? { contractorId: user?.contractor?.id } 
-        : {};
-
-      if (scope === PermissionScope.OWN && !user?.contractor) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Contractor not found" });
-      }
-      
-      const remittances = await ctx.prisma.remittance.findMany({
-        where: buildWhereClause(
-          scope,
-          scopeFilter,
-          { tenantId: ctx.tenantId }
-        )
-      })
-      
-      const thisMonth = new Date()
-      thisMonth.setDate(1)
-      thisMonth.setHours(0, 0, 0, 0)
-      
-      const paidRemittances = remittances.filter(r => r.status === 'paid')
-      const processingRemittances = remittances.filter(r => r.status === 'processing')
-      const thisMonthRemittances = remittances.filter(r => r.paymentDate >= thisMonth && r.status === 'paid')
-      
-      return {
-        totalReceived: paidRemittances.reduce((sum, r) => sum + Number(r.netPay), 0),
-        processing: processingRemittances.reduce((sum, r) => sum + Number(r.netPay), 0),
-        thisMonth: thisMonthRemittances.reduce((sum, r) => sum + Number(r.netPay), 0),
-        averagePerPeriod: paidRemittances.length > 0 
-          ? paidRemittances.reduce((sum, r) => sum + Number(r.netPay), 0) / paidRemittances.length
-          : 0,
-        totalCount: remittances.length,
-        paidCount: paidRemittances.length,
-      }
+      return serializeRemittance(result);
     }),
-})
+
+  // ============================================================
+  // ADMIN: UPDATE REMITTANCE (status + description + notes)
+  // ============================================================
+  update: tenantProcedure
+    .use(hasPermission(UPDATE_GLOBAL))
+    .input(
+      z.object({
+        id: z.string(),
+        status: z.enum(["pending", "processing", "completed", "failed"]),
+        description: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const now = new Date();
+
+      const result = await ctx.prisma.remittance.update({
+        where: { id: input.id },
+        data: {
+          status: input.status,
+          description: input.description ?? undefined,
+          notes: input.notes ?? undefined,
+
+          // Auto update timestamps based on status
+          processedAt:
+            input.status === "processing" ? now : undefined,
+
+          completedAt:
+            input.status === "completed" ? now : undefined,
+        },
+        include: {
+          user: true,
+          contract: true,
+        },
+      });
+
+      return serializeRemittance(result);
+    }),
+
+
+
+  // ============================================================
+  // ADMIN: DELETE
+  // ============================================================
+  delete: tenantProcedure
+    .use(hasPermission(DELETE_GLOBAL))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+
+      return ctx.prisma.remittance.delete({
+        where: { id: input.id },
+      });
+    }),
+
+});

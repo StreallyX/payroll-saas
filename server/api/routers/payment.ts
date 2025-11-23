@@ -1,60 +1,58 @@
-import { z } from "zod";
+import { z } from "zod"
 import {
   createTRPCRouter,
   tenantProcedure,
   hasPermission,
-} from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
-import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+} from "../trpc"
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions" // V3 builder
+
+import { TRPCError } from "@trpc/server"
+import { Prisma } from "@prisma/client"
+
 
 /**
- * Payment Router - Phase 2
- * 
- * Handles all payment operations including:
- * - Payment processing for invoices and expenses
- * - Payment tracking and status management
- * - Payment refunds and failure handling
+ * Payment Router - STRICT RBAC V3
  */
-
 export const paymentRouter = createTRPCRouter({
-  
+
   // ---------------------------------------------------------
-  // GET ALL PAYMENTS
+  // GET ALL PAYMENTS (tenant)
   // ---------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
-    .input(z.object({
-      status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
-      invoiceId: z.string().optional(),
-      expenseId: z.string().optional(),
-      startDate: z.date().optional(),
-      endDate: z.date().optional(),
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }).optional())
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
+        invoiceId: z.string().optional(),
+        expenseId: z.string().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }).optional()
+    )
     .query(async ({ ctx, input }) => {
-      const where: Prisma.PaymentWhereInput = {
-        tenantId: ctx.tenantId,
-      };
+      const where: Prisma.PaymentWhereInput = { tenantId: ctx.tenantId }
 
-      if (input?.status) {
-        where.status = input.status;
-      }
-
-      if (input?.invoiceId) {
-        where.invoiceId = input.invoiceId;
-      }
-
-      if (input?.expenseId) {
-        where.expenseId = input.expenseId;
-      }
+      if (input?.status) where.status = input.status
+      if (input?.invoiceId) where.invoiceId = input.invoiceId
+      if (input?.expenseId) where.expenseId = input.expenseId
 
       if (input?.startDate || input?.endDate) {
         where.createdAt = {
           ...(input.startDate && { gte: input.startDate }),
           ...(input.endDate && { lte: input.endDate }),
-        };
+        }
       }
 
       const [payments, total] = await Promise.all([
@@ -62,18 +60,10 @@ export const paymentRouter = createTRPCRouter({
           where,
           include: {
             invoice: {
-              select: {
-                id: true,
-                invoiceNumber: true,
-                amount: true,
-              },
+              select: { id: true, invoiceNumber: true, amount: true }
             },
             expense: {
-              select: {
-                id: true,
-                title: true,
-                amount: true,
-              },
+              select: { id: true, title: true, amount: true }
             },
             paymentMethodRel: {
               select: {
@@ -89,75 +79,78 @@ export const paymentRouter = createTRPCRouter({
           take: input?.limit ?? 50,
           skip: input?.offset ?? 0,
         }),
+
         ctx.prisma.payment.count({ where }),
-      ]);
+      ])
 
       return {
         payments,
         total,
         hasMore: (input?.offset ?? 0) + payments.length < total,
-      };
+      }
     }),
 
+
   // ---------------------------------------------------------
-  // GET PAYMENT BY ID
+  // GET PAYMENT BY ID (tenant)
   // ---------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId: ctx.tenantId },
         include: {
           invoice: true,
           expense: true,
           paymentMethodRel: true,
         },
-      });
+      })
 
-      if (!payment) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment not found",
-        });
-      }
-
-      return payment;
+      if (!payment) throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" })
+      return payment
     }),
 
+
   // ---------------------------------------------------------
-  // CREATE PAYMENT
+  // CREATE PAYMENT (tenant)
   // ---------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
-    .input(z.object({
-      invoiceId: z.string().optional(),
-      expenseId: z.string().optional(),
-      amount: z.number().positive(),
-      currency: z.string().default("USD"),
-      paymentMethod: z.string(),
-      paymentMethodId: z.string().optional(),
-      transactionId: z.string().optional(),
-      referenceNumber: z.string().optional(),
-      scheduledDate: z.date().optional(),
-      description: z.string().optional(),
-      notes: z.string().optional(),
-      metadata: z.record(z.any()).optional(),
-    }))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.CREATE, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        invoiceId: z.string().optional(),
+        expenseId: z.string().optional(),
+        amount: z.number().positive(),
+        currency: z.string().default("USD"),
+        paymentMethod: z.string(),
+        paymentMethodId: z.string().optional(),
+        transactionId: z.string().optional(),
+        referenceNumber: z.string().optional(),
+        scheduledDate: z.date().optional(),
+        description: z.string().optional(),
+        notes: z.string().optional(),
+        metadata: z.record(z.any()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      // Validate that either invoiceId or expenseId is provided
+
       if (!input.invoiceId && !input.expenseId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Either invoiceId or expenseId must be provided",
-        });
+          message: "Either invoiceId or expenseId is required",
+        })
       }
 
-      // Create the payment
-      const payment = await ctx.prisma.payment.create({
+      return ctx.prisma.payment.create({
         data: {
           tenantId: ctx.tenantId,
           invoiceId: input.invoiceId,
@@ -173,136 +166,127 @@ export const paymentRouter = createTRPCRouter({
           description: input.description,
           notes: input.notes,
           metadata: input.metadata,
-          createdById: ctx.session.user.id,
+          createdBy: ctx.session.user.id,
         },
         include: {
           invoice: true,
           expense: true,
         },
-      });
-
-      return payment;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // UPDATE PAYMENT
+  // UPDATE PAYMENT (tenant)
   // ---------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
-    .input(z.object({
-      id: z.string(),
-      status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
-      transactionId: z.string().optional(),
-      processedDate: z.date().optional(),
-      completedDate: z.date().optional(),
-      failureReason: z.string().optional(),
-      notes: z.string().optional(),
-      metadata: z.record(z.any()).optional(),
-    }))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        id: z.string(),
+        status: z.enum(["pending", "processing", "completed", "failed", "refunded"]).optional(),
+        transactionId: z.string().optional(),
+        processedDate: z.date().optional(),
+        completedDate: z.date().optional(),
+        failureReason: z.string().optional(),
+        notes: z.string().optional(),
+        metadata: z.record(z.any()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const old = await ctx.prisma.payment.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
 
-      const payment = await ctx.prisma.payment.findFirst({
-        where: { id, tenantId: ctx.tenantId },
-      });
+      if (!old) throw new TRPCError({ code: "NOT_FOUND" })
 
-      if (!payment) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment not found",
-        });
-      }
-
-      const updated = await ctx.prisma.payment.update({
-        where: { id },
+      return ctx.prisma.payment.update({
+        where: { id: input.id },
         data: {
-          ...data,
-          ...(input.status === "completed" && !input.completedDate && { completedDate: new Date() }),
+          ...input,
+          ...(input.status === "completed" && !input.completedDate && {
+            completedDate: new Date()
+          }),
         },
-        include: {
-          invoice: true,
-          expense: true,
-        },
-      });
-
-      return updated;
+        include: { invoice: true, expense: true },
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // DELETE PAYMENT
+  // DELETE PAYMENT (tenant)
   // ---------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.DELETE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!payment) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment not found",
-        });
-      }
-
+      if (!payment) throw new TRPCError({ code: "NOT_FOUND" })
       if (payment.status === "completed") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Cannot delete a completed payment",
-        });
+        })
       }
 
-      await ctx.prisma.payment.delete({
-        where: { id: input.id },
-      });
-
-      return { success: true };
+      await ctx.prisma.payment.delete({ where: { id: input.id } })
+      return { success: true }
     }),
 
+
   // ---------------------------------------------------------
-  // PROCESS PAYMENT
+  // PROCESS PAYMENT (tenant)
   // ---------------------------------------------------------
   process: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!payment) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment not found",
-        });
-      }
-
+      if (!payment) throw new TRPCError({ code: "NOT_FOUND" })
       if (payment.status !== "pending") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Only pending payments can be processed",
-        });
+        })
       }
 
-      // Update payment status to processing
-      // In a real implementation, this would integrate with a payment gateway
-      const updated = await ctx.prisma.payment.update({
+      return ctx.prisma.payment.update({
         where: { id: input.id },
         data: {
           status: "processing",
           processedDate: new Date(),
         },
-      });
-
-      return updated;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // REFUND PAYMENT
+  // REFUND PAYMENT (tenant)
   // ---------------------------------------------------------
   refund: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.update))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({
       id: z.string(),
       reason: z.string(),
@@ -310,88 +294,95 @@ export const paymentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-      });
+      })
 
-      if (!payment) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Payment not found",
-        });
-      }
-
+      if (!payment) throw new TRPCError({ code: "NOT_FOUND" })
       if (payment.status !== "completed") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Only completed payments can be refunded",
-        });
+        })
       }
 
-      const updated = await ctx.prisma.payment.update({
+      return ctx.prisma.payment.update({
         where: { id: input.id },
         data: {
           status: "refunded",
-          notes: payment.notes ? `${payment.notes}\n\nRefund reason: ${input.reason}` : `Refund reason: ${input.reason}`,
+          notes: payment.notes
+            ? `${payment.notes}\n\nRefund reason: ${input.reason}`
+            : `Refund reason: ${input.reason}`,
         },
-      });
-
-      return updated;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // GET PAYMENTS BY INVOICE
+  // GET PAYMENTS BY INVOICE (tenant)
   // ---------------------------------------------------------
   getByInvoice: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ invoiceId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const payments = await ctx.prisma.payment.findMany({
+      return ctx.prisma.payment.findMany({
         where: {
           invoiceId: input.invoiceId,
           tenantId: ctx.tenantId,
         },
         orderBy: { createdAt: "desc" },
-      });
-
-      return payments;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // GET PAYMENTS BY EXPENSE
+  // GET PAYMENTS BY EXPENSE (tenant)
   // ---------------------------------------------------------
   getByExpense: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
     .input(z.object({ expenseId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const payments = await ctx.prisma.payment.findMany({
+      return ctx.prisma.payment.findMany({
         where: {
           expenseId: input.expenseId,
           tenantId: ctx.tenantId,
         },
         orderBy: { createdAt: "desc" },
-      });
-
-      return payments;
+      })
     }),
 
+
   // ---------------------------------------------------------
-  // GET PAYMENT STATISTICS
+  // PAYMENT STATS (tenant)
   // ---------------------------------------------------------
   getStatistics: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.invoices.manage.view_all))
-    .input(z.object({
-      startDate: z.date().optional(),
-      endDate: z.date().optional(),
-    }).optional())
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.READ, PermissionScope.TENANT)
+      )
+    )
+    .input(
+      z.object({
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      }).optional()
+    )
     .query(async ({ ctx, input }) => {
       const where: Prisma.PaymentWhereInput = {
         tenantId: ctx.tenantId,
-      };
+      }
 
       if (input?.startDate || input?.endDate) {
         where.createdAt = {
           ...(input.startDate && { gte: input.startDate }),
           ...(input.endDate && { lte: input.endDate }),
-        };
+        }
       }
 
       const [
@@ -402,14 +393,14 @@ export const paymentRouter = createTRPCRouter({
         totalAmount,
       ] = await Promise.all([
         ctx.prisma.payment.count({ where }),
-        ctx.prisma.payment.count({ where: { ...where, status: "completed" } }),
-        ctx.prisma.payment.count({ where: { ...where, status: "pending" } }),
-        ctx.prisma.payment.count({ where: { ...where, status: "failed" } }),
+        ctx.prisma.payment.count({ where: { ...where, status: "completed" }}),
+        ctx.prisma.payment.count({ where: { ...where, status: "pending" }}),
+        ctx.prisma.payment.count({ where: { ...where, status: "failed" }}),
         ctx.prisma.payment.aggregate({
           where: { ...where, status: "completed" },
           _sum: { amount: true },
         }),
-      ]);
+      ])
 
       return {
         totalPayments,
@@ -417,6 +408,7 @@ export const paymentRouter = createTRPCRouter({
         pendingPayments,
         failedPayments,
         totalAmount: totalAmount._sum.amount || 0,
-      };
+      }
     }),
-});
+
+})

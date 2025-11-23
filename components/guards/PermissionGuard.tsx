@@ -1,4 +1,3 @@
-
 "use client";
 
 import { ReactNode } from "react";
@@ -16,41 +15,6 @@ interface PermissionGuardProps {
   alertMessage?: string;
 }
 
-/**
- * PermissionGuard - Composant de garde pour les permissions
- * 
- * Affiche le contenu uniquement si l'utilisateur a les permissions requises.
- * 
- * @example
- * // Permission unique
- * <PermissionGuard permission="invoices.create">
- *   <Button>Créer une facture</Button>
- * </PermissionGuard>
- * 
- * @example
- * // Plusieurs permissions (OR logic)
- * <PermissionGuard permissions={["invoices.view_own", "invoices.manage.view_all"]}>
- *   <InvoiceList />
- * </PermissionGuard>
- * 
- * @example
- * // Plusieurs permissions (AND logic)
- * <PermissionGuard 
- *   permissions={["invoices.manage.update", "invoices.manage.delete"]} 
- *   requireAll
- * >
- *   <AdminActions />
- * </PermissionGuard>
- * 
- * @example
- * // Avec fallback personnalisé
- * <PermissionGuard 
- *   permission="contractors.manage.create"
- *   fallback={<p>Vous n'avez pas les droits pour créer des contractors.</p>}
- * >
- *   <CreateContractorButton />
- * </PermissionGuard>
- */
 export function PermissionGuard({
   children,
   permission,
@@ -58,31 +22,37 @@ export function PermissionGuard({
   requireAll = false,
   fallback = null,
   showAlert = false,
-  alertMessage = "Vous n'avez pas les permissions nécessaires pour accéder à cette fonctionnalité.",
+  alertMessage = "Vous n'avez pas les permissions nécessaires.",
 }: PermissionGuardProps) {
-  const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions();
+  const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } =
+    usePermissions();
 
-  // Déterminer si l'utilisateur a accès
-  let hasAccess = false;
-
-  if (permission) {
-    // Permission unique
-    hasAccess = hasPermission(permission);
-  } else if (permissions.length > 0) {
-    if (requireAll) {
-      // L'utilisateur doit avoir TOUTES les permissions
-      hasAccess = hasAllPermissions(permissions);
-    } else {
-      // L'utilisateur doit avoir AU MOINS UNE permission
-      hasAccess = hasAnyPermission(permissions);
-    }
-  } else {
-    // Aucune permission spécifiée = accès autorisé par défaut
-    hasAccess = true;
+  // ---------------------------------------------------------
+  // 1️⃣ KEEP HOOK TREE STABLE → ALWAYS WAIT LOADING FIRST
+  // ---------------------------------------------------------
+  if (isLoading) {
+    return <div />; // minimal placeholder, keeps React stable
   }
 
-  // Si pas d'accès
-  if (!hasAccess) {
+  // ---------------------------------------------------------
+  // 2️⃣ Determine access (always computed)
+  // ---------------------------------------------------------
+  let allowed = false;
+
+  if (permission) {
+    allowed = hasPermission(permission);
+  } else if (permissions.length > 0) {
+    allowed = requireAll
+      ? hasAllPermissions(permissions)
+      : hasAnyPermission(permissions);
+  } else {
+    allowed = true; // no permission required
+  }
+
+  // ---------------------------------------------------------
+  // 3️⃣ No access
+  // ---------------------------------------------------------
+  if (!allowed) {
     if (showAlert) {
       return (
         <Alert variant="destructive">
@@ -94,34 +64,29 @@ export function PermissionGuard({
     return <>{fallback}</>;
   }
 
-  // L'utilisateur a accès
+  // ---------------------------------------------------------
+  // 4️⃣ Access granted
+  // ---------------------------------------------------------
   return <>{children}</>;
 }
 
 /**
- * Hook version du PermissionGuard pour une utilisation conditionnelle
- * 
- * @example
- * const canCreate = usePermissionGuard("invoices.create");
- * if (canCreate) {
- *   // Afficher le bouton
- * }
+ * Version Hook : safe + predictable
  */
 export function usePermissionGuard(
   permission: string | string[],
-  requireAll: boolean = false
+  requireAll = false
 ): boolean {
-  const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions();
+  const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } =
+    usePermissions();
+
+  if (isLoading) return false;
 
   if (typeof permission === "string") {
     return hasPermission(permission);
-  } else if (Array.isArray(permission)) {
-    if (requireAll) {
-      return hasAllPermissions(permission);
-    } else {
-      return hasAnyPermission(permission);
-    }
   }
 
-  return false;
+  return requireAll
+    ? hasAllPermissions(permission)
+    : hasAnyPermission(permission);
 }

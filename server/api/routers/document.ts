@@ -1,218 +1,249 @@
 import { z } from "zod";
-import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
-import { TRPCError } from "@trpc/server";
+import {
+  createTRPCRouter,
+  tenantProcedure,
+  hasAnyPermission,
+  hasPermission,
+} from "../trpc";
 
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions";
+
+import { uploadFileToS3, deleteFromS3, getSignedUrlForKey } from "@/lib/s3";
+import { createAuditLog } from "@/lib/audit";
+import { AuditAction, AuditEntityType } from "@/lib/types";
+
+// ====================================================================
+// PERMISSIONS
+// ====================================================================
+const READ_OWN       = buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.OWN);
+const READ_GLOBAL    = buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.GLOBAL);
+
+const LIST_GLOBAL    = buildPermissionKey(Resource.DOCUMENT, Action.LIST, PermissionScope.GLOBAL);
+
+const UPLOAD_OWN     = buildPermissionKey(Resource.DOCUMENT, Action.UPLOAD, PermissionScope.OWN);
+const UPLOAD_GLOBAL  = buildPermissionKey(Resource.DOCUMENT, Action.UPLOAD, PermissionScope.GLOBAL);
+
+const UPDATE_OWN     = buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.OWN);
+const UPDATE_GLOBAL  = buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.GLOBAL);
+
+const DELETE_OWN     = buildPermissionKey(Resource.DOCUMENT, Action.DELETE, PermissionScope.OWN);
+const DELETE_GLOBAL  = buildPermissionKey(Resource.DOCUMENT, Action.DELETE, PermissionScope.GLOBAL);
+
+// ====================================================================
+// ROUTER
+// ====================================================================
 export const documentRouter = createTRPCRouter({
-  getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
-    .input(z.object({
-      entityType: z.string().optional(),
-      entityId: z.string().optional(),
-      category: z.string().optional(),
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }).optional())
+
+  // ================================================================
+  // LIST DOCUMENTS (STYLE DEEL)
+  // ================================================================
+  list: tenantProcedure
+    .use(hasAnyPermission([LIST_GLOBAL, READ_OWN, READ_GLOBAL]))
+    .input(
+      z.object({
+        entityType: z.string().optional(),
+        entityId: z.string().optional(),
+        latestOnly: z.boolean().default(true),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      const where: any = { tenantId: ctx.tenantId, isActive: true, isLatestVersion: true };
-      if (input?.entityType) where.entityType = input.entityType;
-      if (input?.entityId) where.entityId = input.entityId;
-      if (input?.category) where.category = input.category;
+      const userId = ctx.session.user.id;
+      const permissions = ctx.session.user.permissions ?? [];
 
-      const [documents, total] = await Promise.all([
-        ctx.prisma.document.findMany({
-          where,
-          orderBy: { uploadedAt: "desc" },
-          take: input?.limit ?? 50,
-          skip: input?.offset ?? 0,
-        }),
-        ctx.prisma.document.count({ where }),
-      ]);
+      const canGlobalList  = permissions.includes(LIST_GLOBAL);
+      const canReadGlobal  = permissions.includes(READ_GLOBAL);
 
-      return { documents, total, hasMore: (input?.offset ?? 0) + documents.length < total };
-    }),
+      let where: any = {
+        tenantId: ctx.tenantId,
+        ...(input.entityType && input.entityId
+          ? { entityType: input.entityType, entityId: input.entityId }
+          : {}),
+        ...(input.latestOnly ? { isLatestVersion: true } : {}),
+      };
 
-  getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const document = await ctx.prisma.document.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-        include: {
-          parentDocument: true,
-          versions: {
-            orderBy: { version: "desc" },
-          },
-        },
-      });
-      if (!document) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
-      return document;
-    }),
+      if (!canGlobalList && !canReadGlobal) {
+        where.uploadedBy = userId;
+      }
 
-  getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
-    .input(z.object({
-      entityType: z.string(),
-      entityId: z.string(),
-    }))
-    .query(async ({ ctx, input }) => {
       return ctx.prisma.document.findMany({
-        where: {
-          entityType: input.entityType,
-          entityId: input.entityId,
-          tenantId: ctx.tenantId,
-          isActive: true,
-          isLatestVersion: true,
-        },
+        where,
         orderBy: { uploadedAt: "desc" },
       });
     }),
 
-  create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
-    .input(z.object({
-      name: z.string(),
-      description: z.string().optional(),
-      fileUrl: z.string(),
-      fileName: z.string(),
-      fileSize: z.number(),
-      mimeType: z.string(),
-      entityType: z.string().optional(),
-      entityId: z.string().optional(),
-      category: z.string().optional(),
-      visibility: z.enum(["private", "tenant", "public"]).default("private"),
-      requiresSignature: z.boolean().default(false),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.document.create({
-        data: {
-          ...input,
+  // ================================================================
+  // GET SIGNED URL (DOWNLOAD / VIEW)
+  // ================================================================
+  getSignedUrl: tenantProcedure
+    .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
+    .input(z.object({ documentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const doc = await ctx.prisma.document.findFirst({
+        where: {
+          id: input.documentId,
           tenantId: ctx.tenantId,
-          uploadedById: ctx.session.user.id,
         },
       });
+
+      if (!doc) throw new Error("Document not found.");
+
+      const url = await getSignedUrlForKey(doc.s3Key);
+
+      return { url };
     }),
 
-  update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
-    .input(z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      description: z.string().optional(),
-      category: z.string().optional(),
-      visibility: z.enum(["private", "tenant", "public"]).optional(),
-    }))
+  // ================================================================
+  // UPLOAD — VERSION 1
+  // ================================================================
+  upload: tenantProcedure
+    .use(hasAnyPermission([UPLOAD_OWN, UPLOAD_GLOBAL]))
+    .input(
+      z.object({
+        entityType: z.string().optional(),
+        entityId: z.string().optional(),
+        fileName: z.string(),
+        fileSize: z.number(),
+        mimeType: z.string(),
+        buffer: z.string(), // base64
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
-      const document = await ctx.prisma.document.findFirst({
-        where: { id, tenantId: ctx.tenantId },
-      });
-      if (!document) throw new TRPCError({ code: "NOT_FOUND" });
+      const buffer = Buffer.from(input.buffer, "base64");
 
-      return ctx.prisma.document.update({
-        where: { id },
-        data,
+      const rawKey = `tenant_${ctx.tenantId}/${input.entityType}/${input.entityId}/v1/${input.fileName}`;
+
+      const fullKey = `${process.env.AWS_FOLDER_PREFIX}${rawKey}`;
+
+      await uploadFileToS3(fullKey, buffer, input.mimeType);
+
+      const doc = await ctx.prisma.document.create({
+        data: {
+          tenantId: ctx.tenantId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          fileName: input.fileName,
+          mimeType: input.mimeType,
+          fileSize: input.fileSize,
+          uploadedBy: ctx.session.user.id,
+          s3Key: fullKey,
+          version: 1,
+          isLatestVersion: true,
+        },
       });
+
+      await createAuditLog({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name!,
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.DOCUMENT,
+        entityId: doc.id,
+        entityName: doc.fileName,
+        metadata: {},
+        tenantId: ctx.tenantId,
+      });
+
+      return doc;
     }),
 
-  delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
-    .input(z.object({ id: z.string() }))
+  // ================================================================
+  // CREATE NEW VERSION (v+1)
+  // ================================================================
+  updateVersion: tenantProcedure
+    .use(hasAnyPermission([UPDATE_OWN, UPDATE_GLOBAL]))
+    .input(
+      z.object({
+        documentId: z.string(),
+        fileName: z.string(),
+        mimeType: z.string(),
+        fileSize: z.number(),
+        buffer: z.string(), // base64
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const document = await ctx.prisma.document.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
+      const oldDoc = await ctx.prisma.document.findFirst({
+        where: { id: input.documentId, tenantId: ctx.tenantId },
       });
-      if (!document) throw new TRPCError({ code: "NOT_FOUND" });
 
-      return ctx.prisma.document.update({
-        where: { id: input.id },
-        data: { isActive: false },
-      });
-    }),
+      if (!oldDoc) throw new Error("Document not found.");
 
-  createVersion: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
-    .input(z.object({
-      parentDocumentId: z.string(),
-      fileUrl: z.string(),
-      fileName: z.string(),
-      fileSize: z.number(),
-      mimeType: z.string(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const parent = await ctx.prisma.document.findFirst({
-        where: { id: input.parentDocumentId, tenantId: ctx.tenantId },
-      });
-      if (!parent) throw new TRPCError({ code: "NOT_FOUND" });
+      const nextVersion = oldDoc.version + 1;
+      const buffer = Buffer.from(input.buffer, "base64");
 
-      // Mark parent as not latest version
+      const rawKey = `tenant_${ctx.tenantId}/${oldDoc.entityType}/${oldDoc.entityId}/v${nextVersion}/${input.fileName}`;
+
+      const fullKey = `${process.env.AWS_FOLDER_PREFIX}${rawKey}`;
+
+      await uploadFileToS3(fullKey, buffer, input.mimeType);
+
       await ctx.prisma.document.update({
-        where: { id: parent.id },
+        where: { id: oldDoc.id },
         data: { isLatestVersion: false },
       });
 
-      // Create new version
-      return ctx.prisma.document.create({
+      const newDoc = await ctx.prisma.document.create({
         data: {
-          name: parent.name,
-          description: parent.description,
-          fileUrl: input.fileUrl,
-          fileName: input.fileName,
-          fileSize: input.fileSize,
-          mimeType: input.mimeType,
-          entityType: parent.entityType,
-          entityId: parent.entityId,
-          category: parent.category,
-          visibility: parent.visibility,
-          version: parent.version + 1,
-          isLatestVersion: true,
-          parentDocumentId: parent.id,
           tenantId: ctx.tenantId,
-          uploadedById: ctx.session.user.id,
+          entityType: oldDoc.entityType,
+          entityId: oldDoc.entityId,
+          fileName: input.fileName,
+          mimeType: input.mimeType,
+          fileSize: input.fileSize,
+          s3Key: fullKey,
+          version: nextVersion,
+          isLatestVersion: true,
+          parentDocumentId: oldDoc.id,
+          uploadedBy: ctx.session.user.id,
         },
       });
+
+      return newDoc;
     }),
 
-  sign: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.update))
-    .input(z.object({ id: z.string() }))
+  // ================================================================
+  // DELETE DOCUMENT
+  // ================================================================
+  delete: tenantProcedure
+    .use(hasAnyPermission([DELETE_OWN, DELETE_GLOBAL]))
+    .input(z.object({ documentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const document = await ctx.prisma.document.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
+      const doc = await ctx.prisma.document.findFirst({
+        where: { id: input.documentId, tenantId: ctx.tenantId },
       });
-      if (!document) throw new TRPCError({ code: "NOT_FOUND" });
-      if (!document.requiresSignature) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Document does not require signature" });
-      }
 
-      return ctx.prisma.document.update({
-        where: { id: input.id },
-        data: {
-          isSigned: true,
-          signedAt: new Date(),
-          signedBy: ctx.session.user.id,
-        },
-      });
+      if (!doc) throw new Error("Document not found.");
+
+      await deleteFromS3(doc.s3Key);
+
+      await ctx.prisma.document.delete({ where: { id: doc.id } });
+
+      return { success: true };
     }),
 
-  getVersionHistory: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.manage.view_all))
-    .input(z.object({ id: z.string() }))
+  // ================================================================
+  // LIST VERSIONS OF A DOCUMENT
+  // ================================================================
+  listVersions: tenantProcedure
+    .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
+    .input(z.object({ documentId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const document = await ctx.prisma.document.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
+      const doc = await ctx.prisma.document.findFirst({
+        where: { id: input.documentId, tenantId: ctx.tenantId },
       });
-      if (!document) throw new TRPCError({ code: "NOT_FOUND" });
 
-      // Get all versions (both ancestors and descendants)
-      const rootId = document.parentDocumentId || document.id;
+      if (!doc) throw new Error("Document not found.");
+
       return ctx.prisma.document.findMany({
         where: {
           OR: [
-            { id: rootId },
-            { parentDocumentId: rootId },
+            { id: doc.id },
+            { parentDocumentId: doc.id },
           ],
-          tenantId: ctx.tenantId,
         },
         orderBy: { version: "desc" },
       });

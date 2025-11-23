@@ -1,124 +1,211 @@
+"use client";
 
-"use client"
+import { useState } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RouteGuard } from "@/components/guards/RouteGuard";
+import { api } from "@/lib/trpc";
 
-import { useState } from "react"
-import { PageHeader } from "@/components/ui/page-header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, Users, DollarSign, FileText } from "lucide-react"
+// RBAC
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "@/server/rbac/permissions";
+
+// Charts
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+} from "recharts";
+
+const CAN_VIEW_ANALYTICS = buildPermissionKey(
+  Resource.REPORT,
+  Action.READ,
+  PermissionScope.GLOBAL
+);
 
 export default function ReportPage() {
-  const [activeTab, setActiveTab] = useState("overview")
-  const stats = [
-    { label: "Total Revenue", value: "$2.4M", change: "+12.5%", icon: DollarSign, color: "text-green-600" },
-    { label: "Active Users", value: "1,234", change: "+8.2%", icon: Users, color: "text-blue-600" },
-    { label: "Contracts", value: "156", change: "+15.3%", icon: FileText, color: "text-purple-600" },
-    { label: "Growth Rate", value: "23.4%", change: "+5.1%", icon: TrendingUp, color: "text-orange-600" }
-  ]
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "financial" | "operations" | "hr"
+  >("overview");
+
+  // ===========================
+  // LOAD ANALYTICS
+  // ===========================
+  const { data: overview, isLoading: loadingOverview } =
+    api.analytics.getOverviewStats.useQuery();
+
+  const { data: financial, isLoading: loadingFinancial } =
+    api.analytics.getFinancialAnalytics.useQuery(
+      { months: 12 },
+      { enabled: activeTab === "financial" }
+    );
+
+  // ===========================
+  // OVERVIEW CHART DATA
+  // ===========================
+  const overviewChartData = overview
+    ? [
+        { name: "Users", value: overview.users.total },
+        { name: "Active Users", value: overview.users.active },
+        { name: "Contracts", value: overview.contracts.total },
+        { name: "Invoices", value: overview.invoices.total },
+        { name: "Revenue", value: overview.revenue.total },
+      ]
+    : [];
+
+  // ===========================
+  // FINANCIAL CHART DATA
+  // ===========================
+  // Ton router renvoie :
+  // {
+  //   monthly: [ { month, revenue, invoices, paid, pending } ],
+  //   statusBreakdown: [...],
+  //   totalRevenue: number
+  // }
+
+  const monthlyFinancialData =
+    financial?.monthly?.map((m) => ({
+      month: m.month,
+      revenue: m.revenue,
+      invoices: m.invoices,
+    })) ?? [];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Reports & Analytics" description="View comprehensive business reports and analytics" />
+    <RouteGuard permissions={[CAN_VIEW_ANALYTICS]} requireAll={false}>
+      <div className="space-y-6">
+        <PageHeader
+          title="Reports & Analytics"
+          description="Visualize business performance through charts and analytics"
+        />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon
-          return (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
-                <Icon className={`h-5 w-5 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-green-600 mt-1">{stat.change} vs last month</p>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      <div className="space-y-4">
-        {/* Custom Tab Buttons */}
-        <div className="grid w-full max-w-2xl grid-cols-4 gap-2 p-1 bg-muted rounded-lg">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === "overview"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab("financial")}
-            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === "financial"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Financial
-          </button>
-          <button
-            onClick={() => setActiveTab("operations")}
-            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === "operations"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Operations
-          </button>
-          <button
-            onClick={() => setActiveTab("hr")}
-            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === "hr"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            HR
-          </button>
+        {/* ====================== */}
+        {/*        TABS            */}
+        {/* ====================== */}
+        <div className="grid max-w-2xl grid-cols-4 gap-2 p-1 bg-muted rounded-lg">
+          {(["overview", "financial", "operations", "hr"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === t
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
         </div>
 
-        {/* Tab Content */}
+        {/* ============================= */}
+        {/*          OVERVIEW TAB         */}
+        {/* ============================= */}
         {activeTab === "overview" && (
           <Card>
-            <CardHeader><CardTitle>Business Overview</CardTitle></CardHeader>
-            <CardContent className="h-96 flex items-center justify-center text-gray-500">
-              Chart and analytics data will be displayed here
+            <CardHeader>
+              <CardTitle>Overview Analytics</CardTitle>
+            </CardHeader>
+
+            <CardContent className="h-[400px]">
+              {loadingOverview ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  Loading overview charts...
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={overviewChartData}>
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         )}
 
+        {/* ============================= */}
+        {/*        FINANCIAL TAB          */}
+        {/* ============================= */}
         {activeTab === "financial" && (
           <Card>
-            <CardHeader><CardTitle>Financial Reports</CardTitle></CardHeader>
-            <CardContent className="h-96 flex items-center justify-center text-gray-500">
-              Revenue, expenses, and profit analysis will be displayed here
+            <CardHeader>
+              <CardTitle>Financial Analytics</CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+
+              {/* LINE CHART */}
+              <div className="h-[400px]">
+                {loadingFinancial ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Loading financial charts...
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={monthlyFinancialData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              {/* RAW DATA */}
+              <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-60">
+{JSON.stringify(financial, null, 2)}
+              </pre>
             </CardContent>
           </Card>
         )}
 
+        {/* ============================= */}
+        {/*        OPERATIONS TAB         */}
+        {/* ============================= */}
         {activeTab === "operations" && (
           <Card>
-            <CardHeader><CardTitle>Operations Reports</CardTitle></CardHeader>
-            <CardContent className="h-96 flex items-center justify-center text-gray-500">
-              Contracts, projects, and performance metrics will be displayed here
+            <CardHeader>
+              <CardTitle>Operations Reports</CardTitle>
+            </CardHeader>
+            <CardContent className="h-96 flex items-center justify-center text-muted-foreground">
+              Contract & Ops analytics coming soon
             </CardContent>
           </Card>
         )}
 
+        {/* ============================= */}
+        {/*            HR TAB             */}
+        {/* ============================= */}
         {activeTab === "hr" && (
           <Card>
-            <CardHeader><CardTitle>HR Reports</CardTitle></CardHeader>
-            <CardContent className="h-96 flex items-center justify-center text-gray-500">
-              Employee data, onboarding status, and workforce analytics will be displayed here
+            <CardHeader>
+              <CardTitle>HR Insights</CardTitle>
+            </CardHeader>
+            <CardContent className="h-96 flex items-center justify-center text-muted-foreground">
+              HR analytics coming soon
             </CardContent>
           </Card>
         )}
       </div>
-    </div>
-  )
+    </RouteGuard>
+  );
 }

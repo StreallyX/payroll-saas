@@ -1,72 +1,95 @@
 import { z } from "zod";
 import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE_V2 } from "../../rbac/permissions-v2";
 import { TRPCError } from "@trpc/server";
 
-export const tagRouter = createTRPCRouter({
-  getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
-    .input(z.object({
-      category: z.string().optional(),
-      isActive: z.boolean().optional(),
-    }).optional())
-    .query(async ({ ctx, input }) => {
-      const where: any = { tenantId: ctx.tenantId };
-      if (input?.category) where.category = input.category;
-      if (input?.isActive !== undefined) where.isActive = input.isActive;
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions";
 
+const VIEW = buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.GLOBAL);
+const LIST = buildPermissionKey(Resource.CONTRACT, Action.LIST, PermissionScope.GLOBAL);
+const UPDATE = buildPermissionKey(Resource.CONTRACT, Action.UPDATE, PermissionScope.GLOBAL);
+
+export const tagRouter = createTRPCRouter({
+
+  // ---------------------------
+  // GET ALL TAGS
+  // ---------------------------
+  getAll: tenantProcedure
+    .use(hasPermission(LIST))
+    .input(
+      z.object({
+        isActive: z.boolean().optional(), // ⚠️ ton modèle n'a pas isActive, donc je ne filtre pas dessus
+      }).optional()
+    )
+    .query(async ({ ctx }) => {
       return ctx.prisma.tag.findMany({
-        where,
-        orderBy: [{ usageCount: "desc" }, { name: "asc" }],
+        where: { tenantId: ctx.tenantId },
+        orderBy: { name: "asc" },
       });
     }),
 
+  // ---------------------------
+  // GET ONE
+  // ---------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
+    .use(hasPermission(VIEW))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const tag = await ctx.prisma.tag.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
+
       if (!tag) throw new TRPCError({ code: "NOT_FOUND" });
+
       return tag;
     }),
 
+  // ---------------------------
+  // CREATE TAG
+  // ---------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
-    .input(z.object({
-      name: z.string().min(1),
-      slug: z.string().min(1),
-      color: z.string().optional(),
-      description: z.string().optional(),
-      category: z.string().optional(),
-    }))
+    .use(hasPermission(UPDATE))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        color: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.tag.create({
         data: {
-          ...input,
+          name: input.name,
+          color: input.color ?? "#3b82f6",
           tenantId: ctx.tenantId,
-          createdById: ctx.session.user.id,
+          createdBy: ctx.session.user.id,
         },
       });
     }),
 
+  // ---------------------------
+  // UPDATE TAG
+  // ---------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
-    .input(z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      color: z.string().optional(),
-      description: z.string().optional(),
-      category: z.string().optional(),
-      isActive: z.boolean().optional(),
-    }))
+    .use(hasPermission(UPDATE))
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        color: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      const tag = await ctx.prisma.tag.findFirst({
+
+      const existing = await ctx.prisma.tag.findFirst({
         where: { id, tenantId: ctx.tenantId },
       });
-      if (!tag) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
 
       return ctx.prisma.tag.update({
         where: { id },
@@ -74,62 +97,61 @@ export const tagRouter = createTRPCRouter({
       });
     }),
 
+  // ---------------------------
+  // DELETE TAG
+  // ---------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
+    .use(hasPermission(UPDATE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const tag = await ctx.prisma.tag.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
+
       if (!tag) throw new TRPCError({ code: "NOT_FOUND" });
 
       await ctx.prisma.tag.delete({
         where: { id: input.id },
       });
+
       return { success: true };
     }),
 
+  // ---------------------------
+  // ASSIGN TAG
+  // ---------------------------
   assignToEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
-    .input(z.object({
-      tagId: z.string(),
-      entityType: z.string(),
-      entityId: z.string(),
-    }))
+    .use(hasPermission(UPDATE))
+    .input(
+      z.object({
+        tagId: z.string(),
+        entityType: z.string(),
+        entityId: z.string(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const tag = await ctx.prisma.tag.findFirst({
-        where: { id: input.tagId, tenantId: ctx.tenantId },
-      });
-      if (!tag) throw new TRPCError({ code: "NOT_FOUND" });
-
-      const assignment = await ctx.prisma.tagAssignment.create({
+      return ctx.prisma.tagAssignment.create({
         data: {
           tenantId: ctx.tenantId,
           tagId: input.tagId,
           entityType: input.entityType,
           entityId: input.entityId,
-          assignedById: ctx.session.user.id,
         },
       });
-
-      // Update tag usage count
-      await ctx.prisma.tag.update({
-        where: { id: input.tagId },
-        data: {
-          usageCount: { increment: 1 },
-        },
-      });
-
-      return assignment;
     }),
 
+  // ---------------------------
+  // REMOVE TAG ASSIGNMENT
+  // ---------------------------
   removeFromEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.update))
-    .input(z.object({
-      tagId: z.string(),
-      entityType: z.string(),
-      entityId: z.string(),
-    }))
+    .use(hasPermission(UPDATE))
+    .input(
+      z.object({
+        tagId: z.string(),
+        entityType: z.string(),
+        entityId: z.string(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const assignment = await ctx.prisma.tagAssignment.findFirst({
         where: {
@@ -139,25 +161,21 @@ export const tagRouter = createTRPCRouter({
           tenantId: ctx.tenantId,
         },
       });
+
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND" });
 
       await ctx.prisma.tagAssignment.delete({
         where: { id: assignment.id },
       });
 
-      // Update tag usage count
-      await ctx.prisma.tag.update({
-        where: { id: input.tagId },
-        data: {
-          usageCount: { decrement: 1 },
-        },
-      });
-
       return { success: true };
     }),
 
+  // ---------------------------
+  // GET TAGS FOR ENTITY
+  // ---------------------------
   getByEntity: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.contracts.view))
+    .use(hasPermission(VIEW))
     .input(z.object({
       entityType: z.string(),
       entityId: z.string(),
@@ -176,4 +194,5 @@ export const tagRouter = createTRPCRouter({
 
       return assignments.map(a => a.tag);
     }),
+
 });

@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react"
 import { useMemo } from "react"
 
 export function usePermissions() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
 
   const permissions = useMemo(() => {
     return session?.user?.permissions || []
@@ -30,6 +30,9 @@ export function usePermissions() {
     hasAnyPermission,
     hasAllPermissions,
     isSuperAdmin,
-    isLoading: !session
+    /**
+     * ❗ CORRECT : on utilise status pour savoir si ça charge
+     */
+    isLoading: status === "loading"
   }
 }

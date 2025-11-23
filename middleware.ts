@@ -5,11 +5,8 @@ export const config = {
   ],
 };
 
-
-
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { getFirstAccessibleRoute } from "@/lib/routing/dynamic-router";
 
 export default withAuth(
   function middleware(req) {
@@ -60,13 +57,13 @@ export default withAuth(
     
     // Redirect from root to first accessible route
     if (pathname === "/") {
-      const firstRoute = getFirstAccessibleRoute(permissions);
+      const firstRoute = "/home"
       return NextResponse.redirect(new URL(firstRoute, req.url));
     }
 
     // Redirect from /dashboard to first accessible route if user has limited permissions
     if (pathname === "/home") {
-      const firstRoute = getFirstAccessibleRoute(permissions);
+      const firstRoute = "/home"
       // Only redirect if dashboard is not the first accessible route
       // This allows users with many permissions to see the dashboard
       if (firstRoute !== "/home" && permissions.length > 0) {
@@ -84,50 +81,11 @@ export default withAuth(
     // ====================================================================
     // Comprehensive mapping from old role-based routes to new functional routes
     const ROUTE_REDIRECTS: Record<string, string> = {
-      // ==================== CONTRACTOR ROUTES ====================
-      "/contractor": "/dashboard",
-      "/contractor/information": "/profile",
-      "/contractor/my-onboarding": "/onboarding/my-onboarding",
-      "/contractor/onboarding": "/onboarding/my-onboarding",
-      "/contractor/payslips": "/payments/payslips",
-      "/contractor/remits": "/payments/remits",
-      "/contractor/refer": "/referrals",
-      "/contractor/invoices": "/invoices",
-      "/contractor/time-expenses": "/timesheets", // Note: Now split into separate /timesheets and /expenses pages
-      "/contractor/timesheets": "/timesheets",
-      "/contractor/expenses": "/expenses",
-      
-      // ==================== AGENCY ROUTES ====================
-      "/agency": "/dashboard",
-      "/agency/information": "/profile",
-      "/agency/dashboard": "/dashboard",
-      "/agency/contractors": "/team/contractors",
-      "/agency/users": "/team/members",
-      "/agency/invoices": "/invoices",
-      "/agency/timesheets": "/timesheets",
-      "/agency/expenses": "/expenses",
-      "/agency/payslips": "/payments/payslips",
-      "/agency/remits": "/payments/remits",
-      "/agency/onboarding": "/onboarding/my-onboarding",
-      
-      // ==================== PAYROLL PARTNER ROUTES ====================
-      "/payroll-partner": "/dashboard",
-      "/payroll-partner/information": "/profile",
-      "/payroll-partner/dashboard": "/dashboard",
-      "/payroll-partner/contractors": "/team/contractors",
-      "/payroll-partner/agencies": "/team/agencies",
-      "/payroll-partner/invoices": "/invoices",
-      "/payroll-partner/timesheets": "/timesheets",
-      "/payroll-partner/expenses": "/expenses",
-      "/payroll-partner/payslips": "/payments/payslips",
-      "/payroll-partner/remits": "/payments/remits",
-      "/payroll-partner/onboarding": "/onboarding/my-onboarding",
-      
+      "/referrals": "/construction",
       // ==================== OLD MANAGEMENT ROUTES ====================
       "/contractors": "/team/contractors",
       "/agencies": "/team/agencies",
       "/payroll-partners": "/team/payroll-partners",
-      "/users": "/team/members",
     };
 
     // Check if current pathname matches any old route (exact match or starts with)

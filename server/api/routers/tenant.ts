@@ -10,7 +10,14 @@ import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { TRPCError } from "@trpc/server"
 import bcrypt from "bcryptjs"
-import { PERMISSION_TREE_V2, ALL_PERMISSION_KEYS_V2 } from "../../rbac/permissions-v2"
+import {
+  ALL_PERMISSIONS,
+  buildPermissionKey,
+  Resource,
+  Action,
+  PermissionScope,
+  getAllPermissionKeys,
+} from "../../rbac/permissions"
 
 export const tenantRouter = createTRPCRouter({
 
@@ -47,7 +54,7 @@ export const tenantRouter = createTRPCRouter({
   // 🟦 UPDATE TENANT SETTINGS
   // -------------------------------------------------------
   updateSettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         name: z.string().min(1).optional(),
@@ -92,7 +99,7 @@ export const tenantRouter = createTRPCRouter({
   // 🟧 RESET COLORS
   // -------------------------------------------------------
   resetColors: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .mutation(async ({ ctx }) => {
 
       const before = await ctx.prisma.tenant.findUnique({
@@ -134,7 +141,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 📊 LIST TENANTS
   getAllForSuperAdmin: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.create))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .query(async ({ ctx }) => {
 
       const tenants = await ctx.prisma.tenant.findMany({
@@ -159,7 +166,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 🏗️ CREATE TENANT + ADMIN
   createTenantWithAdmin: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.create))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(
       z.object({
         tenantName: z.string().min(2),
@@ -193,15 +200,22 @@ export const tenantRouter = createTRPCRouter({
         
         const roles = await Promise.all(
           rolesNames.map((name) =>
-            prisma.role.create({ data: { tenantId: tenant.id, name } })
+            prisma.role.create({
+              data: {
+                tenantId: tenant.id,
+                name,
+                displayName: name.replace("_", " ").replace("-", " "),
+              },
+            })
           )
         )
+
 
         const adminRole = roles.find((r) => r.name === "admin")!
         // 1. Load all permissions from DB
         const allPermissions = await prisma.permission.findMany({
           where: {
-            key: { in: ALL_PERMISSION_KEYS_V2 }
+            key: { in: getAllPermissionKeys() }
           }
         });
 
@@ -246,7 +260,7 @@ export const tenantRouter = createTRPCRouter({
 
   // ⚙️ UPDATE TENANT STATUS
   updateTenantStatus: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.suspend))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(z.object({ tenantId: z.string(), isActive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -271,7 +285,7 @@ export const tenantRouter = createTRPCRouter({
 
   // 🗑️ SOFT DELETE TENANT
   deleteTenant: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.delete))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(z.object({ tenantId: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -302,7 +316,7 @@ export const tenantRouter = createTRPCRouter({
   // 📊 SUBSCRIPTION MANAGEMENT
   // -------------------------------------------------------
   getSubscriptionInfo: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.subscription.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -325,7 +339,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateSubscriptionPlan: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.subscription.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         plan: z.enum(["free", "starter", "professional", "enterprise"]),
@@ -362,7 +376,7 @@ export const tenantRouter = createTRPCRouter({
   // 📈 USAGE & QUOTAS
   // -------------------------------------------------------
   getUsageMetrics: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.quotas.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -397,7 +411,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateQuotas: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.quotas.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         maxUsers: z.number().optional(),
@@ -469,15 +483,15 @@ export const tenantRouter = createTRPCRouter({
           break
         case "contracts":
           current = tenant._count.contracts
-          max = tenant.quotas.maxContracts
+          max = tenant.quotas.maxContractsPerMonth
           break
         case "invoices":
           current = tenant._count.invoices
-          max = tenant.quotas.maxInvoices
+          max = tenant.quotas.maxInvoicesPerMonth
           break
         case "storage":
           current = Number(tenant.currentStorageUsed)
-          max = Number(tenant.quotas.maxStorage)
+          max = Number(tenant.quotas.maxStorageGB)
           break
       }
 
@@ -491,7 +505,7 @@ export const tenantRouter = createTRPCRouter({
   // 🎯 FEATURE FLAGS
   // -------------------------------------------------------
   getEnabledFeatures: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.features.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const features = await ctx.prisma.tenantFeatureFlag.findMany({
         where: { tenantId: ctx.tenantId },
@@ -502,83 +516,89 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   checkFeatureAccess: tenantProcedure
-    .input(z.object({ featureKey: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const feature = await ctx.prisma.tenantFeatureFlag.findUnique({
-        where: {
-          tenantId_featureKey: {
-            tenantId: ctx.tenantId,
-            featureKey: input.featureKey,
-          },
-        },
-      })
-
-      // If feature flag doesn't exist, check if it's expired
-      if (feature) {
-        if (feature.expiresAt && feature.expiresAt < new Date()) {
-          return { enabled: false, reason: "expired" }
-        }
-        return { enabled: feature.enabled, expiresAt: feature.expiresAt }
-      }
-
-      // Default to disabled if no flag exists
-      return { enabled: false, reason: "not_configured" }
-    }),
-
-  toggleFeature: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.features.manage))
-    .input(
-      z.object({
-        featureKey: z.string(),
-        enabled: z.boolean(),
-        expiresAt: z.date().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const feature = await ctx.prisma.tenantFeatureFlag.upsert({
-        where: {
-          tenantId_featureKey: {
-            tenantId: ctx.tenantId,
-            featureKey: input.featureKey,
-          },
-        },
-        create: {
+  .input(z.object({ featureKey: z.string() }))
+  .query(async ({ ctx, input }) => {
+    const feature = await ctx.prisma.tenantFeatureFlag.findUnique({
+      where: {
+        tenantId_featureKey: {
           tenantId: ctx.tenantId,
           featureKey: input.featureKey,
-          enabled: input.enabled,
-          enabledAt: input.enabled ? new Date() : null,
-          enabledBy: input.enabled ? ctx.session!.user.id : null,
-          expiresAt: input.expiresAt,
         },
-        update: {
-          enabled: input.enabled,
-          enabledAt: input.enabled ? new Date() : null,
-          enabledBy: input.enabled ? ctx.session!.user.id : null,
-          expiresAt: input.expiresAt,
-        },
-      })
+      },
+    })
 
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name!,
-        userRole: ctx.session!.user.roleName,
-        action: input.enabled ? AuditAction.ACTIVATE : AuditAction.DEACTIVATE,
-        entityType: AuditEntityType.TENANT,
-        entityId: ctx.tenantId,
-        entityName: "Feature Flag",
-        description: `${input.enabled ? "Enabled" : "Disabled"} feature: ${input.featureKey}`,
-        metadata: { featureKey: input.featureKey, expiresAt: input.expiresAt },
+    if (!feature) {
+      return { enabled: false, reason: "not_configured" }
+    }
+
+    const metadata = feature.metadata as Record<string, any> | null
+
+    if (metadata?.expiresAt && new Date(metadata.expiresAt) < new Date()) {
+      return { enabled: false, reason: "expired" }
+    }
+
+    return {
+      enabled: feature.isEnabled,
+      expiresAt: metadata?.expiresAt || null,
+    }
+  }),
+
+
+  toggleFeature: tenantProcedure
+  .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
+  .input(
+    z.object({
+      featureKey: z.string(),
+      enabled: z.boolean(),
+      expiresAt: z.date().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const feature = await ctx.prisma.tenantFeatureFlag.upsert({
+      where: {
+        tenantId_featureKey: {
+          tenantId: ctx.tenantId,
+          featureKey: input.featureKey,
+        },
+      },
+      create: {
         tenantId: ctx.tenantId,
-      })
+        featureKey: input.featureKey,
+        isEnabled: input.enabled,             // ✔ correct
+        metadata: {
+          expiresAt: input.expiresAt || null, // ✔ stocké dans metadata
+        },
+      },
+      update: {
+        isEnabled: input.enabled,             // ✔ correct
+        metadata: {
+          expiresAt: input.expiresAt || null, // ✔ correct
+        },
+      },
+    })
 
-      return feature
-    }),
+    await createAuditLog({
+      userId: ctx.session!.user.id,
+      userName: ctx.session!.user.name!,
+      userRole: ctx.session!.user.roleName,
+      action: input.enabled ? AuditAction.ACTIVATE : AuditAction.DEACTIVATE,
+      entityType: AuditEntityType.TENANT,
+      entityId: ctx.tenantId,
+      entityName: "Feature Flag",
+      description: `${input.enabled ? "Enabled" : "Disabled"} feature: ${input.featureKey}`,
+      metadata: { featureKey: input.featureKey, expiresAt: input.expiresAt },
+      tenantId: ctx.tenantId,
+    })
+
+    return feature
+  }),
+
 
   // -------------------------------------------------------
   // 🌍 LOCALIZATION
   // -------------------------------------------------------
   getLocalizationSettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.localization.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -595,7 +615,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateLocalizationSettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.localization.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         timezone: z.string().optional(),
@@ -641,7 +661,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateSubdomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(z.object({ subdomain: z.string().min(3).max(63) }))
     .mutation(async ({ ctx, input }) => {
       const subdomain = input.subdomain.toLowerCase()
@@ -680,7 +700,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   addCustomDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(z.object({ domain: z.string().min(4) }))
     .mutation(async ({ ctx, input }) => {
       const domain = input.domain.toLowerCase()
@@ -723,7 +743,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   verifyCustomDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.verify))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .mutation(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -762,7 +782,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   removeCustomDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.domain.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .mutation(async ({ ctx }) => {
       const updated = await ctx.prisma.tenant.update({
         where: { id: ctx.tenantId },
@@ -793,55 +813,60 @@ export const tenantRouter = createTRPCRouter({
   // 📧 EMAIL TEMPLATES
   // -------------------------------------------------------
   listEmailTemplates: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.emailTemplate.findMany({
         where: { tenantId: ctx.tenantId },
-        orderBy: { category: "asc" },
+        orderBy: { createdAt: "desc" },
       })
 
       return templates
     }),
 
   createEmailTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.create))
-    .input(
-      z.object({
-        name: z.string(),
-        displayName: z.string(),
-        description: z.string().optional(),
-        category: z.string(),
-        subject: z.string(),
-        htmlBody: z.string(),
-        textBody: z.string().optional(),
-        variables: z.any().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const template = await ctx.prisma.emailTemplate.create({
-        data: {
-          tenantId: ctx.tenantId,
-          ...input,
-        },
-      })
-
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name!,
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.TENANT,
-        entityId: template.id,
-        entityName: "Email Template",
-        description: `Created email template: ${input.displayName}`,
+  .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.CREATE, PermissionScope.TENANT)))
+  .input(
+    z.object({
+      key: z.string(),                         // ex: "welcome_email"
+      name: z.string(),                        // human readable name
+      subject: z.string(),
+      body: z.string(),                        // HTML content
+      variables: z.any().optional(),
+      isActive: z.boolean().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const template = await ctx.prisma.emailTemplate.create({
+      data: {
         tenantId: ctx.tenantId,
-      })
+        key: input.key,
+        name: input.name,
+        subject: input.subject,
+        body: input.body,
+        variables: input.variables || undefined,
+        isActive: input.isActive ?? true,
+        createdBy: ctx.session!.user.id,
+      },
+    })
 
-      return template
-    }),
+    await createAuditLog({
+      userId: ctx.session!.user.id,
+      userName: ctx.session!.user.name!,
+      userRole: ctx.session!.user.roleName,
+      action: AuditAction.CREATE,
+      entityType: AuditEntityType.TENANT,
+      entityId: template.id,
+      entityName: "Email Template",
+      description: `Created email template: ${input.name}`,
+      tenantId: ctx.tenantId,
+    })
+
+    return template
+  }),
+
 
   updateEmailTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.update))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         id: z.string(),
@@ -872,7 +897,7 @@ export const tenantRouter = createTRPCRouter({
         entityType: AuditEntityType.TENANT,
         entityId: template.id,
         entityName: "Email Template",
-        description: `Updated email template: ${template.displayName}`,
+        description: `Updated email template: ${template.name}`,
         tenantId: ctx.tenantId,
       })
 
@@ -880,7 +905,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   deleteEmailTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.email.delete))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.DELETE, PermissionScope.TENANT)))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const template = await ctx.prisma.emailTemplate.delete({
@@ -898,7 +923,7 @@ export const tenantRouter = createTRPCRouter({
         entityType: AuditEntityType.TENANT,
         entityId: template.id,
         entityName: "Email Template",
-        description: `Deleted email template: ${template.displayName}`,
+        description: `Deleted email template: ${template.name}`,
         tenantId: ctx.tenantId,
       })
 
@@ -909,59 +934,65 @@ export const tenantRouter = createTRPCRouter({
   // 📄 PDF TEMPLATES
   // -------------------------------------------------------
   listPDFTemplates: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const templates = await ctx.prisma.pDFTemplate.findMany({
         where: { tenantId: ctx.tenantId },
-        orderBy: { type: "asc" },
+        orderBy: { createdAt: "desc" },
       })
 
       return templates
     }),
 
   createPDFTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.create))
-    .input(
-      z.object({
-        name: z.string(),
-        displayName: z.string(),
-        description: z.string().optional(),
-        type: z.string(),
-        template: z.string(),
-        headerHtml: z.string().optional(),
-        footerHtml: z.string().optional(),
-        pageSize: z.string().optional(),
-        orientation: z.string().optional(),
-      })
+  .use(
+    hasPermission(
+      buildPermissionKey(Resource.TENANT, Action.CREATE, PermissionScope.TENANT)
     )
-    .mutation(async ({ ctx, input }) => {
-      const template = await ctx.prisma.pDFTemplate.create({
-        data: {
-          tenantId: ctx.tenantId,
-          ...input,
-        },
-      })
-
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name!,
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.TENANT,
-        entityId: template.id,
-        entityName: "PDF Template",
-        description: `Created PDF template: ${input.displayName}`,
+  )
+  .input(
+    z.object({
+      key: z.string(),            // ex: "invoice_template"
+      name: z.string(),           // ex: "Invoice Template v1"
+      content: z.string(),        // HTML/template content
+      variables: z.any().optional(),
+      isActive: z.boolean().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const template = await ctx.prisma.pDFTemplate.create({
+      data: {
         tenantId: ctx.tenantId,
-      })
+        key: input.key,
+        name: input.name,
+        content: input.content,
+        variables: input.variables || undefined,
+        isActive: input.isActive ?? true,
+        createdBy: ctx.session!.user.id,
+      },
+    })
 
-      return template
-    }),
+    await createAuditLog({
+      userId: ctx.session!.user.id,
+      userName: ctx.session!.user.name!,
+      userRole: ctx.session!.user.roleName,
+      action: AuditAction.CREATE,
+      entityType: AuditEntityType.TENANT,
+      entityId: template.id,
+      entityName: "PDF Template",
+      description: `Created PDF template: ${input.name}`,
+      tenantId: ctx.tenantId,
+    })
+
+    return template
+  }),
+
 
   // -------------------------------------------------------
   // 🔒 SECURITY SETTINGS
   // -------------------------------------------------------
   getSecuritySettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.security.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const settings = await ctx.prisma.tenantSecuritySettings.findUnique({
         where: { tenantId: ctx.tenantId },
@@ -971,7 +1002,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateSecuritySettings: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.security.manage))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         minPasswordLength: z.number().optional(),
@@ -1017,47 +1048,52 @@ export const tenantRouter = createTRPCRouter({
   // 📤 DATA EXPORT
   // -------------------------------------------------------
   requestDataExport: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.data.export))
-    .input(
-      z.object({
-        exportType: z.enum(["full_export", "users_only", "contracts_only", "invoices_only", "financial_data"]),
-        exportFormat: z.enum(["json", "csv", "excel", "zip"]),
-        entities: z.array(z.string()).optional(),
-        dateRangeFrom: z.date().optional(),
-        dateRangeTo: z.date().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const exportRequest = await ctx.prisma.dataExport.create({
-        data: {
-          tenantId: ctx.tenantId,
-          requestedBy: ctx.session!.user.id,
-          ...input,
-          status: "pending",
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        },
-      })
-
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name!,
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.TENANT,
-        entityId: exportRequest.id,
-        entityName: "Data Export",
-        description: `Requested ${input.exportType} export`,
-        metadata: input,
+  .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.EXPORT, PermissionScope.TENANT)))
+  .input(
+    z.object({
+      exportType: z.enum([
+        "full_export",
+        "users_only",
+        "contracts_only",
+        "invoices_only",
+        "financial_data"
+      ]),
+      format: z.enum(["json", "csv", "xlsx", "pdf"]),  // <-- MATCH EXACT Prisma
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const exportRequest = await ctx.prisma.dataExport.create({
+      data: {
         tenantId: ctx.tenantId,
-      })
+        exportType: input.exportType,      // match Prisma
+        status: "pending",                 // match Prisma
+        format: input.format,              // match Prisma
+        fileUrl: null,
+        fileSize: null,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+        requestedBy: ctx.session!.user.id, // match Prisma
+      },
+    });
 
-      // TODO: Trigger background job to process export
+    await createAuditLog({
+      userId: ctx.session!.user.id,
+      userName: ctx.session!.user.name!,
+      userRole: ctx.session!.user.roleName,
+      action: AuditAction.CREATE,
+      entityType: AuditEntityType.TENANT,
+      entityId: exportRequest.id,
+      entityName: "Data Export",
+      description: `Requested ${input.exportType} export`,
+      metadata: input,
+      tenantId: ctx.tenantId,
+    });
 
-      return exportRequest
-    }),
+    return exportRequest;
+  }),
+
 
   getDataExports: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.data.export))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.EXPORT, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const exports = await ctx.prisma.dataExport.findMany({
         where: { tenantId: ctx.tenantId },
@@ -1069,7 +1105,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   downloadDataExport: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.data.export))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.EXPORT, PermissionScope.TENANT)))
     .input(z.object({ exportId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const exportData = await ctx.prisma.dataExport.findFirst({
@@ -1091,8 +1127,7 @@ export const tenantRouter = createTRPCRouter({
       await ctx.prisma.dataExport.update({
         where: { id: input.exportId },
         data: {
-          downloadCount: { increment: 1 },
-          lastDownloadAt: new Date(),
+ 
         },
       })
 
@@ -1140,8 +1175,9 @@ export const tenantRouter = createTRPCRouter({
   // -------------------------------------------------------
   // 🔐 SUPER ADMIN: IMPERSONATION
   // -------------------------------------------------------
+  /*
   impersonateTenant: protectedProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.superadmin.tenants.impersonate))
+    .use(hasPermission(buildPermissionKey(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL)))
     .input(
       z.object({
         tenantId: z.string(),
@@ -1214,13 +1250,13 @@ export const tenantRouter = createTRPCRouter({
       })
 
       return updated
-    }),
+    }),*/
 
   // -------------------------------------------------------
   // 📄 LEGAL DOCUMENTS (TERMS & PRIVACY)
   // -------------------------------------------------------
   getLegalDocuments: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.view))
+    .use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -1236,7 +1272,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateLegalDocuments: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         termsOfService: z.string().optional(),
@@ -1274,7 +1310,7 @@ export const tenantRouter = createTRPCRouter({
   // 🎨 LOGIN PAGE BRANDING
   // -------------------------------------------------------
   getLoginBranding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.view))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -1287,7 +1323,8 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateLoginBranding: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
+
     .input(
       z.object({
         backgroundImage: z.string().url().optional().nullable(),
@@ -1325,7 +1362,7 @@ export const tenantRouter = createTRPCRouter({
   // 🧭 NAVIGATION MENU CONFIG
   // -------------------------------------------------------
   getNavigationConfig: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.view))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.READ, PermissionScope.TENANT)))
     .query(async ({ ctx }) => {
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
@@ -1338,7 +1375,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   updateNavigationConfig: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(z.any()) // Accept any JSON structure for navigation config
     .mutation(async ({ ctx, input }) => {
       const updated = await ctx.prisma.tenant.update({
@@ -1367,7 +1404,7 @@ export const tenantRouter = createTRPCRouter({
   // 📧 EMAIL DOMAIN CONFIG
   // -------------------------------------------------------
   updateEmailDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         customEmailDomain: z.string().optional(),
@@ -1399,7 +1436,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   verifyEmailDomain: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.update))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .mutation(async ({ ctx }) => {
       // TODO: Implement actual DNS/email verification
       const updated = await ctx.prisma.tenant.update({
@@ -1428,7 +1465,7 @@ export const tenantRouter = createTRPCRouter({
   // 📝 PDF TEMPLATE UPDATE & DELETE
   // -------------------------------------------------------
   updatePDFTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.update))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT)))
     .input(
       z.object({
         id: z.string(),
@@ -1461,7 +1498,7 @@ export const tenantRouter = createTRPCRouter({
         entityType: AuditEntityType.TENANT,
         entityId: template.id,
         entityName: "PDF Template",
-        description: `Updated PDF template: ${template.displayName}`,
+        description: `Updated PDF template: ${template.name}`,
         tenantId: ctx.tenantId,
       })
 
@@ -1469,7 +1506,7 @@ export const tenantRouter = createTRPCRouter({
     }),
 
   deletePDFTemplate: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE_V2.tenant.templates.pdf.delete))
+.use(hasPermission(buildPermissionKey(Resource.TENANT, Action.DELETE, PermissionScope.TENANT)))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const template = await ctx.prisma.pDFTemplate.delete({
@@ -1487,7 +1524,7 @@ export const tenantRouter = createTRPCRouter({
         entityType: AuditEntityType.TENANT,
         entityId: template.id,
         entityName: "PDF Template",
-        description: `Deleted PDF template: ${template.displayName}`,
+        description: `Deleted PDF template: ${template.name}`,
         tenantId: ctx.tenantId,
       })
 
