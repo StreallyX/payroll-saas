@@ -47,14 +47,14 @@ class ServiceConfigManager {
         provider: 'upstash',
         mode: 'production',
       };
-      logger.info('✅ Redis Queue Service: Upstash Redis REST API configured');
+      /*logger.info('✅ Redis Queue Service: Upstash Redis REST API configured');*/
     } else if (redisHost || redisPort) {
       status = {
         enabled: true,
         provider: 'redis',
         mode: 'production',
       };
-      logger.info('✅ Redis Queue Service: Local Redis configured');
+      /*logger.info('✅ Redis Queue Service: Local Redis configured');*/
     } else {
       status = {
         enabled: false,
@@ -62,11 +62,11 @@ class ServiceConfigManager {
         mode: 'disabled',
         reason: 'No Redis or Upstash configuration found',
       };
-      logger.warn(
+      /*logger.warn(
         '⚠️  Redis Queue Service: DISABLED - Background jobs will not be processed. ' +
         'Configure UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for Upstash, ' +
         'or REDIS_HOST and REDIS_PORT for local Redis.'
-      );
+      );*/
     }
 
     this.serviceStatuses.set('redis', status);
@@ -90,28 +90,28 @@ class ServiceConfigManager {
         provider: 'resend',
         mode: 'production',
       };
-      logger.info('✅ Email Service: Resend configured');
+      /*logger.info('✅ Email Service: Resend configured');*/
     } else if (provider === 'sendgrid' && (sendgridKey || emailApiKey)) {
       status = {
         enabled: true,
         provider: 'sendgrid',
         mode: 'production',
       };
-      logger.info('✅ Email Service: SendGrid configured');
+      /*logger.info('✅ Email Service: SendGrid configured');*/
     } else if (provider === 'mailgun' && (mailgunKey || emailApiKey)) {
       status = {
         enabled: true,
         provider: 'mailgun',
         mode: 'production',
       };
-      logger.info('✅ Email Service: Mailgun configured');
+      /*logger.info('✅ Email Service: Mailgun configured');*/
     } else if (provider === 'smtp') {
       status = {
         enabled: true,
         provider: 'smtp',
         mode: 'production',
       };
-      logger.info('✅ Email Service: SMTP configured');
+      /*logger.info('✅ Email Service: SMTP configured');*/
     } else {
       status = {
         enabled: true,
@@ -119,10 +119,10 @@ class ServiceConfigManager {
         mode: 'mock',
         reason: `No valid email provider configured (provider: ${provider})`,
       };
-      logger.warn(
+      /*logger.warn(
         '⚠️  Email Service: MOCK MODE - Emails will be logged but not sent. ' +
         'Set EMAIL_PROVIDER=resend and RESEND_API_KEY to send real emails.'
-      );
+      );*/
     }
 
     this.serviceStatuses.set('email', status);
@@ -149,7 +149,7 @@ class ServiceConfigManager {
         provider: 'twilio',
         mode: 'production',
       };
-      logger.info('✅ SMS Service: Twilio configured');
+      /*logger.info('✅ SMS Service: Twilio configured');*/
     } else if (provider === 'twilio' && smsApiKey && smsApiSecret) {
       // Legacy support with warning
       status = {
@@ -157,24 +157,24 @@ class ServiceConfigManager {
         provider: 'twilio',
         mode: 'production',
       };
-      logger.warn(
+      /*logger.warn(
         '⚠️  SMS Service: Using legacy SMS_API_KEY/SMS_API_SECRET. ' +
         'Please migrate to TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER.'
-      );
+      );*/
     } else if (provider === 'vonage' && (smsApiKey || process.env.VONAGE_API_KEY)) {
       status = {
         enabled: true,
         provider: 'vonage',
         mode: 'production',
       };
-      logger.info('✅ SMS Service: Vonage configured');
+      /*logger.info('✅ SMS Service: Vonage configured');*/
     } else if (provider === 'aws-sns') {
       status = {
         enabled: true,
         provider: 'aws-sns',
         mode: 'production',
       };
-      logger.info('✅ SMS Service: AWS SNS configured');
+      /*logger.info('✅ SMS Service: AWS SNS configured');*/
     } else {
       status = {
         enabled: true,
@@ -182,11 +182,11 @@ class ServiceConfigManager {
         mode: 'mock',
         reason: `No valid SMS provider configured (provider: ${provider})`,
       };
-      logger.warn(
+      /*logger.warn(
         '⚠️  SMS Service: MOCK MODE - SMS will be logged but not sent. ' +
         'Set SMS_PROVIDER=twilio with TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, ' +
         'and TWILIO_PHONE_NUMBER to send real SMS.'
-      );
+      );*/
     }
 
     this.serviceStatuses.set('sms', status);
@@ -236,23 +236,23 @@ class ServiceConfigManager {
    * Print service configuration summary
    */
   printSummary(): void {
-    logger.info('='.repeat(60));
+    /*logger.info('='.repeat(60));
     logger.info('📋 External Services Configuration Summary');
-    logger.info('='.repeat(60));
+    logger.info('='.repeat(60));*/
     
     this.serviceStatuses.forEach((status, name) => {
       const emoji = status.mode === 'production' ? '✅' : status.mode === 'mock' ? '⚠️' : '❌';
       const modeText = status.mode.toUpperCase();
       const providerText = status.provider ? ` (${status.provider})` : '';
       
-      logger.info(`${emoji} ${name.toUpperCase()}: ${modeText}${providerText}`);
+      /*logger.info(`${emoji} ${name.toUpperCase()}: ${modeText}${providerText}`);*/
       
       if (status.reason) {
-        logger.info(`   ↳ ${status.reason}`);
+        /*logger.info(`   ↳ ${status.reason}`);*/
       }
     });
     
-    logger.info('='.repeat(60));
+    /*logger.info('='.repeat(60));*/
   }
 }
 
