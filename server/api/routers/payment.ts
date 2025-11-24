@@ -178,6 +178,7 @@ export const paymentRouter = createTRPCRouter({
 
   // ---------------------------------------------------------
   // UPDATE PAYMENT (tenant)
+  // Quand status passe à "completed" → crée automatiquement une Task pour le payroll provider
   // ---------------------------------------------------------
   update: tenantProcedure
     .use(
@@ -200,11 +201,34 @@ export const paymentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const old = await ctx.prisma.payment.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
+        include: {
+          invoice: {
+            include: {
+              contract: {
+                include: {
+                  participants: {
+                    where: { isActive: true },
+                    include: {
+                      user: { select: { id: true, name: true, email: true } }
+                    }
+                  },
+                  bank: true,
+                }
+              },
+              timesheets: {
+                include: {
+                  submitter: { select: { id: true, name: true, email: true } }
+                }
+              }
+            }
+          }
+        }
       })
 
       if (!old) throw new TRPCError({ code: "NOT_FOUND" })
 
-      return ctx.prisma.payment.update({
+      // Mettre à jour le paiement
+      const updatedPayment = await ctx.prisma.payment.update({
         where: { id: input.id },
         data: {
           ...input,
@@ -212,8 +236,72 @@ export const paymentRouter = createTRPCRouter({
             completedDate: new Date()
           }),
         },
-        include: { invoice: true, expense: true },
+        include: {
+          invoice: {
+            include: {
+              contract: {
+                include: {
+                  participants: {
+                    where: { isActive: true },
+                    include: {
+                      user: { select: { id: true, name: true, email: true } }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          expense: true
+        },
       })
+
+      // ✨ TRIGGER AUTOMATIQUE : Si status passe à "completed" → créer Task pour payroll provider
+      if (input.status === "completed" && old.status !== "completed") {
+        const contract = updatedPayment.invoice?.contract
+
+        if (contract) {
+          // Trouver le payroll provider
+          const payrollPartner = contract.participants.find(
+            p => p.role === "PAYROLL_PARTNER" && p.isActive
+          )
+
+          // Trouver le contractor
+          const contractor = contract.participants.find(
+            p => p.role === "CONTRACTOR" && p.isActive
+          )
+
+          if (payrollPartner && contractor) {
+            // Créer une Task pour le payroll provider
+            await ctx.prisma.task.create({
+              data: {
+                tenantId: ctx.tenantId,
+                title: `Payment Processing Required - ${contractor.user.name}`,
+                description: `Payment has been confirmed for invoice ${updatedPayment.invoice?.invoiceNumber ?? updatedPayment.invoiceId}.
+                
+**Action Required:** Process payroll and pay contractor.
+
+**Contractor:** ${contractor.user.name} (${contractor.user.email})
+**Amount:** ${updatedPayment.amount} ${updatedPayment.currency}
+**Payment Reference:** ${updatedPayment.referenceNumber ?? updatedPayment.transactionId ?? 'N/A'}
+**Contract ID:** ${contract.id}
+
+Please ensure the contractor receives payment according to their contract terms and local regulations.`,
+                assignedTo: payrollPartner.userId,
+                assignedBy: ctx.session.user.id,
+                priority: "high",
+                status: "pending",
+                dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+              },
+            })
+
+            console.log(`✅ Task created for payroll provider: ${payrollPartner.user.name} (Payment ${updatedPayment.id})`)
+          } else {
+            console.warn(`⚠️ No payroll partner or contractor found for contract ${contract.id}`)
+          }
+        }
+      }
+
+      return updatedPayment
     }),
 
 

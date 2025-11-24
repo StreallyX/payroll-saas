@@ -696,6 +696,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(
     Resource.INVOICE,
     Action.PAY,
+    PermissionScope.OWN,
+    "Payer ses factures",
+    "Marquer ses propres factures comme payées (pour les agences)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.PAY,
     PermissionScope.GLOBAL,
     "Marquer comme payée",
     "Marquer des factures comme payées",
@@ -732,9 +740,33 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(
     Resource.PAYMENT,
     Action.CREATE,
-    PermissionScope.GLOBAL,
+    PermissionScope.TENANT,
     "Créer des paiements",
     "Créer de nouveaux paiements",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYMENT,
+    Action.UPDATE,
+    PermissionScope.TENANT,
+    "Modifier les paiements",
+    "Mettre à jour des paiements (y compris confirmation)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYMENT,
+    Action.DELETE,
+    PermissionScope.TENANT,
+    "Supprimer des paiements",
+    "Supprimer des paiements non complétés",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYMENT,
+    Action.READ,
+    PermissionScope.TENANT,
+    "Voir les paiements",
+    "Consulter les paiements du tenant",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
