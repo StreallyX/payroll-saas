@@ -81,17 +81,18 @@ export const DEFAULT_ROLES = [
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ALL_PERMISSIONS.map((p) => p.key),
 
-  ADMIN: ALL_PERMISSIONS.filter(
-    (p) => p.action !== Action.IMPERSONATE
-  ).map((p) => p.key),
+  ADMIN: ALL_PERMISSIONS.map((p) => p.key),
 
   CONTRACTOR: [
+    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
     // USER PROFILE
+    buildPermissionKey(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
 
     // TIMESHEETS
+    buildPermissionKey(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.TIMESHEET, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.TIMESHEET, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.TIMESHEET, Action.CREATE, PermissionScope.OWN),
@@ -99,27 +100,32 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.TIMESHEET, Action.SUBMIT, PermissionScope.OWN),
 
     // EXPENSES
+    buildPermissionKey(Resource.EXPENSE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.EXPENSE, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.EXPENSE, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.OWN),
 
     // INVOICES
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.INVOICE, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
 
     // REMITTANCES
+    buildPermissionKey(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.REMITTANCE, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.REMITTANCE, Action.CREATE, PermissionScope.OWN),
 
     // PAYSLIPS
+    buildPermissionKey(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.PAYSLIP, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
 
     // REFERRALS
+    buildPermissionKey(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.REFERRAL, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.REFERRAL, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
@@ -127,29 +133,34 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
   PAYROLL: [
     // DASHBOARD
+    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
 
     // USER MANAGEMENT
+    buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
-
     buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
 
     // INVOICES (own scope)
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
 
     // INVOICES (global)
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.INVOICE, Action.DELETE, PermissionScope.GLOBAL),
 
     // REMITTANCE
+    buildPermissionKey(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
 
     // PAYSLIPS
+    buildPermissionKey(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
 
     buildPermissionKey(Resource.PAYSLIP, Action.CREATE, PermissionScope.GLOBAL),
@@ -157,47 +168,51 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.PAYSLIP, Action.UPDATE, PermissionScope.GLOBAL),
 
     // ROLE MANAGEMENT (own)
+    buildPermissionKey(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
 
     // CONTRACTS (own)
+    buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
   ],
 
   AGENCY: [
     // DASHBOARD
+    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
 
     // USER MANAGEMENT (own agency scope)
+    buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
 
-    // USER MANAGEMENT (global)
     buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
 
     // CONTRACTS (own)
+    buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.CONTRACT, Action.SIGN, PermissionScope.OWN),
     buildPermissionKey(Resource.CONTRACT, Action.UPDATE, PermissionScope.OWN),
 
     // INVOICES (own)
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
 
     // ROLES (own scope)
+    buildPermissionKey(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
   ],
-
-
 };
 
 // ====================================================================

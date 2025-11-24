@@ -215,8 +215,6 @@ function PaymentsPageContent() {
 // -------------------------------
 export default function PaymentsPage() {
   return (
-    <RouteGuard requiredPermission="payment.read.tenant">
-      <PaymentsPageContent />
-    </RouteGuard>
+    <PaymentsPageContent />
   );
 }

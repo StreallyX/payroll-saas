@@ -1,37 +1,11 @@
 /**
- * ====================================================================
- * RBAC PERMISSIONS v3 - Système Dynamique et Professionnel
- * ====================================================================
- * 
- * Architecture:
- * - Permissions basées sur resource.action.scope
- * - Totalement dynamique (ajout de permissions sans modifier le code)
- * - Permissions contextuelles avec ownership
- * - Types TypeScript stricts pour type-safety
- * 
- * Convention:
- * - resource: L'entité concernée (contract, invoice, user, etc.)
- * - action: L'opération (create, read, update, delete, approve, etc.)
- * - scope: Le contexte (global, own, team, tenant)
- * 
- * Exemples:
- * - "contract.create.global" → Créer n'importe quel contrat
- * - "contract.read.own" → Lire ses propres contrats
- * - "invoice.approve.team" → Approuver les factures de son équipe
- * ====================================================================
- */
-
-// ====================================================================
-// TYPES & ENUMS
-// ====================================================================
-
-/**
  * Scopes de permissions pour le contexte
  */
 export enum PermissionScope {
   GLOBAL = "global",   // Accès à toutes les ressources du tenant
   OWN = "own",        // Accès uniquement à ses propres ressources
   TENANT = "tenant",  // Accès au niveau tenant (équivalent à global pour certaines ressources)
+  PAGE = "page",
 }
 
 /**
@@ -68,6 +42,7 @@ export enum Resource {
   ONBOARDING_TEMPLATE = "onboarding_template",
   ONBOARDING_QUESTION = "onboarding_question",
   ONBOARDING_RESPONSE = "onboarding_response",
+  ONBOARDING = "onboarding",
 
   // Communication
   COMMENT = "comment",
@@ -95,6 +70,35 @@ export enum Resource {
   // Custom
   CUSTOM_FIELD = "custom_field",
   TAG = "tag",
+
+  //////////////////////////////////
+  // root pages
+  AGENCY_INVOICE = "agency_invoice",
+  CONSTRUCTION = "construction",
+  ONBOARDIN = "onboarding",
+  PROFILE = "profile",
+  SUPERADMIN = "superadmin",
+
+  // reports subpages
+  ACTIVITY_LOG = "activity_log",
+  EMAIL_LOG = "email_log",
+  SMS_LOG = "sms_log",
+  USER_ACTIVITY = "user_activity",
+
+  // settings subpages
+  BRANDING = "branding",
+  LOGIN = "login",
+  COUNTRY = "country",
+  CURRENCY = "currency",
+  LEGAL = "legal",
+
+  // superadmin subpages
+  ANALYTIC = "analytic",
+  IMPERSONATION = "impersonation",
+  FEATURE = "feature",
+  SUBSCRIPTION = "subscription",
+  TENANT_DETAIL = "tenant_detail",
+  SUPERADMIN_USER = "superadmin_user",
 }
 
 
@@ -107,6 +111,7 @@ export enum Action {
   READ = "read",
   UPDATE = "update",
   DELETE = "delete",
+  ACCESS = "access",
   
   // Liste et recherche
   LIST = "list",
@@ -1761,6 +1766,51 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Exporter les logs d'audit",
     PermissionCategory.ADMINISTRATION
   ),
+
+  createPermission(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
+  createPermission(Resource.AGENCY_INVOICE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
+  createPermission(Resource.CONSTRUCTION, Action.ACCESS, PermissionScope.PAGE, "Accéder à Construction"),
+  createPermission(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE, "Accéder à Contracts"),
+  createPermission(Resource.EXPENSE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Expenses"),
+  createPermission(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Invoices"),
+  createPermission(Resource.LEAD, Action.ACCESS, PermissionScope.PAGE, "Accéder à Leads"),
+  createPermission(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE, "Accéder à Onboarding"),
+  createPermission(Resource.PAYMENT, Action.ACCESS, PermissionScope.PAGE, "Accéder à Payments"),
+  createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Accéder à Payslips"),
+  createPermission(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Profile"),
+  createPermission(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE, "Accéder à Referrals"),
+  createPermission(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE, "Accéder à Reports"),
+  createPermission(Resource.SETTINGS, Action.ACCESS, PermissionScope.PAGE, "Accéder à Settings"),
+  createPermission(Resource.SUPERADMIN, Action.ACCESS, PermissionScope.PAGE, "Accéder à Superadmin"),
+  createPermission(Resource.TASK, Action.ACCESS, PermissionScope.PAGE, "Accéder à Tasks"),
+  createPermission(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE, "Accéder à Timesheets"),
+  createPermission(Resource.USER, Action.ACCESS, PermissionScope.PAGE, "Accéder à Users"),
+  createPermission(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Templates"),
+  createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Payslips de Payments"),
+  createPermission(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Remittances"),
+  createPermission(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Activity Logs"),
+  createPermission(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Email Logs"),
+  createPermission(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à SMS Logs"),
+  createPermission(Resource.USER_ACTIVITY, Action.ACCESS, PermissionScope.PAGE, "Accéder à User Activity"),
+  createPermission(Resource.BANK, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Banks"),
+  createPermission(Resource.BRANDING, Action.ACCESS, PermissionScope.PAGE, "Accéder à Branding"),
+  createPermission(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE, "Accéder à Branding Login"),
+  createPermission(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Companies"),
+  createPermission(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Countries"),
+  createPermission(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Currencies"),
+  createPermission(Resource.LEGAL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Legal"),
+  createPermission(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Permissions"),
+  createPermission(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Roles"),
+  createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant"),
+  createPermission(Resource.WEBHOOK, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Webhooks"),
+  createPermission(Resource.ANALYTIC, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Analytics"),
+  createPermission(Resource.IMPERSONATION, Action.ACCESS, PermissionScope.PAGE, "Accéder à Impersonations"),
+  createPermission(Resource.FEATURE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Features"),
+  createPermission(Resource.SUBSCRIPTION, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Subscriptions"),
+  createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Tenants"),
+  createPermission(Resource.TENANT_DETAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant Details"),
+  createPermission(Resource.SUPERADMIN_USER, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Superadmin Users"),
+
 ];
 
 // ====================================================================

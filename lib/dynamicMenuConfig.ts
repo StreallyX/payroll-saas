@@ -123,8 +123,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: LayoutDashboard,
     description: "Your dashboard",
     permissions: [
-      P(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
-      P(Resource.DASHBOARD, Action.READ, PermissionScope.GLOBAL),
+      P(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
     ]
   },
 
@@ -137,7 +136,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: UserCircle,
     description: "View your profile",
     permissions: [
-      P(Resource.USER, Action.READ, PermissionScope.OWN),
+      P(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
     ],
   },
 
@@ -149,8 +148,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/contracts",
     icon: FileText,
     permissions: [
-      P(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
-      P(Resource.CONTRACT, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     ],
   },
 
@@ -162,8 +160,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/timesheets",
     icon: Clock,
     permissions: [
-      P(Resource.TIMESHEET, Action.READ, PermissionScope.OWN),
-      P(Resource.TIMESHEET, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
     ],
   },
 
@@ -175,8 +172,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/invoices",
     icon: Receipt,
     permissions: [
-      P(Resource.INVOICE, Action.READ, PermissionScope.OWN),
-      P(Resource.INVOICE, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
     ],
   },
 
@@ -199,8 +195,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/payments/payslips",
     icon: FileText,
     permissions: [
-      P(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
-      P(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
     ]
   },
   {
@@ -208,8 +203,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/payments/remits",
     icon: DollarSign,
     permissions: [
-      P(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
-      P(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
     ]
   },
 
@@ -256,9 +250,9 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/onboarding",
     icon: ClipboardList,
     permissions: [
-      P(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
+      P(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE),
       P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE),
     ],
     submenu: [
       {
@@ -304,8 +298,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/referrals",
     icon: UserPlus,
     permissions: [
-      P(Resource.REFERRAL, Action.READ, PermissionScope.OWN),
-      P(Resource.REFERRAL, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE),
     ]
   },
 
@@ -317,8 +310,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/tasks",
     icon: CheckSquare,
     permissions: [
-      P(Resource.TASK, Action.READ, PermissionScope.OWN),
-      P(Resource.TASK, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
     ]
   },
 
@@ -330,7 +322,7 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/leads",
     icon: TrendingUp,
     permissions: [
-      P(Resource.LEAD, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.LEAD, Action.ACCESS, PermissionScope.PAGE),
     ]
   },
 
@@ -342,7 +334,10 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/reports",
     icon: BarChart3,
     permissions: [
-      P(Resource.REPORT, Action.READ, PermissionScope.GLOBAL),
+      P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE),
     ],
     submenu: [
       {
@@ -350,7 +345,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/reports",
         icon: BarChart3,
         permissions: [
-          P(Resource.REPORT, Action.READ, PermissionScope.GLOBAL),
+          P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -358,7 +353,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/reports/activity-logs",
         icon: Activity,
         permissions: [
-          P(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -366,7 +361,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/reports/email-logs",
         icon: Mail,
         permissions: [
-          P(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -374,7 +369,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/reports/sms-logs",
         icon: MessageSquare,
         permissions: [
-          P(Resource.AUDIT_LOG, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
     ]
@@ -388,11 +383,8 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/settings",
     icon: Settings,
     permissions: [
-      P(Resource.SETTINGS, Action.READ, PermissionScope.GLOBAL),
-      P(Resource.TENANT, Action.READ, PermissionScope.TENANT),
-      P(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.ROLE, Action.READ, PermissionScope.OWN),
-      P(Resource.USER, Action.READ, PermissionScope.OWN),
+      P(Resource.SETTINGS, Action.ACCESS, PermissionScope.PAGE),
+
     ],
     submenu: [
       {
@@ -400,8 +392,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/users",
         icon: Users,
         permissions: [
-          P(Resource.USER, Action.LIST, PermissionScope.GLOBAL),
-          P(Resource.USER, Action.READ, PermissionScope.OWN),
+          P(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -409,8 +400,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/roles",
         icon: UserCog,
         permissions: [
-          P(Resource.ROLE, Action.LIST, PermissionScope.GLOBAL),
-          P(Resource.ROLE, Action.READ, PermissionScope.OWN),
+          P(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -418,7 +408,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/permissions",
         icon: CheckSquare,
         permissions: [
-          P(Resource.PERMISSION, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -426,7 +416,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/companies",
         icon: Layers,
         permissions: [
-          P(Resource.COMPANY, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -434,7 +424,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/banks",
         icon: Landmark,
         permissions: [
-          P(Resource.BANK, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.BANK, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -442,7 +432,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/currencies",
         icon: Coins,
         permissions: [
-          P(Resource.SETTINGS, Action.READ, PermissionScope.GLOBAL),
+          P(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -450,7 +440,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/countries",
         icon: Globe,
         permissions: [
-          P(Resource.SETTINGS, Action.READ, PermissionScope.GLOBAL),
+          P(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -458,7 +448,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/branding/login",
         icon: Palette,
         permissions: [
-          P(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT),
+          P(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -466,7 +456,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/tenant",
         icon: Palette,
         permissions: [
-          P(Resource.TENANT, Action.UPDATE, PermissionScope.TENANT),
+          P(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE),
         ]
       },
       {
@@ -474,7 +464,7 @@ export const dynamicMenuConfig: MenuItem[] = [
         href: "/settings/webhooks",
         icon: Webhook,
         permissions: [
-          P(Resource.WEBHOOK, Action.LIST, PermissionScope.GLOBAL),
+          P(Resource.WEBHOOK, Action.ACCESS, PermissionScope.PAGE),
         ]
       }
     ]
