@@ -249,12 +249,13 @@ export default function ManageContractsPage() {
                     (p: any) => p.requiresSignature && !p.signedAt
                   );
 
-                  // Peut approuver si approver et pas encore signé
-                  const needsToApprove =
-                    isApprover &&
-                    (c.workflowStatus === "pending_approval" || c.status === "pending_approval");
+                  // 🔥 Doit approuver si approver ET pas encore approuvé (utilise le champ 'approved', pas 'signedAt')
+                  const needsToApprove = userParticipants.some(
+                    (p: any) => p.role === "approver" && !p.approved && 
+                    (c.workflowStatus === "pending_approval" || c.status === "pending_approval")
+                  );
 
-                  console.log("Is Approver : " + isApprover + " Needs to sign : " + needsToSign + "Actual role : " + roles.includes("approver"))
+                  console.log("Is Approver : " + isApprover + " Needs to sign : " + needsToSign + " Needs to approve : " + needsToApprove)
 
                   // Check if contract is in draft and user can upload main document
                   const canUploadMain = c.status === "draft" && (canUpdate || canCreate);
@@ -292,13 +293,27 @@ export default function ManageContractsPage() {
                             <div key={p.id} className="flex items-center gap-2">
                               <span className="font-medium text-sm">{p.user.name}</span>
                               <span className="text-xs text-gray-500">({p.role})</span>
+                              
+                              {/* 🔥 Badge d'approbation (pour les approvers uniquement) */}
+                              {p.role === "approver" && !p.approved && (
+                                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                                  ⏳ Approbation en attente
+                                </Badge>
+                              )}
+                              {p.role === "approver" && p.approved && (
+                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                  ✓ Approuvé
+                                </Badge>
+                              )}
+                              
+                              {/* 🔥 Badge de signature (pour les signataires uniquement) */}
                               {p.requiresSignature && !p.signedAt && (
                                 <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
                                   ⏳ Signature en attente
                                 </Badge>
                               )}
                               {p.signedAt && p.requiresSignature && (
-                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
                                   ✓ Signé
                                 </Badge>
                               )}

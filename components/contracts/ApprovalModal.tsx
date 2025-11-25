@@ -135,13 +135,25 @@ export function ApprovalModal({
                       <div>
                         <p className="font-medium">{p.user?.name || p.userId}</p>
                         <p className="text-xs text-muted-foreground">
-                          Rôle: {p.role} {p.requiresSignature && "• Signature requise"}
+                          Rôle: {p.role}
+                          {/* 🔥 Approvers APPROUVENT (approved), ils ne signent PAS */}
+                          {p.role === "approver" && " • Approbation requise"}
+                          {/* 🔥 Signataires SIGNENT (requiresSignature) */}
+                          {p.requiresSignature && p.role !== "approver" && " • Signature requise"}
                         </p>
                       </div>
-                      {p.signedAt && (
+                      {/* 🔥 Badge pour les approvers utilise 'approved' */}
+                      {p.role === "approver" && p.approved && (
                         <Badge className="bg-green-100 text-green-800">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
-                          {p.role === "approver" ? "Approuvé" : "Signé"}
+                          Approuvé
+                        </Badge>
+                      )}
+                      {/* 🔥 Badge pour les signataires utilise 'signedAt' */}
+                      {p.signedAt && p.role !== "approver" && (
+                        <Badge className="bg-blue-100 text-blue-800">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Signé
                         </Badge>
                       )}
                     </div>
