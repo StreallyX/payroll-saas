@@ -179,7 +179,7 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
         {
           userId: approver.userId,
           role: "approver",
-          requiresSignature: true,
+          requiresSignature: false, // 🔥 Les approvers APPROUVENT, ils ne signent JAMAIS
         },
         {
           userId: currentUserId,

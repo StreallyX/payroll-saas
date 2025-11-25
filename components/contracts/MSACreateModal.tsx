@@ -170,7 +170,7 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
         {
           userId: approverId,
           role: "approver",
-          requiresSignature: true,
+          requiresSignature: false, // 🔥 Les approvers APPROUVENT, ils ne signent JAMAIS
         },
         {
           userId: currentUserId,
