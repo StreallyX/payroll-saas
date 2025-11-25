@@ -233,11 +233,28 @@ export default function ManageContractsPage() {
                     : null;
 
                   // Determine user's role in this contract
-                  const userParticipant = c.participants.find((p: any) => p.userId === currentUserId);
-                  const isApprover = userParticipant?.role === "approver";
-                  const needsToSign = userParticipant?.requiresSignature && !userParticipant?.signedAt;
-                  const needsToApprove = isApprover && !userParticipant?.signedAt && 
-                    (c.status === "pending_approval" || c.workflowStatus === "pending_approval");
+                  // Plusieurs rôles possibles pour un même user dans un contrat
+                  const userParticipants = c.participants.filter(
+                    (p: any) => p.userId === currentUserId
+                  );
+
+                  // Tous les rôles du user dans ce contrat
+                  const roles = userParticipants.map((p: any) => p.role);
+
+                  // Approver si AU MOINS UN rôle = approver
+                  const isApprover = roles.includes("approver");
+
+                  // Doit signer si AU MOINS UN des participants exige signature
+                  const needsToSign = userParticipants.some(
+                    (p: any) => p.requiresSignature && !p.signedAt
+                  );
+
+                  // Peut approuver si approver et pas encore signé
+                  const needsToApprove =
+                    isApprover &&
+                    (c.workflowStatus === "pending_approval" || c.status === "pending_approval");
+
+                  console.log("Is Approver : " + isApprover + " Needs to sign : " + needsToSign + "Actual role : " + roles.includes("approver"))
 
                   // Check if contract is in draft and user can upload main document
                   const canUploadMain = c.status === "draft" && (canUpdate || canCreate);

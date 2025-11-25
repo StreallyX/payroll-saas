@@ -6,9 +6,11 @@ import { Construction } from "lucide-react";
 export function ContractCreateModal({
   open,
   onOpenChange,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onSuccess?: () => void; // ✅ AJOUT ICI
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
