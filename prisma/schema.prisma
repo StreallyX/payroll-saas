@@ -508,6 +508,9 @@ model ContractParticipant {
   // 🔥 Type de participant dans le contrat
   role       String   // "contractor", "agency", "payroll_partner", "client_admin", "approver"
   
+  // 🔥 Approbation (pour les approvers uniquement)
+  approved   Boolean   @default(false) // true quand l'approver valide le contrat
+  
   // Signature
   requiresSignature Boolean   @default(false)
   signedAt          DateTime?
