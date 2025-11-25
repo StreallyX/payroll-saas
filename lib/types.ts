@@ -34,6 +34,8 @@ export enum AuditAction {
   UPDATE = "UPDATE",
   DELETE = "DELETE",
   VIEW = "VIEW",
+  SIGN = "SIGN",
+  CANCEL = "CANCEL",
   
   // Specific Actions
   EXPORT = "EXPORT",

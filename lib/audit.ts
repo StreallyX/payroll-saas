@@ -68,6 +68,8 @@ function getActionVerb(action: AuditAction): string {
     [AuditAction.DELETE]: "deleted",
     [AuditAction.VIEW]: "viewed",
     [AuditAction.EXPORT]: "exported",
+    [AuditAction.SIGN]: "sign",
+    [AuditAction.CANCEL]: "cancel",
     [AuditAction.IMPORT]: "imported",
     [AuditAction.GENERATE]: "generated",
     [AuditAction.SEND]: "sent",

@@ -35,7 +35,7 @@ export const countryRouter = createTRPCRouter({
   // CREATE COUNTRY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   create: protectedProcedure
-    .use(hasPermission("superadmin.countries.create"))
+    .use(hasPermission("country.create.global"))
     .input(
       z.object({
         code: z.string().length(2, "Code must be 2 characters (e.g., US)"),

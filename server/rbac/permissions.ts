@@ -22,6 +22,9 @@ export enum Resource {
   CONTRACT = "contract",
   CONTRACT_PARTICIPANT = "contract_participant",
   COMPANY = "company",
+  CONTRACT_MSA = "contract_msa",
+  CONTRACT_SOW = "contract_sow",
+
 
   // Financial
   INVOICE = "invoice",
@@ -112,6 +115,7 @@ export enum Action {
   UPDATE = "update",
   DELETE = "delete",
   ACCESS = "access",
+  LINK = "link",
   
   // Liste et recherche
   LIST = "list",
@@ -617,6 +621,207 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.GLOBAL,
     "Exporter des contrats",
     "Exporter les données de contrats",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT,
+    Action.LINK,
+    PermissionScope.GLOBAL,
+    "Lier un SOW à un MSA",
+    "Créer ou rattacher un SOW à un contrat MSA",
+    PermissionCategory.BUSINESS
+  ),
+
+
+  // ================================================================
+  // CONTRACTS — MSA (Master Service Agreements)
+  // ================================================================
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir tous les MSA",
+    "Lister tous les Master Service Agreements",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir un MSA",
+    "Consulter les Master Service Agreements",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer un MSA",
+    "Créer un Master Service Agreement",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier un MSA",
+    "Mettre à jour un Master Service Agreement",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer un MSA",
+    "Supprimer un Master Service Agreement (non signé)",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.SEND,
+    PermissionScope.GLOBAL,
+    "Envoyer un MSA",
+    "Envoyer un Master Service Agreement pour signature",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.SIGN,
+    PermissionScope.GLOBAL, // pas OWN — signature par managers/clients
+    "Signer un MSA",
+    "Signer un Master Service Agreement",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.APPROVE,
+    PermissionScope.GLOBAL,
+    "Approuver un MSA",
+    "Approuver un Master Service Agreement",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.CANCEL,
+    PermissionScope.GLOBAL,
+    "Annuler un MSA",
+    "Annuler ou résilier un Master Service Agreement",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_MSA,
+    Action.EXPORT,
+    PermissionScope.GLOBAL,
+    "Exporter les MSA",
+    "Exporter la liste des Master Service Agreements",
+    PermissionCategory.BUSINESS
+  ),
+  // ================================================================
+  // CONTRACTS — SOW (Statement of Work)
+  // ================================================================
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir tous les SOW",
+    "Lister tous les Statements of Work",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir ses SOW",
+    "Consulter les SOW liés à mes contrats",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir tous les SOW",
+    "Consulter n'importe quel Statement of Work",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer un SOW",
+    "Créer un Statement of Work rattaché à un MSA",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.UPDATE,
+    PermissionScope.OWN,
+    "Modifier ses SOW",
+    "Mettre à jour ses propres SOW (draft uniquement)",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier tous les SOW",
+    "Mettre à jour n'importe quel Statement of Work",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer un SOW",
+    "Supprimer un Statement of Work (non signé)",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.SEND,
+    PermissionScope.GLOBAL,
+    "Envoyer un SOW",
+    "Envoyer un Statement of Work pour signature",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.SIGN,
+    PermissionScope.OWN,
+    "Signer un SOW",
+    "Signer un Statement of Work",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.APPROVE,
+    PermissionScope.GLOBAL,
+    "Approuver un SOW",
+    "Approuver un Statement of Work",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.CANCEL,
+    PermissionScope.GLOBAL,
+    "Annuler un SOW",
+    "Annuler ou résilier un Statement of Work",
+    PermissionCategory.BUSINESS
+  ),
+
+  createPermission(
+    Resource.CONTRACT_SOW,
+    Action.EXPORT,
+    PermissionScope.GLOBAL,
+    "Exporter les SOW",
+    "Exporter la liste des Statements of Work",
     PermissionCategory.BUSINESS
   ),
 

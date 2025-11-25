@@ -1,16 +1,32 @@
 "use client";
 
 import { useState, useMemo } from "react";
+
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Search, Plus, FileDown, Pencil, Trash2, FileText, Eye,
-  Calendar, TrendingUp, AlertTriangle
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Search,
+  Plus,
+  FileDown,
+  Pencil,
+  Trash2,
+  FileText,
+  Eye,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
+  Landmark,
 } from "lucide-react";
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { api } from "@/lib/trpc";
@@ -21,18 +37,22 @@ import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
 
 import { ContractViewModal } from "@/components/contracts/ContractView";
 import { ContractCreateModal } from "@/components/contracts/ContractCreateModal";
-import { ContractEditModal } from "@/components/contracts/ContractEditModal";
+import { ContractEdit } from "@/components/contracts/ContractEdit";
+import { CreateContractSelectorModal } from "@/components/contracts/CreateContractSelectorModal";
+import { MSACreateModal } from "@/components/contracts/MSACreateModal";
+import { SOWCreateModal } from "@/components/contracts/SOWCreateModal";
 
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
-
 export default function ManageContractsPage() {
+
+  // ------------------------------------
+  // Local State
+  // ------------------------------------
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Nouvelle gestion des modales
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editContract, setEditContract] = useState<any | null>(null);
 
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -40,9 +60,15 @@ export default function ManageContractsPage() {
 
   const [activeTab, setActiveTab] = useState("active");
 
-  // ------------------------------------------
-  // PERMISSIONS
-  // ------------------------------------------
+  // NEW — selector modal for creating contract
+  const [createSelectorOpen, setCreateSelectorOpen] = useState(false);
+  const [createMSAOpen, setCreateMSAOpen] = useState(false);
+  const [createSOWOpen, setCreateSOWOpen] = useState(false);
+  const [createClassicOpen, setCreateClassicOpen] = useState(false);
+
+  // ------------------------------------
+  // Permissions
+  // ------------------------------------
   const { data: session } = useSession();
   const permissions = session?.user?.permissions || [];
 
@@ -53,30 +79,37 @@ export default function ManageContractsPage() {
   const canDelete = permissions.includes("contract.delete.global");
   const canExport = permissions.includes("contract.export.global");
 
-  // ------------------------------------------
-  // API CALLS
-  // ------------------------------------------
-  const emptyQuery = {
-    data: [],
-    isLoading: false,
-    refetch: async () => {},
-  };
+  const canSeeMSA =
+    permissions.includes("contract_msa.list.global") ||
+    permissions.includes("contract_msa.read.own");
 
-  const contractQuery = canListAll
+  const canSeeSOW =
+    permissions.includes("contract_sow.list.global") ||
+    permissions.includes("contract_sow.read.own");
+
+  // ------------------------------------
+  // Queries
+  // ------------------------------------
+  const emptyQuery = { data: [], isLoading: false, refetch: async () => {} };
+
+  const baseQuery = canListAll
     ? api.contract.getAll.useQuery()
     : canReadOwn
     ? api.contract.getMyContracts.useQuery()
     : emptyQuery;
 
-  const { data: contracts = [], isLoading, refetch } = contractQuery;
+  const { data: rawContracts = [], isLoading, refetch } = baseQuery;
+
+  // Filter classic contracts
+  //const contracts = rawContracts.filter((c) => c.type === "contract");
 
   const { data: stats } = canListAll
     ? api.contract.getStats.useQuery()
-    : { data: { total: contracts?.length ?? 0 } };
+    : { data: { total: rawContracts.length } };
 
-  // ------------------------------------------
-  // DELETE
-  // ------------------------------------------
+  // ------------------------------------
+  // Delete
+  // ------------------------------------
   const deleteMutation = api.contract.delete.useMutation({
     onSuccess: () => {
       toast.success("Contrat supprimé");
@@ -90,9 +123,9 @@ export default function ManageContractsPage() {
     if (deleteId) deleteMutation.mutate({ id: deleteId });
   };
 
-  // ------------------------------------------
-  // CATEGORISATION
-  // ------------------------------------------
+  // ------------------------------------
+  // Categorisation
+  // ------------------------------------
   const categorizedContracts = useMemo(() => {
     const now = new Date();
     const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -101,16 +134,14 @@ export default function ManageContractsPage() {
     const expired: any[] = [];
     const expiringSoon: any[] = [];
 
-    contracts?.forEach((c) => {
+    rawContracts.forEach((c) => {
       const end = c.endDate ? new Date(c.endDate) : null;
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matches =
           c.title?.toLowerCase().includes(q) ||
-          c.participants.some((p) =>
-            p.user.name?.toLowerCase().includes(q)
-          );
+          c.participants.some((p) => p.user?.name?.toLowerCase().includes(q));
         if (!matches) return;
       }
 
@@ -121,19 +152,23 @@ export default function ManageContractsPage() {
     });
 
     return { active, expired, expiringSoon };
-  }, [contracts, searchQuery]);
+  }, [rawContracts, searchQuery]);
 
-  if (isLoading) return <LoadingState message="Chargement..." />;
+  if (isLoading) return <LoadingState message="Chargement des contrats..." />;
 
-  // ------------------------------------------
-  // TABLE COMPONENT
-  // ------------------------------------------
+  // ------------------------------------
+  // Table
+  // ------------------------------------
   const ContractTable = ({ contracts, emptyMessage }: any) => {
-    if (contracts.length === 0) {
+    if (!contracts.length) {
       return (
         <Card>
           <CardContent className="p-6">
-            <EmptyState icon={FileText} title="Aucun contrat" description={emptyMessage} />
+            <EmptyState
+              icon={FileText}
+              title="Aucun contrat"
+              description={emptyMessage}
+            />
           </CardContent>
         </Card>
       );
@@ -160,7 +195,7 @@ export default function ManageContractsPage() {
                 {contracts.map((c: any) => {
                   const end = c.endDate ? new Date(c.endDate) : null;
                   const days = end
-                    ? Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    ? Math.ceil((end.getTime() - Date.now()) / 86400000)
                     : null;
 
                   return (
@@ -171,8 +206,11 @@ export default function ManageContractsPage() {
                         <div className="flex flex-col gap-1">
                           {c.participants.map((p: any) => (
                             <div key={p.id}>
-                              <span className="font-medium">{p.user.name}</span>{" "}
-                              <span className="text-xs text-gray-500">({p.role})</span>
+                              <span className="font-medium">{p.user.name}</span>
+                              <span className="text-xs text-gray-500">
+                                {" "}
+                                ({p.role})
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -183,7 +221,9 @@ export default function ManageContractsPage() {
                       </TableCell>
 
                       <TableCell>
-                        {c.startDate ? new Date(c.startDate).toLocaleDateString("fr-FR") : "-"}
+                        {c.startDate
+                          ? new Date(c.startDate).toLocaleDateString("fr-FR")
+                          : "-"}
                       </TableCell>
 
                       <TableCell>
@@ -253,9 +293,9 @@ export default function ManageContractsPage() {
     );
   };
 
-  // ------------------------------------------
-  // PAGE UI
-  // ------------------------------------------
+  // ------------------------------------
+  // PAGE
+  // ------------------------------------
   return (
     <div className="space-y-6">
       <PageHeader
@@ -263,7 +303,7 @@ export default function ManageContractsPage() {
         description="Contrats multi-participants (contractor, client, approvers...)"
       />
 
-      {/* STATS */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Actifs" value={categorizedContracts.active.length} icon={TrendingUp} iconColor="text-green-600" />
         <StatsCard title="Bientôt expirés" value={categorizedContracts.expiringSoon.length} icon={AlertTriangle} iconColor="text-yellow-600" />
@@ -274,32 +314,36 @@ export default function ManageContractsPage() {
       {/* Action bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+
+            {/* Search */}
+            <div className="flex-1 relative w-full">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Rechercher..."
+                placeholder="Rechercher un contrat..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
 
+            {/* Buttons */}
             <div className="flex gap-2">
               {canExport && (
                 <Button variant="outline">
                   <FileDown className="mr-2 h-4 w-4" />
-                  Export
+                  Exporter
                 </Button>
               )}
 
               {canCreate && (
-                <Button onClick={() => setShowCreateModal(true)}>
+                <Button onClick={() => setCreateSelectorOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Nouveau Contrat
                 </Button>
               )}
             </div>
+
           </div>
         </CardContent>
       </Card>
@@ -308,31 +352,24 @@ export default function ManageContractsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="active">
-            Actifs
-            <Badge variant="secondary" className="ml-2">
-              {categorizedContracts.active.length}
-            </Badge>
+            Actifs <Badge className="ml-2">{categorizedContracts.active.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="expiring">
-            Bientôt expirés
-            <Badge variant="secondary" className="ml-2">
-              {categorizedContracts.expiringSoon.length}
-            </Badge>
+            Expirant <Badge className="ml-2">{categorizedContracts.expiringSoon.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="expired">
-            Expirés
-            <Badge variant="secondary" className="ml-2">
-              {categorizedContracts.expired.length}
-            </Badge>
+            Expirés <Badge className="ml-2">{categorizedContracts.expired.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="active">
           <ContractTable contracts={categorizedContracts.active} emptyMessage="Aucun contrat actif." />
         </TabsContent>
+
         <TabsContent value="expiring">
           <ContractTable contracts={categorizedContracts.expiringSoon} emptyMessage="Aucun contrat expire bientôt." />
         </TabsContent>
+
         <TabsContent value="expired">
           <ContractTable contracts={categorizedContracts.expired} emptyMessage="Aucun contrat expiré." />
         </TabsContent>
@@ -348,32 +385,64 @@ export default function ManageContractsPage() {
         isLoading={deleteMutation.isPending}
       />
 
-      {/* CREATE MODAL */}
-      <ContractCreateModal
-        open={showCreateModal}
-        onOpenChange={(o: boolean) => setShowCreateModal(o)}
-        onCreated={() => {
-          setShowCreateModal(false);
-          toast.success("Contrat créé");
+      {/* NEW — CONTRACT CREATION SELECTOR */}
+      <CreateContractSelectorModal
+        open={createSelectorOpen}
+        onOpenChange={setCreateSelectorOpen}
+        canCreateMSA={permissions.includes("contract_msa.create.global")}
+        canCreateSOW={permissions.includes("contract_sow.create.global")}
+        canCreateContract={permissions.includes("contract.create.global")}
+        onSelect={(type) => {
+          if (type === "msa") setCreateMSAOpen(true);
+          if (type === "sow") setCreateSOWOpen(true);
+          if (type === "contract") setCreateClassicOpen(true);
+        }}
+      />
+
+      {/* MSA modal — REAL MSA MODAL */}
+      <MSACreateModal
+        open={createMSAOpen}
+        onOpenChange={setCreateMSAOpen}
+        onSuccess={() => {
+          toast.success("MSA créé");
+          setCreateMSAOpen(false);
           refetch();
         }}
       />
 
-      {/* EDIT MODAL */}
-      <ContractEditModal
+      {/* SOW modal */}
+      <SOWCreateModal
+        open={createSOWOpen}
+        onOpenChange={setCreateSOWOpen}
+        onSuccess={() => {
+          toast.success("SOW créé");
+          setCreateSOWOpen(false);
+          refetch();
+        }}
+      />
+
+      {/* Classic Contract modal */}
+      <ContractCreateModal
+        open={createClassicOpen}
+        onOpenChange={setCreateClassicOpen}
+        onSuccess={() => {
+          toast.success("Contrat créé");
+          setCreateClassicOpen(false);
+          refetch();
+        }}
+      />
+
+      {/* Edit */}
+      <ContractEdit
         open={!!editContract}
-        onOpenChange={(o: boolean) => {
+        onOpenChange={(o) => {
           if (!o) setEditContract(null);
         }}
-        contract={editContract}
-        onUpdated={() => {
-          toast.success("Contrat mis à jour");
-          setEditContract(null);
-          refetch();
-        }}
+        contractId={editContract?.id || null}
       />
 
-      {/* VIEW MODAL */}
+
+      {/* View */}
       <ContractViewModal
         open={viewModalOpen}
         onOpenChange={(o) => {
@@ -382,6 +451,7 @@ export default function ManageContractsPage() {
         }}
         contractId={viewingContractId}
       />
+
     </div>
   );
 }

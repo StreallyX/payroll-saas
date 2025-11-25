@@ -345,6 +345,38 @@ export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
 }
 
 // ====================================================================
+// SEED DEFAULT CURRENCY + COUNTRY (CORRIGÉ)
+// ====================================================================
+
+async function seedBaseData(prisma: PrismaClient) {
+  console.log("🌍 Seed currency + country…");
+
+  // 1 currency de base → USD
+  await prisma.currency.upsert({
+    where: { code: "USD" },
+    update: {},
+    create: {
+      code: "USD",
+      name: "United States Dollar",
+      symbol: "$",
+    },
+  });
+
+  // 1 country de base → United States
+  await prisma.country.upsert({
+    where: { code: "US" },        // ✔ utilise TON champ "code"
+    update: {},
+    create: {
+      code: "US",
+      name: "United States",
+    },
+  });
+
+  console.log("✅ Base data OK !");
+}
+
+
+// ====================================================================
 // MAIN
 // ====================================================================
 
@@ -365,11 +397,18 @@ async function main() {
     });
   }
 
+  // Base data (CURRENCY + COUNTRY)
+  await seedBaseData(prisma);
+
+  // RBAC
   await seedRBAC(prisma, tenant.id);
+
+  // Test Users
   await seedTestUsers(prisma, tenant.id);
 
   console.log("✨ Seed terminé !");
 }
+
 
 main()
   .catch((err) => console.error("❌ ERREUR :", err))

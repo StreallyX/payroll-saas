@@ -400,11 +400,18 @@ model CompanyUser {
 }
 
 // ====
-// CONTRACT (Architecture flexible multi-parties)
+// CONTRACT (Architecture flexible multi-parties + MSA/SOW ready)
 // ====
 model Contract {
   id       String @id @default(cuid())
   tenantId String
+
+  // 🔥 NEW — MSA / SOW system
+  type      String   @default("sow")   // "msa" | "sow"
+  parentId  String?                    // null si MSA, sinon id du parent MSA
+
+  parent    Contract?   @relation("ContractParent", fields: [parentId], references: [id])
+  children  Contract[]  @relation("ContractParent")
 
   companyId String?
 
@@ -443,6 +450,26 @@ model Contract {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ============================
+  // MSA: Financial settings
+  // ============================
+  feePayer                String?
+  payrollModes            String[]       @default([])
+  extraFees               String[]       @default([])
+
+  requireDeposit          Boolean?       @default(false)
+  proofOfPayment          Boolean?       @default(false)
+  selfBilling             Boolean?       @default(false)
+
+  timesheetPolicy         String?
+
+  // ============================
+  // MSA: Client portal permissions
+  // ============================
+  portalCanViewWorkers        Boolean?   @default(true)
+  portalCanUploadSelfBill     Boolean?   @default(true)
+  portalCanUploadPaymentProof Boolean?   @default(true)
+
   tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   company          Company? @relation(fields: [companyId], references: [id])
   currency         Currency? @relation(fields: [currencyId], references: [id])
@@ -465,8 +492,11 @@ model Contract {
   @@index([assignedTo])
   @@index([status])
   @@index([workflowStatus])
+  @@index([type])
+  @@index([parentId])
   @@map("contracts")
 }
+
 
 // 🔥 NEW: Table de jonction pour gérer les multiples parties d'un contrat
 // Architecture inspirée de Deel pour gérer contractor, agency, payroll partner, client, etc.
