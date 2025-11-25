@@ -1,79 +1,96 @@
 import { z } from "zod"
+import { TRPCError } from "@trpc/server"
+
 import {
   createTRPCRouter,
   tenantProcedure,
   hasPermission,
+  hasAnyPermission,
 } from "../trpc"
+
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+
+const P = {
+  LIST_GLOBAL: "bank.list.global",
+  LIST_OWN: "bank.list.own",
+
+  CREATE_GLOBAL: "bank.create.global",
+  CREATE_OWN: "bank.create.own",
+
+  UPDATE_GLOBAL: "bank.update.global",
+  UPDATE_OWN: "bank.update.own",
+
+  DELETE_GLOBAL: "bank.delete.global",
+  DELETE_OWN: "bank.delete.own",
+}
 
 export const bankRouter = createTRPCRouter({
 
   // -------------------------------------------------------
-  // GET ALL BANKS — GLOBAL
+  // GET ALL BANKS — GLOBAL or OWN
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission("bank.list.global"))
+    .use(hasAnyPermission([P.LIST_GLOBAL, P.LIST_OWN]))
     .query(async ({ ctx }) => {
-      return ctx.prisma.bank.findMany({
-        where: { tenantId: ctx.tenantId },
-        orderBy: { createdAt: "desc" },
-      })
-    }),
+      const tenantId = ctx.tenantId!
+      const user = ctx.session.user
 
-  // -------------------------------------------------------
-  // GET BANKS CREATED BY CURRENT USER — OWN
-  // -------------------------------------------------------
-  getMine: tenantProcedure
-    .use(hasPermission("banks.read.own"))
-    .query(async ({ ctx }) => {
-      const userId = ctx.session!.user.id
+      const canGlobal = user.permissions.includes(P.LIST_GLOBAL)
 
+      if (canGlobal) {
+        return ctx.prisma.bank.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: "desc" },
+        })
+      }
+
+      // Own scope: only banks created by the user
       return ctx.prisma.bank.findMany({
         where: {
-          tenantId: ctx.tenantId,
-          createdBy: userId,
+          tenantId,
+          createdBy: user.id,
         },
         orderBy: { createdAt: "desc" },
       })
     }),
 
+
   // -------------------------------------------------------
-  // GET ONE BANK (GLOBAL or OWN)
+  // GET ONE BANK — GLOBAL or OWN
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission("banks.read.global"))
+    .use(hasAnyPermission([P.LIST_GLOBAL, P.LIST_OWN]))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const userId = ctx.session!.user.id
+      const tenantId = ctx.tenantId!
+      const user = ctx.session.user
 
       const bank = await ctx.prisma.bank.findFirst({
-        where: {
-          id: input.id,
-          tenantId: ctx.tenantId,
-        },
+        where: { id: input.id, tenantId },
       })
 
       if (!bank) return null
 
-      // Own-scope → Interdit de voir si pas créateur
-      const canSeeGlobal = ctx.session!.user.hasPermission("banks.read.global")
+      const canGlobal = user.permissions.includes(P.LIST_GLOBAL)
+      const canOwn = user.permissions.includes(P.LIST_OWN)
 
-      if (!canSeeGlobal && bank.createdBy !== userId) {
-        throw new Error("You do not have access to this bank")
-      }
+      if (canGlobal) return bank
 
-      return bank
+      if (canOwn && bank.createdBy === user.id) return bank
+
+      throw new TRPCError({ code: "UNAUTHORIZED" })
     }),
 
+
   // -------------------------------------------------------
-  // CREATE BANK
+  // CREATE BANK — GLOBAL or OWN
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission("banks.create.global"))
+    .use(hasAnyPermission([P.CREATE_GLOBAL, P.CREATE_OWN]))
     .input(
       z.object({
-        name: z.string().min(1, "Bank name is required"),
+        name: z.string().min(1),
         accountNumber: z.string().optional(),
         swiftCode: z.string().optional(),
         iban: z.string().optional(),
@@ -82,38 +99,37 @@ export const bankRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-
       const tenantId = ctx.tenantId!
-      const userId = ctx.session!.user.id
+      const user = ctx.session.user
 
       const bank = await ctx.prisma.bank.create({
         data: {
           ...input,
           tenantId,
-          createdBy: userId,
+          createdBy: user.id,
         },
       })
 
       await createAuditLog({
         tenantId,
-        userId,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
+        userId: user.id,
+        userName: user.name ?? "Unknown",
+        userRole: user.roleName,
         action: AuditAction.CREATE,
         entityType: AuditEntityType.BANK,
         entityId: bank.id,
         entityName: bank.name,
-        description: `Created bank ${bank.name}`,
       })
 
       return bank
     }),
 
+
   // -------------------------------------------------------
-  // UPDATE BANK
+  // UPDATE BANK — GLOBAL or OWN
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission("banks.update.global"))
+    .use(hasAnyPermission([P.UPDATE_GLOBAL, P.UPDATE_OWN]))
     .input(
       z.object({
         id: z.string(),
@@ -126,15 +142,22 @@ export const bankRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-
-      const { id, ...data } = input
       const tenantId = ctx.tenantId!
+      const user = ctx.session.user
+      const { id, ...data } = input
 
       const existing = await ctx.prisma.bank.findFirst({
         where: { id, tenantId },
       })
 
-      if (!existing) throw new Error("Bank not found in tenant")
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" })
+
+      const canGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
+      const canOwn = user.permissions.includes(P.UPDATE_OWN)
+
+      if (!canGlobal && !(canOwn && existing.createdBy === user.id)) {
+        throw new TRPCError({ code: "UNAUTHORIZED" })
+      }
 
       const bank = await ctx.prisma.bank.update({
         where: { id },
@@ -143,34 +166,41 @@ export const bankRouter = createTRPCRouter({
 
       await createAuditLog({
         tenantId,
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
+        userId: user.id,
+        userName: user.name ?? "Unknown",
+        userRole: user.roleName,
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.BANK,
         entityId: bank.id,
         entityName: bank.name,
-        description: `Updated bank ${bank.name}`,
       })
 
       return bank
     }),
 
+
   // -------------------------------------------------------
-  // DELETE BANK
+  // DELETE BANK — GLOBAL or OWN
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission("banks.delete.global"))
+    .use(hasAnyPermission([P.DELETE_GLOBAL, P.DELETE_OWN]))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-
       const tenantId = ctx.tenantId!
+      const user = ctx.session.user
 
-      const bank = await ctx.prisma.bank.findFirst({
+      const existing = await ctx.prisma.bank.findFirst({
         where: { id: input.id, tenantId },
       })
 
-      if (!bank) throw new Error("Bank not found in tenant")
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" })
+
+      const canGlobal = user.permissions.includes(P.DELETE_GLOBAL)
+      const canOwn = user.permissions.includes(P.DELETE_OWN)
+
+      if (!canGlobal && !(canOwn && existing.createdBy === user.id)) {
+        throw new TRPCError({ code: "UNAUTHORIZED" })
+      }
 
       await ctx.prisma.bank.delete({
         where: { id: input.id },
@@ -178,16 +208,34 @@ export const bankRouter = createTRPCRouter({
 
       await createAuditLog({
         tenantId,
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
+        userId: user.id,
+        userName: user.name ?? "Unknown",
+        userRole: user.roleName,
         action: AuditAction.DELETE,
         entityType: AuditEntityType.BANK,
-        entityId: bank.id,
-        entityName: bank.name,
-        description: `Deleted bank ${bank.name}`,
+        entityId: input.id,
+        entityName: existing.name,
       })
 
       return { success: true }
     }),
+
+    // -------------------------------------------------------
+    // GET BANKS CREATED BY CURRENT USER — OWN ONLY
+    // -------------------------------------------------------
+    getMine: tenantProcedure
+      .use(hasPermission(P.LIST_OWN))
+      .query(async ({ ctx }) => {
+        const tenantId = ctx.tenantId!
+        const userId = ctx.session.user.id
+
+        return ctx.prisma.bank.findMany({
+          where: {
+            tenantId,
+            createdBy: userId,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      }),
+
 })

@@ -454,38 +454,79 @@ export const ALL_PERMISSIONS: Permission[] = [
   // ================================================================
   // COMPANIES (Clients)
   // ================================================================
+
+  // -------- LIST --------
   createPermission(
     Resource.COMPANY,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les entreprises",
-    "Lister toutes les entreprises clientes",
+    "Voir toutes les entreprises",
+    "Lister toutes les entreprises du tenant",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.COMPANY,
+    Action.LIST,
+    PermissionScope.OWN,
+    "Voir ses entreprises",
+    "Lister uniquement les entreprises appartenant à l'utilisateur",
+    PermissionCategory.BUSINESS
+  ),
+
+  // -------- CREATE --------
+  createPermission(
+    Resource.COMPANY,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer des entreprises (global)",
+    "Créer des entreprises appartenant au tenant",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.CREATE,
+    PermissionScope.OWN,
+    "Créer ses propres entreprises",
+    "Créer des entreprises appartenant à l'utilisateur",
+    PermissionCategory.BUSINESS
+  ),
+
+  // -------- UPDATE --------
+  createPermission(
+    Resource.COMPANY,
+    Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Créer des entreprises",
-    "Ajouter de nouvelles entreprises",
+    "Modifier toutes les entreprises",
+    "Mettre à jour n'importe quelle entreprise du tenant",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.UPDATE,
+    PermissionScope.OWN,
+    "Modifier ses entreprises",
+    "Mettre à jour uniquement les entreprises appartenant à l'utilisateur",
+    PermissionCategory.BUSINESS
+  ),
+
+  // -------- DELETE --------
+  createPermission(
+    Resource.COMPANY,
+    Action.DELETE,
     PermissionScope.GLOBAL,
-    "Modifier les entreprises",
-    "Mettre à jour les informations des entreprises",
+    "Supprimer des entreprises (global)",
+    "Supprimer n'importe quelle entreprise du tenant",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.DELETE,
-    PermissionScope.GLOBAL,
-    "Supprimer des entreprises",
-    "Supprimer des entreprises",
+    PermissionScope.OWN,
+    "Supprimer ses entreprises",
+    "Supprimer uniquement les entreprises appartenant à l'utilisateur",
     PermissionCategory.BUSINESS
   ),
+
 
   // ================================================================
   // CONTRACTS
@@ -1437,40 +1478,74 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Mettre à jour les workflows",
     PermissionCategory.ADMINISTRATION
   ),
-
   // ================================================================
-  // BANKS
+  // BANKS (Global + Own)
   // ================================================================
   createPermission(
     Resource.BANK,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les banques",
-    "Lister toutes les banques",
+    "Voir toutes les banques",
+    "Lister toutes les banques du tenant",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.BANK,
+    Action.LIST,
+    PermissionScope.OWN,
+    "Voir mes banques",
+    "Lister uniquement les banques créées par l'utilisateur",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  createPermission(
+    Resource.BANK,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer des banques (global)",
+    "Ajouter des banques visibles par tout le tenant",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.BANK,
     Action.CREATE,
+    PermissionScope.OWN,
+    "Créer des banques (own)",
+    "Ajouter des banques personnelles",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  createPermission(
+    Resource.BANK,
+    Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Créer des banques",
-    "Ajouter de nouvelles banques",
+    "Modifier des banques (global)",
+    "Mettre à jour toutes les banques",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.BANK,
     Action.UPDATE,
+    PermissionScope.OWN,
+    "Modifier mes banques",
+    "Mettre à jour uniquement les banques créées par l'utilisateur",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  createPermission(
+    Resource.BANK,
+    Action.DELETE,
     PermissionScope.GLOBAL,
-    "Modifier les banques",
-    "Mettre à jour les informations bancaires",
+    "Supprimer des banques (global)",
+    "Supprimer n'importe quelle banque",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.BANK,
     Action.DELETE,
-    PermissionScope.GLOBAL,
-    "Supprimer des banques",
-    "Supprimer des banques",
+    PermissionScope.OWN,
+    "Supprimer mes banques",
+    "Supprimer uniquement les banques créées par l'utilisateur",
     PermissionCategory.ADMINISTRATION
   ),
 

@@ -1,359 +1,522 @@
+"use client";
 
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-"use client"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { api } from "@/lib/trpc"
-import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/trpc";
+import { toast } from "sonner";
+import { Loader2, Landmark, Plus } from "lucide-react";
 
-type CompanyModalProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  company?: any
-  onSuccess?: () => void
+// ===========================================================
+// TYPES — IMPORTANT : UNIQUEMENT string | undefined
+// (compatibilité totale avec Zod + Prisma)
+// ===========================================================
+type CompanyFormValues = {
+  name: string;
+  bankId?: string;
+
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+
+  officeBuilding?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  countryId?: string;
+  state?: string;
+  postCode?: string;
+
+  invoicingContactName?: string;
+  invoicingContactPhone?: string;
+  invoicingContactEmail?: string;
+  alternateInvoicingEmail?: string;
+  vatNumber?: string;
+  website?: string;
+
+  status: "active" | "inactive";
+};
+
+// ===========================================================
+// SANITIZER — convertit "" en undefined
+// ===========================================================
+function sanitizeForm(form: CompanyFormValues): CompanyFormValues {
+  const cleaned: any = {};
+
+  for (const [key, value] of Object.entries(form)) {
+    cleaned[key] = value === "" ? undefined : value;
+  }
+
+  return cleaned as CompanyFormValues;
 }
 
-export function CompanyModal({ open, onOpenChange, company, onSuccess }: CompanyModalProps) {
-  const [formData, setFormData] = useState({
-    name: company?.name || "",
-    contactPerson: company?.contactPerson || "",
-    contactEmail: company?.contactEmail || "",
-    contactPhone: company?.contactPhone || "",
-    officeBuilding: company?.officeBuilding || "",
-    address1: company?.address1 || "",
-    address2: company?.address2 || "",
-    city: company?.city || "",
-    countryId: company?.countryId || "",
-    state: company?.state || "",
-    postCode: company?.postCode || "",
-    invoicingContactName: company?.invoicingContactName || "",
-    invoicingContactPhone: company?.invoicingContactPhone || "",
-    invoicingContactEmail: company?.invoicingContactEmail || "",
-    alternateInvoicingEmail: company?.alternateInvoicingEmail || "",
-    vatNumber: company?.vatNumber || "",
-    website: company?.website || "",
-    status: company?.status || "active"
-  })
+// ===========================================================
+// PROPS
+// ===========================================================
+type CompanyModalProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  company?: any;
+  onSuccess?: () => void;
+};
 
-  const utils = api.useUtils()
-  const { data: countries = [] } = api.country.getAll.useQuery()
+// ===========================================================
+// COMPONENT
+// ===========================================================
+export function CompanyModal({
+  open,
+  onOpenChange,
+  company,
+  onSuccess,
+}: CompanyModalProps) {
+  // --------------------------------------------------------
+  // INITIAL STATE
+  // --------------------------------------------------------
+  const initialState: CompanyFormValues = {
+    name: "",
+    bankId: undefined,
 
+    contactPerson: undefined,
+    contactEmail: undefined,
+    contactPhone: undefined,
+
+    officeBuilding: undefined,
+    address1: undefined,
+    address2: undefined,
+    city: undefined,
+    countryId: undefined,
+    state: undefined,
+    postCode: undefined,
+
+    invoicingContactName: undefined,
+    invoicingContactPhone: undefined,
+    invoicingContactEmail: undefined,
+    alternateInvoicingEmail: undefined,
+    vatNumber: undefined,
+    website: undefined,
+
+    status: "active",
+  };
+
+  const [formData, setFormData] = useState<CompanyFormValues>(initialState);
+
+  const utils = api.useUtils();
+  const router = useRouter();
+
+  const { data: countries = [] } = api.country.getAll.useQuery();
+  const { data: banks = [] } = api.bank.getAll.useQuery();
+
+  // --------------------------------------------------------
+  // REDIRECT TO BANKS
+  // --------------------------------------------------------
+  const redirectToBankSettings = () => {
+    onOpenChange(false);
+    router.push("/settings/banks");
+  };
+
+  // --------------------------------------------------------
+  // MUTATIONS
+  // --------------------------------------------------------
   const createMutation = api.company.create.useMutation({
     onSuccess: () => {
-      toast.success("Organization created successfully!")
-      utils.company.getAll.invalidate()
-      onOpenChange(false)
-      onSuccess?.()
-      resetForm()
+      toast.success("Company created!");
+      utils.company.getAll.invalidate();
+      onSuccess?.();
+      onOpenChange(false);
+      setFormData(initialState);
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Failed to create organization")
-    }
-  })
+    onError: (err) => toast.error(err.message || "Failed to create company"),
+  });
 
   const updateMutation = api.company.update.useMutation({
     onSuccess: () => {
-      toast.success("Organization updated successfully!")
-      utils.company.getAll.invalidate()
-      onOpenChange(false)
-      onSuccess?.()
+      toast.success("Company updated!");
+      utils.company.getAll.invalidate();
+      onSuccess?.();
+      onOpenChange(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Failed to update organization")
-    }
-  })
+    onError: (err) => toast.error(err.message || "Failed to update company"),
+  });
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      contactPerson: "",
-      contactEmail: "",
-      contactPhone: "",
-      officeBuilding: "",
-      address1: "",
-      address2: "",
-      city: "",
-      countryId: "",
-      state: "",
-      postCode: "",
-      invoicingContactName: "",
-      invoicingContactPhone: "",
-      invoicingContactEmail: "",
-      alternateInvoicingEmail: "",
-      vatNumber: "",
-      website: "",
-      status: "active"
-    })
-  }
+  const isLoading = createMutation.isPending || updateMutation.isPending;
 
+  // --------------------------------------------------------
+  // PREFILL WHEN EDITING
+  // --------------------------------------------------------
   useEffect(() => {
     if (company) {
       setFormData({
-        name: company.name || "",
-        contactPerson: company.contactPerson || "",
-        contactEmail: company.contactEmail || "",
-        contactPhone: company.contactPhone || "",
-        officeBuilding: company.officeBuilding || "",
-        address1: company.address1 || "",
-        address2: company.address2 || "",
-        city: company.city || "",
-        countryId: company.countryId || "",
-        state: company.state || "",
-        postCode: company.postCode || "",
-        invoicingContactName: company.invoicingContactName || "",
-        invoicingContactPhone: company.invoicingContactPhone || "",
-        invoicingContactEmail: company.invoicingContactEmail || "",
-        alternateInvoicingEmail: company.alternateInvoicingEmail || "",
-        vatNumber: company.vatNumber || "",
-        website: company.website || "",
-        status: company.status || "active"
-      })
-    }
-  }, [company])
+        name: company.name ?? "",
+        bankId: company.bankId ?? undefined,
 
+        contactPerson: company.contactPerson ?? undefined,
+        contactEmail: company.contactEmail ?? undefined,
+        contactPhone: company.contactPhone ?? undefined,
+
+        officeBuilding: company.officeBuilding ?? undefined,
+        address1: company.address1 ?? undefined,
+        address2: company.address2 ?? undefined,
+        city: company.city ?? undefined,
+        countryId: company.countryId ?? undefined,
+        state: company.state ?? undefined,
+        postCode: company.postCode ?? undefined,
+
+        invoicingContactName: company.invoicingContactName ?? undefined,
+        invoicingContactPhone: company.invoicingContactPhone ?? undefined,
+        invoicingContactEmail: company.invoicingContactEmail ?? undefined,
+        alternateInvoicingEmail: company.alternateInvoicingEmail ?? undefined,
+        vatNumber: company.vatNumber ?? undefined,
+        website: company.website ?? undefined,
+
+        status: (company.status as "active" | "inactive") ?? "active",
+      });
+    } else {
+      setFormData(initialState);
+    }
+  }, [company, open]);
+
+  // --------------------------------------------------------
+  // SUBMIT
+  // --------------------------------------------------------
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+
+    const sanitized = sanitizeForm(formData);
 
     if (company) {
-      updateMutation.mutate({ id: company.id, ...formData })
+      updateMutation.mutate({ id: company.id, ...sanitized });
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(sanitized);
     }
-  }
+  };
 
-  const isLoading = createMutation.isPending || updateMutation.isPending
-
+  // --------------------------------------------------------
+  // UI
+  // --------------------------------------------------------
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{company ? "Edit Organization" : "Add Organization"}</DialogTitle>
-          <DialogDescription>
-            {company ? "Update organization information." : "Fill in the details to add a new organization."}
-          </DialogDescription>
+          <DialogTitle>{company ? "Edit Company" : "Add Company"}</DialogTitle>
+          <DialogDescription>Fill the company details below.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-900">Basic Information</h3>
-            
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* BASIC INFORMATION */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Basic Information</h3>
+
+            <InputBlock
+              label="Name *"
+              value={formData.name}
+              onChange={(v) => setFormData({ ...formData, name: v })}
+            />
+
+            {/* BANK SELECT */}
             <div className="space-y-2">
-              <Label htmlFor="name">Organization Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Organization Name"
-                required
-              />
-            </div>
+              <Label>Bank</Label>
+              <Select
+                value={formData.bankId ?? ""}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, bankId: value || undefined })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select bank" />
+                </SelectTrigger>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contactPerson">Contact Person</Label>
-                <Input
-                  id="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  placeholder="Name"
-                />
-              </div>
+                <SelectContent>
+                  {banks.length === 0 && (
+                    <div className="px-2 py-2">
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          redirectToBankSettings();
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Bank
+                      </Button>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact Email</Label>
-                <Input
-                  id="contactEmail"
-                  type="email"
-                  value={formData.contactEmail}
-                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                  placeholder="Email"
-                />
-              </div>
+                  {banks.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      <div className="flex items-center gap-2">
+                        <Landmark className="h-4 w-4 text-gray-500" />
+                        {b.name}
+                      </div>
+                    </SelectItem>
+                  ))}
 
-              <div className="space-y-2">
-                <Label htmlFor="contactPhone">Contact Phone</Label>
-                <Input
-                  id="contactPhone"
-                  value={formData.contactPhone}
-                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                  placeholder="Phone Number"
-                />
-              </div>
+                  {banks.length > 0 && (
+                    <div className="border-t mt-2 px-2 py-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          redirectToBankSettings();
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create New Bank
+                      </Button>
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-900">Address Details</h3>
-            
+          {/* CONTACT INFO */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Contact Info</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <InputBlock
+                label="Contact Person"
+                value={formData.contactPerson}
+                onChange={(v) =>
+                  setFormData({ ...formData, contactPerson: v || undefined })
+                }
+              />
+              <InputBlock
+                label="Contact Email"
+                type="email"
+                value={formData.contactEmail}
+                onChange={(v) =>
+                  setFormData({ ...formData, contactEmail: v || undefined })
+                }
+              />
+              <InputBlock
+                label="Contact Phone"
+                value={formData.contactPhone}
+                onChange={(v) =>
+                  setFormData({ ...formData, contactPhone: v || undefined })
+                }
+              />
+            </div>
+          </div>
+
+          {/* ADDRESS */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Address</h3>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="officeBuilding">Office#/Building</Label>
-                <Input
-                  id="officeBuilding"
-                  value={formData.officeBuilding}
-                  onChange={(e) => setFormData({ ...formData, officeBuilding: e.target.value })}
-                  placeholder="Office#/Building"
-                />
-              </div>
+              <InputBlock
+                label="Office / Building"
+                value={formData.officeBuilding}
+                onChange={(v) =>
+                  setFormData({ ...formData, officeBuilding: v || undefined })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="address1">Address 1</Label>
-                <Input
-                  id="address1"
-                  value={formData.address1}
-                  onChange={(e) => setFormData({ ...formData, address1: e.target.value })}
-                  placeholder="Address 1"
-                />
-              </div>
+              <InputBlock
+                label="Address 1"
+                value={formData.address1}
+                onChange={(v) =>
+                  setFormData({ ...formData, address1: v || undefined })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="address2">Address 2</Label>
-                <Input
-                  id="address2"
-                  value={formData.address2}
-                  onChange={(e) => setFormData({ ...formData, address2: e.target.value })}
-                  placeholder="Address 2"
-                />
-              </div>
+              <InputBlock
+                label="Address 2"
+                value={formData.address2}
+                onChange={(v) =>
+                  setFormData({ ...formData, address2: v || undefined })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="City"
-                />
-              </div>
+              <InputBlock
+                label="City"
+                value={formData.city}
+                onChange={(v) =>
+                  setFormData({ ...formData, city: v || undefined })
+                }
+              />
 
+              {/* COUNTRY */}
               <div className="space-y-2">
-                <Label htmlFor="countryId">Country</Label>
-                <Select value={formData.countryId} onValueChange={(value) => setFormData({ ...formData, countryId: value })}>
+                <Label>Country</Label>
+                <Select
+                  value={formData.countryId ?? ""}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      countryId: value || undefined,
+                    })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select Country" />
                   </SelectTrigger>
                   <SelectContent>
-                    {countries.length === 0 ? (
-                      <SelectItem value="none-disabled" disabled>No countries available</SelectItem>
-                    ) : (
-                      countries.map((country: any) => (
-                        <SelectItem key={country.id} value={country.id}>
-                          {country.name}
-                        </SelectItem>
-                      ))
-                    )}
+                    {countries.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="state">State/County</Label>
-                <Input
-                  id="state"
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="State"
-                />
-              </div>
+              <InputBlock
+                label="State"
+                value={formData.state}
+                onChange={(v) =>
+                  setFormData({ ...formData, state: v || undefined })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="postCode">Post Code/Zip Code</Label>
-                <Input
-                  id="postCode"
-                  value={formData.postCode}
-                  onChange={(e) => setFormData({ ...formData, postCode: e.target.value })}
-                  placeholder="Post Code"
-                />
-              </div>
+              <InputBlock
+                label="Post Code"
+                value={formData.postCode}
+                onChange={(v) =>
+                  setFormData({ ...formData, postCode: v || undefined })
+                }
+              />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-900">Invoice Details</h3>
-            
+          {/* INVOICE INFO */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Invoicing</h3>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="invoicingContactName">Invoicing Contact Name</Label>
-                <Input
-                  id="invoicingContactName"
-                  value={formData.invoicingContactName}
-                  onChange={(e) => setFormData({ ...formData, invoicingContactName: e.target.value })}
-                  placeholder="Invoicing Contact Name"
-                />
-              </div>
+              <InputBlock
+                label="Invoicing Contact Name"
+                value={formData.invoicingContactName}
+                onChange={(v) =>
+                  setFormData({
+                    ...formData,
+                    invoicingContactName: v || undefined,
+                  })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="invoicingContactPhone">Invoicing Contact Phone</Label>
-                <Input
-                  id="invoicingContactPhone"
-                  value={formData.invoicingContactPhone}
-                  onChange={(e) => setFormData({ ...formData, invoicingContactPhone: e.target.value })}
-                  placeholder="Invoicing Contact Phone"
-                />
-              </div>
+              <InputBlock
+                label="Invoicing Contact Phone"
+                value={formData.invoicingContactPhone}
+                onChange={(v) =>
+                  setFormData({
+                    ...formData,
+                    invoicingContactPhone: v || undefined,
+                  })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="invoicingContactEmail">Invoicing Contact E-mail</Label>
-                <Input
-                  id="invoicingContactEmail"
-                  type="email"
-                  value={formData.invoicingContactEmail}
-                  onChange={(e) => setFormData({ ...formData, invoicingContactEmail: e.target.value })}
-                  placeholder="Invoicing Contact E-mail"
-                />
-              </div>
+              <InputBlock
+                label="Invoicing Email"
+                type="email"
+                value={formData.invoicingContactEmail}
+                onChange={(v) =>
+                  setFormData({
+                    ...formData,
+                    invoicingContactEmail: v || undefined,
+                  })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="alternateInvoicingEmail">Alternate Invoicing E-mail</Label>
-                <Input
-                  id="alternateInvoicingEmail"
-                  type="email"
-                  value={formData.alternateInvoicingEmail}
-                  onChange={(e) => setFormData({ ...formData, alternateInvoicingEmail: e.target.value })}
-                  placeholder="Alternate E-mail"
-                />
-              </div>
+              <InputBlock
+                label="Alternate Email"
+                type="email"
+                value={formData.alternateInvoicingEmail}
+                onChange={(v) =>
+                  setFormData({
+                    ...formData,
+                    alternateInvoicingEmail: v || undefined,
+                  })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="vatNumber">VAT Number</Label>
-                <Input
-                  id="vatNumber"
-                  value={formData.vatNumber}
-                  onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value })}
-                  placeholder="VAT Number"
-                />
-              </div>
+              <InputBlock
+                label="VAT Number"
+                value={formData.vatNumber}
+                onChange={(v) =>
+                  setFormData({ ...formData, vatNumber: v || undefined })
+                }
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="https://example.com"
-                />
-              </div>
+              <InputBlock
+                label="Website"
+                type="url"
+                value={formData.website}
+                onChange={(v) =>
+                  setFormData({ ...formData, website: v || undefined })
+                }
+              />
             </div>
           </div>
 
+          {/* FOOTER */}
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.name}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               {company ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
+}
+
+// ===========================================================
+// SMALL INPUT COMPONENT
+// ===========================================================
+function InputBlock({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value?: string;
+  type?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input
+        type={type}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={label}
+      />
+    </div>
+  );
 }

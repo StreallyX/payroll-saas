@@ -329,17 +329,19 @@ model User {
 }
 
 
-// ====
-// COMPANY (Client)
-// ====
 model Company {
   id           String  @id @default(cuid())
   tenantId     String
   name         String
   
   // Ownership
-  createdBy    String? // userId qui a créé
-  
+  ownerType    String  @default("tenant")
+  ownerId      String?
+  createdBy    String?
+
+  bankId       String?
+  bank         Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+
   // Contacts
   contactPerson String?
   contactEmail  String?
@@ -362,22 +364,22 @@ model Company {
   vatNumber                String?
   website                  String?
   
-  // Status
   status    String @default("active")
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  country      Country?      @relation(fields: [countryId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  country      Country? @relation(fields: [countryId], references: [id])
   contracts    Contract[]
   companyUsers CompanyUser[]
 
   @@index([tenantId])
   @@index([createdBy])
+  @@index([bankId])     // 👈 recommandé
   @@map("companies")
 }
+
 
 // 🔥 NEW: Table de jonction pour lier Users et Companies (pour les clients internes)
 model CompanyUser {
@@ -1210,20 +1212,21 @@ model Bank {
   iban          String?
   address       String?
   
-  // Ownership
-  createdBy String? // userId
+  createdBy     String?
   
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contracts Contract[]
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companies     Company[]   // 0..n companies using this bank
+  contracts     Contract[]
 
   @@index([tenantId])
   @@index([createdBy])
   @@map("banks")
 }
+
 
 model DocumentType {
   id          String  @id @default(cuid())
