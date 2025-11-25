@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { getDynamicMenu } from "@/lib/dynamicMenuConfig"
 import { useTenant } from "@/lib/hooks/useTenant"
+import { api } from "@/lib/trpc"
 import {
   ChevronLeft,
   ChevronRight,
@@ -33,6 +34,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { data: session } = useSession()
   const { tenant } = useTenant()
   const pathname = usePathname()
+
+  // NEW: Check for pending contract actions
+  const { data: actionsRequired } = api.contract.getUserActionsRequired.useQuery(
+    undefined,
+    { 
+      enabled: !!session?.user,
+      refetchInterval: 60000, // Refetch every minute
+    }
+  )
 
   useEffect(() => {
     if (onMobileClose) onMobileClose()
@@ -121,6 +131,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             const hasSubmenu = item.submenu && item.submenu.length > 0
             const isOpen = openSubmenus[item.label]
+            
+            // Check if this is the Contracts menu item and there are pending actions
+            const isContractsMenu = item.href === "/contracts"
+            const hasContractActions = isContractsMenu && actionsRequired?.hasActions
 
             return (
               <div key={index}>
@@ -128,14 +142,26 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg mx-2 transition-colors",
+                      "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg mx-2 transition-colors relative",
                       isActive
                         ? "bg-primary/15 text-primary"
                         : "hover:bg-[hsl(var(--sidebar-text)/0.08)]"
                     )}
                   >
                     <item.icon className="h-5 w-5" />
-                    {!collapsed && <span className="flex-1">{item.label}</span>}
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1">{item.label}</span>
+                        {hasContractActions && (
+                          <span className="flex items-center justify-center h-5 w-5 rounded-full bg-orange-500 text-white text-xs font-bold">
+                            {actionsRequired.total}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {collapsed && hasContractActions && (
+                      <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-orange-500" />
+                    )}
                   </Link>
                 ) : (
                   <>

@@ -678,4 +678,296 @@ export const contractRouter = createTRPCRouter({
         sow: await ctx.prisma.contract.count({ where: { ...where, type: "sow" } }),
       }
     }),
+
+  // -------------------------------------------------------
+  // NEW WORKFLOW MUTATIONS
+  // -------------------------------------------------------
+
+  // 1) Upload Main Document → Changes status to PENDING_APPROVAL
+  uploadMainDocument: tenantProcedure
+    .use(hasAnyPermission([P.CONTRACT.UPDATE_GLOBAL, P.CONTRACT.UPDATE_OWN]))
+    .input(z.object({ 
+      contractId: z.string(),
+      documentId: z.string(), // ID du document uploadé
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.contractId, tenantId: ctx.tenantId },
+      })
+      if (!contract) throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found" })
+      
+      // Only DRAFT contracts can transition to PENDING_APPROVAL
+      if (contract.status !== "draft") {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "Only draft contracts can have main document uploaded" 
+        })
+      }
+
+      const updated = await ctx.prisma.contract.update({
+        where: { id: input.contractId },
+        data: { 
+          status: "pending_approval" as any,
+          workflowStatus: "pending_approval" as any,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name ?? "Unknown",
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: input.contractId,
+        entityName: contract.title ?? `Contract-${input.contractId.slice(0, 6)}`,
+        tenantId: ctx.tenantId,
+        metadata: { action: "main_document_uploaded", documentId: input.documentId }
+      })
+
+      return updated
+    }),
+
+  // 2) Approve Contract by Approver
+  approveByApprover: tenantProcedure
+    .input(z.object({ 
+      contractId: z.string(),
+      comments: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      
+      // Check if user is an approver for this contract
+      const participant = await ctx.prisma.contractParticipant.findFirst({
+        where: {
+          contractId: input.contractId,
+          userId: userId,
+          role: "approver",
+          isActive: true,
+        },
+      })
+
+      if (!participant) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not an approver for this contract" 
+        })
+      }
+
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.contractId, tenantId: ctx.tenantId },
+        include: {
+          participants: {
+            where: { role: "approver", isActive: true }
+          }
+        }
+      })
+
+      if (!contract) throw new TRPCError({ code: "NOT_FOUND" })
+
+      // Mark participant as approved (using signedAt field for now)
+      await ctx.prisma.contractParticipant.update({
+        where: { id: participant.id },
+        data: { signedAt: new Date() },
+      })
+
+      // Check if all approvers have approved
+      const allApprovers = contract.participants.filter(p => p.role === "approver")
+      const approvedCount = allApprovers.filter(p => p.signedAt).length + 1 // +1 for current approval
+
+      let newStatus = contract.status
+      let newWorkflowStatus = contract.workflowStatus
+
+      // If all approvers have approved, move to next stage (pending signatures)
+      if (approvedCount >= allApprovers.length) {
+        newStatus = "pending_signature" as any
+        newWorkflowStatus = "pending_signature" as any
+      }
+
+      const updated = await ctx.prisma.contract.update({
+        where: { id: input.contractId },
+        data: { 
+          status: newStatus,
+          workflowStatus: newWorkflowStatus,
+        },
+      })
+
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name ?? "Unknown",
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.APPROVE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: input.contractId,
+        entityName: contract.title ?? `Contract-${input.contractId.slice(0, 6)}`,
+        tenantId: ctx.tenantId,
+        metadata: { comments: input.comments }
+      })
+
+      return updated
+    }),
+
+  // 3) Upload Signed Contract by Participant
+  uploadSignedContract: tenantProcedure
+    .input(z.object({ 
+      contractId: z.string(),
+      documentId: z.string(), // ID du document uploadé
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      
+      // Find participant record
+      const participant = await ctx.prisma.contractParticipant.findFirst({
+        where: {
+          contractId: input.contractId,
+          userId: userId,
+          requiresSignature: true,
+          isActive: true,
+        },
+      })
+
+      if (!participant) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not required to sign this contract" 
+        })
+      }
+
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.contractId, tenantId: ctx.tenantId },
+        include: {
+          participants: {
+            where: { requiresSignature: true, isActive: true }
+          }
+        }
+      })
+
+      if (!contract) throw new TRPCError({ code: "NOT_FOUND" })
+
+      // Mark participant as signed
+      await ctx.prisma.contractParticipant.update({
+        where: { id: participant.id },
+        data: { 
+          signedAt: new Date(),
+          signatureUrl: `/documents/${input.documentId}`, // Store reference to signed document
+        },
+      })
+
+      // Check if all required signatures are collected
+      const allSigners = contract.participants.filter(p => p.requiresSignature)
+      const signedCount = allSigners.filter(p => p.signedAt).length + 1 // +1 for current signature
+
+      let newStatus = contract.status
+      let newWorkflowStatus = contract.workflowStatus
+
+      // If all signatures collected, move to COMPLETED
+      if (signedCount >= allSigners.length) {
+        newStatus = "completed"
+        newWorkflowStatus = "completed"
+      }
+
+      const updated = await ctx.prisma.contract.update({
+        where: { id: input.contractId },
+        data: { 
+          status: newStatus,
+          workflowStatus: newWorkflowStatus,
+        },
+      })
+
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name ?? "Unknown",
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.SIGN,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: input.contractId,
+        entityName: contract.title ?? `Contract-${input.contractId.slice(0, 6)}`,
+        tenantId: ctx.tenantId,
+        metadata: { documentId: input.documentId }
+      })
+
+      return updated
+    }),
+
+  // 4) Activate Contract (Admin only) → COMPLETED → ACTIVE
+  activateContract: tenantProcedure
+    .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
+    .input(idSchema)
+    .mutation(async ({ ctx, input }) => {
+      const contract = await ctx.prisma.contract.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      })
+      
+      if (!contract) throw new TRPCError({ code: "NOT_FOUND" })
+      
+      if (contract.status !== "completed") {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "Only completed contracts can be activated" 
+        })
+      }
+
+      const updated = await ctx.prisma.contract.update({
+        where: { id: input.id },
+        data: { 
+          status: "active",
+          workflowStatus: "active",
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name ?? "Unknown",
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.APPROVE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: input.id,
+        entityName: contract.title ?? `Contract-${input.id.slice(0, 6)}`,
+        tenantId: ctx.tenantId,
+        metadata: { action: "contract_activated" }
+      })
+
+      return updated
+    }),
+
+  // 5) Check User Actions Required (for notification indicator)
+  getUserActionsRequired: tenantProcedure
+    .query(async ({ ctx }) => {
+      const userId = ctx.session.user.id
+      
+      // Find contracts where user needs to take action
+      const participants = await ctx.prisma.contractParticipant.findMany({
+        where: {
+          userId: userId,
+          isActive: true,
+          signedAt: null, // Not yet signed/approved
+        },
+        include: {
+          contract: {
+            select: {
+              id: true,
+              status: true,
+              workflowStatus: true,
+              title: true,
+            }
+          }
+        }
+      })
+
+      const approverActions = participants.filter(
+        p => p.role === "approver" && 
+        (p.contract.status === "pending_approval" || p.contract.workflowStatus === "pending_approval")
+      )
+
+      const signatureActions = participants.filter(
+        p => p.requiresSignature && 
+        (p.contract.status === "pending_signature" || p.contract.workflowStatus === "pending_signature")
+      )
+
+      return {
+        hasActions: approverActions.length > 0 || signatureActions.length > 0,
+        approverCount: approverActions.length,
+        signatureCount: signatureActions.length,
+        total: approverActions.length + signatureActions.length,
+      }
+    }),
 })
