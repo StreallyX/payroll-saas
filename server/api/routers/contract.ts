@@ -45,6 +45,14 @@ const participantInputSchema = z.object({
   role: z.string(), // contractor, client_admin, approver, agency, payroll_partner, etc.
   requiresSignature: z.boolean().optional().default(false),
   isPrimary: z.boolean().optional().default(false),
+}).refine((data) => {
+  // 🔥 VALIDATION CRITIQUE : Les approvers ne doivent JAMAIS avoir requiresSignature: true
+  if (data.role === "approver" && data.requiresSignature === true) {
+    return false
+  }
+  return true
+}, {
+  message: "Les approvers ne peuvent pas avoir requiresSignature: true. Utilisez le champ 'approved' pour les approbations."
 })
 
 const baseContractSchema = z.object({
@@ -61,9 +69,11 @@ const baseContractSchema = z.object({
   description: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 
-  status: z.enum(["draft", "active", "completed", "cancelled", "paused"]).optional(),
+  status: z.enum(["draft", "pending_approval", "pending_signature", "active", "completed", "cancelled", "paused"]).optional(),
   workflowStatus: z.enum([
     "draft",
+    "pending_approval", // 🔥 Ajouté pour le workflow d'approbation
+    "pending_signature", // 🔥 Ajouté pour le workflow de signature
     "pending_agency_sign",
     "pending_contractor_sign",
     "active",
@@ -289,7 +299,8 @@ export const contractRouter = createTRPCRouter({
               contractId: base.id,
               userId: p.userId,
               role: p.role,
-              requiresSignature: p.requiresSignature ?? false,
+              requiresSignature: p.role === "approver" ? false : (p.requiresSignature ?? false), // 🔥 Approvers ne peuvent JAMAIS avoir requiresSignature
+              approved: false, // 🔥 Initialisé à false, passera à true quand l'approver approuve
               isPrimary: p.isPrimary ?? false,
             })),
           })
@@ -482,7 +493,8 @@ export const contractRouter = createTRPCRouter({
           contractId,
           userId: participant.userId,
           role: participant.role,
-          requiresSignature: participant.requiresSignature ?? false,
+          requiresSignature: participant.role === "approver" ? false : (participant.requiresSignature ?? false), // 🔥 Approvers ne peuvent JAMAIS avoir requiresSignature
+          approved: false, // 🔥 Initialisé à false, passera à true quand l'approver approuve
           isPrimary: participant.isPrimary ?? false,
         },
       })
@@ -764,15 +776,15 @@ export const contractRouter = createTRPCRouter({
 
       if (!contract) throw new TRPCError({ code: "NOT_FOUND" })
 
-      // Mark participant as approved (using signedAt field for now)
+      // 🔥 Mark participant as approved (using 'approved' field, NOT 'signedAt')
       await ctx.prisma.contractParticipant.update({
         where: { id: participant.id },
-        data: { signedAt: new Date() },
+        data: { approved: true },
       })
 
       // Check if all approvers have approved
       const allApprovers = contract.participants.filter(p => p.role === "approver")
-      const approvedCount = allApprovers.filter(p => p.signedAt).length + 1 // +1 for current approval
+      const approvedCount = allApprovers.filter(p => p.approved).length + 1 // +1 for current approval
 
       let newStatus = contract.status
       let newWorkflowStatus = contract.workflowStatus
