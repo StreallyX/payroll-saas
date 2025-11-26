@@ -384,7 +384,15 @@ export const dynamicMenuConfig: MenuItem[] = [
     icon: Settings,
     permissions: [
       P(Resource.SETTINGS, Action.ACCESS, PermissionScope.PAGE),
-
+      P(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.BANK, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE),
     ],
     submenu: [
       {
