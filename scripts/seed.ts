@@ -19,8 +19,112 @@
  */
 
 import { PrismaClient } from "@prisma/client"
+import { ALL_PERMISSIONS } from "../server/rbac/permissions"; // adapte le path
+import bcrypt from "bcryptjs";
+
 
 const prisma = new PrismaClient()
+
+
+async function insertPermissions() {
+  console.log("📥 Inserting permissions...")
+
+  const permissionData = ALL_PERMISSIONS.map((p) => ({
+    key: p.key,
+    resource: p.resource,
+    action: p.action,
+    scope: p.scope,
+    displayName: p.displayName,
+    description: p.description || null,
+    category: p.category || null,
+    isActive: true,
+  }))
+
+  await prisma.permission.createMany({
+    data: permissionData,
+    skipDuplicates: true,
+  })
+
+  const count = await prisma.permission.count()
+  console.log(`✅ Permissions synced: ${count} total`)
+}
+
+
+async function createInitialUsers(tenantId: string) {
+  console.log("👤 Creating initial demo users...")
+
+  const usersToCreate = [
+    {
+      email: "superadmin@platform.com",
+      passwordHash: await bcrypt.hash("SuperAdmin123!", 12),
+      name: "Super Admin",
+      roleName: "SUPERADMIN",
+    },
+    {
+      email: "admin@demo.com",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Admin",
+      roleName: "ADMIN",
+    },
+    {
+      email: "agency@demo.com",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Agency",
+      roleName: "AGENCY",
+    },
+    {
+      email: "payroll@demo.com",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Payroll",
+      roleName: "PAYROLL",
+    },
+    {
+      email: "contractor@demo.com",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Contractor",
+      roleName: "CONTRACTOR",
+    },
+  ];
+
+
+  for (const u of usersToCreate) {
+
+    // 1. Fetch roleId
+    const role = await prisma.role.findFirst({
+      where: {
+        tenantId,
+        name: u.roleName,
+      },
+    })
+
+    if (!role) {
+      console.log(`❌ Role not found: ${u.roleName}`)
+      continue
+    }
+
+    // 2. Create or update user
+    const user = await prisma.user.upsert({
+      where: {
+        tenantId_email: { tenantId, email: u.email },
+      },
+      update: {},
+      create: {
+        tenantId,
+        email: u.email,
+        passwordHash: u.passwordHash,
+        name: u.name,
+        roleId: role.id, // 🔥 required
+        isActive: true,
+      },
+    })
+
+    console.log(`   ✅ User created: ${user.email}`)
+    console.log(`     🎭 Role assigned via roleId: ${u.roleName}`)
+  }
+
+  console.log("👥 Initial users created successfully.")
+}
+
 
 // =============================================================================
 // ROLE DEFINITIONS
@@ -36,412 +140,80 @@ interface RoleDefinition {
   icon: string
   permissionKeys: string[]
 }
-
 const ROLE_DEFINITIONS: RoleDefinition[] = [
-  // ---------------------------------------------------------------------------
-  // 1. PLATFORM_ADMIN - Super Admin with all global permissions
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------
+  // SUPERADMIN — Toutes les permissions automatiques
+  // -------------------------------------------------
   {
-    name: "PLATFORM_ADMIN",
-    displayName: "Platform Administrator",
-    description: "Full access to all platform features and all tenants. Can manage everything.",
+    name: "SUPERADMIN",
+    displayName: "Super Administrator",
+    description: "Full unrestricted access to the entire platform and all tenants.",
     level: 100,
     homePath: "/dashboard",
-    color: "#dc2626", // red-600
+    color: "#dc2626",
     icon: "shield-check",
-    permissionKeys: [
-      // User Management
-      "user.create.global",
-      "user.list.global",
-      "user.update.global",
-      "user.delete.global",
-      "user.activate.global",
-      "user.deactivate.global",
-
-      // Company Management
-      "company.create.global",
-      "company.list.global",
-      "company.update.global",
-      "company.delete.global",
-      "company.activate.global",
-      "company.deactivate.global",
-
-      // Bank Management
-      "bank.create.global",
-      "bank.list.global",
-      "bank.update.global",
-      "bank.delete.global",
-
-      // Contract Management
-      "contract.list.global",
-      "contract.create.global",
-      "contract.update.global",
-      "contract.delete.global",
-      "contract.approve.global",
-      "contract_msa.list.global",
-      "contract_msa.create.global",
-      "contract_msa.update.global",
-
-      // Invoice Management
-      "invoice.list.global",
-      "invoice.create.global",
-      "invoice.update.global",
-      "invoice.delete.global",
-      "invoice.generate_from_timesheet.global",
-      "invoice.release.global",
-      "invoice.approve.global",
-      "invoice.send.global",
-
-      // Payment Management
-      "payment.create.global",
-      "payment.list.global",
-      "payment.approve.global",
-      "payment.execute.global",
-      "payment.cancel.global",
-
-      // Remittance Management
-      "remittance.create.global",
-      "remittance.list.global",
-      "remittance.generate.global",
-      "remittance.send.global",
-
-      // Payslip Management
-      "payslip.list.global",
-      "payslip.create.global",
-      "payslip.generate.global",
-      "payslip.send.global",
-
-      // Contractor Management (Global visibility)
-      "contractor.list.global",
-      "contractor.view.global",
-
-      // Worker Management (Global visibility)
-      "worker.list.global",
-      "worker.view.global",
-
-      // Timesheet Management
-      "timesheet.list.global",
-      "timesheet.approve.global",
-      "timesheet.reject.global",
-
-      // Document Management
-      "document.list.global",
-      "document.create.global",
-      "document.update.global",
-      "document.delete.global",
-
-      // Reporting
-      "report.view_margin.global",
-      "report.view_live_contractors.global",
-      "report.view_by_country.global",
-      "report.view_by_client.global",
-      "report.view_income.global",
-      "report.export.global",
-
-      // Onboarding Management
-      "onboarding.view.global",
-      "onboarding.update.global",
-
-      // Lead Management
-      "lead.list.global",
-      "lead.create.global",
-      "lead.update.global",
-      "lead.delete.global",
-      "lead.assign.global",
-      "lead.export.global",
-    ],
+    permissionKeys: ALL_PERMISSIONS.map(p => p.key), // 🔥 FULL ACCESS
   },
 
-  // ---------------------------------------------------------------------------
-  // 2. AGENCY_ADMIN - Agency/Client administrator
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------
+  // ADMIN — Toutes les permissions (pour le moment)
+  // -------------------------------------------------
   {
-    name: "AGENCY_ADMIN",
-    displayName: "Agency Administrator",
-    description: "Agency or client administrator. Can manage their own company, users, and view their contractors.",
-    level: 50,
+    name: "ADMIN",
+    displayName: "Administrator",
+    description: "Platform administrator with full permissions.",
+    level: 90,
     homePath: "/dashboard",
-    color: "#2563eb", // blue-600
-    icon: "building",
-    permissionKeys: [
-      // Company Management (own)
-      "company.read.own",
-      "company.update.own",
-
-      // User Management (ownCompany)
-      "user.create.ownCompany",
-      "user.list.ownCompany",
-      "user.update.ownCompany",
-      "user.activate.ownCompany",
-      "user.deactivate.ownCompany",
-
-      // Contractor Visibility (ownCompany)
-      "contractor.list.ownCompany",
-      "contractor.view.ownCompany",
-      "contractor.view_onboarding.ownCompany",
-      "contractor.view_dates.ownCompany",
-      "contractor.view_payments.ownCompany",
-
-      // Invoice Visibility (ownCompany)
-      "invoice.view.ownCompany",
-
-      // Contract Management (own)
-      "contract.create.own",
-      "contract.update.own",
-      "contract.read.own",
-      "contract.sign.own",
-
-      // Document Management
-      "document.upload.own",
-      "document.upload_selfbill.own",
-      "document.upload_proof_of_payment.own",
-      "document.upload_kyc.ownCompany",
-      "document.view.ownCompany",
-      "document.download.ownCompany",
-
-      // Onboarding Visibility
-      "onboarding.view.ownCompany",
-
-      // Lead Management (own)
-      "lead.create.own",
-      "lead.update.own",
-      "lead.read.own",
-
-      // Remittance Visibility
-      "remittance.view.ownCompany",
-    ],
+    color: "#2563eb",
+    icon: "shield",
+    permissionKeys: ALL_PERMISSIONS.map(p => p.key), // 🔥 FULL ACCESS
   },
 
-  // ---------------------------------------------------------------------------
-  // 3. PAYROLL_PARTNER_ADMIN - Payroll partner administrator
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------
+  // AGENCY — Aucune permission au départ
+  // -------------------------------------------------
   {
-    name: "PAYROLL_PARTNER_ADMIN",
-    displayName: "Payroll Partner Administrator",
-    description: "Payroll partner administrator. Can manage workers, upload payslips and invoices to the platform.",
-    level: 50,
-    homePath: "/dashboard",
-    color: "#7c3aed", // violet-600
-    icon: "calculator",
-    permissionKeys: [
-      // Company Management (own)
-      "company.read.own",
-      "company.update.own",
-
-      // User Management (ownCompany)
-      "user.create.ownCompany",
-      "user.list.ownCompany",
-      "user.update.ownCompany",
-
-      // Worker Visibility (ownCompany)
-      "worker.list.ownCompany",
-      "worker.view.ownCompany",
-      "worker.view_onboarding.ownCompany",
-      "worker.view_dates.ownCompany",
-      "worker.view_contract.ownCompany",
-
-      // Payslip Management (ownCompany)
-      "payslip.upload.ownCompany",
-      "payslip.view.ownCompany",
-
-      // Invoice Upload to Platform
-      "invoice.upload_to_platform.ownCompany",
-
-      // Document Management
-      "document.upload.ownCompany",
-      "document.view.ownCompany",
-      "document.download.ownCompany",
-
-      // Onboarding Visibility
-      "onboarding.view.ownCompany",
-    ],
-  },
-
-  // ---------------------------------------------------------------------------
-  // 4. FINANCE_MANAGER - Finance team manager
-  // ---------------------------------------------------------------------------
-  {
-    name: "FINANCE_MANAGER",
-    displayName: "Finance Manager",
-    description: "Finance manager. Can approve and execute payments, generate remittances, and view financial reports.",
-    level: 60,
-    homePath: "/dashboard",
-    color: "#059669", // emerald-600
-    icon: "coins",
-    permissionKeys: [
-      // Payment Management
-      "payment.create.global",
-      "payment.list.global",
-      "payment.approve.global",
-      "payment.execute.global",
-      "payment.cancel.global",
-
-      // Remittance Management
-      "remittance.create.global",
-      "remittance.list.global",
-      "remittance.generate.global",
-      "remittance.send.global",
-
-      // Invoice Management
-      "invoice.list.global",
-      "invoice.approve.global",
-      "invoice.release.global",
-      "invoice.send.global",
-
-      // Payslip Management
-      "payslip.list.global",
-      "payslip.generate.global",
-
-      // Reporting
-      "report.view_margin.global",
-      "report.view_income.global",
-      "report.view_live_contractors.global",
-      "report.view_by_country.global",
-      "report.view_by_client.global",
-      "report.export.global",
-
-      // Contractor/Worker Visibility (for financial reconciliation)
-      "contractor.list.global",
-      "contractor.view.global",
-      "worker.list.global",
-      "worker.view.global",
-
-      // Timesheet Visibility (for payment verification)
-      "timesheet.list.global",
-    ],
-  },
-
-  // ---------------------------------------------------------------------------
-  // 5. SALES_MANAGER - Sales team manager
-  // ---------------------------------------------------------------------------
-  {
-    name: "SALES_MANAGER",
-    displayName: "Sales Manager",
-    description: "Sales manager. Can manage all leads, assign them to sales reps, and view pipeline analytics.",
-    level: 55,
-    homePath: "/dashboard",
-    color: "#ea580c", // orange-600
-    icon: "chart-line",
-    permissionKeys: [
-      // Lead Management
-      "lead.list.global",
-      "lead.create.global",
-      "lead.update.global",
-      "lead.assign.global",
-      "lead.export.global",
-
-      // Company Visibility (for sales context)
-      "company.list.global",
-
-      // Contractor Visibility (for sales context)
-      "contractor.list.global",
-
-      // User Management (to assign sales reps)
-      "user.list.global",
-      "user.create.global",
-    ],
-  },
-
-  // ---------------------------------------------------------------------------
-  // 6. SALES_REP - Sales representative
-  // ---------------------------------------------------------------------------
-  {
-    name: "SALES_REP",
-    displayName: "Sales Representative",
-    description: "Sales representative. Can create and manage their own leads.",
+    name: "AGENCY",
+    displayName: "Agency",
+    description: "Agency user (permissions to be assigned later).",
     level: 40,
     homePath: "/dashboard",
-    color: "#f59e0b", // amber-500
-    icon: "user-tie",
+    color: "#7c3aed",
+    icon: "building",
     permissionKeys: [
-      // Lead Management (own + global list to avoid duplicates)
-      "lead.list.global", // Can see all to avoid duplicates
-      "lead.create.own",
-      "lead.update.own",
-      "lead.read.own",
+      /*EXEMPLE*/"user.create.global",
     ],
   },
 
-  // ---------------------------------------------------------------------------
-  // 7. CONTRACTOR - Independent contractor
-  // ---------------------------------------------------------------------------
+  // -------------------------------------------------
+  // PAYROLL — Aucune permission au départ
+  // -------------------------------------------------
+  {
+    name: "PAYROLL",
+    displayName: "Payroll Partner",
+    description: "Payroll partner user (permissions to be assigned later).",
+    level: 40,
+    homePath: "/dashboard",
+    color: "#059669",
+    icon: "calculator",
+    permissionKeys: [],
+  },
+
+  // -------------------------------------------------
+  // CONTRACTOR — Aucune permission au départ
+  // -------------------------------------------------
   {
     name: "CONTRACTOR",
     displayName: "Contractor",
-    description: "Independent contractor. Can manage timesheets, view contracts, invoices, and payments.",
+    description: "Independent contractor (permissions to be assigned later).",
     level: 20,
     homePath: "/dashboard",
-    color: "#8b5cf6", // violet-500
+    color: "#8b5cf6",
     icon: "user",
-    permissionKeys: [
-      // User Management (own)
-      "user.read.own",
-      "user.update.own",
-
-      // Timesheet Management (own)
-      "timesheet.read.own",
-      "timesheet.create.own",
-      "timesheet.update.own",
-      "timesheet.submit.own",
-
-      // Contract Visibility (own)
-      "contract.read.own",
-      "contract.sign.own",
-
-      // Invoice Visibility (own)
-      "invoice.read.own",
-
-      // Payment & Remittance Visibility (own)
-      "payment.view.own",
-      "remittance.read.own",
-
-      // Payslip Visibility (own)
-      "payslip.read.own",
-
-      // Document Visibility (own)
-      "document.view.own",
-      "document.download.own",
-
-      // Onboarding (own)
-      "onboarding.read.own",
-      "onboarding.update.own",
-    ],
+    permissionKeys: [],
   },
+];
 
-  // ---------------------------------------------------------------------------
-  // 8. WORKER - Employed worker via payroll partner
-  // ---------------------------------------------------------------------------
-  {
-    name: "WORKER",
-    displayName: "Worker",
-    description: "Employed worker via payroll partner. Can view their employment contract, payslips, and remittances.",
-    level: 20,
-    homePath: "/dashboard",
-    color: "#06b6d4", // cyan-500
-    icon: "user-check",
-    permissionKeys: [
-      // User Management (own)
-      "user.read.own",
-      "user.update.own",
-
-      // Contract Visibility (own)
-      "contract.read.own",
-
-      // Payslip Visibility (own)
-      "payslip.read.own",
-
-      // Remittance Visibility (own)
-      "remittance.read.own",
-
-      // Document Visibility (own)
-      "document.view.own",
-      "document.download.own",
-
-      // Onboarding (own)
-      "onboarding.read.own",
-    ],
-  },
-]
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -461,7 +233,6 @@ async function getOrCreateDefaultTenant() {
       data: {
         name: "Aspirock",
         slug: "aspirock",
-        domain: "aspirock.com",
         isActive: true,
       },
     })
@@ -599,21 +370,17 @@ async function main() {
 
   try {
     // 1. Get or create default tenant
+    // 0. Insert permissions FIRST (global, not per tenant)
+    await insertPermissions()
+
+    // 1. Create tenant
     const tenant = await getOrCreateDefaultTenant()
     const tenantId = tenant.id
 
+    
+
     // 2. Fetch all permissions
     const { permissions, permissionMap } = await fetchAllPermissions()
-
-    if (permissions.length === 0) {
-      console.log()
-      console.log("❌ ERROR: No permissions found in database!")
-      console.log("   Please run the permission seed SQL first:")
-      console.log(
-        "   psql -d your_database -f prisma/migrations/20251126093642_extended_rbac_permissions/seed-permissions.sql"
-      )
-      process.exit(1)
-    }
 
     // 3. Process each role definition
     const results: {
@@ -640,6 +407,7 @@ async function main() {
         notFound: result.notFound,
       })
     }
+    await createInitialUsers(tenantId)
 
     // 4. Print summary
     console.log()

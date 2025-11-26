@@ -5,7 +5,7 @@
  * entre Tenant Companies (clients) et Agency Companies (prestataires)
  */
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import type { User, Company } from "@prisma/client";
 
 /**
@@ -116,14 +116,14 @@ export async function getVisibleTenantCompanies(
     // Retourne seulement les informations de base
     return companies.map((company) => ({
       ...company,
-      // Masquer les informations sensibles
-      vatNumber: undefined,
-      invoicingContactEmail: undefined,
-      invoicingContactPhone: undefined,
-      alternateInvoicingEmail: undefined,
-      bankId: undefined,
-      bank: undefined,
+      vatNumber: null,
+      invoicingContactEmail: null,
+      invoicingContactPhone: null,
+      alternateInvoicingEmail: null,
+      bankId: null,
+      bank: null,
     })) as Company[];
+
   }
 }
 

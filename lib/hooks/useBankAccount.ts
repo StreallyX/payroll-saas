@@ -4,22 +4,22 @@
  * React hooks for managing bank accounts linked to companies
  */
 
-import { trpc } from "@/lib/trpc";
+import { api } from "@/lib/trpc";
 
 /**
  * Hook to get the current user's company bank account (Agency Admin)
  */
 export function useMyCompanyBank() {
-  return trpc.bank.getMyCompanyBank.useQuery();
+  return api.bank.getMyCompanyBank.useQuery();
 }
 
 /**
  * Hook to create or update the current user's company bank account (Agency Admin)
  */
 export function useSetMyCompanyBank() {
-  const utils = trpc.useUtils();
+  const utils = api.useUtils();
   
-  return trpc.bank.setMyCompanyBank.useMutation({
+  return api.bank.setMyCompanyBank.useMutation({
     onSuccess: () => {
       // Invalidate queries to refresh data
       utils.bank.getMyCompanyBank.invalidate();

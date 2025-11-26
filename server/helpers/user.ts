@@ -5,7 +5,7 @@
  * et hiérarchie parent-enfant
  */
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import type { User } from "@prisma/client";
 
 export type UserWithCompany = User & {

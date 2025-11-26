@@ -4,13 +4,13 @@
  * React hooks for managing companies (tenant and agency)
  */
 
-import { trpc } from "@/lib/trpc";
+import { api  } from "@/lib/trpc";
 
 /**
  * Hook to get the current user's company (for Agency Admin)
  */
 export function useMyCompany() {
-  return trpc.company.getMyCompany.useQuery();
+  return api.company.getMyCompany.useQuery();
 }
 
 /**
@@ -19,7 +19,7 @@ export function useMyCompany() {
  * - Agency Admin: Simplified view
  */
 export function useTenantCompanies() {
-  return trpc.company.getTenantCompanies.useQuery();
+  return api.company.getTenantCompanies.useQuery();
 }
 
 /**
@@ -27,16 +27,16 @@ export function useTenantCompanies() {
  * Platform Admin only
  */
 export function useAgencyCompanies() {
-  return trpc.company.getAgencyCompanies.useQuery();
+  return api.company.getAgencyCompanies.useQuery();
 }
 
 /**
  * Hook to create the current user's company (Agency Admin)
  */
 export function useCreateMyCompany() {
-  const utils = trpc.useUtils();
+  const utils = api.useUtils();
   
-  return trpc.company.createMyCompany.useMutation({
+  return api.company.createMyCompany.useMutation({
     onSuccess: () => {
       // Invalidate queries to refresh data
       utils.company.getMyCompany.invalidate();
@@ -49,9 +49,9 @@ export function useCreateMyCompany() {
  * Hook to update the current user's company (Agency Admin)
  */
 export function useUpdateMyCompany() {
-  const utils = trpc.useUtils();
+  const utils = api.useUtils();
   
-  return trpc.company.updateMyCompany.useMutation({
+  return api.company.updateMyCompany.useMutation({
     onSuccess: () => {
       // Invalidate queries to refresh data
       utils.company.getMyCompany.invalidate();

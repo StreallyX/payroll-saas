@@ -128,6 +128,7 @@ model Tenant {
   id      String  @id @default(cuid())
   name    String
   logoUrl String?
+  slug    String   @unique
   
   // Branding
   primaryColor        String?  @default("#3b82f6")

@@ -4,7 +4,7 @@
  * Helpers pour la gestion des contrats, participants, et workflows
  */
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import type { User } from "@prisma/client";
 
 export interface ParticipantDisplay {

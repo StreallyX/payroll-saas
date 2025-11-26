@@ -84,10 +84,10 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
   });
 
   // Queries
-  const { data: companies } = api.company.list.useQuery(undefined, { enabled: open });
-  const { data: countries } = api.country.list.useQuery(undefined, { enabled: open });
-  const { data: currencies } = api.currency.list.useQuery(undefined, { enabled: open });
-  const { data: users } = api.user.listForSelect.useQuery(undefined, { enabled: open });
+  const { data: companies } = api.company.getAll.useQuery(undefined, { enabled: open });
+  const { data: countries } = api.country.getAll.useQuery(undefined, { enabled: open });
+  const { data: currencies } = api.currency.getAll.useQuery(undefined, { enabled: open });
+  const { data: users } = api.user.getAll.useQuery(undefined, { enabled: open });
 
   const createMutation = api.contract.create.useMutation();
 
