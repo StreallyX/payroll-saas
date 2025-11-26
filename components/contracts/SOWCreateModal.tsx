@@ -137,11 +137,12 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
     const msaData = msas.data?.find((m) => m.id === parentMSAId);
     if (!msaData) return toast.error("MSA parent introuvable.");
 
-    const clientAdmin = msaData.participants.find((p) => p.role === "client_admin");
-    const approver = msaData.participants.find((p) => p.role === "approver");
-
-    if (!clientAdmin || !approver)
-      return toast.error("Le MSA parent est invalide : pas d'admin ou d'approver.");
+    // 🔥 NEW — No longer require client_admin and approver from parent MSA
+    // They will be assigned later by platform admins
+    // const clientAdmin = msaData.participants.find((p) => p.role === "client_admin");
+    // const approver = msaData.participants.find((p) => p.role === "approver");
+    // if (!clientAdmin || !approver)
+    //   return toast.error("Le MSA parent est invalide : pas d'admin ou d'approver.");
 
     create.mutate({
       type: "sow",
@@ -164,22 +165,14 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
       extraFees: form.extraFees,
       notes: form.notes,
 
+      // 🔥 NEW — Admin and Approver will be assigned later by platform admins
+      // For now, only add the worker and the creator
       participants: [
         {
           userId: workerId,
           role: "contractor",
           requiresSignature: true,
           isPrimary: true,
-        },
-        {
-          userId: clientAdmin.userId,
-          role: "client_admin",
-          requiresSignature: true,
-        },
-        {
-          userId: approver.userId,
-          role: "approver",
-          requiresSignature: false, // 🔥 Les approvers APPROUVENT, ils ne signent JAMAIS
         },
         {
           userId: currentUserId,
@@ -204,8 +197,30 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="p-3 bg-purple-50 border border-purple-200 rounded-md text-sm">
-          Ce SOW sera lié au MSA parent et contiendra les détails opérationnels de la mission.
+        <div className="space-y-3">
+          <div className="p-3 bg-purple-50 border border-purple-200 rounded-md text-sm">
+            Ce SOW sera lié au MSA parent et contiendra les détails opérationnels de la mission.
+          </div>
+          
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-blue-900 mb-1">
+                  Contrat envoyé à la plateforme
+                </h4>
+                <p className="text-sm text-blue-800 leading-relaxed">
+                  Ce SOW sera lié au <strong>tenant (plateforme)</strong>. Les administrateurs 
+                  de la plateforme pourront ensuite assigner un <strong>Admin principal</strong> et 
+                  un <strong>Approver</strong> spécifiques à ce contrat.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* FORM GRID */}

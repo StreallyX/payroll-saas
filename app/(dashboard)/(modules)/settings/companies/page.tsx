@@ -102,10 +102,26 @@ export default function CompaniesPage() {
                 <TableRow key={company.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                        <Building2 className="h-4 w-4 text-blue-600" />
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        company.tenantCompany 
+                          ? "bg-gradient-to-br from-indigo-100 to-purple-100 ring-2 ring-indigo-300" 
+                          : "bg-blue-100"
+                      }`}>
+                        <Building2 className={`h-4 w-4 ${
+                          company.tenantCompany ? "text-indigo-700" : "text-blue-600"
+                        }`} />
                       </div>
-                      <span className="font-medium">{company.name}</span>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{company.name}</span>
+                        {company.tenantCompany && (
+                          <Badge 
+                            variant="secondary" 
+                            className="mt-1 w-fit text-xs bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-none"
+                          >
+                            🏢 Tenant Company
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
 

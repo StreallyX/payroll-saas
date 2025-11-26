@@ -339,6 +339,9 @@ model Company {
   ownerId      String?
   createdBy    String?
 
+  // 🔥 NEW — Identify tenant companies (companies owned by the platform)
+  tenantCompany Boolean @default(false)
+
   bankId       String?
   bank         Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
 

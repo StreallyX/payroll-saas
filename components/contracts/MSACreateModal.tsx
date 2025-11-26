@@ -87,8 +87,9 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
     portalCanUploadPaymentProof: true,
   });
 
-  const [clientAdminId, setClientAdminId] = useState("");
-  const [approverId, setApproverId] = useState("");
+  // 🔥 REMOVED — Admin and Approver will be assigned later by admins
+  // const [clientAdminId, setClientAdminId] = useState("");
+  // const [approverId, setApproverId] = useState("");
   
 
   // -------------------------------------------------------------
@@ -98,15 +99,13 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
     form.title.trim() &&
     form.companyId &&
     form.contractCountryId &&
-    form.currencyId &&
-    clientAdminId &&
-    approverId;
+    form.currencyId;
 
   // -------------------------------------------------------------
   // LOAD DATA
   // -------------------------------------------------------------
   const companies = api.company.getAll.useQuery();
-  const users = api.user.getAll.useQuery();
+  // const users = api.user.getAll.useQuery(); // 🔥 REMOVED - users will be assigned later
   const currencies = api.currency.getAll.useQuery();
   const countries = api.country.getAll.useQuery();
   // USER ACTUEL
@@ -160,22 +159,14 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
       portalCanUploadSelfBill: form.portalCanUploadSelfBill,
       portalCanUploadPaymentProof: form.portalCanUploadPaymentProof,
 
+      // 🔥 NEW — Admin and Approver will be assigned later by platform admins
+      // For now, only add the creator as a client participant
       participants: [
-        {
-          userId: clientAdminId,
-          role: "client_admin",
-          requiresSignature: true,
-          isPrimary: true,
-        },
-        {
-          userId: approverId,
-          role: "approver",
-          requiresSignature: false, // 🔥 Les approvers APPROUVENT, ils ne signent JAMAIS
-        },
         {
           userId: currentUserId,
           role: "client",
           requiresSignature: false,
+          isPrimary: true,
         },
       ],
     });
@@ -466,45 +457,27 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
             </div>
           </div>
 
-          {/* ---------- PARTICIPANTS ---------- */}
+          {/* ---------- TENANT INFO MESSAGE ---------- */}
 
           <div className="col-span-2 border-t pt-4 mt-4">
-            <h3 className="font-semibold text-lg mb-2">Participants</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              <div>
-                <Label>Client — Admin principal *</Label>
-                <Select value={clientAdminId} onValueChange={setClientAdminId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.data?.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-900 mb-1">
+                    Contrat envoyé à la plateforme
+                  </h4>
+                  <p className="text-sm text-blue-800 leading-relaxed">
+                    Ce MSA sera lié au <strong>tenant (plateforme)</strong>. Les administrateurs 
+                    de la plateforme pourront ensuite assigner un <strong>Admin principal</strong> et 
+                    un <strong>Approver</strong> spécifiques à ce contrat.
+                  </p>
+                </div>
               </div>
-
-              <div>
-                <Label>Approver — Validateur *</Label>
-                <Select value={approverId} onValueChange={setApproverId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.data?.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
             </div>
           </div>
         </div>

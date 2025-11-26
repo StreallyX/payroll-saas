@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc";
@@ -33,6 +34,9 @@ import { Loader2, Landmark, Plus } from "lucide-react";
 type CompanyFormValues = {
   name: string;
   bankId?: string;
+  
+  // 🔥 NEW — Tenant company flag
+  tenantCompany: boolean;
 
   contactPerson?: string;
   contactEmail?: string;
@@ -94,6 +98,9 @@ export function CompanyModal({
   const initialState: CompanyFormValues = {
     name: "",
     bankId: undefined,
+    
+    // 🔥 NEW — Tenant company flag
+    tenantCompany: false,
 
     contactPerson: undefined,
     contactEmail: undefined,
@@ -167,6 +174,9 @@ export function CompanyModal({
       setFormData({
         name: company.name ?? "",
         bankId: company.bankId ?? undefined,
+        
+        // 🔥 NEW — Tenant company flag
+        tenantCompany: company.tenantCompany ?? false,
 
         contactPerson: company.contactPerson ?? undefined,
         contactEmail: company.contactEmail ?? undefined,
@@ -230,6 +240,25 @@ export function CompanyModal({
               value={formData.name}
               onChange={(v) => setFormData({ ...formData, name: v })}
             />
+
+            {/* 🔥 NEW — TENANT COMPANY TOGGLE */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+              <div className="flex-1">
+                <Label className="text-base font-semibold text-blue-900">
+                  Tenant Company
+                </Label>
+                <p className="text-sm text-blue-700 mt-1">
+                  Cette company appartient-elle à la plateforme (tenant) ?
+                </p>
+              </div>
+              <Switch
+                checked={formData.tenantCompany}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, tenantCompany: checked })
+                }
+                className="data-[state=checked]:bg-blue-600"
+              />
+            </div>
 
             {/* BANK SELECT */}
             <div className="space-y-2">

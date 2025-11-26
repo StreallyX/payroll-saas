@@ -32,12 +32,20 @@ export const PERMISSIONS = {
   CONTRACTS_VIEW: "contracts.view",
   CONTRACTS_UPDATE: "contracts.update",
   CONTRACTS_DELETE: "contracts.delete",
+  CONTRACTS_ASSIGN: "contracts.assign", // 🔥 NEW — Assign admin/approver to contracts
 
   // Invoices
   INVOICES_CREATE: "invoices.create",
   INVOICES_VIEW: "invoices.view",
   INVOICES_UPDATE: "invoices.update",
   INVOICES_DELETE: "invoices.delete",
+
+  // Companies
+  COMPANIES_CREATE: "companies.create",
+  COMPANIES_VIEW: "companies.view",
+  COMPANIES_UPDATE: "companies.update",
+  COMPANIES_DELETE: "companies.delete",
+  COMPANIES_MANAGE_TENANT: "companies.manage_tenant", // 🔥 NEW — Manage tenant companies
 
   // System
   SYSTEM_SETTINGS: "system.settings",
