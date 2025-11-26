@@ -327,6 +327,82 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
+  // AGENCY PORTAL
+  // ===========================
+  {
+    label: "Agency Portal",
+    href: "/agency",
+    icon: Briefcase,
+    permissions: [
+      P(Resource.CONTRACTOR, Action.LIST, PermissionScope.OWN_COMPANY),
+    ],
+    submenu: [
+      {
+        label: "Dashboard",
+        href: "/agency",
+        icon: LayoutDashboard,
+        permissions: [
+          P(Resource.CONTRACTOR, Action.LIST, PermissionScope.OWN_COMPANY),
+        ]
+      },
+      {
+        label: "My Contractors",
+        href: "/agency/contractors",
+        icon: Users,
+        permissions: [
+          P(Resource.CONTRACTOR, Action.LIST, PermissionScope.OWN_COMPANY),
+        ]
+      },
+    ]
+  },
+
+  // ===========================
+  // PAYROLL PARTNER PORTAL
+  // ===========================
+  {
+    label: "Payroll Partner",
+    href: "/payroll-partner",
+    icon: Scale,
+    permissions: [
+      P(Resource.WORKER, Action.LIST, PermissionScope.OWN_COMPANY),
+    ],
+    submenu: [
+      {
+        label: "Dashboard",
+        href: "/payroll-partner",
+        icon: LayoutDashboard,
+        permissions: [
+          P(Resource.WORKER, Action.LIST, PermissionScope.OWN_COMPANY),
+        ]
+      },
+      {
+        label: "My Workers",
+        href: "/payroll-partner/workers",
+        icon: Users,
+        permissions: [
+          P(Resource.WORKER, Action.LIST, PermissionScope.OWN_COMPANY),
+        ]
+      },
+      {
+        label: "Upload Payslip",
+        href: "/payroll-partner/payslips/upload",
+        icon: Upload,
+        permissions: [
+          P(Resource.PAYSLIP, Action.UPLOAD, PermissionScope.OWN_COMPANY),
+        ]
+      },
+      {
+        label: "Upload Invoice",
+        href: "/payroll-partner/invoices/upload",
+        icon: Receipt,
+        permissions: [
+          P(Resource.INVOICE, Action.UPLOAD, PermissionScope.OWN_COMPANY),
+        ]
+      },
+    ]
+  },
+
+  // ===========================
   // REPORTS
   // ===========================
   {
@@ -344,6 +420,38 @@ export const dynamicMenuConfig: MenuItem[] = [
         label: "Overview",
         href: "/reports",
         icon: BarChart3,
+        permissions: [
+          P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Margin Report",
+        href: "/reports/margin",
+        icon: TrendingUp,
+        permissions: [
+          P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Live Contractors",
+        href: "/reports/contractors",
+        icon: Users,
+        permissions: [
+          P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Contracts by Country",
+        href: "/reports/contracts-by-country",
+        icon: Globe,
+        permissions: [
+          P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Income by Country",
+        href: "/reports/income-by-country",
+        icon: DollarSign,
         permissions: [
           P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
         ]
