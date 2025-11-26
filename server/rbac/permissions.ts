@@ -3,9 +3,10 @@
  */
 export enum PermissionScope {
   GLOBAL = "global",   // Accès à toutes les ressources du tenant
+  OWN_COMPANY = "ownCompany", // Accès aux ressources de sa company (Agency, Payroll Partner)
   OWN = "own",        // Accès uniquement à ses propres ressources
   TENANT = "tenant",  // Accès au niveau tenant (équivalent à global pour certaines ressources)
-  PAGE = "page",
+  PAGE = "page",      // Accès à une page spécifique
 }
 
 /**
@@ -24,6 +25,8 @@ export enum Resource {
   COMPANY = "company",
   CONTRACT_MSA = "contract_msa",
   CONTRACT_SOW = "contract_sow",
+  CONTRACTOR = "contractor",  // Independent contractors (Agency Portal)
+  WORKER = "worker",          // Employed workers (Payroll Partner Portal)
 
 
   // Financial
@@ -155,9 +158,15 @@ export enum Action {
   PAY = "pay",
   REFUND = "refund",
   PROCESS = "process",
+  GENERATE = "generate",
+  EXECUTE = "execute",
+  RELEASE = "release",
   
   // Signature
   SIGN = "sign",
+  
+  // Viewing
+  VIEW = "view",
   
   // Communication
   COMMENT_ADD = "comment",
@@ -2090,6 +2099,526 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Tenants"),
   createPermission(Resource.TENANT_DETAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant Details"),
   createPermission(Resource.SUPERADMIN_USER, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Superadmin Users"),
+
+  // ================================================================
+  // CONTRACTOR PERMISSIONS (Agency Portal)
+  // ================================================================
+  createPermission(
+    Resource.CONTRACTOR,
+    Action.LIST,
+    PermissionScope.OWN_COMPANY,
+    "Voir ses contractors",
+    "Lister les contractors de sa company (Agency)",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACTOR,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir tous les contractors",
+    "Lister tous les contractors du tenant",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACTOR,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir détails contractor",
+    "Consulter les détails des contractors de sa company",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACTOR,
+    Action.VIEW,
+    PermissionScope.GLOBAL,
+    "Voir détails tous contractors",
+    "Consulter les détails de tous les contractors",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACTOR,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir son profil contractor",
+    "Consulter son propre profil de contractor",
+    PermissionCategory.BUSINESS
+  ),
+
+  // ================================================================
+  // WORKER PERMISSIONS (Payroll Partner Portal)
+  // ================================================================
+  createPermission(
+    Resource.WORKER,
+    Action.LIST,
+    PermissionScope.OWN_COMPANY,
+    "Voir ses workers",
+    "Lister les workers gérés par le payroll partner",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.WORKER,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir tous les workers",
+    "Lister tous les workers du tenant",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.WORKER,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir détails worker",
+    "Consulter les détails des workers de sa company",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.WORKER,
+    Action.VIEW,
+    PermissionScope.GLOBAL,
+    "Voir détails tous workers",
+    "Consulter les détails de tous les workers",
+    PermissionCategory.BUSINESS
+  ),
+
+  // ================================================================
+  // PAYMENT MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.PAYMENT,
+    Action.APPROVE,
+    PermissionScope.GLOBAL,
+    "Approuver des paiements",
+    "Approuver des paiements pending",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYMENT,
+    Action.EXECUTE,
+    PermissionScope.GLOBAL,
+    "Exécuter des paiements",
+    "Exécuter des paiements approuvés via bank transfer",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYMENT,
+    Action.CANCEL,
+    PermissionScope.GLOBAL,
+    "Annuler des paiements",
+    "Annuler des paiements pending",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYMENT,
+    Action.VIEW,
+    PermissionScope.OWN,
+    "Voir ses paiements",
+    "Consulter l'historique de ses propres paiements",
+    PermissionCategory.FINANCIAL
+  ),
+
+  // ================================================================
+  // REMITTANCE MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.REMITTANCE,
+    Action.GENERATE,
+    PermissionScope.GLOBAL,
+    "Générer remittance advice",
+    "Générer remittance advice pour un paiement",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.REMITTANCE,
+    Action.SEND,
+    PermissionScope.GLOBAL,
+    "Envoyer remittance",
+    "Envoyer remittance advice au worker",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.REMITTANCE,
+    Action.READ,
+    PermissionScope.OWN_COMPANY,
+    "Voir remittances company",
+    "Consulter les remittances de sa company",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.REMITTANCE,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir remittances company (alias)",
+    "Consulter les remittances de sa company",
+    PermissionCategory.FINANCIAL
+  ),
+
+  // ================================================================
+  // INVOICE MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.INVOICE,
+    Action.GENERATE,
+    PermissionScope.GLOBAL,
+    "Générer invoice depuis timesheet",
+    "Convertir un timesheet approuvé en invoice",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.RELEASE,
+    PermissionScope.GLOBAL,
+    "Release invoice",
+    "Release invoice vers client/agency",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.READ,
+    PermissionScope.OWN_COMPANY,
+    "Voir invoices company",
+    "Consulter les invoices de sa company",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir invoices company (alias)",
+    "Consulter les invoices de sa company",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.UPLOAD,
+    PermissionScope.OWN_COMPANY,
+    "Upload invoice to platform",
+    "Upload invoice vers Aspirock (Payroll Partner)",
+    PermissionCategory.FINANCIAL
+  ),
+
+  // ================================================================
+  // PAYSLIP MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.PAYSLIP,
+    Action.UPLOAD,
+    PermissionScope.OWN_COMPANY,
+    "Upload payslip",
+    "Upload payslip pour un worker (Payroll Partner)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYSLIP,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir payslips company",
+    "Consulter les payslips de sa company",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.PAYSLIP,
+    Action.GENERATE,
+    PermissionScope.GLOBAL,
+    "Générer payslips",
+    "Générer des payslips pour les workers",
+    PermissionCategory.FINANCIAL
+  ),
+
+  // ================================================================
+  // USER MANAGEMENT (Additional - OwnCompany scope)
+  // ================================================================
+  createPermission(
+    Resource.USER,
+    Action.DEACTIVATE,
+    PermissionScope.GLOBAL,
+    "Désactiver des utilisateurs",
+    "Désactiver des comptes utilisateurs",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.USER,
+    Action.ACTIVATE,
+    PermissionScope.OWN_COMPANY,
+    "Activer des utilisateurs (company)",
+    "Activer des utilisateurs de sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.USER,
+    Action.DEACTIVATE,
+    PermissionScope.OWN_COMPANY,
+    "Désactiver des utilisateurs (company)",
+    "Désactiver des utilisateurs de sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.USER,
+    Action.CREATE,
+    PermissionScope.OWN_COMPANY,
+    "Créer des utilisateurs (company)",
+    "Créer des utilisateurs pour sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.USER,
+    Action.LIST,
+    PermissionScope.OWN_COMPANY,
+    "Voir utilisateurs company",
+    "Lister les utilisateurs de sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.USER,
+    Action.UPDATE,
+    PermissionScope.OWN_COMPANY,
+    "Modifier utilisateurs company",
+    "Modifier les utilisateurs de sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // ================================================================
+  // COMPANY MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.COMPANY,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir sa company",
+    "Consulter les détails de sa propre company",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.COMPANY,
+    Action.ACTIVATE,
+    PermissionScope.GLOBAL,
+    "Activer des companies",
+    "Activer des companies",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.COMPANY,
+    Action.DEACTIVATE,
+    PermissionScope.GLOBAL,
+    "Désactiver des companies",
+    "Désactiver des companies",
+    PermissionCategory.BUSINESS
+  ),
+
+  // ================================================================
+  // DOCUMENT MANAGEMENT (Additional - OwnCompany scope)
+  // ================================================================
+  createPermission(
+    Resource.DOCUMENT,
+    Action.READ,
+    PermissionScope.OWN_COMPANY,
+    "Voir documents company",
+    "Consulter les documents de sa company",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.UPLOAD,
+    PermissionScope.OWN_COMPANY,
+    "Upload documents company",
+    "Upload documents pour sa company",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.DOWNLOAD,
+    PermissionScope.OWN,
+    "Télécharger ses documents",
+    "Télécharger ses propres documents",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.DOWNLOAD,
+    PermissionScope.OWN_COMPANY,
+    "Télécharger documents company",
+    "Télécharger les documents de sa company",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.VIEW,
+    PermissionScope.OWN,
+    "Voir ses documents",
+    "Consulter ses propres documents",
+    PermissionCategory.DOCUMENTS
+  ),
+  createPermission(
+    Resource.DOCUMENT,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir documents company",
+    "Consulter les documents de sa company",
+    PermissionCategory.DOCUMENTS
+  ),
+
+  // ================================================================
+  // ONBOARDING GENERIC (Additional)
+  // ================================================================
+  createPermission(
+    Resource.ONBOARDING,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir son onboarding",
+    "Consulter son propre statut d'onboarding",
+    PermissionCategory.CORE
+  ),
+  createPermission(
+    Resource.ONBOARDING,
+    Action.UPDATE,
+    PermissionScope.OWN,
+    "Mettre à jour son onboarding",
+    "Modifier son propre onboarding",
+    PermissionCategory.CORE
+  ),
+  createPermission(
+    Resource.ONBOARDING,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir onboarding company",
+    "Consulter l'onboarding des users de sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.ONBOARDING,
+    Action.UPDATE,
+    PermissionScope.OWN_COMPANY,
+    "Modifier onboarding company",
+    "Modifier l'onboarding des users de sa company",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.ONBOARDING,
+    Action.VIEW,
+    PermissionScope.GLOBAL,
+    "Voir tous les onboarding",
+    "Consulter tous les statuts d'onboarding",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.ONBOARDING,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier tous les onboarding",
+    "Modifier tous les onboarding",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // ================================================================
+  // LEAD MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.LEAD,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir ses leads",
+    "Consulter ses propres leads",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.LEAD,
+    Action.CREATE,
+    PermissionScope.OWN,
+    "Créer ses leads",
+    "Créer ses propres leads",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.LEAD,
+    Action.UPDATE,
+    PermissionScope.OWN,
+    "Modifier ses leads",
+    "Modifier ses propres leads",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.LEAD,
+    Action.EXPORT,
+    PermissionScope.GLOBAL,
+    "Exporter des leads",
+    "Exporter les données de leads",
+    PermissionCategory.BUSINESS
+  ),
+
+  // ================================================================
+  // REPORTING (New permissions)
+  // ================================================================
+  createPermission(
+    Resource.REPORT,
+    Action.VIEW,
+    PermissionScope.GLOBAL,
+    "Voir margin report",
+    "Consulter le rapport de marge (gross profit)",
+    PermissionCategory.REPORTING
+  ),
+  createPermission(
+    Resource.REPORT,
+    Action.EXPORT,
+    PermissionScope.GLOBAL,
+    "Exporter des rapports",
+    "Exporter les rapports en CSV/PDF/Excel",
+    PermissionCategory.REPORTING
+  ),
+  createPermission(
+    Resource.REPORT,
+    Action.VIEW,
+    PermissionScope.OWN_COMPANY,
+    "Voir rapports company",
+    "Consulter les rapports de sa company (future)",
+    PermissionCategory.REPORTING
+  ),
+
+  // ================================================================
+  // BANK MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.BANK,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer des banks",
+    "Créer des comptes bancaires",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.BANK,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir tous les banks",
+    "Lister tous les comptes bancaires",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.BANK,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier des banks",
+    "Modifier les comptes bancaires",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.BANK,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer des banks",
+    "Supprimer des comptes bancaires",
+    PermissionCategory.FINANCIAL
+  ),
+
+  // ================================================================
+  // CONTRACT MANAGEMENT (Additional)
+  // ================================================================
+  createPermission(
+    Resource.CONTRACT,
+    Action.CREATE,
+    PermissionScope.OWN,
+    "Créer ses contrats",
+    "Créer ses propres contrats (Agency)",
+    PermissionCategory.BUSINESS
+  ),
 
 ];
 
