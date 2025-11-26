@@ -8,6 +8,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { assignPlatformApprover } from "@/server/helpers/contract"
 
 // =======================================================
 // PERMISSIONS MAP
@@ -714,6 +715,23 @@ export const contractRouter = createTRPCRouter({
           code: "BAD_REQUEST", 
           message: "Only draft contracts can have main document uploaded" 
         })
+      }
+
+      // 🔥 NEW: Assignation automatique d'un approver pour les MSA
+      if (contract.type === "msa") {
+        // Vérifier si un approver est déjà assigné
+        const existingApprover = await ctx.prisma.contractParticipant.findFirst({
+          where: {
+            contractId: input.contractId,
+            role: "approver",
+            isActive: true,
+          },
+        });
+
+        // Si aucun approver n'est assigné, en assigner un automatiquement
+        if (!existingApprover) {
+          await assignPlatformApprover(input.contractId, ctx.tenantId!);
+        }
       }
 
       const updated = await ctx.prisma.contract.update({

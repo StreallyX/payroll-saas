@@ -10,6 +10,7 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { getUserCompany } from "@/server/helpers/company"
 
 const P = {
   LIST_GLOBAL: "bank.list.global",
@@ -236,6 +237,106 @@ export const bankRouter = createTRPCRouter({
           },
           orderBy: { createdAt: "desc" },
         })
+      }),
+
+
+    // ============================================================
+    // 🔥 NEW: GET MY COMPANY'S BANK ACCOUNT (For Agency Admin)
+    // ============================================================
+    getMyCompanyBank: tenantProcedure
+      .use(hasPermission(P.LIST_OWN))
+      .query(async ({ ctx }) => {
+        const user = ctx.session.user
+
+        // Récupérer la company du user
+        const company = await getUserCompany(user.id)
+        if (!company || !company.bankId) {
+          return null
+        }
+
+        // Récupérer le bank account de la company
+        return ctx.prisma.bank.findUnique({
+          where: { id: company.bankId },
+        })
+      }),
+
+
+    // ============================================================
+    // 🔥 NEW: CREATE/UPDATE MY COMPANY'S BANK ACCOUNT (For Agency Admin)
+    // ============================================================
+    setMyCompanyBank: tenantProcedure
+      .use(hasPermission(P.CREATE_OWN))
+      .input(
+        z.object({
+          name: z.string().min(1),
+          accountNumber: z.string().optional(),
+          swiftCode: z.string().optional(),
+          iban: z.string().optional(),
+          address: z.string().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenantId = ctx.tenantId!
+        const user = ctx.session.user
+
+        // Récupérer la company du user
+        const company = await getUserCompany(user.id)
+        if (!company) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "You don't have a company. Create a company first.",
+          })
+        }
+
+        let bank: any
+
+        // Si la company a déjà un bank, le mettre à jour
+        if (company.bankId) {
+          bank = await ctx.prisma.bank.update({
+            where: { id: company.bankId },
+            data: input,
+          })
+
+          await createAuditLog({
+            tenantId,
+            userId: user.id,
+            userName: user.name ?? "Unknown",
+            userRole: user.roleName,
+            action: AuditAction.UPDATE,
+            entityType: AuditEntityType.BANK,
+            entityId: bank.id,
+            entityName: bank.name,
+          })
+        } else {
+          // Créer un nouveau bank et le lier à la company
+          bank = await ctx.prisma.bank.create({
+            data: {
+              ...input,
+              tenantId,
+              createdBy: user.id,
+              status: "active",
+            },
+          })
+
+          // Lier le bank à la company
+          await ctx.prisma.company.update({
+            where: { id: company.id },
+            data: { bankId: bank.id },
+          })
+
+          await createAuditLog({
+            tenantId,
+            userId: user.id,
+            userName: user.name ?? "Unknown",
+            userRole: user.roleName,
+            action: AuditAction.CREATE,
+            entityType: AuditEntityType.BANK,
+            entityId: bank.id,
+            entityName: bank.name,
+          })
+        }
+
+        return bank
       }),
 
 })

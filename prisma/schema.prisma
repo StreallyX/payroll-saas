@@ -231,6 +231,10 @@ model User {
   mustChangePassword Boolean  @default(true)
   
   roleId             String
+  
+  // 🔥 NEW: Relation directe avec Company (pour hériter des bank accounts)
+  companyId          String?
+  company            Company?  @relation("UserCompany", fields: [companyId], references: [id])
 
   name               String?
   profilePictureUrl  String?
@@ -240,8 +244,8 @@ model User {
   timezone           String?  @default("UTC")
   language           String?  @default("en")
 
-  // 🔥 Ownership (comme Deel)
-  createdBy          String?   // userId
+  // 🔥 Ownership (comme Deel) - createdBy = parentUserId
+  createdBy          String?   // userId (parent)
   createdUsers       User[]     @relation("UserCreatedUsers")
   createdByUser      User?      @relation("UserCreatedUsers", fields: [createdBy], references: [id])
 
@@ -324,6 +328,7 @@ model User {
   @@index([lastLoginAt])
   @@index([createdBy])
   @@index([status])
+  @@index([companyId])
 
   @@map("users")
 }
@@ -333,6 +338,9 @@ model Company {
   id           String  @id @default(cuid())
   tenantId     String
   name         String
+  
+  // 🔥 NEW: Type de company (tenant ou agency)
+  type         String  @default("tenant") // "tenant" | "agency"
   
   // Ownership
   ownerType    String  @default("tenant")
@@ -373,10 +381,12 @@ model Company {
   country      Country? @relation(fields: [countryId], references: [id])
   contracts    Contract[]
   companyUsers CompanyUser[]
+  users        User[]   @relation("UserCompany")  // 🔥 NEW: Relation inverse avec User
 
   @@index([tenantId])
   @@index([createdBy])
-  @@index([bankId])     // 👈 recommandé
+  @@index([bankId])
+  @@index([type])       // 🔥 NEW: Index pour filtrer par type
   @@map("companies")
 }
 
