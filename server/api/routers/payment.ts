@@ -499,4 +499,163 @@ Please ensure the contractor receives payment according to their contract terms 
       }
     }),
 
+  // ---------------------------------------------------------
+  // APPROVE PAYMENT (New - Finance Manager)
+  // ---------------------------------------------------------
+  approve: tenantProcedure
+    .use(hasPermission("payment.approve.global"))
+    .input(
+      z.object({
+        paymentId: z.string(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const payment = await ctx.prisma.payment.findFirst({
+        where: {
+          id: input.paymentId,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!payment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Payment not found",
+        })
+      }
+
+      if (payment.status !== "pending") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Payment can only be approved when status is pending",
+        })
+      }
+
+      const updatedPayment = await ctx.prisma.payment.update({
+        where: { id: input.paymentId },
+        data: {
+          status: "processing",
+          approvedAt: new Date(),
+          approvedBy: ctx.session.user.id,
+          notes: input.notes || payment.notes,
+        },
+      })
+
+      return updatedPayment
+    }),
+
+  // ---------------------------------------------------------
+  // EXECUTE PAYMENT (New - Finance Manager)
+  // Marks payment as completed after bank transfer is executed
+  // ---------------------------------------------------------
+  execute: tenantProcedure
+    .use(hasPermission("payment.execute.global"))
+    .input(
+      z.object({
+        paymentId: z.string(),
+        transactionReference: z.string().optional(),
+        executedAt: z.date().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const payment = await ctx.prisma.payment.findFirst({
+        where: {
+          id: input.paymentId,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          invoice: true,
+          recipient: true,
+        },
+      })
+
+      if (!payment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Payment not found",
+        })
+      }
+
+      if (!["pending", "processing"].includes(payment.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Payment can only be executed when status is pending or processing",
+        })
+      }
+
+      const updatedPayment = await ctx.prisma.payment.update({
+        where: { id: input.paymentId },
+        data: {
+          status: "completed",
+          paymentDate: input.executedAt || new Date(),
+          transactionReference: input.transactionReference,
+          notes: input.notes || payment.notes,
+        },
+      })
+
+      // Auto-create remittance advice if recipient is a contractor/worker
+      if (payment.recipientId) {
+        await ctx.prisma.remittance.create({
+          data: {
+            tenantId: ctx.tenantId,
+            paymentId: payment.id,
+            recipientId: payment.recipientId,
+            referenceNumber: `REM-${Date.now()}`,
+            amount: payment.amount,
+            currency: payment.invoice?.currency || "USD",
+            generatedAt: new Date(),
+            status: "generated",
+          },
+        })
+      }
+
+      return updatedPayment
+    }),
+
+  // ---------------------------------------------------------
+  // CANCEL PAYMENT (New - Finance Manager)
+  // ---------------------------------------------------------
+  cancel: tenantProcedure
+    .use(hasPermission("payment.cancel.global"))
+    .input(
+      z.object({
+        paymentId: z.string(),
+        reason: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const payment = await ctx.prisma.payment.findFirst({
+        where: {
+          id: input.paymentId,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!payment) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Payment not found",
+        })
+      }
+
+      if (payment.status === "completed") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cannot cancel a completed payment. Consider creating a refund instead.",
+        })
+      }
+
+      const updatedPayment = await ctx.prisma.payment.update({
+        where: { id: input.paymentId },
+        data: {
+          status: "failed",
+          notes: `CANCELLED: ${input.reason}${payment.notes ? `\n\nOriginal notes: ${payment.notes}` : ""}`,
+        },
+      })
+
+      return updatedPayment
+    }),
+
 })
