@@ -272,9 +272,159 @@ ON CONFLICT DO NOTHING;
 
 ---
 
+---
+
+## 🆕 NEW: Agency Portal & Payroll Partner Portal (Phase 4)
+
+### Agency Portal Permissions
+
+**Contractor Visibility**
+- `contractor.list.ownCompany` - Voir tous les contractors liés à l'agency
+- `contractor.view.ownCompany` - Voir les détails d'un contractor
+- `contractor.view_onboarding.ownCompany` - Voir le statut d'onboarding
+- `contractor.view_dates.ownCompany` - Voir les dates de début/fin
+- `contractor.view_payments.ownCompany` - Voir l'historique des paiements
+
+**Document Management**
+- `document.upload_proof_of_payment.own` - Uploader proof of payment
+- `document.upload_selfbill.own` - Uploader self-bill
+- `document.upload_kyc.ownCompany` - Uploader KYC documents (future)
+
+**Access via**:
+- `AGENCY_ADMIN`: Toutes les permissions ownCompany
+- `AGENCY_USER`: Permissions view seulement
+
+---
+
+### Payroll Partner Portal Permissions
+
+**Worker Management**
+- `worker.list.ownCompany` - Voir tous les workers gérés
+- `worker.view.ownCompany` - Voir les détails d'un worker
+- `worker.view_onboarding.ownCompany` - Voir le statut d'onboarding
+- `worker.view_dates.ownCompany` - Voir les dates de début/fin
+- `worker.view_contract.ownCompany` - Voir le contrat local d'emploi
+
+**Payslip Management**
+- `payslip.upload.ownCompany` - Uploader payslip pour un worker
+- `payslip.view.ownCompany` - Voir les payslips des workers
+
+**Invoice Management**
+- `invoice.upload_to_platform.ownCompany` - Uploader invoice vers Aspirock
+
+**Access via**:
+- `PAYROLL_PARTNER_ADMIN`: Toutes les permissions ownCompany
+- `PAYROLL_PARTNER_USER`: Permissions view seulement
+
+---
+
+## 🆕 NEW: Reporting System (Phase 4)
+
+**Report Permissions**
+- `report.view_margin.global` - Voir le margin report (profit brut)
+- `report.view_live_contractors.global` - Voir les contractors actifs
+- `report.view_by_country.global` - Voir la répartition par pays
+- `report.view_by_client.global` - Voir la répartition par client
+- `report.view_income.global` - Voir les revenus
+- `report.export.global` - Exporter les rapports (CSV/PDF/Excel)
+- `report.view.ownCompany` - Voir rapports limités à sa company (future)
+
+**Available Reports**:
+1. **Margin Report**: Calcule le profit brut (fees) par période, compté uniquement quand le worker est payé
+2. **Live Contractors**: Nombre de contractors actifs avec répartition par type (gross/employed/split)
+3. **Contracts by Country**: Distribution géographique des contrats
+4. **Contractors by Client**: Nombre de contractors par client/agency
+5. **Income by Country**: Revenus par pays par période
+6. **Dashboard Summary**: Vue d'ensemble avec métriques clés
+
+**Access via**:
+- `PLATFORM_ADMIN`: Toutes les permissions global
+- `FINANCE_MANAGER`: Toutes les permissions global (custom role)
+
+---
+
+## 🆕 NEW: Enhanced Payment & Remittance (Phase 4)
+
+**Payment Management**
+- `payment.approve.global` - Approuver un paiement (passage à "processing")
+- `payment.execute.global` - Exécuter un paiement (passage à "completed")
+- `payment.cancel.global` - Annuler un paiement pending
+
+**Remittance Management**
+- `remittance.generate.global` - Générer remittance advice
+- `remittance.send.global` - Envoyer remittance au worker
+
+**Workflow**:
+1. Payment créé → status: "pending"
+2. Finance Manager approve → status: "processing"
+3. Finance Manager execute → status: "completed" + auto-création remittance
+4. Remittance envoyée au worker avec détails
+
+**Access via**:
+- `PLATFORM_ADMIN`: Toutes les permissions
+- `FINANCE_MANAGER`: approve, execute, generate, send (custom role)
+
+---
+
+## 🆕 NEW: Enhanced Document Management (Phase 4)
+
+**Granular Document Permissions**
+- `document.upload.own` - Uploader document pour soi
+- `document.upload.ownCompany` - Uploader document pour sa company
+- `document.upload_selfbill.own` - Uploader self-bill (Agency)
+- `document.upload_proof_of_payment.own` - Uploader proof of payment (Agency)
+- `document.upload_kyc.ownCompany` - Uploader KYC documents (future)
+- `document.view.own` - Voir ses propres documents
+- `document.view.ownCompany` - Voir documents de sa company
+- `document.download.own` - Télécharger ses documents
+- `document.download.ownCompany` - Télécharger documents de sa company
+
+---
+
+## 🆕 NEW: Suggested Roles to Create
+
+### PAYROLL_PARTNER_ADMIN
+```
+worker.list.ownCompany
+worker.view.ownCompany
+worker.view_onboarding.ownCompany
+worker.view_dates.ownCompany
+worker.view_contract.ownCompany
+payslip.upload.ownCompany
+payslip.view.ownCompany
+invoice.upload_to_platform.ownCompany
+user.create.ownCompany (créer users payroll partner)
+```
+
+### FINANCE_MANAGER
+```
+payment.approve.global
+payment.execute.global
+payment.cancel.global
+remittance.generate.global
+remittance.send.global
+report.view_margin.global
+report.view_income.global
+report.export.global
+```
+
+### SALES_MANAGER
+```
+lead.list.global
+lead.create.global
+lead.update.global
+lead.assign.global
+lead.export.global
+contractor.list.global (pour voir pipeline)
+```
+
+---
+
 ## Future Enhancements
 
 1. **Multi-Level Approval** : Support pour plusieurs niveaux d'approbation (approver1, approver2, etc.)
 2. **Company Groups** : Regroupement de companies pour les grandes entreprises
 3. **Custom Scopes** : Ajout de scopes personnalisés (team, department, etc.)
 4. **Permission Templates** : Templates de permissions par industrie/use-case
+5. **Agency Self-Service** : Agencies peuvent ajouter new joiners via SOW
+6. **KYC Document Management** : Upload et validation automatique de documents KYC
