@@ -199,6 +199,26 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.CONTRACT, Action.SIGN, PermissionScope.OWN),
     buildPermissionKey(Resource.CONTRACT, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.CONTRACT, Action.CREATE, PermissionScope.GLOBAL),
+
+    buildPermissionKey(Resource.CONTRACT_MSA, Action.CREATE, PermissionScope.GLOBAL),
+
+    buildPermissionKey(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.COMPANY, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.DOCUMENT, Action.UPLOAD, PermissionScope.OWN),
+    buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.DOCUMENT, Action.DELETE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.BANK, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.BANK, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.UPDATE, PermissionScope.OWN),
 
     // INVOICES (own)
     buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
