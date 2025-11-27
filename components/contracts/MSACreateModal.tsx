@@ -160,10 +160,11 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
       portalCanUploadPaymentProof: form.portalCanUploadPaymentProof,
 
       // 🔥 NEW — Admin and Approver will be assigned later by platform admins
-      // For now, only add the creator as a client participant
+      // For now, only add the creator as a client participant AND the selected company
       participants: [
         {
           userId: currentUserId,
+          companyId: form.companyId, // 🔥 Lier l'utilisateur à la company sélectionnée
           role: "client",
           requiresSignature: false,
           isPrimary: true,

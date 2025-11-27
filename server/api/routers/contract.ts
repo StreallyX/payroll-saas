@@ -41,11 +41,22 @@ const P = {
 // SCHEMAS
 // =======================================================
 const participantInputSchema = z.object({
-  userId: z.string(),
+  userId: z.string().optional().nullable(),
+  companyId: z.string().optional().nullable(),
   role: z.string(), // contractor, client_admin, approver, agency, payroll_partner, etc.
   requiresSignature: z.boolean().optional().default(false),
   isPrimary: z.boolean().optional().default(false),
-}).refine((data) => {
+})
+.refine((data) => {
+  // 🔥 VALIDATION : Au moins userId OU companyId doit être présent
+  if (!data.userId && !data.companyId) {
+    return false
+  }
+  return true
+}, {
+  message: "Au moins userId ou companyId doit être fourni pour un participant."
+})
+.refine((data) => {
   // 🔥 VALIDATION CRITIQUE : Les approvers ne doivent JAMAIS avoir requiresSignature: true
   if (data.role === "approver" && data.requiresSignature === true) {
     return false
@@ -205,13 +216,19 @@ export const contractRouter = createTRPCRouter({
           { title: { contains: q, mode: "insensitive" } },
           { contractReference: { contains: q, mode: "insensitive" } },
           { participants: { some: { user: { name: { contains: q, mode: "insensitive" } } } } },
+          { participants: { some: { company: { name: { contains: q, mode: "insensitive" } } } } },
         ]
       }
 
       return ctx.prisma.contract.findMany({
         where,
         include: {
-          participants: { include: { user: { select: { id: true, name: true, email: true } } } },
+          participants: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+              company: { select: { id: true, name: true } },
+            }
+          },
           company: true,
           parent: { select: { id: true, title: true, type: true } },
           children: { select: { id: true, title: true, type: true, status: true } },
@@ -247,7 +264,12 @@ export const contractRouter = createTRPCRouter({
           contractCountry: true,
           parent: { select: { id: true, type: true, title: true } },
           children: { select: { id: true, type: true, title: true, status: true } },
-          participants: { include: { user: { select: { id: true, name: true, email: true } } } },
+          participants: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+              company: { select: { id: true, name: true } },
+            }
+          },
           statusHistory: { orderBy: { changedAt: "desc" } },
         },
       })
@@ -297,7 +319,8 @@ export const contractRouter = createTRPCRouter({
           await tx.contractParticipant.createMany({
             data: participants.map(p => ({
               contractId: base.id,
-              userId: p.userId,
+              userId: p.userId || null,
+              companyId: p.companyId || null,
               role: p.role,
               requiresSignature: p.role === "approver" ? false : (p.requiresSignature ?? false), // 🔥 Approvers ne peuvent JAMAIS avoir requiresSignature
               approved: false, // 🔥 Initialisé à false, passera à true quand l'approver approuve
@@ -309,7 +332,12 @@ export const contractRouter = createTRPCRouter({
         return tx.contract.findFirstOrThrow({
           where: { id: base.id },
           include: {
-            participants: { include: { user: true } },
+            participants: {
+              include: {
+                user: true,
+                company: true,
+              }
+            },
             company: true,
           },
         })
@@ -390,9 +418,11 @@ export const contractRouter = createTRPCRouter({
             await tx.contractParticipant.createMany({
               data: participants.map(p => ({
                 contractId: id,
-                userId: p.userId,
+                userId: p.userId || null,
+                companyId: p.companyId || null,
                 role: p.role,
-                requiresSignature: p.requiresSignature ?? false,
+                requiresSignature: p.role === "approver" ? false : (p.requiresSignature ?? false),
+                approved: false,
                 isPrimary: p.isPrimary ?? false,
               })),
             })
@@ -402,7 +432,12 @@ export const contractRouter = createTRPCRouter({
         return tx.contract.findFirstOrThrow({
           where: { id },
           include: {
-            participants: { include: { user: true } },
+            participants: {
+              include: {
+                user: true,
+                company: true,
+              }
+            },
             company: true,
           },
         })
@@ -467,7 +502,12 @@ export const contractRouter = createTRPCRouter({
           participants: { some: { userId, isActive: true } },
         },
         include: {
-          participants: { include: { user: true } },
+          participants: {
+            include: {
+              user: true,
+              company: true,
+            }
+          },
           company: true,
           invoices: true,
           parent: { select: { id: true, title: true, type: true } },

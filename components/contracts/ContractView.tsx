@@ -319,7 +319,16 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                         {(participantsByRole[role] || []).map((p: any) => (
                           <div key={p.id} className="rounded border p-3">
                             <div className="flex items-center justify-between">
-                              <div className="font-semibold">{p.user?.name ?? p.userId}</div>
+                              <div className="font-semibold">
+                                {/* 🔥 Gérer les différents types de participants */}
+                                {p.user && p.company
+                                  ? `${p.user.name} (${p.company.name})`
+                                  : p.user
+                                  ? p.user.name
+                                  : p.company
+                                  ? p.company.name
+                                  : "Participant inconnu"}
+                              </div>
                               <div className="flex gap-2">
                                 {p.isPrimary && <Badge className="bg-purple-100 text-purple-800">Primary</Badge>}
                                 {p.requiresSignature && (
@@ -333,7 +342,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                               </div>
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {p.user?.email ?? "—"}
+                              {p.user?.email ?? (p.company ? "Entreprise" : "—")}
                             </div>
                             <div className="text-xs mt-2 flex items-center gap-2">
                               <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
@@ -355,8 +364,19 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                     <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                       {(participantsByRole["other"] || []).map((p: any) => (
                         <div key={p.id} className="rounded border p-3">
-                          <div className="font-semibold">{p.user?.name ?? p.userId}</div>
-                          <div className="text-xs text-muted-foreground">{p.user?.email ?? "—"}</div>
+                          <div className="font-semibold">
+                            {/* 🔥 Gérer les différents types de participants */}
+                            {p.user && p.company
+                              ? `${p.user.name} (${p.company.name})`
+                              : p.user
+                              ? p.user.name
+                              : p.company
+                              ? p.company.name
+                              : "Participant inconnu"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {p.user?.email ?? (p.company ? "Entreprise" : "—")}
+                          </div>
                         </div>
                       ))}
                     </div>

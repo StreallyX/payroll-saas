@@ -298,36 +298,50 @@ export default function ManageContractsPage() {
 
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {c.participants.map((p: any) => (
-                            <div key={p.id} className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{p.user.name}</span>
-                              <span className="text-xs text-gray-500">({p.role})</span>
-                              
-                              {/* 🔥 Badge d'approbation (pour les approvers uniquement) */}
-                              {p.role === "approver" && !p.approved && (
-                                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
-                                  ⏳ Approbation en attente
-                                </Badge>
-                              )}
-                              {p.role === "approver" && p.approved && (
-                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                                  ✓ Approuvé
-                                </Badge>
-                              )}
-                              
-                              {/* 🔥 Badge de signature (pour les signataires uniquement) */}
-                              {p.requiresSignature && !p.signedAt && (
-                                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
-                                  ⏳ Signature en attente
-                                </Badge>
-                              )}
-                              {p.signedAt && p.requiresSignature && (
-                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
-                                  ✓ Signé
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
+                          {c.participants.map((p: any) => {
+                            // 🔥 Gérer les différents types de participants
+                            let participantName = "";
+                            if (p.user && p.company) {
+                              participantName = `${p.user.name} (${p.company.name})`;
+                            } else if (p.user) {
+                              participantName = p.user.name;
+                            } else if (p.company) {
+                              participantName = p.company.name;
+                            } else {
+                              participantName = "Participant inconnu";
+                            }
+
+                            return (
+                              <div key={p.id} className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm">{participantName}</span>
+                                <span className="text-xs text-gray-500">({p.role})</span>
+                                
+                                {/* 🔥 Badge d'approbation (pour les approvers uniquement) */}
+                                {p.role === "approver" && !p.approved && (
+                                  <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                                    ⏳ Approbation en attente
+                                  </Badge>
+                                )}
+                                {p.role === "approver" && p.approved && (
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                    ✓ Approuvé
+                                  </Badge>
+                                )}
+                                
+                                {/* 🔥 Badge de signature (pour les signataires uniquement) */}
+                                {p.requiresSignature && !p.signedAt && (
+                                  <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
+                                    ⏳ Signature en attente
+                                  </Badge>
+                                )}
+                                {p.signedAt && p.requiresSignature && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+                                    ✓ Signé
+                                  </Badge>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </TableCell>
 

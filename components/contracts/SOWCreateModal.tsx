@@ -166,7 +166,7 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
       notes: form.notes,
 
       // 🔥 NEW — Admin and Approver will be assigned later by platform admins
-      // For now, only add the worker and the creator
+      // For now, only add the worker and the creator (linked to the company)
       participants: [
         {
           userId: workerId,
@@ -176,6 +176,7 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
         },
         {
           userId: currentUserId,
+          companyId: form.companyId, // 🔥 Lier l'utilisateur à la company sélectionnée
           role: "client",
           requiresSignature: false,
         },
