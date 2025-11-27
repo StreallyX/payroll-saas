@@ -229,7 +229,6 @@ export const contractRouter = createTRPCRouter({
               company: { select: { id: true, name: true } },
             }
           },
-          company: true,
           parent: { select: { id: true, title: true, type: true } },
           children: { select: { id: true, title: true, type: true, status: true } },
         },
@@ -258,19 +257,18 @@ export const contractRouter = createTRPCRouter({
           ? { id, tenantId }
           : { id, tenantId, participants: { some: { userId: user.id, isActive: true } } },
         include: {
-          company: true,
           currency: true,
           bank: true,
           contractCountry: true,
           parent: { select: { id: true, type: true, title: true } },
           children: { select: { id: true, type: true, title: true, status: true } },
+          statusHistory: { orderBy: { changedAt: "desc" } },
           participants: {
             include: {
               user: { select: { id: true, name: true, email: true } },
               company: { select: { id: true, name: true } },
             }
           },
-          statusHistory: { orderBy: { changedAt: "desc" } },
         },
       })
 
@@ -338,7 +336,6 @@ export const contractRouter = createTRPCRouter({
                 company: true,
               }
             },
-            company: true,
           },
         })
       })
@@ -438,7 +435,6 @@ export const contractRouter = createTRPCRouter({
                 company: true,
               }
             },
-            company: true,
           },
         })
       })
@@ -508,7 +504,6 @@ export const contractRouter = createTRPCRouter({
               company: true,
             }
           },
-          company: true,
           invoices: true,
           parent: { select: { id: true, title: true, type: true } },
         },
@@ -706,7 +701,7 @@ export const contractRouter = createTRPCRouter({
         where,
         select: {
           id: true, type: true, title: true, status: true, workflowStatus: true,
-          startDate: true, endDate: true, companyId: true, contractReference: true,
+          startDate: true, endDate: true, contractReference: true,
         },
         orderBy: { createdAt: "desc" },
       })

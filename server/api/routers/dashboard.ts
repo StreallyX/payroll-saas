@@ -242,10 +242,10 @@ export const dashboardRouter = createTRPCRouter({
           id: true,
           title: true,
           endDate: true,
-          company: { select: { name: true } },
           participants: {
-            select: {
+            include: {
               user: { select: { name: true, email: true } },
+              company: { select: { name: true } },
             },
           },
         },

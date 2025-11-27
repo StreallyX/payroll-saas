@@ -270,7 +270,7 @@ export const paymentRouter = createTRPCRouter({
             p => p.role === "CONTRACTOR" && p.isActive
           )
 
-          if (payrollPartner && contractor) {
+          if (payrollPartner && contractor && contractor.user && payrollPartner.user && payrollPartner.userId) {
             // Créer une Task pour le payroll provider
             await ctx.prisma.task.create({
               data: {

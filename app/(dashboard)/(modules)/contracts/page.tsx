@@ -181,7 +181,7 @@ export default function ManageContractsPage() {
         const q = searchQuery.toLowerCase();
         const matches =
           c.title?.toLowerCase().includes(q) ||
-          c.participants.some((p) => p.user?.name?.toLowerCase().includes(q));
+          (c as any).participants?.some((p: any) => p.user?.name?.toLowerCase().includes(q));
         if (!matches) return;
       }
 
