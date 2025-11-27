@@ -545,6 +545,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.CONTRACT,
+    Action.ASSIGN,
+    PermissionScope.GLOBAL,
+    "Assigner les participants à un contrat",
+    "Permet d'ajouter un admin, un approver ou toute autre personne sur un contrat",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.CONTRACT,
     Action.LIST,
     PermissionScope.GLOBAL,
     "Voir tous les contrats",

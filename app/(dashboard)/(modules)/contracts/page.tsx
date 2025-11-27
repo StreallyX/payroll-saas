@@ -28,6 +28,7 @@ import {
   Upload,
   UploadCloud,
   CheckCircle2,
+  UserCheck,
 } from "lucide-react";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +48,8 @@ import { SOWCreateModal } from "@/components/contracts/SOWCreateModal";
 import { MainContractUploadModal } from "@/components/contracts/MainContractUploadModal";
 import { ApprovalModal } from "@/components/contracts/ApprovalModal";
 import { SignatureUploadModal } from "@/components/contracts/SignatureUploadModal";
+import { ContractAssignmentModal } from "@/components/contracts/ContractAssignmentModal";
+
 
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -81,6 +84,11 @@ export default function ManageContractsPage() {
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [signatureContractId, setSignatureContractId] = useState<string | null>(null);
 
+  // NEW — assignment modal
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [assignmentContract, setAssignmentContract] = useState<any | null>(null);
+
+
   // ------------------------------------
   // Permissions
   // ------------------------------------
@@ -93,6 +101,7 @@ export default function ManageContractsPage() {
   const canUpdate = permissions.includes("contract.update.global");
   const canDelete = permissions.includes("contract.delete.global");
   const canExport = permissions.includes("contract.export.global");
+  const canAssign = permissions.includes("contract.assign.global");
 
   const canSeeMSA =
     permissions.includes("contract_msa.list.global") ||
@@ -417,6 +426,24 @@ export default function ManageContractsPage() {
                             </Button>
                           )}
 
+                          {/* 🔥 Show Assign button if only 1 participant & pending approval */}
+                          {canAssign &&
+                            c.status === "pending_approval" &&
+                            c.participants.length === 1 && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-sm"
+                                onClick={() => {
+                                  setAssignmentContract(c);
+                                  setAssignmentModalOpen(true);
+                                }}
+                              >
+                                <UserCheck className="h-4 w-4 mr-1" />
+                                Assign Participants
+                              </Button>
+                            )}
+
                           {/* View Button */}
                           <Button
                             variant="ghost"
@@ -694,6 +721,24 @@ export default function ManageContractsPage() {
           refetch();
         }}
       />
+
+      {/* NEW — Assignment Modal */}
+      {assignmentContract && (
+        <ContractAssignmentModal
+          open={assignmentModalOpen}
+          onOpenChange={(open) => {
+            setAssignmentModalOpen(open);
+            if (!open) setAssignmentContract(null);
+          }}
+          contract={assignmentContract}
+          onSuccess={() => {
+            toast.success("Participants assignés !");
+            setAssignmentModalOpen(false);
+            setAssignmentContract(null);
+            refetch();
+          }}
+        />
+      )}
 
     </div>
   );

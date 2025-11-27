@@ -58,7 +58,7 @@ export function ContractAssignmentModal({
   
   // Load tenant companies only (tenantCompany = true)
   const { data: companies = [] } = api.company.getAll.useQuery();
-  const tenantCompanies = companies.filter((c: any) => c.tenantCompany === true);
+  const tenantCompanies = companies.filter((c: any) => c.ownerType === "tenant");
 
   // Load all users for admin/approver selection
   const { data: users = [] } = api.user.getAll.useQuery();
@@ -111,21 +111,27 @@ export function ContractAssignmentModal({
 
       // 2. Add admin participant
       await addParticipant.mutateAsync({
-        contractId: contract.id,
+      contractId: contract.id,
+      participant: {
         userId: adminUserId,
         role: "client_admin",
         requiresSignature: true,
         isPrimary: false,
-      });
+      },
+    });
+
 
       // 3. Add approver participant
       await addParticipant.mutateAsync({
         contractId: contract.id,
-        userId: approverUserId,
-        role: "approver",
-        requiresSignature: false,
-        isPrimary: false,
+        participant: {
+          userId: approverUserId,
+          role: "approver",
+          requiresSignature: false,
+          isPrimary: false,
+        },
       });
+
 
       toast.success("Assignations effectuées avec succès !");
       onSuccess?.();

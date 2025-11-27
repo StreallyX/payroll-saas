@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Loader2, Landmark, Plus } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 // ===========================================================
 // TYPES — IMPORTANT : UNIQUEMENT string | undefined
@@ -131,6 +132,10 @@ export function CompanyModal({
 
   const { data: countries = [] } = api.country.getAll.useQuery();
   const { data: banks = [] } = api.bank.getAll.useQuery();
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
+  const canAssignTenantCompany = permissions.includes("company.create.global"); 
+
 
   // --------------------------------------------------------
   // REDIRECT TO BANKS
@@ -212,6 +217,10 @@ export function CompanyModal({
 
     const sanitized = sanitizeForm(formData);
 
+    if (!canAssignTenantCompany) {
+      sanitized.tenantCompany = false;
+    }
+
     if (company) {
       updateMutation.mutate({ id: company.id, ...sanitized });
     } else {
@@ -241,24 +250,35 @@ export function CompanyModal({
               onChange={(v) => setFormData({ ...formData, name: v })}
             />
 
-            {/* 🔥 NEW — TENANT COMPANY TOGGLE */}
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-              <div className="flex-1">
-                <Label className="text-base font-semibold text-blue-900">
-                  Tenant Company
-                </Label>
-                <p className="text-sm text-blue-700 mt-1">
-                  Cette company appartient-elle à la plateforme (tenant) ?
-                </p>
+            {/* 🔥 TENANT COMPANY TOGGLE — only visible if permission */}
+            {canAssignTenantCompany && (
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                <div className="flex-1">
+                  <Label className="text-base font-semibold text-blue-900">
+                    Tenant Company
+                  </Label>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Cette company appartient-elle à la plateforme (tenant) ?
+                  </p>
+                </div>
+
+                <Switch
+                  checked={formData.tenantCompany}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, tenantCompany: checked })
+                  }
+                  className="data-[state=checked]:bg-blue-600"
+                />
               </div>
-              <Switch
-                checked={formData.tenantCompany}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, tenantCompany: checked })
-                }
-                className="data-[state=checked]:bg-blue-600"
-              />
-            </div>
+            )}
+
+            {/* 🔒 If editing & no permission → show read-only info */}
+            {!canAssignTenantCompany && company && (
+              <div className="p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+                <b>Tenant Company :</b> {company.tenantCompany ? "Yes" : "No"}
+              </div>
+            )}
+
 
             {/* BANK SELECT */}
             <div className="space-y-2">

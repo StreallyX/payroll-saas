@@ -28,6 +28,16 @@ type BankModalProps = {
   onSuccess?: () => void
 }
 
+type BankFormData = {
+  name: string;
+  accountNumber: string;
+  swiftCode: string;
+  iban: string;
+  address: string;
+  status: "active" | "inactive";
+};
+
+
 export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProps) {
   const { data: session } = useSession()
   const utils = api.useUtils()
@@ -38,16 +48,16 @@ export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProp
   // -------------------------------------------------------
   // Default state
   // -------------------------------------------------------
-  const EMPTY = {
+  const EMPTY: BankFormData = {
     name: "",
     accountNumber: "",
     swiftCode: "",
     iban: "",
     address: "",
     status: "active",
-  }
+  };
 
-  const [formData, setFormData] = useState(EMPTY)
+  const [formData, setFormData] = useState<BankFormData>(EMPTY);
 
   // -------------------------------------------------------
   // Mutations
@@ -94,7 +104,7 @@ export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProp
         swiftCode: bank.swiftCode ?? "",
         iban: bank.iban ?? "",
         address: bank.address ?? "",
-        status: bank.status ?? "active",
+        status: (bank.status === "inactive" ? "inactive" : "active"),
       })
     } else {
       setFormData(EMPTY)
@@ -195,7 +205,9 @@ export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProp
             <Label>Status</Label>
             <Select
               value={formData.status}
-              onValueChange={(status) => setFormData({ ...formData, status })}
+              onValueChange={(status: "active" | "inactive") =>
+                setFormData({ ...formData, status })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />

@@ -208,20 +208,54 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
           {/* COMPANY */}
           <div>
             <Label>Entreprise (Client) *</Label>
-            <Select
-              value={form.companyId}
-              onValueChange={(v) =>
-                setForm((s) => ({ ...s, companyId: v }))
-              }
-            >
-              <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-              <SelectContent>
-                {companies.data?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+            {/* Si aucune company existe → bouton + Create */}
+            {(!companies.data || companies.data.length === 0) ? (
+              <div className="p-3 border border-dashed rounded-md flex items-center justify-between">
+                <span className="text-sm text-gray-600">
+                  Aucune entreprise trouvée
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => window.location.href = "/settings/companies"}
+                >
+                  + Create Company
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={form.companyId}
+                onValueChange={(v) =>
+                  setForm((s) => ({ ...s, companyId: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Liste des companies */}
+                  {companies.data?.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+
+                  {/* Séparateur + bouton Create dans le menu */}
+                  <div className="border-t my-2" />
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-left justify-start px-2 py-2 text-sm"
+                    onClick={() => window.location.href = "/settings/companies"}
+                  >
+                    + Create Company
+                  </Button>
+                </SelectContent>
+              </Select>
+            )}
           </div>
+
 
           {/* COUNTRY */}
           <div>

@@ -328,7 +328,6 @@ model User {
   @@map("users")
 }
 
-
 model Company {
   id           String  @id @default(cuid())
   tenantId     String
@@ -338,9 +337,6 @@ model Company {
   ownerType    String  @default("tenant")
   ownerId      String?
   createdBy    String?
-
-  // 🔥 NEW — Identify tenant companies (companies owned by the platform)
-  tenantCompany Boolean @default(false)
 
   bankId       String?
   bank         Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
@@ -374,8 +370,9 @@ model Company {
 
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   country      Country? @relation(fields: [countryId], references: [id])
-  contracts    Contract[]
   companyUsers CompanyUser[]
+  contractParticipants ContractParticipant[]
+
 
   @@index([tenantId])
   @@index([createdBy])
@@ -415,8 +412,6 @@ model Contract {
 
   parent    Contract?   @relation("ContractParent", fields: [parentId], references: [id])
   children  Contract[]  @relation("ContractParent")
-
-  companyId String?
 
   createdBy  String?
   assignedTo String?
@@ -474,7 +469,6 @@ model Contract {
   portalCanUploadPaymentProof Boolean?   @default(true)
 
   tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company          Company? @relation(fields: [companyId], references: [id])
   currency         Currency? @relation(fields: [currencyId], references: [id])
   bank             Bank?     @relation(fields: [bankId], references: [id])
   contractCountry  Country?  @relation(fields: [contractCountryId], references: [id])
@@ -490,7 +484,6 @@ model Contract {
   remittances      Remittance[]
 
   @@index([tenantId])
-  @@index([companyId])
   @@index([createdBy])
   @@index([assignedTo])
   @@index([status])
@@ -500,46 +493,50 @@ model Contract {
   @@map("contracts")
 }
 
-
-// 🔥 NEW: Table de jonction pour gérer les multiples parties d'un contrat
-// Architecture inspirée de Deel pour gérer contractor, agency, payroll partner, client, etc.
 model ContractParticipant {
   id         String   @id @default(cuid())
   contractId String
-  userId     String
-  
-  // 🔥 Type de participant dans le contrat
-  role       String   // "contractor", "agency", "payroll_partner", "client_admin", "approver"
-  
-  // 🔥 Approbation (pour les approvers uniquement)
-  approved   Boolean   @default(false) // true quand l'approver valide le contrat
-  
+  userId     String?
+  companyId  String?
+
+  // Type de participant
+  role       String
+
+  // Approbation
+  approved   Boolean   @default(false)
+
   // Signature
   requiresSignature Boolean   @default(false)
   signedAt          DateTime?
-  signatureUrl      String?   // URL du document signé
-  
+  signatureUrl      String?
+
   // Status
   isActive   Boolean  @default(true)
-  isPrimary  Boolean  @default(false) // Pour identifier le participant principal (ex: le contractor)
-  
+  isPrimary  Boolean  @default(false)
+
   // Dates
   joinedAt   DateTime @default(now())
   leftAt     DateTime?
-  
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   // Relations
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company  Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  @@unique([contractId, userId, role])
+  // UNIQUE — final, le seul valable
+  @@unique([contractId, role, userId, companyId])
+
   @@index([contractId])
   @@index([userId])
+  @@index([companyId])
   @@index([role])
+
   @@map("contract_participants")
 }
+
 
 model ContractStatusHistory {
   id         String   @id @default(cuid())
