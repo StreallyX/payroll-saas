@@ -41,6 +41,11 @@ import { emailTemplateRouter } from "./routers/emailTemplate";
 import { emailLogRouter } from "./routers/emailLog";
 import { smsLogRouter } from "./routers/smsLog";
 
+// PHASE 4 ROUTERS - Portal & Reporting
+import { contractorRouter } from "./routers/contractor";
+import { payrollPartnerRouter } from "./routers/payroll-partner";
+import { reportRouter } from "./routers/report";
+
 
 /**
  * This is the primary router for your server.
@@ -86,6 +91,11 @@ export const appRouter = createTRPCRouter({
   emailTemplate: emailTemplateRouter,
   emailLog: emailLogRouter,
   smsLog: smsLogRouter,
+  
+  // PHASE 4 ROUTERS - Portal & Reporting
+  contractor: contractorRouter,
+  payrollPartner: payrollPartnerRouter,
+  report: reportRouter,
 })
 
 // export type definition of API

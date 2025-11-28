@@ -9,6 +9,7 @@ import {
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
+import { getUsersVisibleFor } from "@/server/helpers/user";
 
 // -----------------------------
 // Permissions (tes clés existantes)
@@ -49,34 +50,29 @@ async function getSubtreeUserIds(prisma: any, rootUserId: string): Promise<strin
 export const userRouter = createTRPCRouter({
   // ---------------------------------------------------------
   // GET ALL USERS
-  // - global -> tout voir
-  // - own    -> self + subtree
+  // - global -> tout voir (scope: global)
+  // - ownCompany -> users de la même company (scope: ownCompany)
+  // - own    -> self + subtree (scope: parent)
   // ---------------------------------------------------------
   getAll: tenantProcedure
     .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN]))
     .query(async ({ ctx }) => {
       const { prisma, session, tenantId } = ctx;
-      const userId = session.user.id;
+      const user = session.user;
       const perms = session.user.permissions || [];
-      const hasGlobal = perms.includes(PERMS.LIST_GLOBAL);
 
-      if (hasGlobal) {
-        return prisma.user.findMany({
-          where: { tenantId },
-          include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
-          orderBy: { createdAt: "desc" },
-        });
+      // Déterminer le scope en fonction des permissions
+      let scope: "global" | "ownCompany" | "parent" = "parent";
+
+      if (perms.includes(PERMS.LIST_GLOBAL)) {
+        scope = "global";
+      } else if (user.companyId) {
+        // Si le user a une company, utiliser scope ownCompany
+        scope = "ownCompany";
       }
 
-      const subtree = await getSubtreeUserIds(prisma, userId);
-      return prisma.user.findMany({
-        where: {
-          tenantId,
-          id: { in: [userId, ...subtree] },
-        },
-        include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
-        orderBy: { createdAt: "desc" },
-      });
+      // 🔥 Utiliser le helper getUsersVisibleFor
+      return getUsersVisibleFor(user as any, scope);
     }),
 
   // ---------------------------------------------------------
@@ -130,6 +126,12 @@ export const userRouter = createTRPCRouter({
       const passwordToUse = input.password || generateRandomPassword(12);
       const passwordHash = await bcrypt.hash(passwordToUse, 10);
 
+      // 🔥 Récupérer la company du user créateur pour héritage automatique
+      const creator = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { companyId: true },
+      });
+
       const newUser = await ctx.prisma.user.create({
         data: {
           tenantId: ctx.tenantId!,
@@ -138,7 +140,8 @@ export const userRouter = createTRPCRouter({
           email: input.email,
           passwordHash,
           mustChangePassword: true,
-          createdBy: ctx.session.user.id, // 🔥 ownership
+          createdBy: ctx.session.user.id, // 🔥 ownership (parent)
+          companyId: creator?.companyId, // 🔥 Héritage de la company du parent
         },
       });
 

@@ -25,6 +25,9 @@ import {
   TrendingUp,
   AlertTriangle,
   Landmark,
+  Upload,
+  UploadCloud,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -41,6 +44,9 @@ import { ContractEdit } from "@/components/contracts/ContractEdit";
 import { CreateContractSelectorModal } from "@/components/contracts/CreateContractSelectorModal";
 import { MSACreateModal } from "@/components/contracts/MSACreateModal";
 import { SOWCreateModal } from "@/components/contracts/SOWCreateModal";
+import { MainContractUploadModal } from "@/components/contracts/MainContractUploadModal";
+import { ApprovalModal } from "@/components/contracts/ApprovalModal";
+import { SignatureUploadModal } from "@/components/contracts/SignatureUploadModal";
 
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -59,12 +65,21 @@ export default function ManageContractsPage() {
   const [viewingContractId, setViewingContractId] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState("active");
+  const [typeFilter, setTypeFilter] = useState<"all" | "contract" | "msa" | "sow">("all");
 
   // NEW — selector modal for creating contract
   const [createSelectorOpen, setCreateSelectorOpen] = useState(false);
   const [createMSAOpen, setCreateMSAOpen] = useState(false);
   const [createSOWOpen, setCreateSOWOpen] = useState(false);
   const [createClassicOpen, setCreateClassicOpen] = useState(false);
+
+  // NEW — workflow modals
+  const [uploadMainModalOpen, setUploadMainModalOpen] = useState(false);
+  const [uploadMainContractId, setUploadMainContractId] = useState<string | null>(null);
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [approvalContractId, setApprovalContractId] = useState<string | null>(null);
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [signatureContractId, setSignatureContractId] = useState<string | null>(null);
 
   // ------------------------------------
   // Permissions
@@ -108,7 +123,7 @@ export default function ManageContractsPage() {
     : { data: { total: rawContracts.length } };
 
   // ------------------------------------
-  // Delete
+  // Delete & Activate
   // ------------------------------------
   const deleteMutation = api.contract.delete.useMutation({
     onSuccess: () => {
@@ -119,8 +134,20 @@ export default function ManageContractsPage() {
     onError: (err) => toast.error(err.message),
   });
 
+  const activateMutation = api.contract.activateContract.useMutation({
+    onSuccess: () => {
+      toast.success("Contrat activé avec succès");
+      refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const handleDelete = () => {
     if (deleteId) deleteMutation.mutate({ id: deleteId });
+  };
+
+  const handleActivate = (contractId: string) => {
+    activateMutation.mutate({ id: contractId });
   };
 
   // ------------------------------------
@@ -137,6 +164,10 @@ export default function ManageContractsPage() {
     rawContracts.forEach((c) => {
       const end = c.endDate ? new Date(c.endDate) : null;
 
+      // Type filter
+      if (typeFilter !== "all" && c.type !== typeFilter) return;
+
+      // Search filter
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matches =
@@ -152,7 +183,7 @@ export default function ManageContractsPage() {
     });
 
     return { active, expired, expiringSoon };
-  }, [rawContracts, searchQuery]);
+  }, [rawContracts, searchQuery, typeFilter]);
 
   if (isLoading) return <LoadingState message="Chargement des contrats..." />;
 
@@ -160,6 +191,8 @@ export default function ManageContractsPage() {
   // Table
   // ------------------------------------
   const ContractTable = ({ contracts, emptyMessage }: any) => {
+    const currentUserId = session?.user?.id;
+
     if (!contracts.length) {
       return (
         <Card>
@@ -181,7 +214,8 @@ export default function ManageContractsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Titre</TableHead>
+                  <TableHead>Titre / Type</TableHead>
+                  <TableHead>Statut</TableHead>
                   <TableHead>Participants</TableHead>
                   <TableHead>Tarif</TableHead>
                   <TableHead>Début</TableHead>
@@ -198,19 +232,91 @@ export default function ManageContractsPage() {
                     ? Math.ceil((end.getTime() - Date.now()) / 86400000)
                     : null;
 
+                  // Determine user's role in this contract
+                  // Plusieurs rôles possibles pour un même user dans un contrat
+                  const userParticipants = c.participants.filter(
+                    (p: any) => p.userId === currentUserId
+                  );
+
+                  // Tous les rôles du user dans ce contrat
+                  const roles = userParticipants.map((p: any) => p.role);
+
+                  // Approver si AU MOINS UN rôle = approver
+                  const isApprover = roles.includes("approver");
+
+                  // Doit signer si AU MOINS UN des participants exige signature
+                  const needsToSign = userParticipants.some(
+                    (p: any) => p.requiresSignature && !p.signedAt
+                  );
+
+                  // 🔥 Doit approuver si approver ET pas encore approuvé (utilise le champ 'approved', pas 'signedAt')
+                  const needsToApprove = userParticipants.some(
+                    (p: any) => p.role === "approver" && !p.approved && 
+                    (c.workflowStatus === "pending_approval" || c.status === "pending_approval")
+                  );
+
+                  console.log("Is Approver : " + isApprover + " Needs to sign : " + needsToSign + " Needs to approve : " + needsToApprove)
+
+                  // Check if contract is in draft and user can upload main document
+                  const canUploadMain = c.status === "draft" && (canUpdate || canCreate);
+                  
+                  // Check if contract is completed and admin can activate it
+                  const canActivate = c.status === "completed" && canListAll;
+
                   return (
                     <TableRow key={c.id}>
-                      <TableCell>{c.title || "Sans titre"}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{c.title || "Sans titre"}</div>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {c.type?.toUpperCase() || "CONTRACT"}
+                          </Badge>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            c.status === "active" ? "default" : 
+                            c.status === "completed" ? "secondary" : 
+                            c.status === "draft" ? "outline" : 
+                            "secondary"
+                          }
+                        >
+                          {c.status}
+                        </Badge>
+                      </TableCell>
 
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {c.participants.map((p: any) => (
-                            <div key={p.id}>
-                              <span className="font-medium">{p.user.name}</span>
-                              <span className="text-xs text-gray-500">
-                                {" "}
-                                ({p.role})
-                              </span>
+                            <div key={p.id} className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{p.user.name}</span>
+                              <span className="text-xs text-gray-500">({p.role})</span>
+                              
+                              {/* 🔥 Badge d'approbation (pour les approvers uniquement) */}
+                              {p.role === "approver" && !p.approved && (
+                                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                                  ⏳ Approbation en attente
+                                </Badge>
+                              )}
+                              {p.role === "approver" && p.approved && (
+                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                  ✓ Approuvé
+                                </Badge>
+                              )}
+                              
+                              {/* 🔥 Badge de signature (pour les signataires uniquement) */}
+                              {p.requiresSignature && !p.signedAt && (
+                                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
+                                  ⏳ Signature en attente
+                                </Badge>
+                              )}
+                              {p.signedAt && p.requiresSignature && (
+                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+                                  ✓ Signé
+                                </Badge>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -249,7 +355,69 @@ export default function ManageContractsPage() {
                       </TableCell>
 
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1 flex-wrap">
+                          {/* Upload Main Document (DRAFT → PENDING_APPROVAL) */}
+                          {canUploadMain && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300"
+                              onClick={() => {
+                                setUploadMainContractId(c.id);
+                                setUploadMainModalOpen(true);
+                              }}
+                            >
+                              <UploadCloud className="h-4 w-4 mr-1" />
+                              Upload Contract
+                            </Button>
+                          )}
+
+                          {/* Approve Button (for approvers) */}
+                          {needsToApprove && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+                              onClick={() => {
+                                setApprovalContractId(c.id);
+                                setApprovalModalOpen(true);
+                              }}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                          )}
+
+                          {/* Upload Signed Contract (for participants with requiresSignature) */}
+                          {needsToSign && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                              onClick={() => {
+                                setSignatureContractId(c.id);
+                                setSignatureModalOpen(true);
+                              }}
+                            >
+                              <Upload className="h-4 w-4 mr-1" />
+                              Upload Signed
+                            </Button>
+                          )}
+
+                          {/* Activate Contract (Admin, COMPLETED → ACTIVE) */}
+                          {canActivate && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-300"
+                              onClick={() => handleActivate(c.id)}
+                            >
+                              <Landmark className="h-4 w-4 mr-1" />
+                              Activer
+                            </Button>
+                          )}
+
+                          {/* View Button */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -261,6 +429,7 @@ export default function ManageContractsPage() {
                             <Eye className="h-4 w-4" />
                           </Button>
 
+                          {/* Edit Button */}
                           {canUpdate && (
                             <Button
                               variant="ghost"
@@ -271,6 +440,7 @@ export default function ManageContractsPage() {
                             </Button>
                           )}
 
+                          {/* Delete Button */}
                           {canDelete && (
                             <Button
                               variant="ghost"
@@ -314,36 +484,68 @@ export default function ManageContractsPage() {
       {/* Action bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              {/* Search */}
+              <div className="flex-1 relative w-full">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Rechercher un contrat..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-            {/* Search */}
-            <div className="flex-1 relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Rechercher un contrat..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+              {/* Buttons */}
+              <div className="flex gap-2">
+                {canExport && (
+                  <Button variant="outline">
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Exporter
+                  </Button>
+                )}
+
+                {canCreate && (
+                  <Button onClick={() => setCreateSelectorOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nouveau Contrat
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Buttons */}
+            {/* Type Filter */}
             <div className="flex gap-2">
-              {canExport && (
-                <Button variant="outline">
-                  <FileDown className="mr-2 h-4 w-4" />
-                  Exporter
-                </Button>
-              )}
-
-              {canCreate && (
-                <Button onClick={() => setCreateSelectorOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nouveau Contrat
-                </Button>
-              )}
+              <Button
+                variant={typeFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTypeFilter("all")}
+              >
+                Tous
+              </Button>
+              <Button
+                variant={typeFilter === "contract" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTypeFilter("contract")}
+              >
+                Contract
+              </Button>
+              <Button
+                variant={typeFilter === "msa" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTypeFilter("msa")}
+              >
+                MSA
+              </Button>
+              <Button
+                variant={typeFilter === "sow" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTypeFilter("sow")}
+              >
+                SOW
+              </Button>
             </div>
-
           </div>
         </CardContent>
       </Card>
@@ -450,6 +652,47 @@ export default function ManageContractsPage() {
           if (!o) setViewingContractId(null);
         }}
         contractId={viewingContractId}
+      />
+
+      {/* NEW WORKFLOW MODALS */}
+      
+      {/* Upload Main Contract */}
+      <MainContractUploadModal
+        open={uploadMainModalOpen}
+        onOpenChange={setUploadMainModalOpen}
+        contractId={uploadMainContractId || ""}
+        onSuccess={() => {
+          toast.success("Document principal uploadé avec succès !");
+          setUploadMainModalOpen(false);
+          setUploadMainContractId(null);
+          refetch();
+        }}
+      />
+
+      {/* Approval Modal */}
+      <ApprovalModal
+        open={approvalModalOpen}
+        onOpenChange={setApprovalModalOpen}
+        contractId={approvalContractId || ""}
+        onSuccess={() => {
+          toast.success("Contrat approuvé !");
+          setApprovalModalOpen(false);
+          setApprovalContractId(null);
+          refetch();
+        }}
+      />
+
+      {/* Signature Upload Modal */}
+      <SignatureUploadModal
+        open={signatureModalOpen}
+        onOpenChange={setSignatureModalOpen}
+        contractId={signatureContractId || ""}
+        onSuccess={() => {
+          toast.success("Contrat signé uploadé !");
+          setSignatureModalOpen(false);
+          setSignatureContractId(null);
+          refetch();
+        }}
       />
 
     </div>

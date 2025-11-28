@@ -1,415 +1,456 @@
 /**
- * ====================================================================
- * SEED RBAC V4 - Compatible avec la nouvelle base User-centric
- * ====================================================================
+ * =============================================================================
+ * PAYROLL SAAS - RBAC SEED SCRIPT
+ * =============================================================================
+ * 
+ * Purpose: Assign permissions to roles based on the business requirements
+ * documented in "Everything starts in this order.docx"
+ * 
+ * This script:
+ * 1. Creates/retrieves 8 essential roles
+ * 2. Fetches all permissions from the database
+ * 3. Assigns appropriate permissions to each role based on scope
+ * 4. Handles multi-tenancy (creates roles for default tenant)
+ * 
+ * Usage: npm run seed
+ * 
+ * Date: 2024-11-26
+ * =============================================================================
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client"
+import { ALL_PERMISSIONS } from "../server/rbac/permissions"; // adapte le path
 import bcrypt from "bcryptjs";
 
-// ⚠️ IMPORTANT : importer TON nouveau fichier RBAC v4
-import {
-  ALL_PERMISSIONS,
-  Resource,
-  Action,
-  PermissionScope,
-  buildPermissionKey,
-} from "@/server/rbac/permissions";
 
-// ====================================================================
-// DEFAUT ROLES
-// ====================================================================
-
-export const DEFAULT_ROLES = [
-  {
-    name: "SUPER_ADMIN",
-    displayName: "Super Administrator",
-    description: "Full access to all features and settings",
-    level: 100,
-    homePath: "/admin/dashboard",
-    color: "#dc2626",
-    icon: "shield",
-    isSystem: true,
-  },
-  {
-    name: "ADMIN",
-    displayName: "Administrator",
-    description: "Complete management of the tenant",
-    level: 90,
-    homePath: "/admin/dashboard",
-    color: "#ea580c",
-    icon: "user-cog",
-    isSystem: true,
-  },
-  {
-    name: "CONTRACTOR",
-    displayName: "Contractor",
-    description: "Access to their contracts, timesheets, and expenses",
-    level: 30,
-    homePath: "/contractor/dashboard",
-    color: "#059669",
-    icon: "user",
-    isSystem: true,
-  },
-  {
-    name: "PAYROLL",
-    displayName: "Payroll Manager",
-    description: "Management of payslips and payroll operations",
-    level: 75,
-    homePath: "/payroll/dashboard",
-    color: "#d97706",
-    icon: "money-check",
-    isSystem: true,
-  },
-  {
-    name: "AGENCY",
-    displayName: "Agency Manager",
-    description: "Management of contractors, clients, and contracts within the agency",
-    level: 70,
-    homePath: "/agency/dashboard",
-    color: "#2563eb",
-    icon: "building",
-    isSystem: true,
-  },
-] as const;
+const prisma = new PrismaClient()
 
 
-// ====================================================================
-// ROLE → PERMISSIONS   (clean pour ta DB v4)
-// ====================================================================
+async function insertPermissions() {
+  console.log("📥 Inserting permissions...")
 
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  SUPER_ADMIN: ALL_PERMISSIONS.map((p) => p.key),
+  const permissionData = ALL_PERMISSIONS.map((p) => ({
+    key: p.key,
+    resource: p.resource,
+    action: p.action,
+    scope: p.scope,
+    displayName: p.displayName,
+    description: p.description || null,
+    category: p.category || null,
+    isActive: true,
+  }))
 
-  ADMIN: ALL_PERMISSIONS.map((p) => p.key),
+  await prisma.permission.createMany({
+    data: permissionData,
+    skipDuplicates: true,
+  })
 
-  CONTRACTOR: [
-    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
-    // USER PROFILE
-    buildPermissionKey(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
-
-    // TIMESHEETS
-    buildPermissionKey(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.TIMESHEET, Action.LIST, PermissionScope.OWN),
-    buildPermissionKey(Resource.TIMESHEET, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.TIMESHEET, Action.CREATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.TIMESHEET, Action.UPDATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.TIMESHEET, Action.SUBMIT, PermissionScope.OWN),
-
-    // EXPENSES
-    buildPermissionKey(Resource.EXPENSE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.EXPENSE, Action.LIST, PermissionScope.OWN),
-    buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.EXPENSE, Action.CREATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.OWN),
-
-    // INVOICES
-    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.INVOICE, Action.LIST, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
-
-    // REMITTANCES
-    buildPermissionKey(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.REMITTANCE, Action.LIST, PermissionScope.OWN),
-    buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.REMITTANCE, Action.CREATE, PermissionScope.OWN),
-
-    // PAYSLIPS
-    buildPermissionKey(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.PAYSLIP, Action.LIST, PermissionScope.OWN),
-    buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
-
-    // REFERRALS
-    buildPermissionKey(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.REFERRAL, Action.LIST, PermissionScope.OWN),
-    buildPermissionKey(Resource.REFERRAL, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
-  ],
-
-  PAYROLL: [
-    // DASHBOARD
-    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
-
-    // USER MANAGEMENT
-    buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
-
-    // INVOICES (own scope)
-    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
-
-    // INVOICES (global)
-    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.INVOICE, Action.DELETE, PermissionScope.GLOBAL),
-
-    // REMITTANCE
-    buildPermissionKey(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
-
-    // PAYSLIPS
-    buildPermissionKey(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
-
-    buildPermissionKey(Resource.PAYSLIP, Action.CREATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.PAYSLIP, Action.DELETE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.PAYSLIP, Action.UPDATE, PermissionScope.GLOBAL),
-
-    // ROLE MANAGEMENT (own)
-    buildPermissionKey(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
-    buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
-
-    // CONTRACTS (own)
-    buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
-  ],
-
-  AGENCY: [
-    // DASHBOARD
-    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
-
-    // USER MANAGEMENT (own agency scope)
-    buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
-
-    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
-    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
-
-    // CONTRACTS (own)
-    buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.CONTRACT, Action.SIGN, PermissionScope.OWN),
-    buildPermissionKey(Resource.CONTRACT, Action.UPDATE, PermissionScope.OWN),
-
-    // INVOICES (own)
-    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
-
-    // ROLES (own scope)
-    buildPermissionKey(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
-    buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
-    buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
-    buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
-    buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
-  ],
-};
-
-// ====================================================================
-// SEED PRINCIPAL
-// ====================================================================
-
-export async function seedRBAC(prisma: PrismaClient, tenantId: string) {
-  console.log("🌱 SEED RBAC V4…");
-
-  // Permissions
-  for (const perm of ALL_PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { key: perm.key },
-      update: {
-        displayName: perm.displayName,
-        description: perm.description,
-        category: perm.category,
-        scope: perm.scope,
-        action: perm.action,
-        resource: perm.resource,
-      },
-      create: {
-        key: perm.key,
-        resource: perm.resource,
-        action: perm.action,
-        scope: perm.scope,
-        displayName: perm.displayName,
-        description: perm.description,
-        category: perm.category,
-        isSystem: true,
-      },
-    });
-  }
-
-  // Roles
-  const createdRoles = [];
-  for (const role of DEFAULT_ROLES) {
-    const r = await prisma.role.upsert({
-      where: { tenantId_name: { tenantId, name: role.name } },
-      update: role,
-      create: { ...role, tenantId },
-    });
-    createdRoles.push(r);
-  }
-
-  // Assign permissions
-  for (const role of createdRoles) {
-    const keys = ROLE_PERMISSIONS[role.name] || [];
-    const permissions = await prisma.permission.findMany({
-      where: { key: { in: keys } },
-    });
-
-    await prisma.rolePermission.deleteMany({
-      where: { roleId: role.id },
-    });
-
-    await prisma.rolePermission.createMany({
-      data: permissions.map((p) => ({
-        roleId: role.id,
-        permissionId: p.id,
-      })),
-    });
-  }
-
-  console.log("✅ RBAC V4 seed complet !");
+  const count = await prisma.permission.count()
+  console.log(`✅ Permissions synced: ${count} total`)
 }
 
-// ====================================================================
-// SEED UTILISATEURS DE TEST
-// ====================================================================
 
-export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
-  console.log("👤 Création des utilisateurs…");
+async function createInitialUsers(tenantId: string) {
+  console.log("👤 Creating initial demo users...")
 
-  const USERS = [
+  const usersToCreate = [
     {
       email: "superadmin@platform.com",
+      passwordHash: await bcrypt.hash("SuperAdmin123!", 12),
       name: "Super Admin",
-      role: "SUPER_ADMIN",
-      pass: "SuperAdmin123!",
+      roleName: "SUPERADMIN",
     },
     {
       email: "admin@demo.com",
-      name: "Admin",
-      role: "ADMIN",
-      pass: "password123",
-    },
-    {
-      email: "payroll@demo.com",
-      name: "Payroll Manager",
-      role: "PAYROLL",
-      pass: "password123",
-    },
-    {
-      email: "contractor@demo.com",
-      name: "Contractor",
-      role: "CONTRACTOR",
-      pass: "password123",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Admin",
+      roleName: "ADMIN",
     },
     {
       email: "agency@demo.com",
-      name: "Agency",
-      role: "AGENCY",
-      pass: "password123",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Agency",
+      roleName: "AGENCY",
     },
-    
+    {
+      email: "payroll@demo.com",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Payroll",
+      roleName: "PAYROLL",
+    },
+    {
+      email: "contractor@demo.com",
+      passwordHash: await bcrypt.hash("password123", 12),
+      name: "Demo Contractor",
+      roleName: "CONTRACTOR",
+    },
   ];
 
-  for (const u of USERS) {
-    const role = await prisma.role.findFirst({
-      where: { tenantId, name: u.role },
-    });
 
-    await prisma.user.upsert({
-      where: { tenantId_email: { tenantId, email: u.email } },
+  for (const u of usersToCreate) {
+
+    // 1. Fetch roleId
+    const role = await prisma.role.findFirst({
+      where: {
+        tenantId,
+        name: u.roleName,
+      },
+    })
+
+    if (!role) {
+      console.log(`❌ Role not found: ${u.roleName}`)
+      continue
+    }
+
+    // 2. Create or update user
+    const user = await prisma.user.upsert({
+      where: {
+        tenantId_email: { tenantId, email: u.email },
+      },
       update: {},
       create: {
         tenantId,
         email: u.email,
+        passwordHash: u.passwordHash,
         name: u.name,
-        passwordHash: await bcrypt.hash(u.pass, 10),
-        roleId: role!.id,
-        mustChangePassword: false,
-        emailVerified: true,
+        roleId: role.id, // 🔥 required
+        isActive: true,
       },
-    });
+    })
+
+    console.log(`   ✅ User created: ${user.email}`)
+    console.log(`     🎭 Role assigned via roleId: ${u.roleName}`)
   }
 
-  console.log("✨ Comptes créés !");
-}
-
-// ====================================================================
-// SEED DEFAULT CURRENCY + COUNTRY (CORRIGÉ)
-// ====================================================================
-
-async function seedBaseData(prisma: PrismaClient) {
-  console.log("🌍 Seed currency + country…");
-
-  // 1 currency de base → USD
-  await prisma.currency.upsert({
-    where: { code: "USD" },
-    update: {},
-    create: {
-      code: "USD",
-      name: "United States Dollar",
-      symbol: "$",
-    },
-  });
-
-  // 1 country de base → United States
-  await prisma.country.upsert({
-    where: { code: "US" },        // ✔ utilise TON champ "code"
-    update: {},
-    create: {
-      code: "US",
-      name: "United States",
-    },
-  });
-
-  console.log("✅ Base data OK !");
+  console.log("👥 Initial users created successfully.")
 }
 
 
-// ====================================================================
-// MAIN
-// ====================================================================
+// =============================================================================
+// ROLE DEFINITIONS
+// =============================================================================
 
-const prisma = new PrismaClient();
+interface RoleDefinition {
+  name: string
+  displayName: string
+  description: string
+  level: number
+  homePath: string
+  color: string
+  icon: string
+  permissionKeys: string[]
+}
+const ROLE_DEFINITIONS: RoleDefinition[] = [
+  // -------------------------------------------------
+  // SUPERADMIN — Toutes les permissions automatiques
+  // -------------------------------------------------
+  {
+    name: "SUPERADMIN",
+    displayName: "Super Administrator",
+    description: "Full unrestricted access to the entire platform and all tenants.",
+    level: 100,
+    homePath: "/dashboard",
+    color: "#dc2626",
+    icon: "shield-check",
+    permissionKeys: ALL_PERMISSIONS.map(p => p.key), // 🔥 FULL ACCESS
+  },
 
-async function main() {
-  console.log("🚀 Lancement du seed…");
+  // -------------------------------------------------
+  // ADMIN — Toutes les permissions (pour le moment)
+  // -------------------------------------------------
+  {
+    name: "ADMIN",
+    displayName: "Administrator",
+    description: "Platform administrator with full permissions.",
+    level: 90,
+    homePath: "/dashboard",
+    color: "#2563eb",
+    icon: "shield",
+    permissionKeys: ALL_PERMISSIONS.map(p => p.key), // 🔥 FULL ACCESS
+  },
 
-  let tenant = await prisma.tenant.findFirst();
+  // -------------------------------------------------
+  // AGENCY — Aucune permission au départ
+  // -------------------------------------------------
+  {
+    name: "AGENCY",
+    displayName: "Agency",
+    description: "Agency user (permissions to be assigned later).",
+    level: 40,
+    homePath: "/dashboard",
+    color: "#7c3aed",
+    icon: "building",
+    permissionKeys: [
+      /*EXEMPLE*/"user.create.global",
+    ],
+  },
+
+  // -------------------------------------------------
+  // PAYROLL — Aucune permission au départ
+  // -------------------------------------------------
+  {
+    name: "PAYROLL",
+    displayName: "Payroll Partner",
+    description: "Payroll partner user (permissions to be assigned later).",
+    level: 40,
+    homePath: "/dashboard",
+    color: "#059669",
+    icon: "calculator",
+    permissionKeys: [],
+  },
+
+  // -------------------------------------------------
+  // CONTRACTOR — Aucune permission au départ
+  // -------------------------------------------------
+  {
+    name: "CONTRACTOR",
+    displayName: "Contractor",
+    description: "Independent contractor (permissions to be assigned later).",
+    level: 20,
+    homePath: "/dashboard",
+    color: "#8b5cf6",
+    icon: "user",
+    permissionKeys: [],
+  },
+];
+
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Get or create the default tenant
+ */
+async function getOrCreateDefaultTenant() {
+  let tenant = await prisma.tenant.findFirst({
+    where: { slug: "aspirock" },
+  })
 
   if (!tenant) {
-    console.log("📦 Aucun tenant → création…");
+    console.log("📦 Creating default tenant: Aspirock")
     tenant = await prisma.tenant.create({
       data: {
-        name: "Default Tenant",
-        subdomain: "default",
+        name: "Aspirock",
+        slug: "aspirock",
+        isActive: true,
       },
-    });
+    })
+    console.log(`✅ Default tenant created: ${tenant.name} (${tenant.id})`)
+  } else {
+    console.log(`✅ Default tenant found: ${tenant.name} (${tenant.id})`)
   }
 
-  // Base data (CURRENCY + COUNTRY)
-  await seedBaseData(prisma);
-
-  // RBAC
-  await seedRBAC(prisma, tenant.id);
-
-  // Test Users
-  await seedTestUsers(prisma, tenant.id);
-
-  console.log("✨ Seed terminé !");
+  return tenant
 }
 
+/**
+ * Get or create a role
+ */
+async function getOrCreateRole(
+  tenantId: string,
+  roleDefinition: RoleDefinition
+) {
+  let role = await prisma.role.findFirst({
+    where: {
+      tenantId,
+      name: roleDefinition.name,
+    },
+  })
+
+  if (!role) {
+    console.log(`🎭 Creating role: ${roleDefinition.displayName}`)
+    role = await prisma.role.create({
+      data: {
+        tenantId,
+        name: roleDefinition.name,
+        displayName: roleDefinition.displayName,
+        description: roleDefinition.description,
+        level: roleDefinition.level,
+        homePath: roleDefinition.homePath,
+        color: roleDefinition.color,
+        icon: roleDefinition.icon,
+        isActive: true,
+        isSystem: true,
+      },
+    })
+    console.log(`  ✅ Role created: ${role.displayName} (${role.id})`)
+  } else {
+    console.log(`  ✅ Role found: ${role.displayName} (${role.id})`)
+  }
+
+  return role
+}
+
+/**
+ * Fetch all permissions from database
+ */
+async function fetchAllPermissions() {
+  const permissions = await prisma.permission.findMany({
+    where: { isActive: true },
+  })
+
+  console.log(`\n📋 Fetched ${permissions.length} permissions from database`)
+
+  // Create a map for quick lookup
+  const permissionMap = new Map<string, string>()
+  permissions.forEach((p) => {
+    permissionMap.set(p.key, p.id)
+  })
+
+  return { permissions, permissionMap }
+}
+
+/**
+ * Assign permissions to a role
+ */
+async function assignPermissionsToRole(
+  roleId: string,
+  roleName: string,
+  permissionKeys: string[],
+  permissionMap: Map<string, string>
+) {
+  console.log(`\n🔐 Assigning permissions to ${roleName}...`)
+
+  let assigned = 0
+  let skipped = 0
+  let notFound = 0
+
+  for (const permissionKey of permissionKeys) {
+    const permissionId = permissionMap.get(permissionKey)
+
+    if (!permissionId) {
+      console.log(`  ⚠️  Permission not found: ${permissionKey}`)
+      notFound++
+      continue
+    }
+
+    // Check if already assigned
+    const existing = await prisma.rolePermission.findUnique({
+      where: {
+        roleId_permissionId: {
+          roleId,
+          permissionId,
+        },
+      },
+    })
+
+    if (existing) {
+      skipped++
+      continue
+    }
+
+    // Assign permission
+    await prisma.rolePermission.create({
+      data: {
+        roleId,
+        permissionId,
+      },
+    })
+
+    assigned++
+  }
+
+  console.log(
+    `  ✅ Assigned: ${assigned} | Skipped (already exists): ${skipped} | Not found: ${notFound}`
+  )
+
+  return { assigned, skipped, notFound }
+}
+
+// =============================================================================
+// MAIN SEED FUNCTION
+// =============================================================================
+
+async function main() {
+  console.log("=".repeat(80))
+  console.log("🌱 PAYROLL SAAS - RBAC SEED")
+  console.log("=".repeat(80))
+  console.log()
+
+  try {
+    // 1. Get or create default tenant
+    // 0. Insert permissions FIRST (global, not per tenant)
+    await insertPermissions()
+
+    // 1. Create tenant
+    const tenant = await getOrCreateDefaultTenant()
+    const tenantId = tenant.id
+
+    
+
+    // 2. Fetch all permissions
+    const { permissions, permissionMap } = await fetchAllPermissions()
+
+    // 3. Process each role definition
+    const results: {
+      role: string
+      assigned: number
+      skipped: number
+      notFound: number
+    }[] = []
+
+    for (const roleDefinition of ROLE_DEFINITIONS) {
+      const role = await getOrCreateRole(tenantId, roleDefinition)
+
+      const result = await assignPermissionsToRole(
+        role.id,
+        role.displayName,
+        roleDefinition.permissionKeys,
+        permissionMap
+      )
+
+      results.push({
+        role: role.displayName,
+        assigned: result.assigned,
+        skipped: result.skipped,
+        notFound: result.notFound,
+      })
+    }
+    await createInitialUsers(tenantId)
+
+    // 4. Print summary
+    console.log()
+    console.log("=".repeat(80))
+    console.log("📊 SUMMARY")
+    console.log("=".repeat(80))
+    console.log()
+    console.log(`Total Roles Processed: ${ROLE_DEFINITIONS.length}`)
+    console.log(`Total Permissions in DB: ${permissions.length}`)
+    console.log()
+    console.log("Permissions Assigned by Role:")
+    console.log()
+
+    results.forEach((r) => {
+      console.log(`  ${r.role}:`)
+      console.log(`    ✅ Assigned: ${r.assigned}`)
+      console.log(`    ⏭️  Skipped: ${r.skipped}`)
+      if (r.notFound > 0) {
+        console.log(`    ⚠️  Not Found: ${r.notFound}`)
+      }
+      console.log()
+    })
+
+    console.log("=".repeat(80))
+    console.log("✅ SEED COMPLETED SUCCESSFULLY")
+    console.log("=".repeat(80))
+  } catch (error) {
+    console.error()
+    console.error("❌ ERROR during seed:")
+    console.error(error)
+    process.exit(1)
+  }
+}
+
+// =============================================================================
+// RUN SEED
+// =============================================================================
 
 main()
-  .catch((err) => console.error("❌ ERREUR :", err))
-  .finally(() => prisma.$disconnect());
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

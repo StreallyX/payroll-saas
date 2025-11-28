@@ -10,6 +10,12 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import {
+  getTenantCompanies,
+  getAgencyCompanies,
+  getUserCompany,
+  getVisibleTenantCompanies,
+} from "@/server/helpers/company"
 
 const P = {
   LIST_GLOBAL: "company.list.global",
@@ -118,6 +124,7 @@ export const companyRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().min(1),
+        type: z.enum(["tenant", "agency"]).default("tenant"), // 🔥 NEW: Type de company
         bankId: z.string().nullable().optional(),
 
         contactPerson: z.string().optional(),
@@ -153,6 +160,7 @@ export const companyRouter = createTRPCRouter({
         data: {
           ...input,
           tenantId,
+          type: input.type, // 🔥 Utiliser le type fourni
           createdBy: user.id,
 
           ownerType: isGlobal ? "tenant" : "user",
@@ -302,5 +310,194 @@ export const companyRouter = createTRPCRouter({
       })
 
       return { success: true }
+    }),
+
+
+  // ============================================================
+  // 🔥 NEW: GET TENANT COMPANIES (Tenant companies = client companies)
+  // ============================================================
+  getTenantCompanies: tenantProcedure
+    .use(hasAnyPermission([P.LIST_GLOBAL, P.LIST_OWN]))
+    .query(async ({ ctx }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+      const hasGlobalScope = user.permissions.includes(P.LIST_GLOBAL)
+
+      return getVisibleTenantCompanies(user as any, hasGlobalScope)
+    }),
+
+
+  // ============================================================
+  // 🔥 NEW: GET AGENCY COMPANIES (Agency companies = service providers)
+  // ============================================================
+  getAgencyCompanies: tenantProcedure
+    .use(hasPermission(P.LIST_GLOBAL))
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId!
+      return getAgencyCompanies(tenantId)
+    }),
+
+
+  // ============================================================
+  // 🔥 NEW: GET MY COMPANY (For Agency Admin)
+  // ============================================================
+  getMyCompany: tenantProcedure
+    .use(hasPermission(P.LIST_OWN))
+    .query(async ({ ctx }) => {
+      const user = ctx.session.user
+      return getUserCompany(user.id)
+    }),
+
+
+  // ============================================================
+  // 🔥 NEW: CREATE MY COMPANY (For Agency Admin - creates agency company)
+  // ============================================================
+  createMyCompany: tenantProcedure
+    .use(hasPermission(P.CREATE_OWN))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        bankId: z.string().nullable().optional(),
+
+        contactPerson: z.string().optional(),
+        contactEmail: z.string().email().optional().or(z.literal("")),
+        contactPhone: z.string().optional(),
+
+        officeBuilding: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+
+        invoicingContactName: z.string().optional(),
+        invoicingContactPhone: z.string().optional(),
+        invoicingContactEmail: z.string().email().optional().or(z.literal("")),
+        alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
+
+        vatNumber: z.string().optional(),
+        website: z.string().url().optional().or(z.literal("")),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+
+      // Vérifier si le user a déjà une company
+      const existingCompany = await getUserCompany(user.id)
+      if (existingCompany) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You already have a company. Use updateMyCompany to modify it.",
+        })
+      }
+
+      // Créer la company de type "agency"
+      const company = await ctx.prisma.company.create({
+        data: {
+          ...input,
+          tenantId,
+          type: "agency", // 🔥 Type agency
+          createdBy: user.id,
+          ownerType: "user",
+          ownerId: user.id,
+        },
+      })
+
+      // Lier le user à la company via companyId
+      await ctx.prisma.user.update({
+        where: { id: user.id },
+        data: { companyId: company.id },
+      })
+
+      // Également créer CompanyUser pour la relation many-to-many
+      await ctx.prisma.companyUser.create({
+        data: {
+          userId: user.id,
+          companyId: company.id,
+          role: "owner",
+        },
+      })
+
+      await createAuditLog({
+        userId: user.id,
+        userName: user.name ?? "Unknown",
+        userRole: user.roleName,
+        entityId: company.id,
+        entityName: company.name,
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.COMPANY,
+        tenantId,
+      })
+
+      return company
+    }),
+
+
+  // ============================================================
+  // 🔥 NEW: UPDATE MY COMPANY (For Agency Admin)
+  // ============================================================
+  updateMyCompany: tenantProcedure
+    .use(hasPermission(P.UPDATE_OWN))
+    .input(
+      z.object({
+        name: z.string().optional(),
+        bankId: z.string().nullable().optional(),
+
+        contactPerson: z.string().optional(),
+        contactEmail: z.string().email().optional().or(z.literal("")),
+        contactPhone: z.string().optional(),
+
+        officeBuilding: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        countryId: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+
+        invoicingContactName: z.string().optional(),
+        invoicingContactPhone: z.string().optional(),
+        invoicingContactEmail: z.string().email().optional().or(z.literal("")),
+        alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
+
+        vatNumber: z.string().optional(),
+        website: z.string().url().optional().or(z.literal("")),
+
+        status: z.enum(["active", "inactive"]).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+
+      // Récupérer la company du user
+      const company = await getUserCompany(user.id)
+      if (!company) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "You don't have a company yet. Use createMyCompany first.",
+        })
+      }
+
+      // Mettre à jour la company
+      const updated = await ctx.prisma.company.update({
+        where: { id: company.id },
+        data: input,
+      })
+
+      await createAuditLog({
+        userId: user.id,
+        userName: user.name ?? "Unknown",
+        userRole: user.roleName,
+        entityId: updated.id,
+        entityName: updated.name,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.COMPANY,
+        tenantId,
+      })
+
+      return updated
     }),
 })

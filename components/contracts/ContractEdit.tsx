@@ -54,7 +54,7 @@ interface ContractForm {
   type: "contract" | "msa" | "sow";
   parentId?: string | null;
 
-  status: "draft" | "active" | "completed" | "cancelled" | "paused";
+  status: "draft" | "active" | "completed" | "cancelled" | "paused" | "pending_approval";
   workflowStatus:
     | "draft"
     | "pending_agency_sign"
@@ -63,6 +63,7 @@ interface ContractForm {
     | "paused"
     | "completed"
     | "cancelled"
+    | "pending_approval"
     | "terminated";
 
   companyId?: string | null;
@@ -206,6 +207,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                       <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -234,6 +236,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                       <SelectItem value="terminated">Terminated</SelectItem>
+                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

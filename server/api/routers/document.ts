@@ -77,6 +77,35 @@ export const documentRouter = createTRPCRouter({
     }),
 
   // ================================================================
+  // GET BY ID
+  // ================================================================
+  getById: tenantProcedure
+    .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
+    .input(z.object({ documentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const permissions = ctx.session.user.permissions ?? [];
+
+      const canReadGlobal = permissions.includes(READ_GLOBAL);
+      const canListGlobal = permissions.includes(LIST_GLOBAL);
+
+      let where: any = {
+        id: input.documentId,
+        tenantId: ctx.tenantId,
+      };
+
+      if (!canReadGlobal && !canListGlobal) {
+        where.uploadedBy = userId;
+      }
+
+      const doc = await ctx.prisma.document.findFirst({ where });
+
+      if (!doc) throw new Error("Document not found.");
+
+      return doc;
+    }),
+
+  // ================================================================
   // GET SIGNED URL (DOWNLOAD / VIEW)
   // ================================================================
   getSignedUrl: tenantProcedure
