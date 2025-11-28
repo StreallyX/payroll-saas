@@ -13,12 +13,11 @@
  */
 
 import { z } from "zod";
-import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
+import { createTRPCRouter, tenantProcedure, hasPermission, hasAnyPermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
 import { uploadFile, deleteFile } from "@/lib/s3";
-import { PERMISSION_TREE } from "@/server/rbac/permissions";
 
 // Validators
 import {
@@ -45,36 +44,33 @@ import { isDraft } from "@/server/helpers/contracts/simpleWorkflowTransitions";
 // ============================================================================
 
 const P = {
-  // Permissions contrats standards
-  LIST: PERMISSION_TREE.contracts.view,
-  CREATE: PERMISSION_TREE.contracts.create,
-  UPDATE: PERMISSION_TREE.contracts.update,
-  DELETE: PERMISSION_TREE.contracts.delete,
-  APPROVE: PERMISSION_TREE.contracts.approve,
+  CONTRACT: {
+    LIST_GLOBAL:   "contract.list.global",
+    READ_OWN:      "contract.read.own",
+    CREATE_GLOBAL: "contract.create.global",
+    UPDATE_OWN:    "contract.update.own",
+    UPDATE_GLOBAL: "contract.update.global",
+    DELETE_GLOBAL: "contract.delete.global",
+    SEND_GLOBAL:   "contract.send.global",
+    SIGN_OWN:      "contract.sign.own",
+    APPROVE_GLOBAL:"contract.approve.global",
+    CANCEL_GLOBAL: "contract.cancel.global",
+    EXPORT_GLOBAL: "contract.export.global",
+    PARTICIPANT_GLOBAL: "contract_participant.manage.global",
+  },
+  MSA: {
+    LIST_GLOBAL:   "contract_msa.list.global",
+    CREATE_GLOBAL: "contract_msa.create.global",
+    UPDATE_GLOBAL: "contract_msa.update.global",
+    DELETE_GLOBAL: "contract_msa.delete.global",
+  },
+  SOW: {
+    LIST_GLOBAL:   "contract_sow.list.global",
+    CREATE_GLOBAL: "contract_sow.create.global",
+    UPDATE_GLOBAL: "contract_sow.update.global",
+    DELETE_GLOBAL: "contract_sow.delete.global",
+  },
 };
-
-// ============================================================================
-// HELPER: Multiple Permissions (OR logic)
-// ============================================================================
-
-/**
- * Vérifie si l'utilisateur a au moins une des permissions spécifiées
- */
-function hasAnyPermission(permissions: string[]) {
-  return tenantProcedure.use(async ({ ctx, next }) => {
-    const userPermissions = ctx.session?.user?.permissions || [];
-    const hasPermission = permissions.some((p) => userPermissions.includes(p));
-
-    if (!hasPermission) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: `Permission requise (au moins une de: ${permissions.join(", ")})`,
-      });
-    }
-
-    return next();
-  });
-}
 
 // ============================================================================
 // ROUTER
@@ -99,7 +95,7 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.create
    */
   createSimpleMSA: tenantProcedure
-    .use(hasPermission(P.CREATE))
+    .use(hasPermission(P.MSA.CREATE_GLOBAL))
     .input(createSimpleMSASchema)
     .mutation(async ({ ctx, input }) => {
       const { pdfBuffer, fileName, mimeType, fileSize, companyId } = input;
@@ -174,8 +170,8 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 7. Retourner le contrat complet
-        const fullContract = await ctx.prisma.contract.findUnique({
+        // 7. Récupérer le contrat avec participants
+        const contractData = await ctx.prisma.contract.findUnique({
           where: { id: contract.id },
           include: {
             participants: {
@@ -184,13 +180,26 @@ export const simpleContractRouter = createTRPCRouter({
                 company: { select: { id: true, name: true } },
               },
             },
-            documents: { where: { isLatestVersion: true } },
           },
         });
 
+        // 8. Récupérer les documents liés (relation manuelle)
+        const documents = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contract.id,
+            isLatestVersion: true,
+          },
+        });
+
+        // 9. Fusionner et retourner le contrat complet
         return {
           success: true,
-          contract: fullContract,
+          contract: {
+            ...contractData,
+            documents,
+          },
         };
       } catch (error) {
         console.error("[createSimpleMSA] Error:", error);
@@ -201,6 +210,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
     }),
+
 
   // ==========================================================================
   // 2. CREATE SIMPLE SOW
@@ -220,264 +230,297 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.create
    */
   createSimpleSOW: tenantProcedure
-    .use(hasPermission(P.CREATE))
-    .input(createSimpleSOWSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { pdfBuffer, fileName, mimeType, fileSize, parentMSAId, companyId } = input;
+  .use(hasPermission(P.CONTRACT.CREATE_GLOBAL)) // ← permission correcte
+  .input(createSimpleSOWSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { pdfBuffer, fileName, mimeType, fileSize, parentMSAId, companyId } = input;
 
-      try {
-        // 1. Valider le MSA parent
-        const parentMSA = await validateParentMSA(
-          ctx.prisma,
-          parentMSAId,
-          ctx.tenantId!
-        );
+    try {
+      // 1. Valider le MSA parent
+      const parentMSA = await validateParentMSA(
+        ctx.prisma,
+        parentMSAId,
+        ctx.tenantId!
+      );
 
-        // 2. Générer titre depuis filename
-        const title = generateContractTitle(fileName);
+      // 2. Générer titre depuis filename
+      const title = generateContractTitle(fileName);
 
-        // 3. Créer le contrat SOW (hériter du parent)
-        const contract = await ctx.prisma.contract.create({
-          data: {
-            tenantId: ctx.tenantId!,
-            type: "sow",
-            parentId: parentMSAId,
-            title,
-            status: "draft",
-            workflowStatus: "draft",
-            createdBy: ctx.session!.user.id,
-            assignedTo: ctx.session!.user.id,
-            
-            // Hériter des champs du MSA parent
-            currencyId: parentMSA.currencyId,
-            contractCountryId: parentMSA.contractCountryId,
-            
-            description: `SOW créé automatiquement depuis ${fileName}, lié au MSA "${parentMSA.title}"`,
-            startDate: new Date(),
-          },
-        });
-
-        // 4. Upload PDF vers S3
-        const buffer = Buffer.from(pdfBuffer, "base64");
-        const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
-        const s3Key = await uploadFile(buffer, s3FileName);
-
-        // 5. Créer le document lié
-        const document = await ctx.prisma.document.create({
-          data: {
-            tenantId: ctx.tenantId!,
-            entityType: "contract",
-            entityId: contract.id,
-            s3Key,
-            fileName,
-            mimeType,
-            fileSize,
-            uploadedBy: ctx.session!.user.id,
-            category: "main_contract",
-            version: 1,
-            isLatestVersion: true,
-            visibility: "private",
-          },
-        });
-
-        // 6. Créer participant company (optionnel, sinon hériter du parent)
-        const targetCompanyId =
-          companyId ||
-          parentMSA.participants.find((p) => p.role === "client")?.companyId;
-
-        if (targetCompanyId) {
-          await createMinimalParticipant(ctx.prisma, {
-            contractId: contract.id,
-            companyId: targetCompanyId,
-            role: "client",
-            isPrimary: true,
-          });
-        }
-
-        // 7. Audit log
-        await createAuditLog({
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name || ctx.session!.user.email,
-          userRole: ctx.session!.user.roleName || "USER",
-          action: AuditAction.CREATE,
-          entityType: AuditEntityType.CONTRACT,
-          entityId: contract.id,
-          entityName: title,
+      // 3. Créer le contrat SOW (hériter du parent)
+      const contract = await ctx.prisma.contract.create({
+        data: {
           tenantId: ctx.tenantId!,
-          metadata: {
-            type: "sow",
-            parentMSAId,
-            parentMSATitle: parentMSA.title,
-            fileName,
-            system: "simple",
-            documentId: document.id,
-          },
-        });
+          type: "sow",
+          parentId: parentMSAId,
+          title,
+          status: "draft",
+          workflowStatus: "draft",
+          createdBy: ctx.session!.user.id,
+          assignedTo: ctx.session!.user.id,
 
-        // 8. Retourner le contrat complet
-        const fullContract = await ctx.prisma.contract.findUnique({
-          where: { id: contract.id },
-          include: {
-            parent: { select: { id: true, title: true, type: true } },
-            participants: {
-              include: {
-                user: { select: { id: true, name: true, email: true } },
-                company: { select: { id: true, name: true } },
-              },
-            },
-            documents: { where: { isLatestVersion: true } },
-          },
-        });
+          // Hériter du parent
+          currencyId: parentMSA.currencyId,
+          contractCountryId: parentMSA.contractCountryId,
 
-        return {
-          success: true,
-          contract: fullContract,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("[createSimpleSOW] Error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la création du SOW",
-          cause: error,
+          description: `SOW créé automatiquement depuis ${fileName}, lié au MSA "${parentMSA.title}"`,
+          startDate: new Date(),
+        },
+      });
+
+      // 4. Upload PDF vers S3
+      const buffer = Buffer.from(pdfBuffer, "base64");
+      const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
+      const s3Key = await uploadFile(buffer, s3FileName);
+
+      // 5. Créer le document lié
+      const document = await ctx.prisma.document.create({
+        data: {
+          tenantId: ctx.tenantId!,
+          entityType: "contract",
+          entityId: contract.id,
+          s3Key,
+          fileName,
+          mimeType,
+          fileSize,
+          uploadedBy: ctx.session!.user.id,
+          category: "main_contract",
+          version: 1,
+          isLatestVersion: true,
+          visibility: "private",
+        },
+      });
+
+      // 6. Créer participant company (optionnel)
+      const targetCompanyId =
+        companyId ||
+        parentMSA.participants.find((p) => p.role === "client")?.companyId;
+
+      if (targetCompanyId) {
+        await createMinimalParticipant(ctx.prisma, {
+          contractId: contract.id,
+          companyId: targetCompanyId,
+          role: "client",
+          isPrimary: true,
         });
       }
-    }),
+
+      // 7. Audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name || ctx.session!.user.email,
+        userRole: ctx.session!.user.roleName || "USER",
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: title,
+        tenantId: ctx.tenantId!,
+        metadata: {
+          type: "sow",
+          parentMSAId,
+          parentMSATitle: parentMSA.title,
+          fileName,
+          system: "simple",
+          documentId: document.id,
+        },
+      });
+
+      // 8. Charger les infos du contrat (sans documents)
+      const contractData = await ctx.prisma.contract.findUnique({
+        where: { id: contract.id },
+        include: {
+          parent: { select: { id: true, title: true, type: true } },
+          participants: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+              company: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+
+      // 9. Charger les documents (relation manuelle)
+      const documents = await ctx.prisma.document.findMany({
+        where: {
+          tenantId: ctx.tenantId!,
+          entityType: "contract",
+          entityId: contract.id,
+          isLatestVersion: true,
+        },
+      });
+
+      // 10. Retourner le contrat complet fusionné
+      return {
+        success: true,
+        contract: {
+          ...contractData,
+          documents,
+        },
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[createSimpleSOW] Error:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Échec de la création du SOW",
+        cause: error,
+      });
+    }
+  }),
+
 
   // ==========================================================================
   // 3. SUBMIT FOR REVIEW
   // ==========================================================================
 
-  /**
-   * Soumet un contrat draft pour validation admin
-   * 
-   * Transition: draft → pending_admin_review
-   * 
-   * @permission contracts.update
-   */
   submitForReview: tenantProcedure
-    .use(hasPermission(P.UPDATE))
-    .input(submitForReviewSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { contractId, notes } = input;
+  .use(
+    hasAnyPermission([
+      P.CONTRACT.UPDATE_GLOBAL,
+      P.CONTRACT.UPDATE_OWN
+    ])
+  )
+  .input(submitForReviewSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { contractId, notes } = input;
 
-      try {
-        // 1. Récupérer le contrat
-        const contract = await ctx.prisma.contract.findUnique({
-          where: { id: contractId, tenantId: ctx.tenantId! },
-          include: { documents: { where: { isLatestVersion: true } } },
-        });
+    try {
+      const userId = ctx.session!.user.id;
+      const userPermissions = ctx.session!.user.permissions;
 
-        if (!contract) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Contrat introuvable",
-          });
-        }
+      const hasGlobal = userPermissions.includes(P.CONTRACT.UPDATE_GLOBAL);
 
-        // 2. Valider que le contrat est en draft
-        if (!isDraft(contract)) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Seuls les contrats en draft peuvent être soumis pour review",
-          });
-        }
+      // 1️⃣ Charger le contrat
+      const contract = await ctx.prisma.contract.findUnique({
+        where: { id: contractId, tenantId: ctx.tenantId! },
+        include: {
+          participants: true,
+          parent: { select: { id: true, title: true } },
+        },
+      });
 
-        // 3. Valider qu'un document principal existe
-        const hasMainDocument = contract.documents.some(
-          (d) => d.category === "main_contract"
+      if (!contract) throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Contrat introuvable",
+      });
+
+      // 2️⃣ Vérification OWN
+      if (!hasGlobal) {
+        const isCreator = contract.createdBy === userId;
+        const isParticipant = contract.participants.some(
+          (p) => p.userId === userId && p.isActive
         );
 
-        if (!hasMainDocument) {
+        if (!isCreator && !isParticipant) {
           throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Un document principal doit être uploadé avant soumission",
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas accès à ce contrat",
           });
         }
+      }
 
-        // 4. Mettre à jour le statut
-        const updated = await ctx.prisma.contract.update({
-          where: { id: contractId },
-          data: {
-            status: "pending_admin_review",
-            workflowStatus: "pending_admin_review",
-            notes: notes ? `${contract.notes || ""}\n\n[SOUMISSION] ${notes}`.trim() : contract.notes,
-          },
-          include: {
-            documents: { where: { isLatestVersion: true } },
-            participants: true,
-            parent: { select: { id: true, title: true } },
-          },
-        });
-
-        // 5. Créer notifications pour les admins
-        const admins = await ctx.prisma.user.findMany({
-          where: {
-            tenantId: ctx.tenantId!,
-            isActive: true,
-            role: {
-              name: { in: ["SUPER_ADMIN", "ADMIN"] },
-            },
-          },
-          select: { id: true },
-        });
-
-        if (admins.length > 0) {
-          await ctx.prisma.contractNotification.createMany({
-            data: admins.map((admin) => ({
-              contractId: contract.id,
-              userId: admin.id,
-              type: "pending_review",
-              message: `Nouveau contrat "${contract.title}" en attente de review`,
-              isRead: false,
-            })),
-          });
-        }
-
-        // 6. Enregistrer dans l'historique
-        await ctx.prisma.contractStatusHistory.create({
-          data: {
-            contractId: contract.id,
-            fromStatus: "draft",
-            toStatus: "pending_admin_review",
-            changedBy: ctx.session!.user.id,
-            reason: "Soumis pour review admin",
-            notes: notes || undefined,
-          },
-        });
-
-        // 7. Audit log
-        await createAuditLog({
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name || ctx.session!.user.email,
-          userRole: ctx.session!.user.roleName || "USER",
-          action: AuditAction.UPDATE,
-          entityType: AuditEntityType.CONTRACT,
-          entityId: contract.id,
-          entityName: contract.title || "Untitled",
+      // 3️⃣ Charger les documents
+      const documents = await ctx.prisma.document.findMany({
+        where: {
           tenantId: ctx.tenantId!,
-          metadata: {
-            action: "submit_for_review",
-            previousStatus: "draft",
-            newStatus: "pending_admin_review",
-            system: "simple",
-          },
-        });
+          entityType: "contract",
+          entityId: contractId,
+          isLatestVersion: true,
+        },
+      });
 
-        return {
-          success: true,
-          contract: updated,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("[submitForReview] Error:", error);
+      // 4️⃣ Vérifier statut
+      if (!isDraft(contract)) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la soumission pour review",
-          cause: error,
+          code: "BAD_REQUEST",
+          message: "Seuls les contrats en draft peuvent être soumis pour review",
         });
       }
-    }),
+
+      // 5️⃣ Vérifier main document
+      const hasMainDocument = documents.some(
+        (d) => d.category === "main_contract"
+      );
+
+      if (!hasMainDocument) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Un document principal doit être uploadé avant soumission",
+        });
+      }
+
+      // 6️⃣ Update du statut
+      const updated = await ctx.prisma.contract.update({
+        where: { id: contractId },
+        data: {
+          status: "pending_admin_review",
+          workflowStatus: "pending_admin_review",
+          notes: notes
+            ? `${contract.notes || ""}\n\n[SOUMISSION] ${notes}`.trim()
+            : contract.notes,
+        },
+        include: {
+          participants: true,
+          parent: { select: { id: true, title: true } },
+        },
+      });
+
+      // 7️⃣ Recharger les documents
+      const updatedDocuments = await ctx.prisma.document.findMany({
+        where: {
+          tenantId: ctx.tenantId!,
+          entityType: "contract",
+          entityId: contractId,
+          isLatestVersion: true,
+        },
+      });
+
+      // 8️⃣ Créer historique
+      await ctx.prisma.contractStatusHistory.create({
+        data: {
+          contractId: contract.id,
+          fromStatus: "draft",
+          toStatus: "pending_admin_review",
+          changedBy: userId,
+          reason: notes || "Soumis pour review admin",
+        },
+      });
+
+      // 9️⃣ Audit log
+      await createAuditLog({
+        userId,
+        userName: ctx.session!.user.name || ctx.session!.user.email,
+        userRole: ctx.session!.user.roleName || "USER",
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: contract.title || "Untitled",
+        tenantId: ctx.tenantId!,
+        metadata: {
+          action: "submit_for_review",
+          previousStatus: "draft",
+          newStatus: "pending_admin_review",
+          system: "simple",
+        },
+      });
+
+      return {
+        success: true,
+        contract: {
+          ...updated,
+          documents: updatedDocuments,
+        },
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[submitForReview] Error:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Échec de la soumission pour review",
+        cause: error,
+      });
+    }
+  }),
+
 
   // ==========================================================================
   // 4. ADMIN APPROVE
@@ -491,15 +534,19 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.approve
    */
   adminApprove: tenantProcedure
-    .use(hasPermission(P.APPROVE))
+    .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
     .input(adminApproveSchema)
     .mutation(async ({ ctx, input }) => {
       const { contractId, notes } = input;
 
       try {
-        // 1. Récupérer le contrat
+        // 1. Charger le contrat (sans documents)
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
+          include: {
+            participants: true,
+            parent: { select: { id: true, title: true } },
+          }
         });
 
         if (!contract) {
@@ -509,7 +556,6 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Valider que le contrat est en pending_admin_review
         if (contract.status !== "pending_admin_review") {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -517,7 +563,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 3. Mettre à jour le statut → completed
+        // 2. Mettre à jour → completed
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
           data: {
@@ -528,10 +574,19 @@ export const simpleContractRouter = createTRPCRouter({
               : contract.notes,
           },
           include: {
-            documents: { where: { isLatestVersion: true } },
             participants: true,
             parent: { select: { id: true, title: true } },
-          },
+          }
+        });
+
+        // 3. Charger les documents séparément
+        const documents = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contractId,
+            isLatestVersion: true,
+          }
         });
 
         // 4. Notifier le créateur
@@ -539,23 +594,23 @@ export const simpleContractRouter = createTRPCRouter({
           await ctx.prisma.contractNotification.create({
             data: {
               contractId: contract.id,
-              userId: contract.createdBy,
-              type: "approved",
+              recipientId: contract.createdBy,                     // ✔ correct
+              type: "approved",                                    // ✔ correct
+              title: "Contrat approuvé",                           // ✔ correct
               message: `Votre contrat "${contract.title}" a été approuvé par l'admin`,
-              isRead: false,
+              // sentAt est automatique
             },
           });
         }
 
-        // 5. Enregistrer dans l'historique
+        // 5. Historique
         await ctx.prisma.contractStatusHistory.create({
           data: {
             contractId: contract.id,
             fromStatus: "pending_admin_review",
             toStatus: "completed",
             changedBy: ctx.session!.user.id,
-            reason: "Approuvé par admin",
-            notes: notes || undefined,
+            reason: notes || "Approuvé par admin",
           },
         });
 
@@ -574,13 +629,15 @@ export const simpleContractRouter = createTRPCRouter({
             previousStatus: "pending_admin_review",
             newStatus: "completed",
             system: "simple",
-            notes,
           },
         });
 
         return {
           success: true,
-          contract: updated,
+          contract: {
+            ...updated,
+            documents,
+          },
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
@@ -592,6 +649,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
     }),
+
 
   // ==========================================================================
   // 5. ADMIN REJECT
@@ -605,128 +663,118 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.approve
    */
   adminReject: tenantProcedure
-    .use(hasPermission(P.APPROVE))
-    .input(adminRejectSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { contractId, reason } = input;
+  .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
+  .input(adminRejectSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { contractId, reason } = input;
 
-      try {
-        // 1. Récupérer le contrat
-        const contract = await ctx.prisma.contract.findUnique({
-          where: { id: contractId, tenantId: ctx.tenantId! },
-        });
+    try {
+      // 1. Récupérer le contrat
+      const contract = await ctx.prisma.contract.findUnique({
+        where: { id: contractId, tenantId: ctx.tenantId! },
+      });
 
-        if (!contract) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Contrat introuvable",
-          });
-        }
-
-        // 2. Valider que le contrat est en pending_admin_review
-        if (contract.status !== "pending_admin_review") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Seuls les contrats en review peuvent être rejetés",
-          });
-        }
-
-        // 3. Remettre en draft avec raison de rejet
-        const updated = await ctx.prisma.contract.update({
-          where: { id: contractId },
-          data: {
-            status: "draft",
-            workflowStatus: "draft",
-            notes: `${contract.notes || ""}\n\n[ADMIN REJECTION] ${reason}`.trim(),
-          },
-          include: {
-            documents: { where: { isLatestVersion: true } },
-            participants: true,
-            parent: { select: { id: true, title: true } },
-          },
-        });
-
-        // 4. Notifier le créateur
-        if (contract.createdBy) {
-          await ctx.prisma.contractNotification.create({
-            data: {
-              contractId: contract.id,
-              userId: contract.createdBy,
-              type: "rejected",
-              message: `Votre contrat "${contract.title}" a été rejeté: ${reason}`,
-              isRead: false,
-            },
-          });
-        }
-
-        // 5. Enregistrer dans l'historique
-        await ctx.prisma.contractStatusHistory.create({
-          data: {
-            contractId: contract.id,
-            fromStatus: "pending_admin_review",
-            toStatus: "draft",
-            changedBy: ctx.session!.user.id,
-            reason: "Rejeté par admin",
-            notes: reason,
-          },
-        });
-
-        // 6. Audit log
-        await createAuditLog({
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name || ctx.session!.user.email,
-          userRole: ctx.session!.user.roleName || "USER",
-          action: AuditAction.REJECT,
-          entityType: AuditEntityType.CONTRACT,
-          entityId: contract.id,
-          entityName: contract.title || "Untitled",
-          tenantId: ctx.tenantId!,
-          metadata: {
-            action: "admin_reject",
-            previousStatus: "pending_admin_review",
-            newStatus: "draft",
-            reason,
-            system: "simple",
-          },
-        });
-
-        return {
-          success: true,
-          contract: updated,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("[adminReject] Error:", error);
+      if (!contract) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Échec du rejet",
-          cause: error,
+          code: "NOT_FOUND",
+          message: "Contrat introuvable",
         });
       }
-    }),
+
+      // 2. Validation statut
+      if (contract.status !== "pending_admin_review") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Seuls les contrats en review peuvent être rejetés",
+        });
+      }
+
+      // 3. Update → retour en draft
+      const updated = await ctx.prisma.contract.update({
+        where: { id: contractId },
+        data: {
+          status: "draft",
+          workflowStatus: "draft",
+          notes: `${contract.notes || ""}\n\n[ADMIN REJECTION] ${reason}`.trim(),
+        },
+        include: {
+          participants: true,
+          parent: { select: { id: true, title: true } },
+        },
+      });
+
+      // 4. Notification au créateur
+      if (contract.createdBy) {
+        await ctx.prisma.contractNotification.create({
+          data: {
+            contractId: contract.id,
+            recipientId: contract.createdBy,
+            type: "rejected",
+            title: "Contrat rejeté",
+            message: `Votre contrat "${contract.title}" a été rejeté: ${reason}`,
+          },
+        });
+      }
+
+      // 5. Historique statut (notes supprimé car n'existe pas)
+      await ctx.prisma.contractStatusHistory.create({
+        data: {
+          contractId: contract.id,
+          fromStatus: "pending_admin_review",
+          toStatus: "draft",
+          changedBy: ctx.session!.user.id,
+          reason: "Rejeté par admin",
+          // ❌ notes supprimé (n'existe pas dans ton modèle)
+        },
+      });
+
+      // 6. Audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session.user.name ?? ctx.session.user.email,
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.REJECT,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: contract.title ?? "Untitled",
+        tenantId: ctx.tenantId!,
+        metadata: {
+          action: "admin_reject",
+          previousStatus: "pending_admin_review",
+          newStatus: "draft",
+          reason,
+          system: "simple",
+        },
+      });
+
+      return {
+        success: true,
+        contract: updated,
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[adminReject] Error:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Échec du rejet",
+        cause: error,
+      });
+    }
+  }),
 
   // ==========================================================================
   // 6. UPLOAD SIGNED VERSION
   // ==========================================================================
-
-  /**
-   * Upload une version signée du contrat (pour contrats completed/active)
-   * 
-   * Crée une nouvelle version du document principal avec flag "isSigned"
-   * 
-   * @permission contracts.update
-   */
   uploadSignedVersion: tenantProcedure
-    .use(hasPermission(P.UPDATE))
+    .use(hasPermission(P.CONTRACT.SIGN_OWN))
     .input(uploadSignedVersionSchema)
     .mutation(async ({ ctx, input }) => {
       const { contractId, pdfBuffer, fileName, mimeType, fileSize } = input;
 
       try {
-        // 1. Récupérer le contrat
+        // 1. Charger le contrat (sans include.documents, car la relation n'existe pas)
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
-          include: { documents: { where: { category: "main_contract" } } },
         });
 
         if (!contract) {
@@ -736,7 +784,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Valider que le contrat est completed ou active
+        // 2. Valider le statut
         if (!["completed", "active"].includes(contract.status)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -744,16 +792,25 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 3. Trouver la dernière version du document principal
-        const mainDoc = contract.documents.find((d) => d.isLatestVersion);
+        // 3. Récupérer le document principal via findMany
+        const docs = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contract.id,
+            category: "main_contract",
+          },
+        });
+
+        const mainDoc = docs.find((d) => d.isLatestVersion);
         const newVersion = mainDoc ? mainDoc.version + 1 : 1;
 
-        // 4. Upload du PDF signé
+        // 4. Upload du PDF
         const buffer = Buffer.from(pdfBuffer, "base64");
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v${newVersion}/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
 
-        // 5. Marquer l'ancienne version comme non-latest
+        // 5. Ancienne version -> non latest
         if (mainDoc) {
           await ctx.prisma.document.update({
             where: { id: mainDoc.id },
@@ -776,35 +833,29 @@ export const simpleContractRouter = createTRPCRouter({
             version: newVersion,
             isLatestVersion: true,
             visibility: "private",
+
             isSigned: true,
             signedAt: new Date(),
             signedBy: ctx.session!.user.id,
-            parentDocumentId: mainDoc?.id,
+            parentDocumentId: mainDoc?.id || null,
           },
         });
 
         // 7. Mettre à jour le contrat
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
-          data: {
-            signedAt: new Date(),
-          },
-          include: {
-            documents: { where: { isLatestVersion: true } },
-            participants: true,
-            parent: { select: { id: true, title: true } },
-          },
+          data: { signedAt: new Date() },
         });
 
         // 8. Audit log
         await createAuditLog({
           userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name || ctx.session!.user.email,
-          userRole: ctx.session!.user.roleName || "USER",
+          userName: ctx.session.user.name ?? ctx.session.user.email,
+          userRole: ctx.session.user.roleName ?? "USER",
           action: AuditAction.UPDATE,
           entityType: AuditEntityType.CONTRACT,
           entityId: contract.id,
-          entityName: contract.title || "Untitled",
+          entityName: contract.title ?? "Untitled",
           tenantId: ctx.tenantId!,
           metadata: {
             action: "upload_signed_version",
@@ -831,6 +882,7 @@ export const simpleContractRouter = createTRPCRouter({
       }
     }),
 
+
   // ==========================================================================
   // 7. ACTIVATE CONTRACT
   // ==========================================================================
@@ -843,247 +895,237 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.approve
    */
   activateContract: tenantProcedure
-    .use(hasPermission(P.APPROVE))
-    .input(activateContractSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { contractId, notes } = input;
+  .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
+  .input(activateContractSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { contractId, notes } = input;
 
-      try {
-        // 1. Récupérer le contrat
-        const contract = await ctx.prisma.contract.findUnique({
-          where: { id: contractId, tenantId: ctx.tenantId! },
-          include: {
-            documents: { where: { isLatestVersion: true } },
-            participants: { where: { isActive: true } },
-          },
-        });
+    try {
+      // 1. Charger le contrat (sans include.documents)
+      const contract = await ctx.prisma.contract.findUnique({
+        where: { id: contractId, tenantId: ctx.tenantId! },
+        include: {
+          participants: { where: { isActive: true } },
+        },
+      });
 
-        if (!contract) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Contrat introuvable",
-          });
-        }
-
-        // 2. Valider que le contrat est completed
-        if (contract.status !== "completed") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Seuls les contrats completed peuvent être activés",
-          });
-        }
-
-        // 3. Vérifier qu'une version signée existe (avertissement seulement)
-        const hasSignedVersion = contract.documents.some((d) => d.isSigned);
-        if (!hasSignedVersion) {
-          console.warn(
-            `[activateContract] Warning: Activating contract ${contractId} without signed version`
-          );
-        }
-
-        // 4. Activer le contrat
-        const updated = await ctx.prisma.contract.update({
-          where: { id: contractId },
-          data: {
-            status: "active",
-            workflowStatus: "active",
-            notes: notes
-              ? `${contract.notes || ""}\n\n[ACTIVATION] ${notes}`.trim()
-              : contract.notes,
-          },
-          include: {
-            documents: { where: { isLatestVersion: true } },
-            participants: true,
-            parent: { select: { id: true, title: true } },
-          },
-        });
-
-        // 5. Notifier les participants
-        const notificationRecipients = [
-          contract.createdBy,
-          ...contract.participants.map((p) => p.userId).filter(Boolean),
-        ].filter((id, index, self) => id && self.indexOf(id) === index) as string[];
-
-        if (notificationRecipients.length > 0) {
-          await ctx.prisma.contractNotification.createMany({
-            data: notificationRecipients.map((userId) => ({
-              contractId: contract.id,
-              userId,
-              type: "activated",
-              message: `Le contrat "${contract.title}" est maintenant actif`,
-              isRead: false,
-            })),
-          });
-        }
-
-        // 6. Enregistrer dans l'historique
-        await ctx.prisma.contractStatusHistory.create({
-          data: {
-            contractId: contract.id,
-            fromStatus: "completed",
-            toStatus: "active",
-            changedBy: ctx.session!.user.id,
-            reason: "Activé par admin",
-            notes: notes || undefined,
-          },
-        });
-
-        // 7. Audit log
-        await createAuditLog({
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name || ctx.session!.user.email,
-          userRole: ctx.session!.user.roleName || "USER",
-          action: AuditAction.ACTIVATE,
-          entityType: AuditEntityType.CONTRACT,
-          entityId: contract.id,
-          entityName: contract.title || "Untitled",
-          tenantId: ctx.tenantId!,
-          metadata: {
-            action: "activate_contract",
-            previousStatus: "completed",
-            newStatus: "active",
-            hasSignedVersion,
-            system: "simple",
-            notes,
-          },
-        });
-
-        return {
-          success: true,
-          contract: updated,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("[activateContract] Error:", error);
+      if (!contract) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de l'activation",
-          cause: error,
+          code: "NOT_FOUND",
+          message: "Contrat introuvable",
         });
       }
-    }),
+
+      // 2. Statut must be completed
+      if (contract.status !== "completed") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Seuls les contrats completed peuvent être activés",
+        });
+      }
+
+      // 3. Récupérer le(s) documents via findMany()
+      const documents = await ctx.prisma.document.findMany({
+        where: {
+          tenantId: ctx.tenantId!,
+          entityType: "contract",
+          entityId: contract.id,
+        },
+      });
+
+      const hasSignedVersion = documents.some((d) => d.isSigned);
+
+      if (!hasSignedVersion) {
+        console.warn(
+          `[activateContract] Warning: Activation du contrat ${contractId} sans version signée`
+        );
+      }
+
+      // 4. Update → active
+      const updated = await ctx.prisma.contract.update({
+        where: { id: contractId },
+        data: {
+          status: "active",
+          workflowStatus: "active",
+          notes: notes
+            ? `${contract.notes || ""}\n\n[ACTIVATION] ${notes}`.trim()
+            : contract.notes,
+        },
+        include: {
+          participants: true,
+          parent: { select: { id: true, title: true } },
+        },
+      });
+
+      // 5. Notifications (correction : utiliser recipientId + title)
+      const recipients = [
+        contract.createdBy,
+        ...contract.participants.map((p) => p.userId).filter(Boolean),
+      ].filter((id, i, arr) => id && arr.indexOf(id) === i) as string[];
+
+      if (recipients.length > 0) {
+        await ctx.prisma.contractNotification.createMany({
+          data: recipients.map((recipientId) => ({
+            contractId: contract.id,
+            recipientId,
+            type: "activated",
+            title: "Contrat activé",
+            message: `Le contrat "${contract.title}" est maintenant actif`,
+          })),
+        });
+      }
+
+      // 6. Historique (notes supprimé car n’existe pas)
+      await ctx.prisma.contractStatusHistory.create({
+        data: {
+          contractId: contract.id,
+          fromStatus: "completed",
+          toStatus: "active",
+          changedBy: ctx.session!.user.id,
+          reason: "Activé par admin",
+        },
+      });
+
+      // 7. Audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session.user.name ?? ctx.session.user.email,
+        userRole: ctx.session.user.roleName ?? "USER",
+        action: AuditAction.ACTIVATE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: contract.title ?? "Untitled",
+        tenantId: ctx.tenantId!,
+        metadata: {
+          action: "activate_contract",
+          previousStatus: "completed",
+          newStatus: "active",
+          hasSignedVersion,
+          system: "simple",
+        },
+      });
+
+      return {
+        success: true,
+        contract: updated,
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[activateContract] Error:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Échec de l'activation",
+        cause: error,
+      });
+    }
+  }),
+
 
   // ==========================================================================
   // 8. LIST SIMPLE CONTRACTS
   // ==========================================================================
 
-  /**
-   * Liste les contrats avec filtres et pagination optimisée
-   * 
-   * Filtres disponibles:
-   * - type (all, msa, sow)
-   * - status (all, draft, pending_admin_review, completed, active)
-   * - search (titre, description, référence)
-   * - parentMSAId (filtrer les SOW d'un MSA)
-   * 
-   * @permission contracts.view
-   */
   listSimpleContracts: tenantProcedure
-    .use(hasPermission(P.LIST))
-    .input(listSimpleContractsSchema)
-    .query(async ({ ctx, input }) => {
-      const { type, status, search, parentMSAId, page, pageSize } = input;
+  .use(
+    hasAnyPermission([
+      P.CONTRACT.LIST_GLOBAL,
+      P.CONTRACT.READ_OWN,
+    ])
+  )
+  .input(listSimpleContractsSchema)
+  .query(async ({ ctx, input }) => {
+    const { type, status, search, parentMSAId, page, pageSize } = input;
 
-      try {
-        // Construction du where
-        const where: any = {
-          tenantId: ctx.tenantId!,
-        };
+    const userId = ctx.session!.user.id;
+    const userPermissions = ctx.session!.user.permissions;
 
-        // Filtre par type
-        if (type !== "all") {
-          where.type = type;
+    const hasGlobal = userPermissions.includes(P.CONTRACT.LIST_GLOBAL);
+
+    // Base where
+    const where: any = {
+      tenantId: ctx.tenantId!,
+    };
+
+    // 🧩 SI PAS LIST_GLOBAL → On limite aux contrats où l'user participe
+    if (!hasGlobal) {
+      where.participants = {
+        some: {
+          userId,
+          isActive: true
         }
+      };
+    }
 
-        // Filtre par statut
-        if (status !== "all") {
-          where.status = status;
-        }
+    // Filtres
+    if (type !== "all") where.type = type;
+    if (status !== "all") where.status = status;
 
-        // Filtre par recherche
-        if (search) {
-          where.OR = [
-            { title: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-            { contractReference: { contains: search, mode: "insensitive" } },
-          ];
-        }
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { contractReference: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-        // Filtre par MSA parent
-        if (parentMSAId) {
-          where.parentId = parentMSAId;
-        }
+    if (parentMSAId) where.parentId = parentMSAId;
 
-        // Pagination
-        const skip = (page - 1) * pageSize;
+    // Pagination
+    const skip = (page - 1) * pageSize;
 
-        // Requête avec count
-        const [contracts, total] = await Promise.all([
-          ctx.prisma.contract.findMany({
-            where,
+    // Query
+    const [contracts, total] = await Promise.all([
+      ctx.prisma.contract.findMany({
+        where,
+        include: {
+          parent: { select: { id: true, title: true, type: true } },
+          participants: {
+            where: { isActive: true },
             include: {
-              parent: {
-                select: {
-                  id: true,
-                  title: true,
-                  type: true,
-                },
-              },
-              participants: {
-                where: { isActive: true },
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      name: true,
-                      email: true,
-                    },
-                  },
-                  company: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                },
-              },
-              documents: {
-                where: { isLatestVersion: true, category: "main_contract" },
-                orderBy: { version: "desc" },
-                take: 1,
-              },
-              _count: {
-                select: {
-                  children: true, // Nombre de SOWs pour les MSA
-                },
-              },
+              user: { select: { id: true, name: true, email: true } },
+              company: { select: { id: true, name: true } },
             },
-            orderBy: [{ createdAt: "desc" }],
-            skip,
-            take: pageSize,
-          }),
-          ctx.prisma.contract.count({ where }),
-        ]);
-
-        return {
-          contracts,
-          pagination: {
-            page,
-            pageSize,
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            hasMore: page * pageSize < total,
           },
-        };
-      } catch (error) {
-        console.error("[listSimpleContracts] Error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la récupération des contrats",
-          cause: error,
-        });
-      }
-    }),
+          _count: { select: { children: true } },
+        },
+        orderBy: [{ createdAt: "desc" }],
+        skip,
+        take: pageSize,
+      }),
+
+      ctx.prisma.contract.count({ where }),
+    ]);
+
+    // Documents
+    const ids = contracts.map(c => c.id);
+    const docs = await ctx.prisma.document.findMany({
+      where: {
+        tenantId: ctx.tenantId!,
+        entityType: "contract",
+        entityId: { in: ids },
+        category: "main_contract",
+        isLatestVersion: true,
+      },
+      orderBy: { version: "desc" },
+    });
+
+    const contractsWithDocs = contracts.map((c) => ({
+      ...c,
+      documents: docs.filter((d) => d.entityId === c.id),
+    }));
+
+    return {
+      contracts: contractsWithDocs,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        hasMore: page * pageSize < total,
+      },
+    };
+  }),
+
 
   // ==========================================================================
   // 9. GET SIMPLE CONTRACT BY ID
@@ -1102,10 +1144,11 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.view
    */
   getSimpleContractById: tenantProcedure
-    .use(hasPermission(P.LIST))
+    .use(hasPermission(P.CONTRACT.READ_OWN))
     .input(getSimpleContractByIdSchema)
     .query(async ({ ctx, input }) => {
       try {
+        // 1️⃣ Charger le contrat SANS documents
         const contract = await ctx.prisma.contract.findUnique({
           where: {
             id: input.id,
@@ -1113,12 +1156,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
           include: {
             parent: {
-              select: {
-                id: true,
-                title: true,
-                type: true,
-                status: true,
-              },
+              select: { id: true, title: true, type: true, status: true },
             },
             children: {
               where: { status: { notIn: ["cancelled"] } },
@@ -1134,44 +1172,12 @@ export const simpleContractRouter = createTRPCRouter({
             participants: {
               where: { isActive: true },
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                  },
-                },
-                company: {
-                  select: {
-                    id: true,
-                    name: true,
-                    contactEmail: true,
-                  },
-                },
-              },
-            },
-            documents: {
-              orderBy: { version: "desc" },
-              include: {
-                parentDocument: {
-                  select: {
-                    id: true,
-                    version: true,
-                  },
-                },
+                user: { select: { id: true, name: true, email: true } },
+                company: { select: { id: true, name: true, contactEmail: true } },
               },
             },
             statusHistory: {
-              orderBy: { createdAt: "desc" },
-              include: {
-                changedByUser: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                  },
-                },
-              },
+              orderBy: { changedAt: "desc" },
             },
           },
         });
@@ -1183,7 +1189,48 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        return contract;
+        // 2️⃣ Charger documents (toutes versions)
+        const documents = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contract.id,
+          },
+          orderBy: { version: "desc" },
+          include: {
+            parentDocument: {
+              select: { id: true, version: true },
+            },
+          },
+        });
+
+        // 3️⃣ Enrichir le statusHistory pour matcher le front
+        const enrichedStatusHistory = await Promise.all(
+          contract.statusHistory.map(async (h) => {
+            const user = await ctx.prisma.user.findUnique({
+              where: { id: h.changedBy },
+              select: { id: true, name: true, email: true },
+            });
+
+            return {
+              id: h.id,
+              fromStatus: h.fromStatus ?? "",
+              toStatus: h.toStatus,
+              createdAt: h.changedAt,     // ⬅️ FRONT REQUIERT createdAt
+              reason: h.reason,
+              notes: null,                // ⬅️ champ requis par le front
+              changedByUser: user ?? null // ⬅️ ajout calculé
+            };
+          })
+        );
+
+        // 4️⃣ Fusionner + retourner
+        return {
+          ...contract,
+          statusHistory: enrichedStatusHistory,
+          documents,
+        };
+
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         console.error("[getSimpleContractById] Error:", error);
@@ -1210,88 +1257,99 @@ export const simpleContractRouter = createTRPCRouter({
    * @permission contracts.delete
    */
   deleteDraftContract: tenantProcedure
-    .use(hasPermission(P.DELETE))
-    .input(deleteDraftContractSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        // 1. Récupérer le contrat avec relations
-        const contract = await ctx.prisma.contract.findUnique({
-          where: { id: input.id, tenantId: ctx.tenantId! },
-          include: {
-            documents: true,
-            children: true,
-          },
-        });
+  .use(hasPermission(P.CONTRACT.DELETE_GLOBAL))
+  .input(deleteDraftContractSchema)
+  .mutation(async ({ ctx, input }) => {
+    try {
+      // 1️⃣ Charger le contrat (sans include.documents)
+      const contract = await ctx.prisma.contract.findUnique({
+        where: { id: input.id, tenantId: ctx.tenantId! },
+        include: { children: true },
+      });
 
-        if (!contract) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Contrat introuvable",
-          });
-        }
-
-        // 2. Valider que le contrat est en draft
-        if (!isDraft(contract)) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Seuls les contrats en draft peuvent être supprimés",
-          });
-        }
-
-        // 3. Vérifier qu'il n'a pas d'enfants (pour MSA)
-        if (contract.type === "msa" && contract.children.length > 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Impossible de supprimer un MSA qui a des SOWs liés",
-          });
-        }
-
-        // 4. Supprimer les documents S3
-        for (const doc of contract.documents) {
-          try {
-            await deleteFile(doc.s3Key);
-          } catch (err) {
-            console.error(
-              `[deleteDraftContract] Failed to delete S3 file ${doc.s3Key}:`,
-              err
-            );
-            // Continue même si erreur S3
-          }
-        }
-
-        // 5. Supprimer le contrat (cascade delete sur participants, documents, etc.)
-        await ctx.prisma.contract.delete({
-          where: { id: input.id },
-        });
-
-        // 6. Audit log
-        await createAuditLog({
-          userId: ctx.session!.user.id,
-          userName: ctx.session!.user.name || ctx.session!.user.email,
-          userRole: ctx.session!.user.roleName || "USER",
-          action: AuditAction.DELETE,
-          entityType: AuditEntityType.CONTRACT,
-          entityId: contract.id,
-          entityName: contract.title || "Untitled",
-          tenantId: ctx.tenantId!,
-          metadata: {
-            type: contract.type,
-            system: "simple",
-          },
-        });
-
-        return {
-          success: true,
-          message: "Contrat supprimé avec succès",
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("[deleteDraftContract] Error:", error);
+      if (!contract) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la suppression",
-          cause: error,
+          code: "NOT_FOUND",
+          message: "Contrat introuvable",
         });
       }
-    }),
+
+      // 2️⃣ Vérifier statut
+      if (!isDraft(contract)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Seuls les contrats en draft peuvent être supprimés",
+        });
+      }
+
+      // 3️⃣ Vérifier enfants SOW
+      if (contract.type === "msa" && contract.children.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Impossible de supprimer un MSA qui a des SOWs liés",
+        });
+      }
+
+      // 4️⃣ Charger les documents associés
+      const documents = await ctx.prisma.document.findMany({
+        where: {
+          tenantId: ctx.tenantId!,
+          entityType: "contract",
+          entityId: contract.id,
+        },
+      });
+
+      // 5️⃣ Supprimer les fichiers S3 associés
+      for (const doc of documents) {
+        try {
+          await deleteFile(doc.s3Key);
+        } catch (err) {
+          console.error(
+            `[deleteDraftContract] Failed to delete S3 file ${doc.s3Key}:`,
+            err
+          );
+        }
+      }
+
+      // 6️⃣ Supprimer les documents de la DB
+      await ctx.prisma.document.deleteMany({
+        where: { entityId: contract.id, entityType: "contract" },
+      });
+
+      // 7️⃣ Supprimer le contrat
+      await ctx.prisma.contract.delete({
+        where: { id: input.id },
+      });
+
+      // 8️⃣ Audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session.user.name || ctx.session.user.email,
+        userRole: ctx.session.user.roleName || "USER",
+        action: AuditAction.DELETE,
+        entityType: AuditEntityType.CONTRACT,
+        entityId: contract.id,
+        entityName: contract.title || "Untitled",
+        tenantId: ctx.tenantId!,
+        metadata: {
+          type: contract.type,
+          system: "simple",
+        },
+      });
+
+      return {
+        success: true,
+        message: "Contrat supprimé avec succès",
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[deleteDraftContract] Error:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Échec de la suppression",
+        cause: error,
+      });
+    }
+  }),
+
 });

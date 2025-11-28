@@ -85,18 +85,18 @@ export function useSimpleContractWorkflow() {
     deleteDraftContract,
     
     // Loading states
-    isSubmitting: submitForReview.isLoading,
-    isApproving: approveContract.isLoading,
-    isRejecting: rejectContract.isLoading,
-    isActivating: activateContract.isLoading,
-    isDeleting: deleteDraftContract.isLoading,
+    isSubmitting: submitForReview.isPending,
+    isApproving: approveContract.isPending,
+    isRejecting: rejectContract.isPending,
+    isActivating: activateContract.isPending,
+    isDeleting: deleteDraftContract.isPending,
     
     // Any action in progress
     isProcessing: 
-      submitForReview.isLoading ||
-      approveContract.isLoading ||
-      rejectContract.isLoading ||
-      activateContract.isLoading ||
-      deleteDraftContract.isLoading,
+      submitForReview.isPending ||
+      approveContract.isPending ||
+      rejectContract.isPending ||
+      activateContract.isPending ||
+      deleteDraftContract.isPending,
   };
 }

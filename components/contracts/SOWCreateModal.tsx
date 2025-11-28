@@ -150,7 +150,6 @@ export function SOWCreateModal({ open, onOpenChange, onSuccess }: Props) {
 
       title: form.title,
       description: form.description,
-      companyId: form.companyId,
       contractCountryId: form.contractCountryId,
       currencyId: form.currencyId,
 

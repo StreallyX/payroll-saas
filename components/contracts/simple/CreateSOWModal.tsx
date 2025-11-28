@@ -61,7 +61,7 @@ export function CreateSOWModal({
   const createMutation = api.simpleContract.createSimpleSOW.useMutation({
     onSuccess: (data) => {
       toast.success("SOW créé avec succès");
-      onSuccess?.(data.contract.id);
+      onSuccess?.(data.contract.id as string);
       setPdfFile(null);
       setParentMSAId("");
       onOpenChange(false);
@@ -95,7 +95,7 @@ export function CreateSOWModal({
         parentMSAId,
         pdfBuffer: base64,
         fileName: pdfFile.name,
-        mimeType: pdfFile.type,
+        mimeType: "application/pdf",
         fileSize: pdfFile.size,
       });
     } catch (error) {
@@ -108,7 +108,7 @@ export function CreateSOWModal({
    * Ferme le modal
    */
   const handleClose = () => {
-    if (!createMutation.isLoading) {
+    if (!createMutation.isPending) {
       setPdfFile(null);
       if (!preselectedMSAId) {
         setParentMSAId("");
@@ -164,7 +164,7 @@ export function CreateSOWModal({
             <Select
               value={parentMSAId}
               onValueChange={setParentMSAId}
-              disabled={createMutation.isLoading || !!preselectedMSAId || isLoadingMSAs}
+              disabled={createMutation.isPending || !!preselectedMSAId || isLoadingMSAs}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner un MSA..." />
@@ -202,7 +202,7 @@ export function CreateSOWModal({
             <PDFUploadZone
               file={pdfFile}
               onChange={setPdfFile}
-              disabled={createMutation.isLoading}
+              disabled={createMutation.isPending}
             />
           </div>
 
@@ -225,15 +225,15 @@ export function CreateSOWModal({
           <Button
             variant="outline"
             onClick={handleClose}
-            disabled={createMutation.isLoading}
+            disabled={createMutation.isPending}
           >
             Annuler
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!pdfFile || !parentMSAId || createMutation.isLoading}
+            disabled={!pdfFile || !parentMSAId || createMutation.isPending}
           >
-            {createMutation.isLoading ? (
+            {createMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Création en cours...

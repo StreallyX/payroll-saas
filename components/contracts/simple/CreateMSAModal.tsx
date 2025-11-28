@@ -33,7 +33,7 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
   const createMutation = api.simpleContract.createSimpleMSA.useMutation({
     onSuccess: (data) => {
       toast.success("MSA créé avec succès");
-      onSuccess?.(data.contract.id);
+      onSuccess?.(data.contract.id as string);
       setPdfFile(null);
       onOpenChange(false);
       router.push(`/contracts/simple/${data.contract.id}`);
@@ -60,7 +60,7 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
       createMutation.mutate({
         pdfBuffer: base64,
         fileName: pdfFile.name,
-        mimeType: pdfFile.type,
+        mimeType: "application/pdf",
         fileSize: pdfFile.size,
       });
     } catch (error) {
@@ -73,7 +73,7 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
    * Ferme le modal
    */
   const handleClose = () => {
-    if (!createMutation.isLoading) {
+    if (!createMutation.isPending) {
       setPdfFile(null);
       onOpenChange(false);
     }
@@ -123,7 +123,7 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
             <PDFUploadZone
               file={pdfFile}
               onChange={setPdfFile}
-              disabled={createMutation.isLoading}
+              disabled={createMutation.isPending}
             />
           </div>
 
@@ -146,15 +146,15 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
           <Button
             variant="outline"
             onClick={handleClose}
-            disabled={createMutation.isLoading}
+            disabled={createMutation.isPending}
           >
             Annuler
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!pdfFile || createMutation.isLoading}
+            disabled={!pdfFile || createMutation.isPending}
           >
-            {createMutation.isLoading ? (
+            {createMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Création en cours...

@@ -171,7 +171,6 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
         type: "sow", // contrat normal (pas MSA)
         title: form.title,
         description: form.description,
-        companyId: form.companyId,
         contractCountryId: form.contractCountryId || undefined,
         currencyId: form.currencyId || undefined,
         rate: form.rate ? Number(form.rate) : undefined,
