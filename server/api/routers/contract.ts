@@ -71,7 +71,6 @@ const baseContractSchema = z.object({
   parentId: z.string().optional().nullable(), // SOW -> parent MSA, MSA -> null
 
   // GENERAL
-  companyId: z.string().optional().nullable(),
   currencyId: z.string().optional().nullable(),
   bankId: z.string().optional().nullable(),
   contractCountryId: z.string().optional().nullable(),
@@ -515,7 +514,7 @@ export const contractRouter = createTRPCRouter({
   // PARTICIPANTS (GLOBAL)
   // -------------------------------------------------------
   addParticipant: tenantProcedure
-    .use(hasPermission(P.CONTRACT.PARTICIPANT_GLOBAL))
+    .use(hasPermission(P.CONTRACT.UPDATE_GLOBAL))
     .input(z.object({
       contractId: z.string(),
       participant: participantInputSchema,
@@ -527,6 +526,7 @@ export const contractRouter = createTRPCRouter({
         data: {
           contractId,
           userId: participant.userId,
+          companyId: participant.companyId,
           role: participant.role,
           requiresSignature: participant.role === "approver" ? false : (participant.requiresSignature ?? false), // 🔥 Approvers ne peuvent JAMAIS avoir requiresSignature
           approved: false, // 🔥 Initialisé à false, passera à true quand l'approver approuve
@@ -940,27 +940,44 @@ export const contractRouter = createTRPCRouter({
     .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
     .input(idSchema)
     .mutation(async ({ ctx, input }) => {
+      
       const contract = await ctx.prisma.contract.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
+        include: { participants: true },
       })
-      
-      if (!contract) throw new TRPCError({ code: "NOT_FOUND" })
-      
+
+      if (!contract) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
       if (contract.status !== "completed") {
-        throw new TRPCError({ 
-          code: "BAD_REQUEST", 
-          message: "Only completed contracts can be activated" 
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only completed contracts can be activated"
         })
       }
 
+      // 🔥 1) Approve all approvers automatically
+      await ctx.prisma.contractParticipant.updateMany({
+        where: {
+          contractId: input.id,
+          role: "approver",
+        },
+        data: {
+          approved: true,
+        },
+      })
+
+      // 🔥 2) Activate contract
       const updated = await ctx.prisma.contract.update({
         where: { id: input.id },
-        data: { 
+        data: {
           status: "active",
           workflowStatus: "active",
         },
       })
 
+      // 🔥 3) Audit Log
       await createAuditLog({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name ?? "Unknown",
@@ -970,7 +987,10 @@ export const contractRouter = createTRPCRouter({
         entityId: input.id,
         entityName: contract.title ?? `Contract-${input.id.slice(0, 6)}`,
         tenantId: ctx.tenantId,
-        metadata: { action: "contract_activated" }
+        metadata: {
+          action: "contract_activated",
+          approversAutoApproved: true,
+        },
       })
 
       return updated

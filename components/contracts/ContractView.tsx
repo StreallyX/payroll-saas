@@ -123,6 +123,11 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
   // Résumé parent (MSA) pour SOW
   const parentMSA = isSOW ? (contract as any)?.parent : null;
 
+  const agencyParticipant =
+  contract?.participants?.find((p: any) => p.role === "agency") || null;
+
+  const agencyCompany = agencyParticipant?.company || null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -264,7 +269,14 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Entreprise (Client)" value={(contract as any).participants?.find((p: any) => p.company)?.company?.name ?? "—"} />
+              <Field
+                label="Entreprise (Client)"
+                value={
+                  agencyCompany
+                    ? agencyCompany.name
+                    : "—"
+                }
+              />
                 <Field label="Pays" value={(contract as any).contractCountry?.name ?? "—"} />
                 <Field label="Devise" value={currencyCode} />
                 <Field label="Banque" value={(contract as any).bank?.name ?? "—"} />
@@ -296,6 +308,40 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
               </CardContent>
             </Card>
 
+            {/* 🔥 SECTION : ENTREPRISES PARTICIPANTES */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2 text-base">
+      <Building2 className="h-5 w-5 text-indigo-600" />
+      Entreprises impliquées
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    {(contract.participants || [])
+      .filter((p: any) => p.company)
+      .map((p: any) => (
+        <div
+          key={p.id}
+          className="rounded border p-3 flex items-center justify-between"
+        >
+          <div>
+            <div className="font-semibold">{p.company.name}</div>
+            <div className="text-xs text-muted-foreground">{p.role}</div>
+          </div>
+          {p.user && (
+            <div className="text-xs text-muted-foreground">
+              Associé à : {p.user.name}
+            </div>
+          )}
+        </div>
+      ))}
+    {contract.participants.filter((p: any) => p.company).length === 0 && (
+      <p className="text-sm text-muted-foreground">Aucune entreprise liée.</p>
+    )}
+  </CardContent>
+</Card>
+
+
             {/* PARTICIPANTS GROUPED */}
             <Card>
               <CardHeader>
@@ -304,6 +350,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                   Participants
                 </CardTitle>
               </CardHeader>
+              
               <CardContent className="space-y-4">
                 {roleOrder
                   .filter((r) => (participantsByRole[r] || []).length > 0)
@@ -320,15 +367,25 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                           <div key={p.id} className="rounded border p-3">
                             <div className="flex items-center justify-between">
                               <div className="font-semibold">
-                                {/* 🔥 Gérer les différents types de participants */}
-                                {p.user && p.company
-                                  ? `${p.user.name} (${p.company.name})`
-                                  : p.user
-                                  ? p.user.name
-                                  : p.company
-                                  ? p.company.name
-                                  : "Participant inconnu"}
-                              </div>
+  {p.user && p.company ? (
+    <>
+      {p.user.name} <span className="text-muted-foreground">({p.company.name})</span>
+    </>
+  ) : p.company ? (
+    <>
+      {p.company.name}
+      <span className="text-xs text-muted-foreground ml-1">(Company)</span>
+    </>
+  ) : p.user ? (
+    <>
+      {p.user.name}
+      <span className="text-xs text-muted-foreground ml-1">(User only)</span>
+    </>
+  ) : (
+    "Participant inconnu"
+  )}
+</div>
+
                               <div className="flex gap-2">
                                 {p.isPrimary && <Badge className="bg-purple-100 text-purple-800">Primary</Badge>}
                                 {p.requiresSignature && (

@@ -140,7 +140,6 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
 
       title: form.title,
       description: form.description,
-      companyId: form.companyId,
       contractCountryId: form.contractCountryId,
       currencyId: form.currencyId,
       invoiceDueDays: Number(form.invoiceDueDays),
@@ -165,7 +164,7 @@ export function MSACreateModal({ open, onOpenChange, onSuccess }: Props) {
         {
           userId: currentUserId,
           companyId: form.companyId, // 🔥 Lier l'utilisateur à la company sélectionnée
-          role: "client",
+          role: "agency",
           requiresSignature: false,
           isPrimary: true,
         },
