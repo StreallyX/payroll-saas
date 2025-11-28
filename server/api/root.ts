@@ -2,6 +2,7 @@
 import { createTRPCRouter } from "./trpc"
 import { userRouter } from "./routers/user"
 import { contractRouter } from "./routers/contract"
+import { simpleContractRouter } from "./routers/simpleContract"
 import { invoiceRouter } from "./routers/invoice"
 import { tenantRouter } from "./routers/tenant"
 import { auditLogRouter } from "./routers/auditLog"
@@ -51,6 +52,7 @@ export const appRouter = createTRPCRouter({
   profile: profileRouter,
   auth: authRouter,
   contract: contractRouter,
+  simpleContract: simpleContractRouter,
   invoice: invoiceRouter,
   tenant: tenantRouter,
   auditLog: auditLogRouter,
