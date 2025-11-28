@@ -38,11 +38,12 @@ import {
 import { DocumentListView } from "@/components/documents/DocumentListView";
 
 // ---------------------------
-// TYPES
+// TYPES (UPDATED)
 // ---------------------------
 interface ContractParticipantForm {
   id?: string;
-  userId: string;
+  userId?: string | null;
+  companyId?: string | null;
   role: string;
   requiresSignature: boolean;
   isPrimary: boolean;
@@ -54,7 +55,14 @@ interface ContractForm {
   type: "contract" | "msa" | "sow";
   parentId?: string | null;
 
-  status: "draft" | "active" | "completed" | "cancelled" | "paused" | "pending_approval";
+  status:
+    | "draft"
+    | "active"
+    | "completed"
+    | "cancelled"
+    | "paused"
+    | "pending_approval";
+
   workflowStatus:
     | "draft"
     | "pending_agency_sign"
@@ -121,7 +129,11 @@ const fmtDate = (d: any) =>
 // ---------------------------------------------------------
 // COMPONENT
 // ---------------------------------------------------------
-export function ContractEdit({ open, onOpenChange, contractId }: ContractEditProps) {
+export function ContractEdit({
+  open,
+  onOpenChange,
+  contractId,
+}: ContractEditProps) {
   const enabled = open && !!contractId;
   const utils = api.useUtils();
 
@@ -142,19 +154,30 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
 
   const [form, setForm] = useState<ContractForm | null>(null);
 
-  // PRELOAD FORM
+  // PRELOAD FORM WITH companyId IN PARTICIPANTS
   useEffect(() => {
     if (contract) {
       setForm({
         ...(contract as any),
         startDate: fmtDate(contract.startDate),
         endDate: fmtDate(contract.endDate),
+
+        participants: contract.participants.map((p: any) => ({
+          id: p.id,
+          userId: p.userId || "",
+          companyId: p.companyId || "",
+          role: p.role,
+          requiresSignature: p.requiresSignature,
+          isPrimary: p.isPrimary,
+        })),
       });
     }
   }, [contract]);
 
-  const setField = <K extends keyof ContractForm>(key: K, value: ContractForm[K]) =>
-    setForm((f) => (f ? { ...f, [key]: value } : f));
+  const setField = <K extends keyof ContractForm>(
+    key: K,
+    value: ContractForm[K]
+  ) => setForm((f) => (f ? { ...f, [key]: value } : f));
 
   if (!contractId) return null;
 
@@ -176,10 +199,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
           <LoadingState message="Loading..." />
         ) : (
           <div className="space-y-10">
-
-            {/* ---------------------------- */}
-            {/* 1. META */}
-            {/* ---------------------------- */}
+            {/* META */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -189,14 +209,13 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
               </CardHeader>
 
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Status */}
                 <div>
                   <Label>Status</Label>
                   <Select
                     value={form.status || ""}
-                    onValueChange={(v) => setField("status", v as ContractForm["status"])}
-
+                    onValueChange={(v) =>
+                      setField("status", v as ContractForm["status"])
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Status" />
@@ -212,13 +231,16 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                   </Select>
                 </div>
 
-                {/* Workflow */}
                 <div>
                   <Label>Workflow Status</Label>
                   <Select
                     value={form.workflowStatus || ""}
-                    onValueChange={(v) => setField("workflowStatus", v as ContractForm["workflowStatus"])}
-
+                    onValueChange={(v) =>
+                      setField(
+                        "workflowStatus",
+                        v as ContractForm["workflowStatus"]
+                      )
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Workflow" />
@@ -241,7 +263,6 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                   </Select>
                 </div>
 
-                {/* Parent ID */}
                 {isSOW && (
                   <div>
                     <Label>Parent MSA</Label>
@@ -255,7 +276,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
             </Card>
 
             {/* ---------------------------- */}
-            {/* 2. GENERAL */}
+            {/* GENERAL */}
             {/* ---------------------------- */}
             <Card>
               <CardHeader>
@@ -319,7 +340,9 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                   <Input
                     type="number"
                     value={form.invoiceDueDays ?? ""}
-                    onChange={(e) => setField("invoiceDueDays", Number(e.target.value))}
+                    onChange={(e) =>
+                      setField("invoiceDueDays", Number(e.target.value))
+                    }
                   />
                 </div>
 
@@ -344,7 +367,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
             </Card>
 
             {/* ---------------------------- */}
-            {/* 3. FINANCIAL */}
+            {/* FINANCIAL */}
             {/* ---------------------------- */}
             <Card>
               <CardHeader>
@@ -355,7 +378,6 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
               </CardHeader>
 
               <CardContent className="grid md:grid-cols-4 gap-6">
-
                 <div>
                   <Label>Rate</Label>
                   <Input
@@ -419,14 +441,16 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                   <Input
                     type="number"
                     value={form.contractVatRate ?? ""}
-                    onChange={(e) => setField("contractVatRate", Number(e.target.value))}
+                    onChange={(e) =>
+                      setField("contractVatRate", Number(e.target.value))
+                    }
                   />
                 </div>
               </CardContent>
             </Card>
 
             {/* ---------------------------- */}
-            {/* 4. MSA SETTINGS */}
+            {/* MSA SETTINGS */}
             {/* ---------------------------- */}
             {isMSA && (
               <Card>
@@ -524,7 +548,9 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                     <Label>Upload Payment Proof</Label>
                     <Switch
                       checked={form.portalCanUploadPaymentProof || false}
-                      onCheckedChange={(v) => setField("portalCanUploadPaymentProof", v)}
+                      onCheckedChange={(v) =>
+                        setField("portalCanUploadPaymentProof", v)
+                      }
                     />
                   </div>
                 </CardContent>
@@ -532,7 +558,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
             )}
 
             {/* ---------------------------- */}
-            {/* 5. PARTICIPANTS */}
+            {/* PARTICIPANTS (UPDATED) */}
             {/* ---------------------------- */}
             <Card>
               <CardHeader>
@@ -546,20 +572,35 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                 {form.participants?.map((p, idx) => (
                   <div
                     key={p.id || idx}
-                    className="border p-3 rounded-md grid grid-cols-1 md:grid-cols-4 gap-4"
+                    className="border p-3 rounded-md grid grid-cols-1 md:grid-cols-5 gap-4"
                   >
+                    {/* USER ID */}
                     <div>
                       <Label>User ID</Label>
                       <Input
-                        value={p.userId}
+                        value={p.userId || ""}
                         onChange={(e) => {
                           const arr = [...form.participants];
-                          arr[idx].userId = e.target.value;
+                          arr[idx].userId = e.target.value || null;
                           setField("participants", arr);
                         }}
                       />
                     </div>
 
+                    {/* COMPANY ID */}
+                    <div>
+                      <Label>Company ID</Label>
+                      <Input
+                        value={p.companyId || ""}
+                        onChange={(e) => {
+                          const arr = [...form.participants];
+                          arr[idx].companyId = e.target.value || null;
+                          setField("participants", arr);
+                        }}
+                      />
+                    </div>
+
+                    {/* ROLE */}
                     <div>
                       <Label>Role</Label>
                       <Input
@@ -572,6 +613,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                       />
                     </div>
 
+                    {/* SIGNATURE */}
                     <div className="flex items-center gap-3 pt-6">
                       <Switch
                         checked={p.requiresSignature}
@@ -584,6 +626,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                       <Label>Requires Signature</Label>
                     </div>
 
+                    {/* PRIMARY */}
                     <div className="flex items-center gap-3 pt-6">
                       <Switch
                         checked={p.isPrimary}
@@ -605,6 +648,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                       ...(form.participants || []),
                       {
                         userId: "",
+                        companyId: "",
                         role: "",
                         requiresSignature: false,
                         isPrimary: false,
@@ -617,9 +661,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
               </CardContent>
             </Card>
 
-            {/* ---------------------------- */}
-            {/* 6. DESCRIPTION */}
-            {/* ---------------------------- */}
+            {/* DESCRIPTION */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -649,9 +691,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
               </CardContent>
             </Card>
 
-            {/* ---------------------------- */}
-            {/* 7. TERMINATION */}
-            {/* ---------------------------- */}
+            {/* TERMINATION */}
             {(form.workflowStatus === "cancelled" ||
               form.workflowStatus === "terminated") && (
               <Card>
@@ -668,7 +708,9 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                     <Textarea
                       rows={3}
                       value={form.terminationReason || ""}
-                      onChange={(e) => setField("terminationReason", e.target.value)}
+                      onChange={(e) =>
+                        setField("terminationReason", e.target.value)
+                      }
                     />
                   </div>
 
@@ -686,9 +728,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
               </Card>
             )}
 
-            {/* ---------------------------- */}
-            {/* 8. DOCUMENTS */}
-            {/* ---------------------------- */}
+            {/* DOCUMENTS */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -702,9 +742,7 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
               </CardContent>
             </Card>
 
-            {/* ---------------------------- */}
             {/* FOOTER */}
-            {/* ---------------------------- */}
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
                 Cancel
@@ -720,8 +758,12 @@ export function ContractEdit({ open, onOpenChange, contractId }: ContractEditPro
                   const payload: any = {
                     id: contractId!,
                     ...safeForm,
-                    startDate: safeForm.startDate ? new Date(safeForm.startDate) : null,
-                    endDate: safeForm.endDate ? new Date(safeForm.endDate) : null,
+                    startDate: safeForm.startDate
+                      ? new Date(safeForm.startDate)
+                      : null,
+                    endDate: safeForm.endDate
+                      ? new Date(safeForm.endDate)
+                      : null,
                   };
 
                   if (type === "msa" || type === "sow") {

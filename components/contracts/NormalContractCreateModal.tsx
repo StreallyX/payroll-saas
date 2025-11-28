@@ -37,7 +37,8 @@ type Props = {
 
 type Participant = {
   id: string; // temporary id for UI
-  userId: string;
+  userId?: string | null;
+  companyId?: string | null;
   role: string;
   requiresSignature: boolean;
   isPrimary: boolean;
@@ -77,7 +78,9 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
   // Participants state
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [newParticipant, setNewParticipant] = useState({
+    participantType: "user" as "user" | "company" | "both", // 🔥 NEW: Type de participant
     userId: "",
+    companyId: "",
     role: "contractor",
     requiresSignature: false,
     isPrimary: false,
@@ -99,8 +102,17 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
 
   // Handlers
   const handleAddParticipant = () => {
-    if (!newParticipant.userId) {
+    // 🔥 VALIDATION : Au moins user OU company doit être sélectionné
+    const hasUser = newParticipant.participantType === "user" || newParticipant.participantType === "both";
+    const hasCompany = newParticipant.participantType === "company" || newParticipant.participantType === "both";
+
+    if (hasUser && !newParticipant.userId) {
       toast.error("Veuillez sélectionner un utilisateur");
+      return;
+    }
+
+    if (hasCompany && !newParticipant.companyId) {
+      toast.error("Veuillez sélectionner une entreprise");
       return;
     }
 
@@ -110,9 +122,11 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
       return;
     }
 
-    // Check if user already has this role
+    // Check if participant already has this role
     const exists = participants.find(
-      (p) => p.userId === newParticipant.userId && p.role === newParticipant.role
+      (p) => p.userId === newParticipant.userId && 
+             p.companyId === newParticipant.companyId && 
+             p.role === newParticipant.role
     );
     if (exists) {
       toast.error("Ce participant a déjà ce rôle");
@@ -122,14 +136,20 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
     setParticipants([
       ...participants,
       {
-        ...newParticipant,
         id: Math.random().toString(),
+        userId: hasUser ? newParticipant.userId : null,
+        companyId: hasCompany ? newParticipant.companyId : null,
+        role: newParticipant.role,
+        requiresSignature: newParticipant.requiresSignature,
+        isPrimary: newParticipant.isPrimary,
       },
     ]);
 
     // Reset form
     setNewParticipant({
+      participantType: "user",
       userId: "",
+      companyId: "",
       role: "contractor",
       requiresSignature: false,
       isPrimary: false,
@@ -151,7 +171,6 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
         type: "sow", // contrat normal (pas MSA)
         title: form.title,
         description: form.description,
-        companyId: form.companyId,
         contractCountryId: form.contractCountryId || undefined,
         currencyId: form.currencyId || undefined,
         rate: form.rate ? Number(form.rate) : undefined,
@@ -162,7 +181,8 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
         status: "draft",
         workflowStatus: "draft",
         participants: participants.map((p) => ({
-          userId: p.userId,
+          userId: p.userId || undefined,
+          companyId: p.companyId || undefined,
           role: p.role,
           // 🔥 IMPORTANT : Approvers ne peuvent JAMAIS avoir requiresSignature
           requiresSignature: p.role === "approver" ? false : p.requiresSignature,
@@ -360,25 +380,70 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
               <div className="border rounded-lg p-4 bg-gray-50 space-y-4">
                 <Label className="text-sm font-medium">Ajouter un participant</Label>
                 
+                {/* 🔥 NEW: Sélection du type de participant */}
+                <div>
+                  <Label htmlFor="participantType" className="text-xs">Type de participant</Label>
+                  <Select
+                    value={newParticipant.participantType}
+                    onValueChange={(v: "user" | "company" | "both") => 
+                      setNewParticipant({ ...newParticipant, participantType: v })
+                    }
+                  >
+                    <SelectTrigger id="participantType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Utilisateur uniquement</SelectItem>
+                      <SelectItem value="company">Entreprise uniquement</SelectItem>
+                      <SelectItem value="both">Utilisateur + Entreprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="newUser" className="text-xs">Utilisateur</Label>
-                    <Select
-                      value={newParticipant.userId}
-                      onValueChange={(v) => setNewParticipant({ ...newParticipant, userId: v })}
-                    >
-                      <SelectTrigger id="newUser">
-                        <SelectValue placeholder="Sélectionner..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users?.map((u: any) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name || u.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* 🔥 User selector (conditionnel) */}
+                  {(newParticipant.participantType === "user" || newParticipant.participantType === "both") && (
+                    <div>
+                      <Label htmlFor="newUser" className="text-xs">Utilisateur *</Label>
+                      <Select
+                        value={newParticipant.userId}
+                        onValueChange={(v) => setNewParticipant({ ...newParticipant, userId: v })}
+                      >
+                        <SelectTrigger id="newUser">
+                          <SelectValue placeholder="Sélectionner..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users?.map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name || u.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* 🔥 Company selector (conditionnel) */}
+                  {(newParticipant.participantType === "company" || newParticipant.participantType === "both") && (
+                    <div>
+                      <Label htmlFor="newCompany" className="text-xs">Entreprise *</Label>
+                      <Select
+                        value={newParticipant.companyId}
+                        onValueChange={(v) => setNewParticipant({ ...newParticipant, companyId: v })}
+                      >
+                        <SelectTrigger id="newCompany">
+                          <SelectValue placeholder="Sélectionner..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies?.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="newRole" className="text-xs">Rôle</Label>
@@ -471,7 +536,21 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
                   </p>
                 ) : (
                   participants.map((p) => {
+                    // 🔥 Gérer les différents types de participants
                     const user = users?.find((u: any) => u.id === p.userId);
+                    const company = companies?.find((c: any) => c.id === p.companyId);
+                    
+                    let participantName = "";
+                    if (user && company) {
+                      participantName = `${user.name || user.email} (${company.name})`;
+                    } else if (user) {
+                      participantName = user.name || user.email;
+                    } else if (company) {
+                      participantName = company.name;
+                    } else {
+                      participantName = "Participant inconnu";
+                    }
+
                     return (
                       <div
                         key={p.id}
@@ -479,7 +558,7 @@ export function NormalContractCreateModal({ open, onOpenChange, onSuccess }: Pro
                       >
                         <div className="flex items-center gap-3">
                           <div>
-                            <p className="font-medium text-sm">{user?.name || user?.email || p.userId}</p>
+                            <p className="font-medium text-sm">{participantName}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant="outline" className="text-xs">
                                 {p.role}

@@ -115,7 +115,7 @@ export function ApprovalModal({
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Entreprise</p>
-                  <p className="font-medium">{contract.company?.name || "—"}</p>
+                  <p className="font-medium">{(contract as any).participants?.find((p: any) => p.company)?.company?.name || "—"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -130,7 +130,7 @@ export function ApprovalModal({
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {contract.participants?.map((p: any) => (
+                  {(contract as any).participants?.map((p: any) => (
                     <div key={p.id} className="flex items-center justify-between p-2 border rounded">
                       <div>
                         <p className="font-medium">{p.user?.name || p.userId}</p>

@@ -103,17 +103,12 @@ export function ContractAssignmentModal({
     }
 
     try {
-      // 1. Update contract with tenant company
-      await updateContract.mutateAsync({
-        id: contract.id,
-        companyId: tenantCompanyId,
-      });
-
       // 2. Add admin participant
       await addParticipant.mutateAsync({
       contractId: contract.id,
       participant: {
         userId: adminUserId,
+        companyId: tenantCompanyId,
         role: "client_admin",
         requiresSignature: true,
         isPrimary: false,

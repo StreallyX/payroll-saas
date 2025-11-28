@@ -99,7 +99,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
   const statusClass = contract ? STATUS_STYLE[contract.status] ?? STATUS_STYLE["draft"] : "";
   const wfClass = contract ? WF_STYLE[contract.workflowStatus] ?? WF_STYLE["draft"] : "";
 
-  const currencyCode = contract?.currency?.code ?? contract?.currencyId ?? "—";
+  const currencyCode = (contract as any)?.currency?.code ?? contract?.currencyId ?? "—";
 
   // Participants regroupés par rôle (ordre prioritaire)
   const roleOrder = [
@@ -114,14 +114,19 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
   ];
 
   const participantsByRole: Record<string, any[]> = {};
-  (contract?.participants ?? []).forEach((p: any) => {
+  ((contract as any)?.participants ?? []).forEach((p: any) => {
     const key = p.role || "other";
     participantsByRole[key] = participantsByRole[key] || [];
     participantsByRole[key].push(p);
   });
 
   // Résumé parent (MSA) pour SOW
-  const parentMSA = isSOW ? contract?.parent : null;
+  const parentMSA = isSOW ? (contract as any)?.parent : null;
+
+  const agencyParticipant =
+  contract?.participants?.find((p: any) => p.role === "agency") || null;
+
+  const agencyCompany = agencyParticipant?.company || null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -229,9 +234,9 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {contract.children && contract.children.length > 0 ? (
+                    {(contract as any).children && (contract as any).children.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {contract.children.map((c: any) => (
+                        {(contract as any).children.map((c: any) => (
                           <div key={c.id} className="rounded-md border p-3">
                             <div className="flex items-center justify-between">
                               <div className="font-medium">{c.title ?? c.id}</div>
@@ -264,10 +269,17 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Entreprise (Client)" value={contract.company?.name ?? "—"} />
-                <Field label="Pays" value={contract.contractCountry?.name ?? "—"} />
+              <Field
+                label="Entreprise (Client)"
+                value={
+                  agencyCompany
+                    ? agencyCompany.name
+                    : "—"
+                }
+              />
+                <Field label="Pays" value={(contract as any).contractCountry?.name ?? "—"} />
                 <Field label="Devise" value={currencyCode} />
-                <Field label="Banque" value={contract.bank?.name ?? "—"} />
+                <Field label="Banque" value={(contract as any).bank?.name ?? "—"} />
                 <Field label="Invoice Due (jours)" value={safe(contract.invoiceDueDays)} />
                 <Field label="Référence" value={contract.contractReference ?? "—"} />
               </CardContent>
@@ -296,6 +308,40 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
               </CardContent>
             </Card>
 
+            {/* 🔥 SECTION : ENTREPRISES PARTICIPANTES */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2 text-base">
+      <Building2 className="h-5 w-5 text-indigo-600" />
+      Entreprises impliquées
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    {(contract.participants || [])
+      .filter((p: any) => p.company)
+      .map((p: any) => (
+        <div
+          key={p.id}
+          className="rounded border p-3 flex items-center justify-between"
+        >
+          <div>
+            <div className="font-semibold">{p.company.name}</div>
+            <div className="text-xs text-muted-foreground">{p.role}</div>
+          </div>
+          {p.user && (
+            <div className="text-xs text-muted-foreground">
+              Associé à : {p.user.name}
+            </div>
+          )}
+        </div>
+      ))}
+    {contract.participants.filter((p: any) => p.company).length === 0 && (
+      <p className="text-sm text-muted-foreground">Aucune entreprise liée.</p>
+    )}
+  </CardContent>
+</Card>
+
+
             {/* PARTICIPANTS GROUPED */}
             <Card>
               <CardHeader>
@@ -304,6 +350,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                   Participants
                 </CardTitle>
               </CardHeader>
+              
               <CardContent className="space-y-4">
                 {roleOrder
                   .filter((r) => (participantsByRole[r] || []).length > 0)
@@ -319,7 +366,26 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                         {(participantsByRole[role] || []).map((p: any) => (
                           <div key={p.id} className="rounded border p-3">
                             <div className="flex items-center justify-between">
-                              <div className="font-semibold">{p.user?.name ?? p.userId}</div>
+                              <div className="font-semibold">
+  {p.user && p.company ? (
+    <>
+      {p.user.name} <span className="text-muted-foreground">({p.company.name})</span>
+    </>
+  ) : p.company ? (
+    <>
+      {p.company.name}
+      <span className="text-xs text-muted-foreground ml-1">(Company)</span>
+    </>
+  ) : p.user ? (
+    <>
+      {p.user.name}
+      <span className="text-xs text-muted-foreground ml-1">(User only)</span>
+    </>
+  ) : (
+    "Participant inconnu"
+  )}
+</div>
+
                               <div className="flex gap-2">
                                 {p.isPrimary && <Badge className="bg-purple-100 text-purple-800">Primary</Badge>}
                                 {p.requiresSignature && (
@@ -333,7 +399,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                               </div>
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {p.user?.email ?? "—"}
+                              {p.user?.email ?? (p.company ? "Entreprise" : "—")}
                             </div>
                             <div className="text-xs mt-2 flex items-center gap-2">
                               <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
@@ -355,8 +421,19 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                     <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                       {(participantsByRole["other"] || []).map((p: any) => (
                         <div key={p.id} className="rounded border p-3">
-                          <div className="font-semibold">{p.user?.name ?? p.userId}</div>
-                          <div className="text-xs text-muted-foreground">{p.user?.email ?? "—"}</div>
+                          <div className="font-semibold">
+                            {/* 🔥 Gérer les différents types de participants */}
+                            {p.user && p.company
+                              ? `${p.user.name} (${p.company.name})`
+                              : p.user
+                              ? p.user.name
+                              : p.company
+                              ? p.company.name
+                              : "Participant inconnu"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {p.user?.email ?? (p.company ? "Entreprise" : "—")}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -410,7 +487,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
             )}
 
             {/* STATUTS HISTORIQUES (optionnel si inclus) */}
-            {contract.statusHistory && contract.statusHistory.length > 0 && (
+            {(contract as any).statusHistory && (contract as any).statusHistory.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -419,7 +496,7 @@ export function ContractViewModal({ open, onOpenChange, contractId }: ContractVi
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {contract.statusHistory.map((h: any, idx: number) => (
+                  {(contract as any).statusHistory.map((h: any, idx: number) => (
                     <div key={h.id ?? idx} className="flex items-center gap-2 text-sm">
                       <Badge variant="secondary">{h.status}</Badge>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
