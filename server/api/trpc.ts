@@ -147,7 +147,7 @@ const requireTenant = t.middleware(({ ctx, next }) => {
   });
 });
 
-// Permission check
+// Permission check (single)
 export const requirePermission = (permission: string) =>
   t.middleware(({ ctx, next }) => {
     if (!ctx.session!.user.permissions.includes(permission)) {
@@ -160,6 +160,23 @@ export const requirePermission = (permission: string) =>
     return next();
   });
 
+// Permission check (multiple - OR logic)
+export const requireAnyPermission = (permissions: string[]) =>
+  t.middleware(({ ctx, next }) => {
+    const userPermissions = ctx.session!.user.permissions || [];
+    const hasPermission = permissions.some((p) => userPermissions.includes(p));
+
+    if (!hasPermission) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `Permission requise (au moins une de: ${permissions.join(", ")})`,
+      });
+    }
+
+    return next();
+  });
+
 export const protectedProcedure = t.procedure.use(requireAuth);
 export const tenantProcedure = protectedProcedure.use(requireTenant);
 export const hasPermission = (permission: string) => requirePermission(permission);
+export const hasAnyPermission = (permissions: string[]) => requireAnyPermission(permissions);
