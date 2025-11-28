@@ -1,138 +1,147 @@
-// /seed/01-roles.ts
-import { PrismaClient } from "@prisma/client"
-import { PERMISSIONS } from "./00-permissions"
 
-export const prisma = new PrismaClient()
+/**
+ * Seed Roles
+ * Creates default roles with appropriate permissions
+ */
+import { PrismaClient } from "@prisma/client";
+import {
+  TENANT_ADMIN_PERMISSIONS,
+  FINANCE_MANAGER_PERMISSIONS,
+  HR_MANAGER_PERMISSIONS,
+  OPERATIONS_MANAGER_PERMISSIONS,
+  CONTRACTOR_PERMISSIONS,
+  ACCOUNTANT_PERMISSIONS,
+  TEAM_LEAD_PERMISSIONS,
+  VIEWER_PERMISSIONS,
+} from "../../server/rbac/permissions-v2";
 
-// -------------------------------------------------------------
-// MASTER DEFAULT ROLES (tenant roles)
-// -------------------------------------------------------------
+export const prisma = new PrismaClient();
+
+// Default roles to create
 export const DEFAULT_ROLES = [
   {
-    name: "admin",
-    homePath: "/admin",
-    permissions: PERMISSIONS, // full access
+    name: "tenant_admin",
+    displayName: "Tenant Administrator",
+    description: "Full access to all tenant features and settings",
+    homePath: "/admin/dashboard",
+    permissions: TENANT_ADMIN_PERMISSIONS,
+    isSystem: true,
   },
-
-  {
-    name: "hr_manager",
-    homePath: "/hr",
-    permissions: PERMISSIONS.filter(p =>
-      p.startsWith("contractors.") ||
-      p.startsWith("agencies.") ||
-      p.startsWith("onboarding.") ||
-      p === "companies.view" ||
-      p === "tasks.view" ||
-      p === "tasks.create" ||
-      p === "tasks.assign"
-    ),
-  },
-
   {
     name: "finance_manager",
-    homePath: "/finance",
-    permissions: PERMISSIONS.filter(p =>
-      p.startsWith("invoices.") ||
-      p.startsWith("banks.") ||
-      p.startsWith("payroll.") ||
-      p === "contracts.view"
-    ),
+    displayName: "Finance Manager",
+    description: "Manage invoices, payments, and financial operations",
+    homePath: "/finance/dashboard",
+    permissions: FINANCE_MANAGER_PERMISSIONS,
+    isSystem: true,
   },
-
   {
-    name: "agency_owner",
-    homePath: "/agency",
-    permissions: PERMISSIONS.filter(p =>
-      p.startsWith("agencies.") ||
-      p.startsWith("contractors.") ||
-      p.startsWith("contracts.") ||
-      p.endsWith(".view")
-    ),
+    name: "hr_manager",
+    displayName: "HR Manager",
+    description: "Manage users, contracts, and HR operations",
+    homePath: "/hr/dashboard",
+    permissions: HR_MANAGER_PERMISSIONS,
+    isSystem: true,
   },
-
   {
-    name: "payroll_manager",
-    homePath: "/payroll",
-    permissions: PERMISSIONS.filter(p =>
-      p.startsWith("payroll.") ||
-      p.startsWith("contracts.view") ||
-      p.startsWith("invoices.view") ||
-      p.startsWith("payslip.")
-    ),
+    name: "operations_manager",
+    displayName: "Operations Manager",
+    description: "Manage daily operations, contracts, and timesheets",
+    homePath: "/operations/dashboard",
+    permissions: OPERATIONS_MANAGER_PERMISSIONS,
+    isSystem: true,
   },
-
   {
-    name: "recruiter",
-    homePath: "/recruitment",
-    permissions: PERMISSIONS.filter(p =>
-      p.startsWith("contractors.") ||
-      p.startsWith("leads.")
-    ),
+    name: "accountant",
+    displayName: "Accountant",
+    description: "Handle invoicing, payments, and financial records",
+    homePath: "/accounting/dashboard",
+    permissions: ACCOUNTANT_PERMISSIONS,
+    isSystem: false,
   },
-
+  {
+    name: "team_lead",
+    displayName: "Team Lead",
+    description: "Manage team members and approve timesheets",
+    homePath: "/team/dashboard",
+    permissions: TEAM_LEAD_PERMISSIONS,
+    isSystem: false,
+  },
   {
     name: "contractor",
-    homePath: "/contractor",
-    permissions: [
-      "onboarding.responses.view_own",
-      "onboarding.responses.submit",
-      "contracts.view",
-      "payslip.view",
-      "payslip.download",
-    ].filter(Boolean),
+    displayName: "Contractor",
+    description: "Self-service access for contractors/workers",
+    homePath: "/contractor/dashboard",
+    permissions: CONTRACTOR_PERMISSIONS,
+    isSystem: true,
   },
-
   {
     name: "viewer",
-    homePath: "/home",
-    permissions: PERMISSIONS.filter(p => p.endsWith(".view")),
+    displayName: "Viewer",
+    description: "Read-only access to system",
+    homePath: "/dashboard",
+    permissions: VIEWER_PERMISSIONS,
+    isSystem: false,
   },
-]
+];
 
-// -------------------------------------------------------------
-// ROLE SEEDER FUNCTION
-// -------------------------------------------------------------
 export async function seedDefaultRoles(tenantId: string) {
-  console.log("👉 Seeding default roles...")
+  console.log("👉 Seeding default roles...");
 
-  for (const role of DEFAULT_ROLES) {
-    const createdRole = await prisma.role.upsert({
+  for (const roleData of DEFAULT_ROLES) {
+    // Create or update role
+    const role = await prisma.role.upsert({
       where: {
         tenantId_name: {
           tenantId,
-          name: role.name,
+          name: roleData.name,
         },
       },
       update: {
-        homePath: role.homePath, // ensure homePath is always correct
+        displayName: roleData.displayName,
+        description: roleData.description,
+        homePath: roleData.homePath,
+        isSystem: roleData.isSystem,
       },
       create: {
         tenantId,
-        name: role.name,
-        homePath: role.homePath,
+        name: roleData.name,
+        displayName: roleData.displayName,
+        description: roleData.description,
+        homePath: roleData.homePath,
+        isSystem: roleData.isSystem,
+        isActive: true,
       },
-    })
+    });
 
-    // assign permissions
-    for (const key of role.permissions) {
-      const permission = await prisma.permission.findUnique({ where: { key } })
-      if (!permission) continue
+    // Assign permissions to role
+    for (const permissionKey of roleData.permissions) {
+      const permission = await prisma.permission.findUnique({
+        where: { key: permissionKey },
+      });
+
+      if (!permission) {
+        console.warn(`⚠️  Permission not found: ${permissionKey}`);
+        continue;
+      }
 
       await prisma.rolePermission.upsert({
         where: {
           roleId_permissionId: {
-            roleId: createdRole.id,
+            roleId: role.id,
             permissionId: permission.id,
           },
         },
         update: {},
         create: {
-          roleId: createdRole.id,
+          roleId: role.id,
           permissionId: permission.id,
         },
-      })
+      });
     }
+
+    console.log(`   ✓ Created role: ${roleData.displayName} (${roleData.permissions.length} permissions)`);
   }
 
-  console.log("✅ Default roles created & permissions assigned.")
+  console.log("✅ Default roles created & permissions assigned.");
 }
