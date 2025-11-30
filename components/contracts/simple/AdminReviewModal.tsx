@@ -66,14 +66,17 @@ export function AdminReviewModal({
    * Rejette le contrat
    */
   const handleReject = async () => {
-    if (!reason.trim()) {
+    const trimmedReason = reason.trim();
+    
+    // Validation : minimum 10 caractères requis
+    if (!trimmedReason || trimmedReason.length < 10) {
       return;
     }
 
     setAction("reject");
     await rejectContract.mutateAsync({
       contractId: contract.id,
-      reason: reason.trim(),
+      reason: trimmedReason,
     });
     setAction(null);
     setReason("");
@@ -183,21 +186,35 @@ export function AdminReviewModal({
                 </AlertDescription>
               </Alert>
               <div className="space-y-2">
-                <Label htmlFor="reject-reason" className="required">
-                  Raison du rejet *
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="reject-reason" className="required">
+                    Raison du rejet *
+                  </Label>
+                  <span className={`text-xs ${
+                    reason.trim().length < 10 
+                      ? "text-red-500 font-medium" 
+                      : "text-muted-foreground"
+                  }`}>
+                    {reason.trim().length} / 10 caractères minimum
+                  </span>
+                </div>
                 <Textarea
                   id="reject-reason"
-                  placeholder="Expliquez pourquoi vous rejetez ce contrat..."
+                  placeholder="Expliquez pourquoi vous rejetez ce contrat (minimum 10 caractères)..."
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   disabled={isProcessing}
                   rows={4}
-                  className={!reason.trim() && action === "reject" ? "border-red-300" : ""}
+                  className={reason.trim().length > 0 && reason.trim().length < 10 ? "border-red-300" : ""}
                 />
                 <p className="text-xs text-muted-foreground">
                   Cette raison sera visible par le créateur du contrat
                 </p>
+                {reason.trim().length > 0 && reason.trim().length < 10 && (
+                  <p className="text-xs text-red-500 font-medium">
+                    ⚠️ La raison doit contenir au moins 10 caractères
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -269,7 +286,7 @@ export function AdminReviewModal({
               <Button
                 variant="destructive"
                 onClick={handleReject}
-                disabled={!reason.trim() || isProcessing}
+                disabled={!reason.trim() || reason.trim().length < 10 || isProcessing}
               >
                 {isProcessing ? (
                   <>
