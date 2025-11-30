@@ -9,30 +9,33 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateMSAModal } from "@/components/contracts/simple/CreateMSAModal";
 import { CreateSOWModal } from "@/components/contracts/simple/CreateSOWModal";
+import { CreateNormContractModal } from "@/components/contracts/simple/CreateNormContractModal";
 import { MinimalContractCard } from "@/components/contracts/simple/MinimalContractCard";
 import { api } from "@/lib/trpc";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useSession } from "next-auth/react";
 
 /**
- * Page de liste des contrats simplifiés (MSA/SOW)
+ * Page de liste des contrats simplifiés (MSA/SOW/NORM)
  * 
  * Fonctionnalités:
  * - Liste paginée des contrats
  * - Filtres (type, statut, recherche)
  * - Création de MSA
  * - Création de SOW
+ * - Création de NORM
  */
 export default function SimpleContractsPage() {
   // États des filtres
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "msa" | "sow">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "msa" | "sow" | "norm">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "pending_admin_review" | "completed" | "active">("all");
   const [page, setPage] = useState(1);
 
   // États des modals
   const [showCreateMSA, setShowCreateMSA] = useState(false);
   const [showCreateSOW, setShowCreateSOW] = useState(false);
+  const [showCreateNorm, setShowCreateNorm] = useState(false);
 
   // Session & permissions
   const { data: session } = useSession();
@@ -40,9 +43,10 @@ export default function SimpleContractsPage() {
 
   const userPermissions: string[] = user?.permissions || [];
 
-  // Vérifier si user a droit de créer un MSA ou un SOW
+  // Vérifier si user a droit de créer un MSA, un SOW, ou un NORM
   const canCreateMSA = userPermissions.includes("contract_msa.create.global");
   const canCreateSOW = userPermissions.includes("contract_sow.create.global");
+  const canCreateNorm = userPermissions.includes("contract.create.global");
 
 
   // Debounce de la recherche
@@ -75,7 +79,7 @@ export default function SimpleContractsPage() {
         <div>
           <h1 className="text-3xl font-bold">Contrats simplifiés</h1>
           <p className="text-muted-foreground mt-1">
-            Gérez vos MSA et SOW de manière simplifiée
+            Gérez vos MSA, SOW et NORM de manière simplifiée
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -90,6 +94,13 @@ export default function SimpleContractsPage() {
             <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Créer un SOW
+            </Button>
+          )}
+
+          {canCreateNorm && (
+            <Button variant="outline" onClick={() => setShowCreateNorm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Créer un NORM
             </Button>
           )}
         </div>
@@ -123,6 +134,7 @@ export default function SimpleContractsPage() {
               <SelectItem value="all">Tous les types</SelectItem>
               <SelectItem value="msa">MSA uniquement</SelectItem>
               <SelectItem value="sow">SOW uniquement</SelectItem>
+              <SelectItem value="norm">NORM uniquement</SelectItem>
             </SelectContent>
           </Select>
 
@@ -168,18 +180,28 @@ export default function SimpleContractsPage() {
             <p className="text-muted-foreground mb-4">
               {debouncedSearch || typeFilter !== "all" || statusFilter !== "all"
                 ? "Essayez de modifier vos filtres de recherche"
-                : "Commencez par créer votre premier MSA ou SOW"}
+                : "Commencez par créer votre premier MSA, SOW ou NORM"}
             </p>
             {!debouncedSearch && typeFilter === "all" && statusFilter === "all" && (
               <div className="flex items-center justify-center gap-2">
-                <Button onClick={() => setShowCreateMSA(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Créer un MSA
-                </Button>
-                <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Créer un SOW
-                </Button>
+                {canCreateMSA && (
+                  <Button onClick={() => setShowCreateMSA(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Créer un MSA
+                  </Button>
+                )}
+                {canCreateSOW && (
+                  <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Créer un SOW
+                  </Button>
+                )}
+                {canCreateNorm && (
+                  <Button variant="outline" onClick={() => setShowCreateNorm(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Créer un NORM
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -236,6 +258,12 @@ export default function SimpleContractsPage() {
       <CreateSOWModal
         open={showCreateSOW}
         onOpenChange={setShowCreateSOW}
+        onSuccess={() => refetch()}
+      />
+
+      <CreateNormContractModal
+        open={showCreateNorm}
+        onOpenChange={setShowCreateNorm}
         onSuccess={() => refetch()}
       />
     </div>

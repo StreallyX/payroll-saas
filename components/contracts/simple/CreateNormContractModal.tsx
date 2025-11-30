@@ -196,7 +196,7 @@ export function CreateNormContractModal({
       if (formData.clientAgencySignDate) payload.clientAgencySignDate = new Date(formData.clientAgencySignDate);
 
       const result = await createNormContract.mutateAsync(payload);
-      if (result.contract) {
+      if (result?.contract?.id) {
         onSuccess?.(result.contract.id);
         handleClose();
         router.push(`/contracts/simple/${result.contract.id}`);

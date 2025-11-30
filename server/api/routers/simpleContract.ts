@@ -31,6 +31,9 @@ import {
   listSimpleContractsSchema,
   getSimpleContractByIdSchema,
   deleteDraftContractSchema,
+  createNormContractSchema,
+  updateNormContractSchema,
+  contractorSignContractSchema,
 } from "@/server/validators/simpleContract";
 
 // Helpers
@@ -1365,5 +1368,468 @@ export const simpleContractRouter = createTRPCRouter({
       });
     }
   }),
+
+  // ==========================================================================
+  // 11. CREATE NORM CONTRACT
+  // ==========================================================================
+
+  /**
+   * Crée un contrat NORM (Normal Contract) avec upload PDF
+   * 
+   * Workflow:
+   * - Upload PDF vers S3
+   * - Création du contrat avec statut "draft" et type "norm"
+   * - Création de 3 participants: companyTenant, agency, contractor
+   * - Gestion conditionnelle selon salaryType (gross, payroll, split)
+   * - Création du document lié
+   * 
+   * @permission contract_norm.create
+   */
+  createNormContract: tenantProcedure
+    .use(hasPermission(P.CONTRACT.CREATE_GLOBAL))
+    .input(createNormContractSchema)
+    .mutation(async ({ ctx, input }) => {
+      const {
+        pdfBuffer,
+        fileName,
+        mimeType,
+        fileSize,
+        companyTenantId,
+        agencyId,
+        contractorId,
+        startDate,
+        endDate,
+        salaryType,
+        userBankId,
+        payrollUserId,
+        userBankIds,
+        rateAmount,
+        rateCurrency,
+        rateCycle,
+        marginAmount,
+        marginCurrency,
+        marginType,
+        marginPaidBy,
+        invoiceDueDays,
+        notes,
+        contractReference,
+        contractVatRate,
+        contractCountryId,
+        clientAgencySignDate,
+      } = input;
+
+      try {
+        // 1. Générer titre depuis filename
+        const title = generateContractTitle(fileName);
+
+        // 2. Créer le contrat NORM (draft)
+        const contract = await ctx.prisma.contract.create({
+          data: {
+            tenantId: ctx.tenantId!,
+            type: "norm",
+            title,
+            status: "draft",
+            workflowStatus: "draft",
+            createdBy: ctx.session!.user.id,
+            assignedTo: ctx.session!.user.id,
+            description: `Contrat NORM créé automatiquement depuis ${fileName}`,
+            
+            // Dates
+            startDate,
+            endDate,
+            
+            // Salary type et paiement
+            salaryType,
+            payrollUserId,
+            userBankIds: userBankIds || [],
+            bankId: userBankId, // Pour Gross mode (single bank)
+            
+            // Tarification
+            rate: rateAmount,
+            rateCycle,
+            currencyId: rateCurrency,
+            
+            // Marge
+            margin: marginAmount,
+            marginType,
+            marginPaidBy,
+            
+            // Autres
+            invoiceDueDays,
+            notes,
+            contractReference,
+            contractVatRate,
+            contractCountryId,
+            signedAt: clientAgencySignDate,
+          },
+        });
+
+        // 3. Upload PDF vers S3
+        const buffer = Buffer.from(pdfBuffer, "base64");
+        const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
+        const s3Key = await uploadFile(buffer, s3FileName);
+
+        // 4. Créer le document lié
+        const document = await ctx.prisma.document.create({
+          data: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contract.id,
+            s3Key,
+            fileName,
+            mimeType,
+            fileSize,
+            uploadedBy: ctx.session!.user.id,
+            category: "main_contract",
+            version: 1,
+            isLatestVersion: true,
+            visibility: "private",
+          },
+        });
+
+        // 5. Créer les participants
+        // Participant 1: Company Tenant
+        await createMinimalParticipant(ctx.prisma, {
+          contractId: contract.id,
+          companyId: companyTenantId,
+          role: "tenant",
+          isPrimary: true,
+        });
+
+        // Participant 2: Agency
+        await createMinimalParticipant(ctx.prisma, {
+          contractId: contract.id,
+          companyId: agencyId,
+          role: "agency",
+          isPrimary: false,
+        });
+
+        // Participant 3: Contractor
+        await createMinimalParticipant(ctx.prisma, {
+          contractId: contract.id,
+          userId: contractorId,
+          role: "contractor",
+          isPrimary: false,
+        });
+
+        // 6. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contract.id,
+          entityName: title,
+          tenantId: ctx.tenantId!,
+          metadata: {
+            type: "norm",
+            fileName,
+            salaryType,
+            system: "simple",
+            documentId: document.id,
+          },
+        });
+
+        // 7. Récupérer le contrat avec participants
+        const contractData = await ctx.prisma.contract.findUnique({
+          where: { id: contract.id },
+          include: {
+            participants: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+                company: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+
+        // 8. Récupérer les documents liés
+        const documents = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contract.id,
+            isLatestVersion: true,
+          },
+        });
+
+        // 9. Fusionner et retourner le contrat complet
+        return {
+          success: true,
+          contract: {
+            ...contractData,
+            documents,
+          },
+        };
+      } catch (error) {
+        console.error("[createNormContract] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la création du contrat NORM",
+          cause: error,
+        });
+      }
+    }),
+
+  // ==========================================================================
+  // 12. UPDATE NORM CONTRACT
+  // ==========================================================================
+
+  /**
+   * Met à jour un contrat NORM en draft
+   * 
+   * Seuls les contrats en draft peuvent être modifiés
+   * 
+   * @permission contract_norm.update
+   */
+  updateNormContract: tenantProcedure
+    .use(hasPermission(P.CONTRACT.UPDATE_GLOBAL))
+    .input(updateNormContractSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { contractId, ...updateData } = input;
+
+      try {
+        // 1. Charger le contrat
+        const contract = await ctx.prisma.contract.findUnique({
+          where: { id: contractId, tenantId: ctx.tenantId! },
+        });
+
+        if (!contract) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Contrat introuvable",
+          });
+        }
+
+        // 2. Vérifier que le contrat est en draft
+        if (!isDraft(contract)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Seuls les contrats en draft peuvent être modifiés",
+          });
+        }
+
+        // 3. Vérifier que c'est un contrat NORM
+        if (contract.type !== "norm") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Seuls les contrats NORM peuvent être mis à jour via cet endpoint",
+          });
+        }
+
+        // 4. Préparer les données de mise à jour
+        const dataToUpdate: any = {};
+
+        // Dates
+        if (updateData.startDate) dataToUpdate.startDate = updateData.startDate;
+        if (updateData.endDate) dataToUpdate.endDate = updateData.endDate;
+
+        // Salary type et paiement
+        if (updateData.salaryType) dataToUpdate.salaryType = updateData.salaryType;
+        if (updateData.payrollUserId !== undefined) dataToUpdate.payrollUserId = updateData.payrollUserId;
+        if (updateData.userBankIds !== undefined) dataToUpdate.userBankIds = updateData.userBankIds;
+        if (updateData.userBankId !== undefined) dataToUpdate.bankId = updateData.userBankId;
+
+        // Tarification
+        if (updateData.rateAmount !== undefined) dataToUpdate.rate = updateData.rateAmount;
+        if (updateData.rateCurrency !== undefined) dataToUpdate.currencyId = updateData.rateCurrency;
+        if (updateData.rateCycle !== undefined) dataToUpdate.rateCycle = updateData.rateCycle;
+
+        // Marge
+        if (updateData.marginAmount !== undefined) dataToUpdate.margin = updateData.marginAmount;
+        if (updateData.marginType !== undefined) dataToUpdate.marginType = updateData.marginType;
+        if (updateData.marginPaidBy !== undefined) dataToUpdate.marginPaidBy = updateData.marginPaidBy;
+
+        // Autres
+        if (updateData.invoiceDueDays !== undefined) dataToUpdate.invoiceDueDays = updateData.invoiceDueDays;
+        if (updateData.notes !== undefined) dataToUpdate.notes = updateData.notes;
+        if (updateData.contractReference !== undefined) dataToUpdate.contractReference = updateData.contractReference;
+        if (updateData.contractVatRate !== undefined) dataToUpdate.contractVatRate = updateData.contractVatRate;
+        if (updateData.contractCountryId !== undefined) dataToUpdate.contractCountryId = updateData.contractCountryId;
+        if (updateData.clientAgencySignDate !== undefined) dataToUpdate.signedAt = updateData.clientAgencySignDate;
+
+        // 5. Mettre à jour le contrat
+        const updated = await ctx.prisma.contract.update({
+          where: { id: contractId },
+          data: dataToUpdate,
+          include: {
+            participants: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+                company: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+
+        // 6. Charger les documents
+        const documents = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contractId,
+            isLatestVersion: true,
+          },
+        });
+
+        // 7. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.UPDATE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contract.id,
+          entityName: contract.title || "Untitled",
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "update_norm_contract",
+            type: "norm",
+            system: "simple",
+          },
+        });
+
+        return {
+          success: true,
+          contract: {
+            ...updated,
+            documents,
+          },
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[updateNormContract] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la mise à jour du contrat NORM",
+          cause: error,
+        });
+      }
+    }),
+
+  // ==========================================================================
+  // 13. CONTRACTOR SIGN CONTRACT
+  // ==========================================================================
+
+  /**
+   * Permet au contractor de signer son contrat NORM
+   * 
+   * Met à jour le champ contractorSignedAt
+   * 
+   * @permission contract.sign.own
+   */
+  contractorSignContract: tenantProcedure
+    .use(hasPermission(P.CONTRACT.SIGN_OWN))
+    .input(contractorSignContractSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { contractId, signatureDate } = input;
+
+      try {
+        // 1. Charger le contrat
+        const contract = await ctx.prisma.contract.findUnique({
+          where: { id: contractId, tenantId: ctx.tenantId! },
+          include: {
+            participants: {
+              where: { role: "contractor", isActive: true },
+            },
+          },
+        });
+
+        if (!contract) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Contrat introuvable",
+          });
+        }
+
+        // 2. Vérifier que c'est un contrat NORM
+        if (contract.type !== "norm") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Seuls les contrats NORM peuvent être signés via cet endpoint",
+          });
+        }
+
+        // 3. Vérifier que l'utilisateur est le contractor
+        const contractorParticipant = contract.participants.find(
+          (p) => p.userId === ctx.session!.user.id
+        );
+
+        if (!contractorParticipant) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'êtes pas autorisé à signer ce contrat",
+          });
+        }
+
+        // 4. Vérifier que le contrat n'est pas déjà signé
+        if (contract.contractorSignedAt) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Ce contrat a déjà été signé par le contractor",
+          });
+        }
+
+        // 5. Mettre à jour la date de signature
+        const updated = await ctx.prisma.contract.update({
+          where: { id: contractId },
+          data: {
+            contractorSignedAt: signatureDate || new Date(),
+          },
+          include: {
+            participants: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+                company: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+
+        // 6. Charger les documents
+        const documents = await ctx.prisma.document.findMany({
+          where: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract",
+            entityId: contractId,
+            isLatestVersion: true,
+          },
+        });
+
+        // 7. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.UPDATE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contract.id,
+          entityName: contract.title || "Untitled",
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "contractor_sign_contract",
+            type: "norm",
+            system: "simple",
+          },
+        });
+
+        return {
+          success: true,
+          contract: {
+            ...updated,
+            documents,
+          },
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[contractorSignContract] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la signature du contrat",
+          cause: error,
+        });
+      }
+    }),
 
 });
