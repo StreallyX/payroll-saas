@@ -272,7 +272,7 @@ export function CreateNormContractModal({
               required
               roleFilter="tenant"
             />
-            <CompanySelect
+            <UserSelect
               value={formData.agencyId}
               onChange={(v) => updateField("agencyId", v)}
               label="Agency"

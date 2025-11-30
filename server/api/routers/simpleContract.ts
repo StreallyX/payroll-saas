@@ -315,7 +315,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (targetCompanyId) {
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          companyId: targetCompanyId,
+          companyId: targetCompanyId ?? undefined,
           role: "client",
           isPrimary: true,
         });
@@ -1491,7 +1491,7 @@ export const simpleContractRouter = createTRPCRouter({
         // Participant 1: Company Tenant
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          companyId: companyTenantId,
+          companyId: companyTenantId ?? undefined,
           role: "tenant",
           isPrimary: true,
         });
@@ -1499,7 +1499,7 @@ export const simpleContractRouter = createTRPCRouter({
         // Participant 2: Agency
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          companyId: agencyId,
+          userId: agencyId ?? undefined,
           role: "agency",
           isPrimary: false,
         });
@@ -1507,7 +1507,7 @@ export const simpleContractRouter = createTRPCRouter({
         // Participant 3: Contractor
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          userId: contractorId,
+          userId: contractorId ?? undefined,
           role: "contractor",
           isPrimary: false,
         });

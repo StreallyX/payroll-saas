@@ -50,6 +50,8 @@ export function UserBankSelect({
     }
   );
 
+  console.log(allBanks)
+
   // Filtrer par userId (simulation - à adapter selon la vraie structure)
   const paymentMethods = {
     userBanks: allBanks.filter((bank: any) => bank.userId === userId || !bank.userId)

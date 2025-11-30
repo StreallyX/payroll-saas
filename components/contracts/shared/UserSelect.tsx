@@ -13,7 +13,7 @@ interface UserSelectProps {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  roleFilter?: "contractor" | "payroll" | "admin";
+  roleFilter?: "contractor" | "payroll" | "admin" | "agency";
   className?: string;
 }
 
@@ -43,7 +43,16 @@ export function UserSelect({
 
   // Filtrer par rôle si nécessaire
   const users = roleFilter
-    ? allUsers.filter((u: any) => u.role === roleFilter)
+    ? allUsers.filter((u: any) => {
+        // Extraire le rôle réel (string)
+        const role =
+          typeof u.role === "string"
+            ? u.role
+            : u.role?.name ?? "";  // si c'est un objet { name: "Agency" }
+
+        // Comparaison insensible à la casse
+        return role.toLowerCase() === roleFilter.toLowerCase();
+      })
     : allUsers;
 
   return (
