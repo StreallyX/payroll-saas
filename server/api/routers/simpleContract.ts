@@ -1431,6 +1431,17 @@ export const simpleContractRouter = createTRPCRouter({
         // 1. Générer titre depuis filename
         const title = generateContractTitle(fileName);
 
+        let currencyId: string | null = null;
+
+        if (rateCurrency) {
+          const currency = await ctx.prisma.currency.findFirst({
+            where: { code: rateCurrency },
+            select: { id: true },
+          });
+
+          currencyId = currency?.id ?? null;
+        }
+
         // 2. Créer le contrat NORM (draft)
         const contract = await ctx.prisma.contract.create({
           data: {
@@ -1456,7 +1467,7 @@ export const simpleContractRouter = createTRPCRouter({
             // Tarification
             rate: rateAmount,
             rateCycle,
-            currencyId: rateCurrency,
+            currencyId,
             
             // Marge
             margin: marginAmount,

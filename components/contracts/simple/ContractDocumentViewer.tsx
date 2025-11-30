@@ -35,10 +35,11 @@ export function ContractDocumentViewer({
 }: ContractDocumentViewerProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const utils = api.useUtils();
 
   // Récupérer l'URL signée du document
   const { data: signedUrlData, isLoading: isLoadingUrl } = api.document.getSignedUrl.useQuery(
-    { documentId: document.id },
+    { documentId: document.id, download: false },
     { 
       enabled: !!document.id,
       staleTime: 1000 * 60 * 50, // 50 minutes (les URLs S3 expirent après 1h)
@@ -81,26 +82,25 @@ export function ContractDocumentViewer({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      if (!pdfUrl) {
+      const res = await utils.document.getSignedUrl.fetch({
+        documentId: document.id,
+        download: true, // 🔥 force le download
+      });
+
+      if (!res.url) {
         toast.error("URL du document non disponible");
         return;
       }
 
-      // Télécharger le fichier
-      const response = await fetch(pdfUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
       const link = window.document.createElement("a");
-      link.href = url;
+      link.href = res.url;
       link.download = document.fileName;
+      link.target = "_blank";
       link.click();
-      window.URL.revokeObjectURL(url);
 
       toast.success("Document téléchargé avec succès");
 
-      if (onDownload) {
-        await onDownload();
-      }
+      if (onDownload) await onDownload();
     } catch (error) {
       console.error("[ContractDocumentViewer] Download error:", error);
       toast.error("Erreur lors du téléchargement");

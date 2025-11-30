@@ -67,6 +67,8 @@ export async function downloadFile(
   const command = new GetObjectCommand({
     Bucket: bucketName,
     Key: key,
+    ResponseContentDisposition: "inline",       // 🔥 IMPORTANT
+    ResponseContentType: "application/pdf",     // 🔥 Évite les téléchargements
   });
 
   return getSignedUrl(s3Client, command, { expiresIn });
@@ -132,10 +134,21 @@ export async function deleteFromS3(key: string) {
  */
 export async function getSignedUrlForKey(
   key: string,
-  expiresIn = 3600
+  expiresIn = 3600,
+  download = false
 ): Promise<string> {
-  return downloadFile(key, expiresIn);
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    ResponseContentDisposition: download
+      ? `attachment; filename="${key.split('/').pop()}"`
+      : "inline",
+    ResponseContentType: "application/pdf",
+  });
+
+  return getSignedUrl(s3Client, command, { expiresIn });
 }
+
 
 // ------------------------------------------------------------
 // OPTIONAL: expose a `ctx.s3` helper for TRPC context
