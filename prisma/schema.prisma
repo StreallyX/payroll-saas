@@ -436,6 +436,13 @@ model Contract {
   salaryType     String?
   bankId         String?
   invoiceDueDays Int?
+  
+  // ============================
+  // NORM Contract Fields
+  // ============================
+  payrollUserId      String?     // Pour Payroll et Payroll We Pay
+  contractorSignedAt DateTime?   // Date de signature du contractor
+  userBankIds        String[]    @default([]) // Pour Split mode (plusieurs UserBanks/PaymentMethods)
 
   contractReference  String?   @unique
   contractCountryId  String?

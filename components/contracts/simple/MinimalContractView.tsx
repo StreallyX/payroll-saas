@@ -23,6 +23,7 @@ import { ContractStatusTimeline } from "./ContractStatusTimeline";
 import { ContractDocumentViewer } from "./ContractDocumentViewer";
 import { AdminReviewModal } from "./AdminReviewModal";
 import { UploadSignedModal } from "./UploadSignedModal";
+import { NormContractView } from "./NormContractView";
 import { useSimpleContractWorkflow } from "@/hooks/contracts/useSimpleContractWorkflow";
 
 interface MinimalContractViewProps {
@@ -85,6 +86,7 @@ interface MinimalContractViewProps {
     canUpdate: boolean;
     canApprove: boolean;
     canDelete: boolean;
+    isContractor?: boolean;
   };
   onUpdate?: () => void;
 }
@@ -101,6 +103,11 @@ interface MinimalContractViewProps {
  * - Contrats liés (MSA parent ou SOWs enfants)
  */
 export function MinimalContractView({ contract, permissions, onUpdate }: MinimalContractViewProps) {
+  // Si c'est un contrat NORM, utiliser la vue spécifique
+  if (contract.type === "norm") {
+    return <NormContractView contract={contract as any} permissions={{ ...permissions, isContractor: permissions.isContractor || false }} onUpdate={onUpdate} />;
+  }
+
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showUploadSignedModal, setShowUploadSignedModal] = useState(false);
 

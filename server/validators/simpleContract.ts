@@ -170,7 +170,7 @@ export const activateContractSchema = z.object({
  * Filtres et pagination pour la liste des contrats
  */
 export const listSimpleContractsSchema = z.object({
-  type: z.enum(["all", "msa", "sow"]).default("all"),
+  type: z.enum(["all", "msa", "sow", "norm"]).default("all"),
   status: z.enum([
     "all",
     "draft",
@@ -221,3 +221,222 @@ export type ActivateContractInput = z.infer<typeof activateContractSchema>;
 export type ListSimpleContractsInput = z.infer<typeof listSimpleContractsSchema>;
 export type GetSimpleContractByIdInput = z.infer<typeof getSimpleContractByIdSchema>;
 export type DeleteDraftContractInput = z.infer<typeof deleteDraftContractSchema>;
+
+// ============================================================================
+// NORM CONTRACT SCHEMAS
+// ============================================================================
+
+/**
+ * Schéma de base pour les champs communs des contrats NORM
+ */
+const normContractBaseFields = {
+  // Champs essentiels (parties)
+  companyTenantId: z.string()
+    .cuid("L'ID de la company tenant doit être un CUID valide"),
+  agencyId: z.string()
+    .cuid("L'ID de l'agency doit être un CUID valide"),
+  contractorId: z.string()
+    .cuid("L'ID du contractor doit être un CUID valide"),
+  
+  // Dates (essentielles)
+  startDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val)),
+  endDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val)),
+  
+  // Salary Type (essentiel)
+  salaryType: z.enum(["gross", "payroll", "payroll_we_pay", "split"], {
+    errorMap: () => ({ 
+      message: "Le type de salaire doit être: gross, payroll, payroll_we_pay ou split" 
+    }),
+  }),
+  
+  // Champs conditionnels selon salaryType
+  userBankId: z.string().cuid().optional(), // Pour Gross
+  payrollUserId: z.string().cuid().optional(), // Pour Payroll et Payroll We Pay
+  userBankIds: z.array(z.string().cuid()).optional(), // Pour Split
+  
+  // Champs optionnels - Tarification
+  rateAmount: z.number()
+    .positive("Le montant du taux doit être positif")
+    .optional(),
+  rateCurrency: z.string()
+    .min(3, "La devise doit contenir au moins 3 caractères")
+    .max(3, "La devise doit contenir 3 caractères")
+    .optional(),
+  rateCycle: z.enum(["daily", "weekly", "monthly", "yearly", "hourly"], {
+    errorMap: () => ({ 
+      message: "Le cycle doit être: daily, weekly, monthly, yearly ou hourly" 
+    }),
+  }).optional(),
+  
+  // Champs optionnels - Marge
+  marginAmount: z.number()
+    .positive("Le montant de la marge doit être positif")
+    .optional(),
+  marginCurrency: z.string()
+    .min(3, "La devise doit contenir au moins 3 caractères")
+    .max(3, "La devise doit contenir 3 caractères")
+    .optional(),
+  marginType: z.enum(["fixed", "percentage"], {
+    errorMap: () => ({ message: "Le type de marge doit être: fixed ou percentage" }),
+  }).optional(),
+  marginPaidBy: z.enum(["client", "agency"], {
+    errorMap: () => ({ message: "La marge doit être payée par: client ou agency" }),
+  }).optional(),
+  
+  // Champs optionnels - Autres
+  invoiceDueDays: z.number()
+    .int("Le nombre de jours doit être un entier")
+    .positive("Le nombre de jours doit être positif")
+    .max(365, "Le nombre de jours ne peut pas dépasser 365")
+    .optional(),
+  notes: z.string()
+    .max(5000, "Les notes sont trop longues (max 5000 caractères)")
+    .optional(),
+  contractReference: z.string()
+    .max(255, "La référence est trop longue (max 255 caractères)")
+    .optional(),
+  contractVatRate: z.number()
+    .min(0, "Le taux de TVA doit être entre 0 et 100")
+    .max(100, "Le taux de TVA doit être entre 0 et 100")
+    .optional(),
+  contractCountryId: z.string()
+    .cuid("L'ID du pays doit être un CUID valide")
+    .optional(),
+  
+  // Dates de signature (optionnelles)
+  clientAgencySignDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(),
+};
+
+/**
+ * 11. CREATE NORM CONTRACT
+ * 
+ * Crée un contrat NORM avec validation conditionnelle selon salaryType
+ */
+export const createNormContractSchema = pdfFileSchema
+  .extend(normContractBaseFields)
+  .refine(
+    (data) => {
+      // Validation des dates
+      if (data.startDate >= data.endDate) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "La date de début doit être antérieure à la date de fin",
+      path: ["endDate"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Validation conditionnelle selon salaryType
+      if (data.salaryType === "gross") {
+        return !!data.userBankId;
+      }
+      if (data.salaryType === "payroll" || data.salaryType === "payroll_we_pay") {
+        return !!data.payrollUserId;
+      }
+      if (data.salaryType === "split") {
+        return data.userBankIds && data.userBankIds.length > 0;
+      }
+      return true;
+    },
+    {
+      message: "Champ requis selon le type de salaire sélectionné",
+      path: ["salaryType"],
+    }
+  );
+
+/**
+ * 12. UPDATE NORM CONTRACT
+ * 
+ * Met à jour un contrat NORM (draft uniquement)
+ * Tous les champs sont optionnels sauf contractId
+ */
+export const updateNormContractSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+  
+  // Tous les champs optionnels
+  companyTenantId: z.string().cuid().optional(),
+  agencyId: z.string().cuid().optional(),
+  contractorId: z.string().cuid().optional(),
+  
+  startDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(),
+  endDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(),
+  
+  salaryType: z.enum(["gross", "payroll", "payroll_we_pay", "split"]).optional(),
+  userBankId: z.string().cuid().optional(),
+  payrollUserId: z.string().cuid().optional(),
+  userBankIds: z.array(z.string().cuid()).optional(),
+  
+  rateAmount: z.number().positive().optional(),
+  rateCurrency: z.string().min(3).max(3).optional(),
+  rateCycle: z.enum(["daily", "weekly", "monthly", "yearly", "hourly"]).optional(),
+  
+  marginAmount: z.number().positive().optional(),
+  marginCurrency: z.string().min(3).max(3).optional(),
+  marginType: z.enum(["fixed", "percentage"]).optional(),
+  marginPaidBy: z.enum(["client", "agency"]).optional(),
+  
+  invoiceDueDays: z.number().int().positive().max(365).optional(),
+  notes: z.string().max(5000).optional(),
+  contractReference: z.string().max(255).optional(),
+  contractVatRate: z.number().min(0).max(100).optional(),
+  contractCountryId: z.string().cuid().optional(),
+  
+  clientAgencySignDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(),
+})
+.refine(
+  (data) => {
+    // Validation des dates si les deux sont présentes
+    if (data.startDate && data.endDate && data.startDate >= data.endDate) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "La date de début doit être antérieure à la date de fin",
+    path: ["endDate"],
+  }
+);
+
+/**
+ * 13. CONTRACTOR SIGN CONTRACT
+ * 
+ * Permet au contractor de signer son contrat
+ */
+export const contractorSignContractSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+  signatureDate: z.string()
+    .or(z.date())
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(), // Si non fourni, on utilise la date actuelle
+});
+
+// ============================================================================
+// TYPES EXPORTÉS POUR NORM
+// ============================================================================
+
+export type CreateNormContractInput = z.infer<typeof createNormContractSchema>;
+export type UpdateNormContractInput = z.infer<typeof updateNormContractSchema>;
+export type ContractorSignContractInput = z.infer<typeof contractorSignContractSchema>;

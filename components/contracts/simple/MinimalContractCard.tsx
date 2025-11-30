@@ -62,6 +62,8 @@ export function MinimalContractCard({
 
   const isDraft = contract.status === "draft";
   const isMSA = contract.type === "msa";
+  const isSOW = contract.type === "sow";
+  const isNORM = contract.type === "norm";
   const childrenCount = contract._count?.children || 0;
 
   /**
@@ -93,7 +95,7 @@ export function MinimalContractCard({
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <FileText className={cn(
                 "h-5 w-5 mt-1 flex-shrink-0",
-                isMSA ? "text-primary" : "text-blue-600"
+                isMSA ? "text-primary" : isNORM ? "text-green-600" : "text-blue-600"
               )} />
               <div className="flex-1 min-w-0">
                 <CardTitle className="text-base truncate">
@@ -102,9 +104,11 @@ export function MinimalContractCard({
                 <CardDescription className="mt-1">
                   <span className={cn(
                     "text-xs font-medium px-2 py-0.5 rounded",
-                    isMSA ? "bg-primary/10 text-primary" : "bg-blue-100 text-blue-700"
+                    isMSA ? "bg-primary/10 text-primary" : 
+                    isNORM ? "bg-green-100 text-green-700" : 
+                    "bg-blue-100 text-blue-700"
                   )}>
-                    {isMSA ? "MSA" : "SOW"}
+                    {isMSA ? "MSA" : isNORM ? "NORM" : "SOW"}
                   </span>
                   {contract.parent && (
                     <span className="ml-2 text-xs text-muted-foreground">
