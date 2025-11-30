@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download, FileText, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { api } from "@/lib/trpc";
 
 interface ContractDocument {
   id: string;
@@ -25,10 +26,7 @@ interface ContractDocumentViewerProps {
 }
 
 /**
- * Viewer de document PDF avec bouton de téléchargement
- * 
- * Note: Le viewer PDF complet nécessiterait une bibliothèque comme react-pdf
- * Pour l'instant, on affiche les métadonnées et un bouton de téléchargement
+ * Viewer de document PDF avec affichage et téléchargement
  */
 export function ContractDocumentViewer({
   document,
@@ -36,6 +34,22 @@ export function ContractDocumentViewer({
   className,
 }: ContractDocumentViewerProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Récupérer l'URL signée du document
+  const { data: signedUrlData, isLoading: isLoadingUrl } = api.document.getSignedUrl.useQuery(
+    { documentId: document.id },
+    { 
+      enabled: !!document.id,
+      staleTime: 1000 * 60 * 50, // 50 minutes (les URLs S3 expirent après 1h)
+    }
+  );
+
+  useEffect(() => {
+    if (signedUrlData?.url) {
+      setPdfUrl(signedUrlData.url);
+    }
+  }, [signedUrlData]);
 
   /**
    * Formate la taille du fichier
@@ -67,10 +81,25 @@ export function ContractDocumentViewer({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
+      if (!pdfUrl) {
+        toast.error("URL du document non disponible");
+        return;
+      }
+
+      // Télécharger le fichier
+      const response = await fetch(pdfUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = window.document.createElement("a");
+      link.href = url;
+      link.download = document.fileName;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Document téléchargé avec succès");
+
       if (onDownload) {
         await onDownload();
-      } else {
-        toast.info("Fonctionnalité de téléchargement non implémentée");
       }
     } catch (error) {
       console.error("[ContractDocumentViewer] Download error:", error);
@@ -139,19 +168,51 @@ export function ContractDocumentViewer({
           )}
         </div>
 
-        {/* Zone de prévisualisation (placeholder) */}
-        <div className="rounded-lg border border-dashed border-muted-foreground/25 p-8 flex flex-col items-center justify-center gap-3 bg-muted/20">
-          <FileText className="h-16 w-16 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground text-center">
-            Prévisualisation PDF non disponible
-            <br />
-            <span className="text-xs">Téléchargez le fichier pour le consulter</span>
-          </p>
-          <Button variant="ghost" size="sm" onClick={handleDownload} disabled={isDownloading}>
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Ouvrir dans un nouvel onglet
-          </Button>
+        {/* Zone de prévisualisation du PDF */}
+        <div className="rounded-lg border overflow-hidden">
+          {isLoadingUrl ? (
+            <div className="h-[600px] flex items-center justify-center bg-muted/20">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Chargement du document...</p>
+              </div>
+            </div>
+          ) : pdfUrl ? (
+            <iframe
+              src={`${pdfUrl}#toolbar=0&navpanes=0`}
+              className="w-full h-[600px] border-0"
+              title={document.fileName}
+            />
+          ) : (
+            <div className="h-[600px] flex flex-col items-center justify-center gap-3 bg-muted/20">
+              <FileText className="h-16 w-16 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground text-center">
+                Impossible de charger le document
+                <br />
+                <span className="text-xs">Veuillez réessayer ou télécharger le fichier</span>
+              </p>
+              <Button variant="ghost" size="sm" onClick={handleDownload} disabled={isDownloading}>
+                <Download className="mr-2 h-4 w-4" />
+                Télécharger le PDF
+              </Button>
+            </div>
+          )}
         </div>
+
+        {/* Actions supplémentaires */}
+        {pdfUrl && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(pdfUrl, "_blank")}
+              className="flex-1"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Ouvrir dans un nouvel onglet
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

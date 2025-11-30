@@ -1512,6 +1512,16 @@ export const simpleContractRouter = createTRPCRouter({
           isPrimary: false,
         });
 
+        // Participant 4 (optionnel): Payroll User (si salaryType = payroll ou payroll_we_pay)
+        if ((salaryType === "payroll" || salaryType === "payroll_we_pay") && payrollUserId) {
+          await createMinimalParticipant(ctx.prisma, {
+            contractId: contract.id,
+            userId: payrollUserId,
+            role: "payroll",
+            isPrimary: false,
+          });
+        }
+
         // 6. Audit log
         await createAuditLog({
           userId: ctx.session!.user.id,
@@ -1662,6 +1672,27 @@ export const simpleContractRouter = createTRPCRouter({
             },
           },
         });
+
+        // 5b. Gérer la mise à jour du participant payroll si nécessaire
+        if (updateData.payrollUserId !== undefined) {
+          // Supprimer l'ancien participant payroll
+          await ctx.prisma.contractParticipant.deleteMany({
+            where: {
+              contractId,
+              role: "payroll",
+            },
+          });
+
+          // Créer un nouveau participant payroll si payrollUserId est fourni
+          if (updateData.payrollUserId && (updated.salaryType === "payroll" || updated.salaryType === "payroll_we_pay")) {
+            await createMinimalParticipant(ctx.prisma, {
+              contractId,
+              userId: updateData.payrollUserId,
+              role: "payroll",
+              isPrimary: false,
+            });
+          }
+        }
 
         // 6. Charger les documents
         const documents = await ctx.prisma.document.findMany({

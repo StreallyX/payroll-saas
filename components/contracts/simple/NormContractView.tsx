@@ -35,17 +35,19 @@ interface NormContractViewProps {
     createdAt: Date | string;
     signedAt?: Date | string | null;
     
-    // Champs spécifiques NORM
-    companyTenant?: { id: string; name: string } | null;
-    agency?: { id: string; name: string } | null;
-    contractor?: { id: string; name: string | null; email: string } | null;
+    // Participants (pour récupérer les parties)
+    participants?: Array<{
+      id: string;
+      role: string;
+      user?: { id: string; name: string | null; email: string } | null;
+      company?: { id: string; name: string } | null;
+    }>;
     
     startDate?: Date | string | null;
     endDate?: Date | string | null;
     salaryType?: string | null;
     
     userBank?: { id: string; name: string | null; accountNumber: string | null } | null;
-    payrollUser?: { id: string; name: string | null; email: string } | null;
     userBanks?: Array<{ id: string; name: string | null; accountNumber: string | null }> | null;
     
     rateAmount?: number | null;
@@ -117,6 +119,13 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
   const isActive = contract.status === "active";
 
   const latestDocument = contract.documents?.find((d) => d.isLatestVersion);
+
+  // Récupérer les participants par rôle
+  const participants = contract.participants || [];
+  const companyTenant = participants.find((p) => p.role === "tenant");
+  const agency = participants.find((p) => p.role === "agency");
+  const contractor = participants.find((p) => p.role === "contractor");
+  const payrollUser = participants.find((p) => p.role === "payroll");
 
   /**
    * Soumet pour review
@@ -237,23 +246,40 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
                 <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">Company Tenant</p>
-                  <p className="font-medium">{contract.companyTenant?.name || "-"}</p>
+                  <p className="font-medium">
+                    {companyTenant?.company?.name || companyTenant?.user?.name || companyTenant?.user?.email || "-"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3 rounded-lg border">
                 <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">Agency</p>
-                  <p className="font-medium">{contract.agency?.name || "-"}</p>
+                  <p className="font-medium">
+                    {agency?.company?.name || agency?.user?.name || agency?.user?.email || "-"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3 rounded-lg border">
                 <User className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">Contractor</p>
-                  <p className="font-medium">{contract.contractor?.name || contract.contractor?.email || "-"}</p>
+                  <p className="font-medium">
+                    {contractor?.user?.name || contractor?.user?.email || contractor?.company?.name || "-"}
+                  </p>
                 </div>
               </div>
+              {payrollUser && (
+                <div className="flex items-start gap-3 p-3 rounded-lg border">
+                  <User className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Payroll User</p>
+                    <p className="font-medium">
+                      {payrollUser?.user?.name || payrollUser?.user?.email || "-"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -306,14 +332,14 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
                 </div>
               )}
 
-              {(contract.salaryType === "payroll" || contract.salaryType === "payroll_we_pay") && contract.payrollUser && (
+              {(contract.salaryType === "payroll" || contract.salaryType === "payroll_we_pay") && payrollUser && (
                 <div className="pt-3 border-t">
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <User className="h-4 w-4" />
                     Utilisateur Payroll
                   </p>
                   <p className="font-medium mt-1">
-                    {contract.payrollUser.name || contract.payrollUser.email}
+                    {payrollUser.user?.name || payrollUser.user?.email || "-"}
                   </p>
                   {contract.salaryType === "payroll_we_pay" && (
                     <p className="text-xs text-muted-foreground mt-1">(Géré par le système)</p>
