@@ -14,28 +14,34 @@ interface DocumentListProps {
 
 export function DocumentList({ contractId, canDelete = false }: DocumentListProps) {
   const { documents, isLoading, deleteDocument, isDeleting } = useContractDocuments(contractId);
-  
-  const downloadDocumentQuery = api.simpleContract.downloadDocument.useQuery;
-  
-  const handleDownload = async (documentId: string) => {
+  const utils = api.useUtils();
+
+  const handleDownload = async (documentId: string, fileName: string) => {
     try {
-      // Utiliser l'API pour obtenir l'URL signée
-      const result = await downloadDocumentQuery({ documentId });
-      
-      if (result.data?.success && result.data.document) {
-        const doc = result.data.document;
-        // Ouvrir le fichier dans un nouvel onglet
-        // Note: En production, vous devriez utiliser une vraie URL signée S3
-        toast.success(`Téléchargement de ${doc.fileName}...`);
-        
-        // Pour l'instant, juste afficher les infos
-        console.log("Document info:", doc);
+      const res = await utils.document.getSignedUrl.fetch({
+        documentId,
+        download: true,
+      });
+
+      if (!res?.url) {
+        toast.error("Impossible d'obtenir l'URL du document");
+        return;
       }
-    } catch (error) {
-      toast.error("Échec du téléchargement du document");
+
+      const link = document.createElement("a");
+      link.href = res.url;
+      link.download = fileName ?? "document";
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.click();
+
+      toast.success("Téléchargement lancé");
+    } catch (err) {
+      toast.error("Erreur lors du téléchargement");
     }
   };
-  
+
+
   const handleDelete = (documentId: string) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer ce document ?")) {
       return;
@@ -74,8 +80,8 @@ export function DocumentList({ contractId, canDelete = false }: DocumentListProp
               <DocumentCard
                 key={document.id}
                 document={document}
-                onDownload={handleDownload}
-                onDelete={canDelete ? handleDelete : undefined}
+                onDownload={() => handleDownload(document.document.id, document.document.fileName)}
+                onDelete={canDelete ? () => handleDelete(document.id) : undefined}
                 isDeleting={isDeleting}
                 canDelete={canDelete}
               />

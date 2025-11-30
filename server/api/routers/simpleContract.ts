@@ -2616,19 +2616,18 @@ export const simpleContractRouter = createTRPCRouter({
           await deleteFile(contractDocument.document.s3Key);
         } catch (s3Error) {
           console.error("[deleteDocument] S3 deletion error:", s3Error);
-          // Continue même si S3 échoue (le document sera orphelin dans S3 mais supprimé de la DB)
         }
 
-        // 4. Supprimer l'entrée Document
-        await ctx.prisma.document.delete({
+        // 4. Supprimer l'entrée Document en premier
+        await ctx.prisma.document.deleteMany({
           where: { id: contractDocument.documentId },
         });
 
-        // 5. Supprimer l'entrée ContractDocument (cascade devrait déjà le faire)
-        // Mais on le fait explicitement pour être sûr
-        await ctx.prisma.contractDocument.delete({
+        // 5. Supprimer l'entrée ContractDocument ensuite
+        await ctx.prisma.contractDocument.deleteMany({
           where: { id: documentId },
         });
+
 
         // 6. Audit log
         await createAuditLog({
