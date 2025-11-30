@@ -202,6 +202,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.CONTRACT, Action.CREATE, PermissionScope.GLOBAL),
 
     buildPermissionKey(Resource.CONTRACT_MSA, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.CONTRACT_SOW, Action.CREATE, PermissionScope.GLOBAL),
+
 
     buildPermissionKey(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
     //(Resource.COMPANY, Action.CREATE, PermissionScope.OWN),

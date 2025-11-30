@@ -12,6 +12,7 @@ import { CreateSOWModal } from "@/components/contracts/simple/CreateSOWModal";
 import { MinimalContractCard } from "@/components/contracts/simple/MinimalContractCard";
 import { api } from "@/lib/trpc";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useSession } from "next-auth/react";
 
 /**
  * Page de liste des contrats simplifiés (MSA/SOW)
@@ -32,6 +33,17 @@ export default function SimpleContractsPage() {
   // États des modals
   const [showCreateMSA, setShowCreateMSA] = useState(false);
   const [showCreateSOW, setShowCreateSOW] = useState(false);
+
+  // Session & permissions
+  const { data: session } = useSession();
+  const user = session?.user;
+
+  const userPermissions: string[] = user?.permissions || [];
+
+  // Vérifier si user a droit de créer un MSA ou un SOW
+  const canCreateMSA = userPermissions.includes("contract_msa.create.global");
+  const canCreateSOW = userPermissions.includes("contract_sow.create.global");
+
 
   // Debounce de la recherche
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -67,14 +79,19 @@ export default function SimpleContractsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setShowCreateMSA(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Créer un MSA
-          </Button>
-          <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Créer un SOW
-          </Button>
+          {canCreateMSA && (
+            <Button onClick={() => setShowCreateMSA(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Créer un MSA
+            </Button>
+          )}
+
+          {canCreateSOW && (
+            <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Créer un SOW
+            </Button>
+          )}
         </div>
       </div>
 

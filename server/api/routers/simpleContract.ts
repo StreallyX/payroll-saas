@@ -142,15 +142,29 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 5. Créer participant company (optionnel)
-        if (companyId) {
-          await createMinimalParticipant(ctx.prisma, {
-            contractId: contract.id,
-            companyId,
-            role: "client",
-            isPrimary: true,
-          });
-        }
+        // 4. Trouver la company du user (si existe)
+        const userCompany = await ctx.prisma.company.findFirst({
+          where: {
+            tenantId: ctx.tenantId!,
+            companyUsers: {
+              some: { userId: ctx.session!.user.id }
+            }
+          },
+          select: { id: true }
+        });
+
+        // 5. Créer un seul participant pour représenter "la partie créatrice"
+        // - userId = le user connecté
+        // - companyId = fourni ou null
+        // - role = creator
+        // - isPrimary = true toujours
+        await createMinimalParticipant(ctx.prisma, {
+          contractId: contract.id,
+          userId: ctx.session!.user.id,
+          companyId: userCompany?.id ?? undefined,
+          role: "creator",
+          isPrimary: true,
+        });
 
         // 6. Audit log
         await createAuditLog({
