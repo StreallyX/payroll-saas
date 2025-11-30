@@ -52,6 +52,37 @@ export const pdfFileSchema = z.object({
     .max(MAX_PDF_SIZE, `Le fichier est trop volumineux (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
 });
 
+/**
+ * Schéma pour un participant supplémentaire
+ * Au moins un de userId ou companyId doit être fourni
+ */
+export const additionalParticipantSchema = z.object({
+  userId: z.string()
+    .cuid("L'ID du user doit être un CUID valide")
+    .optional(),
+  companyId: z.string()
+    .cuid("L'ID de la company doit être un CUID valide")
+    .optional(),
+  role: z.string()
+    .min(1, "Le rôle est requis")
+    .max(50, "Le rôle est trop long (max 50 caractères)")
+    .default("additional"),
+})
+.refine(
+  (data) => data.userId || data.companyId,
+  {
+    message: "Au moins un de userId ou companyId doit être fourni",
+    path: ["userId"],
+  }
+);
+
+/**
+ * Tableau de participants supplémentaires pour la création de contrats
+ */
+export const additionalParticipantsSchema = z.array(additionalParticipantSchema)
+  .optional()
+  .default([]);
+
 // ============================================================================
 // SCHÉMAS POUR LES ENDPOINTS
 // ============================================================================
@@ -59,19 +90,20 @@ export const pdfFileSchema = z.object({
 /**
  * 1. CREATE SIMPLE MSA
  * 
- * Input: PDF + informations minimales
+ * Input: PDF + informations minimales + participants supplémentaires
  * Output: Contrat MSA créé avec statut "draft"
  */
 export const createSimpleMSASchema = pdfFileSchema.extend({
   companyId: z.string()
     .cuid("L'ID de la company doit être un CUID valide")
     .optional(),
+  additionalParticipants: additionalParticipantsSchema,
 });
 
 /**
  * 2. CREATE SIMPLE SOW
  * 
- * Input: PDF + MSA parent + informations minimales
+ * Input: PDF + MSA parent + informations minimales + participants supplémentaires
  * Output: Contrat SOW créé avec statut "draft"
  */
 export const createSimpleSOWSchema = pdfFileSchema.extend({
@@ -81,6 +113,7 @@ export const createSimpleSOWSchema = pdfFileSchema.extend({
   companyId: z.string()
     .cuid("L'ID de la company doit être un CUID valide")
     .optional(),
+  additionalParticipants: additionalParticipantsSchema,
 });
 
 /**
@@ -321,6 +354,9 @@ const normContractBaseFields = {
  */
 export const createNormContractSchema = pdfFileSchema
   .extend(normContractBaseFields)
+  .extend({
+    additionalParticipants: additionalParticipantsSchema,
+  })
   .refine(
     (data) => {
       // Validation des dates
@@ -440,3 +476,148 @@ export const contractorSignContractSchema = z.object({
 export type CreateNormContractInput = z.infer<typeof createNormContractSchema>;
 export type UpdateNormContractInput = z.infer<typeof updateNormContractSchema>;
 export type ContractorSignContractInput = z.infer<typeof contractorSignContractSchema>;
+
+// ============================================================================
+// ADDITIONAL PARTICIPANTS SCHEMAS
+// ============================================================================
+
+/**
+ * 14. ADD PARTICIPANT
+ * 
+ * Ajouter un participant à un contrat existant
+ */
+export const addParticipantSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+  userId: z.string()
+    .cuid("L'ID du user doit être un CUID valide")
+    .optional(),
+  companyId: z.string()
+    .cuid("L'ID de la company doit être un CUID valide")
+    .optional(),
+  role: z.string()
+    .min(1, "Le rôle est requis")
+    .max(50, "Le rôle est trop long (max 50 caractères)")
+    .default("additional"),
+})
+.refine(
+  (data) => data.userId || data.companyId,
+  {
+    message: "Au moins un de userId ou companyId doit être fourni",
+    path: ["userId"],
+  }
+);
+
+/**
+ * 15. REMOVE PARTICIPANT
+ * 
+ * Supprimer un participant d'un contrat
+ */
+export const removeParticipantSchema = z.object({
+  participantId: z.string()
+    .cuid("L'ID du participant doit être un CUID valide")
+    .min(1, "L'ID du participant est requis"),
+});
+
+/**
+ * 16. LIST PARTICIPANTS
+ * 
+ * Lister tous les participants d'un contrat
+ */
+export const listParticipantsSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+});
+
+// ============================================================================
+// CONTRACT DOCUMENTS SCHEMAS
+// ============================================================================
+
+/**
+ * Catégories de documents disponibles
+ */
+export const documentCategoryEnum = z.enum([
+  "Contract",
+  "Invoice",
+  "ID Document",
+  "Signature",
+  "Other",
+]);
+
+/**
+ * 17. UPLOAD DOCUMENT
+ * 
+ * Uploader un document pour un contrat
+ */
+export const uploadDocumentSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+  pdfBuffer: z.string()
+    .min(1, "Le fichier ne peut pas être vide"),
+  fileName: z.string()
+    .min(1, "Le nom du fichier est requis")
+    .max(255, "Le nom du fichier est trop long (max 255 caractères)"),
+  mimeType: z.string()
+    .min(1, "Le type MIME est requis"),
+  fileSize: z.number()
+    .int("La taille du fichier doit être un entier")
+    .positive("La taille du fichier doit être positive")
+    .max(MAX_PDF_SIZE, `Le fichier est trop volumineux (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
+  description: z.string()
+    .min(1, "La description est requise")
+    .max(500, "La description est trop longue (max 500 caractères)"),
+  category: documentCategoryEnum,
+  notes: z.string()
+    .max(1000, "Les notes sont trop longues (max 1000 caractères)")
+    .optional(),
+});
+
+/**
+ * 18. LIST DOCUMENTS
+ * 
+ * Lister tous les documents d'un contrat
+ */
+export const listDocumentsSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+});
+
+/**
+ * 19. DELETE DOCUMENT
+ * 
+ * Supprimer un document
+ */
+export const deleteDocumentSchema = z.object({
+  documentId: z.string()
+    .cuid("L'ID du document doit être un CUID valide")
+    .min(1, "L'ID du document est requis"),
+});
+
+/**
+ * 20. DOWNLOAD DOCUMENT
+ * 
+ * Obtenir l'URL signée pour télécharger un document
+ */
+export const downloadDocumentSchema = z.object({
+  documentId: z.string()
+    .cuid("L'ID du document doit être un CUID valide")
+    .min(1, "L'ID du document est requis"),
+});
+
+// ============================================================================
+// TYPES EXPORTÉS POUR PARTICIPANTS ET DOCUMENTS
+// ============================================================================
+
+export type AdditionalParticipantInput = z.infer<typeof additionalParticipantSchema>;
+export type AdditionalParticipantsInput = z.infer<typeof additionalParticipantsSchema>;
+export type AddParticipantInput = z.infer<typeof addParticipantSchema>;
+export type RemoveParticipantInput = z.infer<typeof removeParticipantSchema>;
+export type ListParticipantsInput = z.infer<typeof listParticipantsSchema>;
+export type UploadDocumentInput = z.infer<typeof uploadDocumentSchema>;
+export type ListDocumentsInput = z.infer<typeof listDocumentsSchema>;
+export type DeleteDocumentInput = z.infer<typeof deleteDocumentSchema>;
+export type DownloadDocumentInput = z.infer<typeof downloadDocumentSchema>;

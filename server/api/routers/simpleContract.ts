@@ -34,6 +34,13 @@ import {
   createNormContractSchema,
   updateNormContractSchema,
   contractorSignContractSchema,
+  addParticipantSchema,
+  removeParticipantSchema,
+  listParticipantsSchema,
+  uploadDocumentSchema,
+  listDocumentsSchema,
+  deleteDocumentSchema,
+  downloadDocumentSchema,
 } from "@/server/validators/simpleContract";
 
 // Helpers
@@ -41,6 +48,18 @@ import { generateContractTitle } from "@/server/helpers/contracts/generateContra
 import { createMinimalParticipant } from "@/server/helpers/contracts/createMinimalParticipant";
 import { validateParentMSA } from "@/server/helpers/contracts/validateParentMSA";
 import { isDraft } from "@/server/helpers/contracts/simpleWorkflowTransitions";
+import {
+  canModifyContract,
+  canUploadDocument,
+  canDeleteDocument,
+  canViewContract,
+  isContractParticipant,
+} from "@/server/helpers/contracts/contractPermissions";
+import {
+  validateParticipantAddition,
+  canRemoveParticipant,
+  createAdditionalParticipants,
+} from "@/server/helpers/contracts/participantHelpers";
 
 // ============================================================================
 // PERMISSIONS
@@ -101,7 +120,7 @@ export const simpleContractRouter = createTRPCRouter({
     .use(hasPermission(P.MSA.CREATE_GLOBAL))
     .input(createSimpleMSASchema)
     .mutation(async ({ ctx, input }) => {
-      const { pdfBuffer, fileName, mimeType, fileSize, companyId } = input;
+      const { pdfBuffer, fileName, mimeType, fileSize, companyId, additionalParticipants } = input;
 
       try {
         // 1. Générer titre depuis filename
@@ -168,6 +187,11 @@ export const simpleContractRouter = createTRPCRouter({
           role: "creator",
           isPrimary: true,
         });
+
+        // 5b. Créer les participants supplémentaires (si fournis)
+        if (additionalParticipants && additionalParticipants.length > 0) {
+          await createAdditionalParticipants(ctx.prisma, contract.id, additionalParticipants);
+        }
 
         // 6. Audit log
         await createAuditLog({
@@ -250,7 +274,7 @@ export const simpleContractRouter = createTRPCRouter({
   .use(hasPermission(P.CONTRACT.CREATE_GLOBAL)) // ← permission correcte
   .input(createSimpleSOWSchema)
   .mutation(async ({ ctx, input }) => {
-    const { pdfBuffer, fileName, mimeType, fileSize, parentMSAId, companyId } = input;
+    const { pdfBuffer, fileName, mimeType, fileSize, parentMSAId, companyId, additionalParticipants } = input;
 
     try {
       // 1. Valider le MSA parent
@@ -319,6 +343,11 @@ export const simpleContractRouter = createTRPCRouter({
           role: "client",
           isPrimary: true,
         });
+      }
+
+      // 6b. Créer les participants supplémentaires (si fournis)
+      if (additionalParticipants && additionalParticipants.length > 0) {
+        await createAdditionalParticipants(ctx.prisma, contract.id, additionalParticipants);
       }
 
       // 7. Audit log
@@ -1230,6 +1259,35 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
+        // 2b. Charger les documents partagés (ContractDocuments)
+        const sharedDocuments = await ctx.prisma.contractDocument.findMany({
+          where: {
+            contractId: contract.id,
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            document: {
+              select: {
+                id: true,
+                fileName: true,
+                fileSize: true,
+                mimeType: true,
+                s3Key: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
         // 3️⃣ Enrichir le statusHistory pour matcher le front
         const enrichedStatusHistory = await Promise.all(
           contract.statusHistory.map(async (h) => {
@@ -1255,6 +1313,7 @@ export const simpleContractRouter = createTRPCRouter({
           ...contract,
           statusHistory: enrichedStatusHistory,
           documents,
+          sharedDocuments,
         };
 
       } catch (error) {
@@ -1425,6 +1484,7 @@ export const simpleContractRouter = createTRPCRouter({
         contractVatRate,
         contractCountryId,
         clientAgencySignDate,
+        additionalParticipants,
       } = input;
 
       try {
@@ -1540,6 +1600,11 @@ export const simpleContractRouter = createTRPCRouter({
             role: "payroll",
             isPrimary: false,
           });
+        }
+
+        // 5b. Créer les participants supplémentaires (si fournis)
+        if (additionalParticipants && additionalParticipants.length > 0) {
+          await createAdditionalParticipants(ctx.prisma, contract.id, additionalParticipants);
         }
 
         // 6. Audit log
@@ -1878,6 +1943,715 @@ export const simpleContractRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Échec de la signature du contrat",
+          cause: error,
+        });
+      }
+    }),
+
+  // ============================================================================
+  // PARTICIPANT MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  /**
+   * ADD PARTICIPANT
+   * 
+   * Ajouter un participant supplémentaire à un contrat existant.
+   * 
+   * Permissions:
+   * - contract.update.global : peut ajouter à n'importe quel contrat
+   * - contract.update.own : peut ajouter à ses propres contrats
+   * 
+   * Validation:
+   * - Le contrat doit être en draft ou pending
+   * - Au moins userId ou companyId doit être fourni
+   * - L'utilisateur/company doit exister
+   */
+  addParticipant: tenantProcedure
+    .input(addParticipantSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { contractId, userId, companyId, role } = input;
+
+        // 1. Vérifier les permissions
+        const canModify = await canModifyContract(
+          ctx.prisma,
+          contractId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canModify) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission de modifier ce contrat",
+          });
+        }
+
+        // 2. Valider l'ajout du participant
+        await validateParticipantAddition(ctx.prisma, contractId, userId, companyId);
+
+        // 3. Vérifier si le participant existe déjà
+        const existingParticipant = await ctx.prisma.contractParticipant.findFirst({
+          where: {
+            contractId,
+            ...(userId && { userId }),
+            ...(companyId && { companyId }),
+            role,
+          },
+        });
+
+        if (existingParticipant) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Ce participant existe déjà pour ce contrat",
+          });
+        }
+
+        // 4. Créer le participant
+        const participant = await ctx.prisma.contractParticipant.create({
+          data: {
+            contractId,
+            userId: userId || null,
+            companyId: companyId || null,
+            role,
+            isPrimary: false,
+            requiresSignature: false,
+            approved: false,
+            isActive: true,
+            joinedAt: new Date(),
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        });
+
+        // 5. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contractId,
+          entityName: "Contract Participant",
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "add_participant",
+            participantId: participant.id,
+            userId,
+            companyId,
+            role,
+          },
+        });
+
+        return {
+          success: true,
+          participant,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[addParticipant] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de l'ajout du participant",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * REMOVE PARTICIPANT
+   * 
+   * Supprimer un participant d'un contrat.
+   * 
+   * Permissions:
+   * - contract.update.global : peut supprimer de n'importe quel contrat
+   * - contract.update.own : peut supprimer de ses propres contrats
+   * 
+   * Restrictions:
+   * - Les participants principaux (company_tenant, agency, contractor) ne peuvent pas être supprimés
+   * - Le contrat doit être en draft ou pending
+   */
+  removeParticipant: tenantProcedure
+    .input(removeParticipantSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { participantId } = input;
+
+        // 1. Récupérer le participant
+        const participant = await ctx.prisma.contractParticipant.findUnique({
+          where: { id: participantId },
+          include: {
+            contract: {
+              select: {
+                id: true,
+                workflowStatus: true,
+              },
+            },
+          },
+        });
+
+        if (!participant) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Participant introuvable",
+          });
+        }
+
+        // 2. Vérifier les permissions
+        const canModify = await canModifyContract(
+          ctx.prisma,
+          participant.contractId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canModify) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission de modifier ce contrat",
+          });
+        }
+
+        // 3. Vérifier que le contrat n'est pas completed/active
+        if (
+          participant.contract.workflowStatus === "completed" ||
+          participant.contract.workflowStatus === "active"
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Impossible de supprimer des participants d'un contrat complété ou actif",
+          });
+        }
+
+        // 4. Vérifier que ce n'est pas un participant principal
+        if (!canRemoveParticipant(participant.role)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Impossible de supprimer un participant principal (company_tenant, agency, contractor)",
+          });
+        }
+
+        // 5. Supprimer le participant
+        await ctx.prisma.contractParticipant.delete({
+          where: { id: participantId },
+        });
+
+        // 6. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.DELETE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: participant.contractId,
+          entityName: "Contract Participant",
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "remove_participant",
+            participantId,
+            role: participant.role,
+          },
+        });
+
+        return {
+          success: true,
+          message: "Participant supprimé avec succès",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[removeParticipant] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la suppression du participant",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * LIST PARTICIPANTS
+   * 
+   * Lister tous les participants d'un contrat.
+   * 
+   * Permissions:
+   * - contract.read.global : peut lister les participants de tous les contrats
+   * - contract.read.own : peut lister les participants de ses contrats
+   */
+  listParticipants: tenantProcedure
+    .input(listParticipantsSchema)
+    .query(async ({ ctx, input }) => {
+      try {
+        const { contractId } = input;
+
+        // 1. Vérifier que l'utilisateur peut voir ce contrat
+        const canView = await canViewContract(
+          ctx.prisma,
+          contractId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canView) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission de voir ce contrat",
+          });
+        }
+
+        // 2. Récupérer tous les participants
+        const participants = await ctx.prisma.contractParticipant.findMany({
+          where: {
+            contractId,
+            isActive: true,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+            company: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+                contactEmail: true,
+                contactPhone: true,
+              },
+            },
+          },
+          orderBy: [
+            { isPrimary: "desc" },
+            { createdAt: "asc" },
+          ],
+        });
+
+        return {
+          success: true,
+          participants,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[listParticipants] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la récupération des participants",
+          cause: error,
+        });
+      }
+    }),
+
+  // ============================================================================
+  // DOCUMENT MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  /**
+   * UPLOAD DOCUMENT
+   * 
+   * Uploader un document partagé pour un contrat.
+   * Tous les participants peuvent uploader des documents.
+   * 
+   * Permissions:
+   * - Être participant du contrat
+   * - Le contrat ne doit pas être "completed" ou "active"
+   * - Exception: contract.update.global peut toujours uploader
+   */
+  uploadDocument: tenantProcedure
+    .input(uploadDocumentSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { contractId, pdfBuffer, fileName, mimeType, fileSize, description, category, notes } = input;
+
+        // 1. Vérifier que l'utilisateur peut uploader
+        const canUpload = await canUploadDocument(
+          ctx.prisma,
+          contractId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canUpload) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission d'uploader des documents pour ce contrat",
+          });
+        }
+
+        // 2. Vérifier que le contrat existe
+        const contract = await ctx.prisma.contract.findUnique({
+          where: { id: contractId },
+          select: {
+            id: true,
+            title: true,
+            workflowStatus: true,
+          },
+        });
+
+        if (!contract) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Contrat introuvable",
+          });
+        }
+
+        // 3. Upload du fichier vers S3
+        const buffer = Buffer.from(pdfBuffer, "base64");
+        const s3Key = `contracts/${contractId}/documents/${Date.now()}-${fileName}`;
+        
+        await uploadFile(s3Key, buffer, mimeType);
+
+        // 4. Créer l'entrée Document
+        const document = await ctx.prisma.document.create({
+          data: {
+            tenantId: ctx.tenantId!,
+            entityType: "contract_document",
+            entityId: contractId,
+            s3Key,
+            fileName,
+            mimeType,
+            fileSize,
+            description,
+            category,
+            uploadedBy: ctx.session!.user.id,
+            uploadedAt: new Date(),
+          },
+        });
+
+        // 5. Créer l'entrée ContractDocument
+        const contractDocument = await ctx.prisma.contractDocument.create({
+          data: {
+            contractId,
+            uploadedByUserId: ctx.session!.user.id,
+            documentId: document.id,
+            description,
+            category,
+            notes: notes || null,
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            document: {
+              select: {
+                id: true,
+                fileName: true,
+                fileSize: true,
+                mimeType: true,
+                createdAt: true,
+              },
+            },
+          },
+        });
+
+        // 6. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contractId,
+          entityName: `Contract Document - ${fileName}`,
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "upload_document",
+            documentId: document.id,
+            contractDocumentId: contractDocument.id,
+            fileName,
+            category,
+          },
+        });
+
+        return {
+          success: true,
+          document: contractDocument,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[uploadDocument] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de l'upload du document",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * LIST DOCUMENTS
+   * 
+   * Lister tous les documents partagés d'un contrat.
+   * Tous les participants peuvent voir les documents.
+   * 
+   * Permissions:
+   * - Être participant du contrat OU avoir contract.read.global
+   */
+  listDocuments: tenantProcedure
+    .input(listDocumentsSchema)
+    .query(async ({ ctx, input }) => {
+      try {
+        const { contractId } = input;
+
+        // 1. Vérifier que l'utilisateur peut voir ce contrat
+        const canView = await canViewContract(
+          ctx.prisma,
+          contractId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canView) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission de voir ce contrat",
+          });
+        }
+
+        // 2. Récupérer tous les documents
+        const documents = await ctx.prisma.contractDocument.findMany({
+          where: {
+            contractId,
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            document: {
+              select: {
+                id: true,
+                fileName: true,
+                fileSize: true,
+                mimeType: true,
+                s3Key: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
+        return {
+          success: true,
+          documents,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[listDocuments] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la récupération des documents",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * DELETE DOCUMENT
+   * 
+   * Supprimer un document partagé.
+   * Seul l'uploader ou un admin (contract.update.global) peut supprimer.
+   * 
+   * Permissions:
+   * - Être l'uploader du document OU avoir contract.update.global
+   * - Le contrat ne doit pas être "completed" ou "active"
+   */
+  deleteDocument: tenantProcedure
+    .input(deleteDocumentSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { documentId } = input;
+
+        // 1. Récupérer le document
+        const contractDocument = await ctx.prisma.contractDocument.findUnique({
+          where: { id: documentId },
+          include: {
+            document: {
+              select: {
+                id: true,
+                s3Key: true,
+                fileName: true,
+              },
+            },
+            contract: {
+              select: {
+                id: true,
+                workflowStatus: true,
+              },
+            },
+          },
+        });
+
+        if (!contractDocument) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Document introuvable",
+          });
+        }
+
+        // 2. Vérifier les permissions
+        const canDelete = await canDeleteDocument(
+          ctx.prisma,
+          documentId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canDelete) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission de supprimer ce document",
+          });
+        }
+
+        // 3. Supprimer le fichier de S3
+        try {
+          await deleteFile(contractDocument.document.s3Key);
+        } catch (s3Error) {
+          console.error("[deleteDocument] S3 deletion error:", s3Error);
+          // Continue même si S3 échoue (le document sera orphelin dans S3 mais supprimé de la DB)
+        }
+
+        // 4. Supprimer l'entrée Document
+        await ctx.prisma.document.delete({
+          where: { id: contractDocument.documentId },
+        });
+
+        // 5. Supprimer l'entrée ContractDocument (cascade devrait déjà le faire)
+        // Mais on le fait explicitement pour être sûr
+        await ctx.prisma.contractDocument.delete({
+          where: { id: documentId },
+        });
+
+        // 6. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name || ctx.session!.user.email,
+          userRole: ctx.session!.user.roleName || "USER",
+          action: AuditAction.DELETE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contractDocument.contractId,
+          entityName: `Contract Document - ${contractDocument.document.fileName}`,
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "delete_document",
+            documentId: contractDocument.documentId,
+            contractDocumentId: documentId,
+            fileName: contractDocument.document.fileName,
+          },
+        });
+
+        return {
+          success: true,
+          message: "Document supprimé avec succès",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[deleteDocument] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la suppression du document",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * DOWNLOAD DOCUMENT
+   * 
+   * Obtenir l'URL signée pour télécharger un document.
+   * Tous les participants peuvent télécharger les documents.
+   * 
+   * Permissions:
+   * - Être participant du contrat OU avoir contract.read.global
+   */
+  downloadDocument: tenantProcedure
+    .input(downloadDocumentSchema)
+    .query(async ({ ctx, input }) => {
+      try {
+        const { documentId } = input;
+
+        // 1. Récupérer le document
+        const contractDocument = await ctx.prisma.contractDocument.findUnique({
+          where: { id: documentId },
+          include: {
+            document: {
+              select: {
+                id: true,
+                s3Key: true,
+                fileName: true,
+                mimeType: true,
+              },
+            },
+          },
+        });
+
+        if (!contractDocument) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Document introuvable",
+          });
+        }
+
+        // 2. Vérifier que l'utilisateur peut voir ce contrat
+        const canView = await canViewContract(
+          ctx.prisma,
+          contractDocument.contractId,
+          ctx.session!.user.id,
+          ctx.userPermissions
+        );
+
+        if (!canView) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Vous n'avez pas la permission de télécharger ce document",
+          });
+        }
+
+        // 3. Générer l'URL signée (utiliser la fonction existante ou générer manuellement)
+        // Pour l'instant, on retourne juste les infos du document
+        // Le frontend utilisera document.getSignedUrl avec l'ID du document
+
+        return {
+          success: true,
+          document: {
+            id: contractDocument.document.id,
+            fileName: contractDocument.document.fileName,
+            mimeType: contractDocument.document.mimeType,
+            s3Key: contractDocument.document.s3Key,
+          },
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[downloadDocument] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la récupération du document",
           cause: error,
         });
       }
