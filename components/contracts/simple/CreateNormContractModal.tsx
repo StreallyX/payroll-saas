@@ -19,6 +19,7 @@ import { UserBankSelect } from "../shared/UserBankSelect";
 import { CountrySelect } from "../shared/CountrySelect";
 import { CycleSelect } from "../shared/CycleSelect";
 import { CurrencySelect } from "../shared/CurrencySelect";
+import { ParticipantPreSelector, type ParticipantPreSelection } from "../shared/ParticipantPreSelector";
 import { useNormContract } from "@/hooks/contracts/useNormContract";
 import { api } from "@/lib/trpc";
 
@@ -52,6 +53,7 @@ export function CreateNormContractModal({
 
   // État du formulaire
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [additionalParticipants, setAdditionalParticipants] = useState<ParticipantPreSelection[]>([]);
   const [formData, setFormData] = useState({
     // Champs essentiels
     companyTenantId: "",
@@ -211,6 +213,15 @@ export function CreateNormContractModal({
       if (formData.contractCountryId) payload.contractCountryId = formData.contractCountryId;
       if (formData.clientAgencySignDate) payload.clientAgencySignDate = new Date(formData.clientAgencySignDate);
 
+      // Participants supplémentaires
+      if (additionalParticipants.length > 0) {
+        payload.additionalParticipants = additionalParticipants.map(p => ({
+          userId: p.userId,
+          companyId: p.companyId,
+          role: p.role,
+        }));
+      }
+
       const result = await createNormContract.mutateAsync(payload);
       if (result?.contract?.id) {
         onSuccess?.(result.contract.id);
@@ -228,6 +239,7 @@ export function CreateNormContractModal({
   const handleClose = () => {
     if (!isCreating) {
       setPdfFile(null);
+      setAdditionalParticipants([]);
       setFormData({
         companyTenantId: "",
         agencyId: "",
@@ -527,6 +539,17 @@ export function CreateNormContractModal({
                 rows={3}
               />
             </div>
+          </div>
+
+          {/* Participants supplémentaires */}
+          <Separator />
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Participants supplémentaires</h3>
+            <ParticipantPreSelector
+              participants={additionalParticipants}
+              onChange={setAdditionalParticipants}
+              showAddButton={true}
+            />
           </div>
         </div>
 

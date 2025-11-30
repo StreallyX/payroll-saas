@@ -71,7 +71,7 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
   };
   
   // Si linkUserCompany est activé et qu'une company est trouvée pour l'utilisateur
-  const effectiveCompanyId = linkUserCompany && userCompany ? userCompany.id : selectedCompanyId;
+  const effectiveCompanyId = linkUserCompany && userCompany?.company ? userCompany.company.id : selectedCompanyId;
   
   return (
     <div className="space-y-4">
@@ -91,7 +91,7 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
               />
             </div>
             
-            {selectedUserId && userCompany && (
+            {selectedUserId && userCompany?.company && (
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="link-company"
@@ -102,7 +102,7 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
                   htmlFor="link-company"
                   className="text-sm font-normal cursor-pointer"
                 >
-                  Lier aussi la company {userCompany.name}
+                  Lier aussi la company {userCompany.company.name}
                 </Label>
               </div>
             )}
@@ -113,7 +113,7 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
                 value={effectiveCompanyId}
                 onChange={setSelectedCompanyId}
                 placeholder="Sélectionnez une company"
-                disabled={linkUserCompany && !!userCompany}
+                disabled={linkUserCompany && !!userCompany?.company}
               />
             </div>
             

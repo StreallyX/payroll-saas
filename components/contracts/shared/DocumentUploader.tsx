@@ -31,7 +31,7 @@ export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProp
   
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<string>("Other");
+  const [category, setCategory] = useState<"Contract" | "Invoice" | "ID Document" | "Signature" | "Other">("Other");
   const [notes, setNotes] = useState("");
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,7 +141,7 @@ export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProp
         
         <div className="space-y-2">
           <Label htmlFor="category">Catégorie *</Label>
-          <Select value={category} onValueChange={setCategory} disabled={isUploading}>
+          <Select value={category} onValueChange={(value) => setCategory(value as typeof category)} disabled={isUploading}>
             <SelectTrigger id="category">
               <SelectValue placeholder="Sélectionnez une catégorie" />
             </SelectTrigger>

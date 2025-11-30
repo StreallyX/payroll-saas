@@ -28,6 +28,7 @@ import {
   adminRejectSchema,
   uploadSignedVersionSchema,
   activateContractSchema,
+  updateSimpleContractSchema,
   listSimpleContractsSchema,
   getSimpleContractByIdSchema,
   deleteDraftContractSchema,
@@ -1065,6 +1066,82 @@ export const simpleContractRouter = createTRPCRouter({
       });
     }
   }),
+
+  /**
+   * 7B. UPDATE SIMPLE CONTRACT
+   * 
+   * Permet de mettre à jour le titre et la description d'un contrat MSA/SOW/NORM
+   * Requis: contract.update.global permission
+   */
+  updateSimpleContract: tenantProcedure
+    .use(hasPermission(P.CONTRACT.UPDATE_GLOBAL))
+    .input(updateSimpleContractSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { contractId, title, description } = input;
+
+      try {
+        // 1. Charger le contrat
+        const contract = await ctx.prisma.contract.findUnique({
+          where: { id: contractId, tenantId: ctx.tenantId! },
+        });
+
+        if (!contract) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Contrat introuvable",
+          });
+        }
+
+        // 2. Construire les données de mise à jour
+        const updateData: any = {};
+        if (title !== undefined) updateData.title = title;
+        if (description !== undefined) updateData.description = description;
+
+        // Si rien à mettre à jour
+        if (Object.keys(updateData).length === 0) {
+          return {
+            success: true,
+            contract,
+          };
+        }
+
+        // 3. Mettre à jour le contrat
+        const updated = await ctx.prisma.contract.update({
+          where: { id: contractId },
+          data: updateData,
+        });
+
+        // 4. Audit log
+        await createAuditLog({
+          userId: ctx.session!.user.id,
+          userName: ctx.session.user.name ?? ctx.session.user.email,
+          userRole: ctx.session.user.roleName ?? "USER",
+          action: AuditAction.UPDATE,
+          entityType: AuditEntityType.CONTRACT,
+          entityId: contract.id,
+          entityName: contract.title ?? "Untitled",
+          tenantId: ctx.tenantId!,
+          metadata: {
+            action: "update_simple_contract",
+            fields: Object.keys(updateData),
+            system: "simple",
+          },
+        });
+
+        return {
+          success: true,
+          contract: updated,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[updateSimpleContract] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la mise à jour du contrat",
+          cause: error,
+        });
+      }
+    }),
 
 
   // ==========================================================================

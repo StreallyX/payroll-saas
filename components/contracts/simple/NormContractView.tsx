@@ -13,6 +13,7 @@ import {
   Globe,
   FileSignature,
   Play,
+  Edit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,13 +24,18 @@ import { ContractStatusTimeline } from "./ContractStatusTimeline";
 import { ContractDocumentViewer } from "./ContractDocumentViewer";
 import { AdminReviewModal } from "./AdminReviewModal";
 import { UploadSignedModal } from "./UploadSignedModal";
+import { ModifyContractModal } from "./ModifyContractModal";
 import { ContractorSignatureSection } from "./ContractorSignatureSection";
+import { ParticipantSelector } from "../shared/ParticipantSelector";
+import { DocumentUploader } from "../shared/DocumentUploader";
+import { DocumentList } from "../shared/DocumentList";
 import { useSimpleContractWorkflow } from "@/hooks/contracts/useSimpleContractWorkflow";
 
 interface NormContractViewProps {
   contract: {
     id: string;
     title: string | null;
+    description: string | null;
     type: string;
     status: string;
     createdAt: Date | string;
@@ -112,6 +118,7 @@ interface NormContractViewProps {
 export function NormContractView({ contract, permissions, onUpdate }: NormContractViewProps) {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showUploadSignedModal, setShowUploadSignedModal] = useState(false);
+  const [showModifyModal, setShowModifyModal] = useState(false);
 
   const { submitForReview, activateContract, isProcessing } = useSimpleContractWorkflow();
 
@@ -198,6 +205,12 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
 
           {/* Actions principales */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {permissions.canUpdate && (
+              <Button variant="outline" onClick={() => setShowModifyModal(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Modifier
+              </Button>
+            )}
             {isDraft && permissions.canUpdate && (
               <Button onClick={handleSubmitForReview} disabled={isProcessing}>
                 Soumettre pour validation
@@ -276,6 +289,12 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
               )}
             </CardContent>
           </Card>
+
+          {/* Tous les participants (y compris additionnels) */}
+          <ParticipantSelector
+            contractId={contract.id}
+            canModify={permissions.canUpdate && !isActive}
+          />
 
           {/* Dates et période */}
           <Card>
@@ -500,6 +519,39 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
               }}
             />
           )}
+
+          {/* Documents partagés */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents partagés</CardTitle>
+              <CardDescription>
+                Documents additionnels liés à ce contrat
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Liste des documents */}
+              <DocumentList
+                contractId={contract.id}
+                canDelete={permissions.canUpdate && !isActive}
+              />
+
+              {/* Upload de documents (si le contrat n'est pas actif) */}
+              {!isActive && permissions.canUpdate && (
+                <div className="border-t pt-4">
+                  <DocumentUploader
+                    contractId={contract.id}
+                    onSuccess={onUpdate}
+                  />
+                </div>
+              )}
+
+              {isActive && (
+                <div className="text-sm text-muted-foreground text-center py-4 border-t">
+                  Ce contrat est actif. Vous ne pouvez plus ajouter de documents.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Colonne latérale */}
@@ -526,6 +578,13 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
         contractId={contract.id}
         contractTitle={contract.title || undefined}
         onSuccess={onUpdate}
+      />
+
+      <ModifyContractModal
+        contract={contract}
+        isOpen={showModifyModal}
+        onClose={() => setShowModifyModal(false)}
+        onSuccess={() => onUpdate?.()}
       />
     </div>
   );

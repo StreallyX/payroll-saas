@@ -198,6 +198,24 @@ export const activateContractSchema = z.object({
 });
 
 /**
+ * 7B. UPDATE SIMPLE CONTRACT (TITRE ET DESCRIPTION)
+ * 
+ * Permet de mettre à jour le titre et la description d'un contrat MSA/SOW/NORM
+ */
+export const updateSimpleContractSchema = z.object({
+  contractId: z.string()
+    .cuid("L'ID du contrat doit être un CUID valide")
+    .min(1, "L'ID du contrat est requis"),
+  title: z.string()
+    .min(1, "Le titre est requis")
+    .max(200, "Le titre est trop long (max 200 caractères)")
+    .optional(),
+  description: z.string()
+    .max(1000, "La description est trop longue (max 1000 caractères)")
+    .optional(),
+});
+
+/**
  * 8. LIST SIMPLE CONTRACTS
  * 
  * Filtres et pagination pour la liste des contrats
@@ -251,6 +269,7 @@ export type AdminApproveInput = z.infer<typeof adminApproveSchema>;
 export type AdminRejectInput = z.infer<typeof adminRejectSchema>;
 export type UploadSignedVersionInput = z.infer<typeof uploadSignedVersionSchema>;
 export type ActivateContractInput = z.infer<typeof activateContractSchema>;
+export type UpdateSimpleContractInput = z.infer<typeof updateSimpleContractSchema>;
 export type ListSimpleContractsInput = z.infer<typeof listSimpleContractsSchema>;
 export type GetSimpleContractByIdInput = z.infer<typeof getSimpleContractByIdSchema>;
 export type DeleteDraftContractInput = z.infer<typeof deleteDraftContractSchema>;
