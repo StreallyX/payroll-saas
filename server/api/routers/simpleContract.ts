@@ -1196,6 +1196,15 @@ export const simpleContractRouter = createTRPCRouter({
             statusHistory: {
               orderBy: { changedAt: "desc" },
             },
+            currency: {
+              select: { id: true, code: true, name: true, symbol: true },
+            },
+            contractCountry: {
+              select: { id: true, code: true, name: true },
+            },
+            bank: {
+              select: { id: true, name: true, accountNumber: true },
+            },
           },
         });
 

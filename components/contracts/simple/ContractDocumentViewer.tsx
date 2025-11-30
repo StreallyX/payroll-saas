@@ -179,7 +179,7 @@ export function ContractDocumentViewer({
             </div>
           ) : pdfUrl ? (
             <iframe
-              src={`${pdfUrl}#toolbar=0&navpanes=0`}
+              src={pdfUrl}
               className="w-full h-[600px] border-0"
               title={document.fileName}
             />

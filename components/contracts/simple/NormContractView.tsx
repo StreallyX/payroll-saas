@@ -48,14 +48,16 @@ interface NormContractViewProps {
     salaryType?: string | null;
     
     userBank?: { id: string; name: string | null; accountNumber: string | null } | null;
+    bank?: { id: string; name: string | null; accountNumber: string | null } | null;
     userBanks?: Array<{ id: string; name: string | null; accountNumber: string | null }> | null;
     
+    rate?: number | null;
     rateAmount?: number | null;
-    rateCurrency?: string | null;
     rateCycle?: string | null;
+    currency?: { id: string; code: string; name: string; symbol: string | null } | null;
     
+    margin?: number | null;
     marginAmount?: number | null;
-    marginCurrency?: string | null;
     marginType?: string | null;
     marginPaidBy?: string | null;
     
@@ -63,7 +65,7 @@ interface NormContractViewProps {
     notes?: string | null;
     contractReference?: string | null;
     contractVatRate?: number | null;
-    contractCountry?: { id: string; name: string } | null;
+    contractCountry?: { id: string; code: string; name: string } | null;
     
     clientAgencySignDate?: Date | string | null;
     contractorSignedAt?: Date | string | null;
@@ -154,14 +156,6 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
       month: "long",
       year: "numeric",
     });
-  };
-
-  /**
-   * Formate le montant
-   */
-  const formatAmount = (amount: number | null | undefined, currency: string | null | undefined): string => {
-    if (!amount) return "-";
-    return `${amount.toFixed(2)} ${currency || ""}`;
   };
 
   /**
@@ -319,15 +313,15 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
                 <Badge className="mt-1">{contract.salaryType || "-"}</Badge>
               </div>
 
-              {contract.salaryType === "gross" && contract.userBank && (
+              {contract.salaryType === "gross" && (contract.userBank || contract.bank) && (
                 <div className="pt-3 border-t">
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
                     Méthode de paiement
                   </p>
                   <p className="font-medium mt-1">
-                    {contract.userBank.name || "Compte bancaire"}
-                    {contract.userBank.accountNumber && ` - ••••${contract.userBank.accountNumber.slice(-4)}`}
+                    {(contract.userBank?.name || contract.bank?.name) || "Compte bancaire"}
+                    {((contract.userBank?.accountNumber || contract.bank?.accountNumber)) && ` - ••••${(contract.userBank?.accountNumber || contract.bank?.accountNumber)?.slice(-4)}`}
                   </p>
                 </div>
               )}
@@ -367,7 +361,7 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
           </Card>
 
           {/* Tarification */}
-          {(contract.rateAmount || contract.rateCurrency || contract.rateCycle) && (
+          {(contract.rate || contract.rateAmount || contract.currency || contract.rateCycle) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -379,11 +373,19 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Montant</p>
-                    <p className="font-medium">{formatAmount(contract.rateAmount, contract.rateCurrency)}</p>
+                    <p className="font-medium">
+                      {(contract.rate || contract.rateAmount) 
+                        ? `${Number(contract.rate || contract.rateAmount).toFixed(2)} ${contract.currency?.code || ""}`
+                        : "-"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Devise</p>
-                    <p className="font-medium">{contract.rateCurrency || "-"}</p>
+                    <p className="font-medium">
+                      {contract.currency 
+                        ? `${contract.currency.code}${contract.currency.symbol ? ` (${contract.currency.symbol})` : ""}`
+                        : "-"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Cycle</p>
@@ -395,7 +397,7 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
           )}
 
           {/* Marge */}
-          {(contract.marginAmount || contract.marginType || contract.marginPaidBy) && (
+          {(contract.margin || contract.marginAmount || contract.marginType || contract.marginPaidBy) && (
             <Card>
               <CardHeader>
                 <CardTitle>Marge</CardTitle>
@@ -404,7 +406,11 @@ export function NormContractView({ contract, permissions, onUpdate }: NormContra
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Montant</p>
-                    <p className="font-medium">{formatAmount(contract.marginAmount, contract.marginCurrency)}</p>
+                    <p className="font-medium">
+                      {(contract.margin || contract.marginAmount) 
+                        ? `${Number(contract.margin || contract.marginAmount).toFixed(2)} ${contract.currency?.code || ""}`
+                        : "-"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Type</p>

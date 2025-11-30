@@ -18,7 +18,9 @@ import { UserSelect } from "../shared/UserSelect";
 import { UserBankSelect } from "../shared/UserBankSelect";
 import { CountrySelect } from "../shared/CountrySelect";
 import { CycleSelect } from "../shared/CycleSelect";
+import { CurrencySelect } from "../shared/CurrencySelect";
 import { useNormContract } from "@/hooks/contracts/useNormContract";
+import { api } from "@/lib/trpc";
 
 interface CreateNormContractModalProps {
   open: boolean;
@@ -45,6 +47,9 @@ export function CreateNormContractModal({
   const router = useRouter();
   const { createNormContract, isCreating } = useNormContract();
 
+  // Récupérer les devises pour la conversion ID -> code
+  const { data: currencies } = api.currency.getAll.useQuery();
+
   // État du formulaire
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
@@ -63,12 +68,12 @@ export function CreateNormContractModal({
     
     // Champs optionnels - Tarification
     rateAmount: "",
-    rateCurrency: "EUR",
+    rateCurrencyId: "",
     rateCycle: "",
     
     // Champs optionnels - Marge
     marginAmount: "",
-    marginCurrency: "EUR",
+    marginCurrencyId: "",
     marginType: "" as "fixed" | "percentage" | "",
     marginPaidBy: "" as "client" | "agency" | "",
     
@@ -139,6 +144,15 @@ export function CreateNormContractModal({
   };
 
   /**
+   * Convertit un currencyId en code de devise
+   */
+  const getCurrencyCode = (currencyId: string): string | undefined => {
+    if (!currencyId || !currencies) return undefined;
+    const currency = currencies.find((c: any) => c.id === currencyId);
+    return currency?.code;
+  };
+
+  /**
    * Soumet le formulaire
    */
   const handleSubmit = async () => {
@@ -178,12 +192,14 @@ export function CreateNormContractModal({
 
       // Champs optionnels - Tarification
       if (formData.rateAmount) payload.rateAmount = parseFloat(formData.rateAmount);
-      if (formData.rateCurrency) payload.rateCurrency = formData.rateCurrency;
+      const rateCurrencyCode = getCurrencyCode(formData.rateCurrencyId);
+      if (rateCurrencyCode) payload.rateCurrency = rateCurrencyCode;
       if (formData.rateCycle) payload.rateCycle = formData.rateCycle;
 
       // Champs optionnels - Marge
       if (formData.marginAmount) payload.marginAmount = parseFloat(formData.marginAmount);
-      if (formData.marginCurrency) payload.marginCurrency = formData.marginCurrency;
+      const marginCurrencyCode = getCurrencyCode(formData.marginCurrencyId);
+      if (marginCurrencyCode) payload.marginCurrency = marginCurrencyCode;
       if (formData.marginType) payload.marginType = formData.marginType;
       if (formData.marginPaidBy) payload.marginPaidBy = formData.marginPaidBy;
 
@@ -223,10 +239,10 @@ export function CreateNormContractModal({
         payrollUserId: "",
         userBankIds: [],
         rateAmount: "",
-        rateCurrency: "EUR",
+        rateCurrencyId: "",
         rateCycle: "",
         marginAmount: "",
-        marginCurrency: "EUR",
+        marginCurrencyId: "",
         marginType: "",
         marginPaidBy: "",
         invoiceDueDays: "",
@@ -416,15 +432,12 @@ export function CreateNormContractModal({
                   placeholder="0.00"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Devise</Label>
-                <Input
-                  value={formData.rateCurrency}
-                  onChange={(e) => updateField("rateCurrency", e.target.value)}
-                  disabled={isCreating}
-                  maxLength={3}
-                />
-              </div>
+              <CurrencySelect
+                value={formData.rateCurrencyId}
+                onChange={(v) => updateField("rateCurrencyId", v)}
+                label="Devise"
+                disabled={isCreating}
+              />
               <CycleSelect
                 value={formData.rateCycle}
                 onChange={(v) => updateField("rateCycle", v)}
@@ -436,7 +449,7 @@ export function CreateNormContractModal({
           {/* Section: Marge (optionnelle) */}
           <div className="space-y-4">
             <h3 className="font-semibold">Marge (optionnel)</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Montant de la marge</Label>
                 <Input
@@ -448,6 +461,12 @@ export function CreateNormContractModal({
                   placeholder="0.00"
                 />
               </div>
+              <CurrencySelect
+                value={formData.marginCurrencyId}
+                onChange={(v) => updateField("marginCurrencyId", v)}
+                label="Devise"
+                disabled={isCreating}
+              />
               <div className="space-y-2">
                 <Label>Type de marge</Label>
                 <Select
