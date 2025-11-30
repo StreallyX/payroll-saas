@@ -1971,13 +1971,14 @@ export const simpleContractRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         const { contractId, userId, companyId, role } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Vérifier les permissions
         const canModify = await canModifyContract(
           ctx.prisma,
           contractId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canModify) {
@@ -2089,6 +2090,7 @@ export const simpleContractRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         const { participantId } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Récupérer le participant
         const participant = await ctx.prisma.contractParticipant.findUnique({
@@ -2115,7 +2117,7 @@ export const simpleContractRouter = createTRPCRouter({
           ctx.prisma,
           participant.contractId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canModify) {
@@ -2195,13 +2197,14 @@ export const simpleContractRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         const { contractId } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Vérifier que l'utilisateur peut voir ce contrat
         const canView = await canViewContract(
           ctx.prisma,
           contractId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canView) {
@@ -2230,7 +2233,6 @@ export const simpleContractRouter = createTRPCRouter({
               select: {
                 id: true,
                 name: true,
-                role: true,
                 contactEmail: true,
                 contactPhone: true,
               },
@@ -2277,13 +2279,14 @@ export const simpleContractRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         const { contractId, pdfBuffer, fileName, mimeType, fileSize, description, category, notes } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Vérifier que l'utilisateur peut uploader
         const canUpload = await canUploadDocument(
           ctx.prisma,
           contractId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canUpload) {
@@ -2312,9 +2315,9 @@ export const simpleContractRouter = createTRPCRouter({
 
         // 3. Upload du fichier vers S3
         const buffer = Buffer.from(pdfBuffer, "base64");
-        const s3Key = `contracts/${contractId}/documents/${Date.now()}-${fileName}`;
+        const s3FileName = `contracts/${contractId}/documents/${Date.now()}-${fileName}`;
         
-        await uploadFile(s3Key, buffer, mimeType);
+        const s3Key = await uploadFile(buffer, s3FileName, mimeType);
 
         // 4. Créer l'entrée Document
         const document = await ctx.prisma.document.create({
@@ -2411,13 +2414,14 @@ export const simpleContractRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         const { contractId } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Vérifier que l'utilisateur peut voir ce contrat
         const canView = await canViewContract(
           ctx.prisma,
           contractId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canView) {
@@ -2486,6 +2490,7 @@ export const simpleContractRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         const { documentId } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Récupérer le document
         const contractDocument = await ctx.prisma.contractDocument.findUnique({
@@ -2519,7 +2524,7 @@ export const simpleContractRouter = createTRPCRouter({
           ctx.prisma,
           documentId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canDelete) {
@@ -2595,6 +2600,7 @@ export const simpleContractRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         const { documentId } = input;
+        const userPermissions = ctx.session!.user.permissions || [];
 
         // 1. Récupérer le document
         const contractDocument = await ctx.prisma.contractDocument.findUnique({
@@ -2623,7 +2629,7 @@ export const simpleContractRouter = createTRPCRouter({
           ctx.prisma,
           contractDocument.contractId,
           ctx.session!.user.id,
-          ctx.userPermissions
+          userPermissions
         );
 
         if (!canView) {
@@ -2652,6 +2658,62 @@ export const simpleContractRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Échec de la récupération du document",
+          cause: error,
+        });
+      }
+    }),
+
+  // ============================================================================
+  // UTILITY ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET USER COMPANY
+   * 
+   * Récupère la company associée à un utilisateur.
+   * Utile pour la fonctionnalité "lier la company du user".
+   * 
+   * Permissions:
+   * - Accessible à tous les utilisateurs authentifiés
+   */
+  getUserCompany: tenantProcedure
+    .input(z.object({
+      userId: z.string().cuid(),
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { userId } = input;
+
+        // Chercher une CompanyUser active pour cet utilisateur
+        const companyUser = await ctx.prisma.companyUser.findFirst({
+          where: {
+            userId,
+            isActive: true,
+          },
+          include: {
+            company: {
+              select: {
+                id: true,
+                name: true,
+                contactEmail: true,
+                contactPhone: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc", // Prendre la plus récente si plusieurs
+          },
+        });
+
+        return {
+          success: true,
+          company: companyUser?.company || null,
+        };
+      } catch (error) {
+        console.error("[getUserCompany] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la récupération de la company",
           cause: error,
         });
       }

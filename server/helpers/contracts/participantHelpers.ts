@@ -248,7 +248,6 @@ export async function getUserCompany(
           select: {
             id: true,
             name: true,
-            role: true,
           },
         },
       },
