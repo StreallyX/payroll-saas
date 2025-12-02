@@ -338,7 +338,17 @@ const normContractBaseFields = {
   marginPaidBy: z.enum(["client", "agency"], {
     errorMap: () => ({ message: "La marge doit être payée par: client ou agency" }),
   }).optional(),
-  
+
+  invoiceDueTerm: z.enum([
+    "upon_receipt",
+    "7_days",
+    "15_days",
+    "30_days",
+    "45_days",
+  ], {
+    errorMap: () => ({ message: "Invoice Due Term invalide" }),
+  }).optional(),
+
   // Champs optionnels - Autres
   invoiceDueDays: z.number()
     .int("Le nombre de jours doit être un entier")
@@ -393,13 +403,13 @@ export const createNormContractSchema = pdfFileSchema
     (data) => {
       // Validation conditionnelle selon salaryType
       if (data.salaryType === "gross") {
-        return !!data.userBankId;
+        return true;
       }
       if (data.salaryType === "payroll" || data.salaryType === "payroll_we_pay") {
         return !!data.payrollUserId;
       }
       if (data.salaryType === "split") {
-        return data.userBankIds && data.userBankIds.length > 0;
+        return true;
       }
       return true;
     },
@@ -435,7 +445,7 @@ export const updateNormContractSchema = z.object({
     .optional(),
   
   salaryType: z.enum(["gross", "payroll", "payroll_we_pay", "split"]).optional(),
-  userBankId: z.string().cuid().optional(),
+  userBankId: z.string().optional(),
   payrollUserId: z.string().cuid().optional(),
   userBankIds: z.array(z.string().cuid()).optional(),
   

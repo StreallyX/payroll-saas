@@ -1519,15 +1519,15 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Crée un contrat NORM (Normal Contract) avec upload PDF
-   * 
+   * Creates a NORM contract (Normal Contract) with PDF upload
+   *
    * Workflow:
-   * - Upload PDF vers S3
-   * - Création du contrat avec statut "draft" et type "norm"
-   * - Création de 3 participants: companyTenant, agency, contractor
-   * - Gestion conditionnelle selon salaryType (gross, payroll, split)
-   * - Création du document lié
-   * 
+   * - Upload PDF to S3
+   * - Create contract with "draft" status
+   * - Create participants: companyTenant, agency, contractor (+ payroll)
+   * - Handle salaryType logic (gross, payroll, split)
+   * - Link main contract document
+   *
    * @permission contract_norm.create
    */
   createNormContract: tenantProcedure
@@ -1539,35 +1539,47 @@ export const simpleContractRouter = createTRPCRouter({
         fileName,
         mimeType,
         fileSize,
+
         companyTenantId,
         agencyId,
         contractorId,
+
         startDate,
         endDate,
+
         salaryType,
         userBankId,
         payrollUserId,
         userBankIds,
+
         rateAmount,
         rateCurrency,
         rateCycle,
+
         marginAmount,
         marginCurrency,
         marginType,
         marginPaidBy,
-        invoiceDueDays,
+        invoiceDueTerm,
+
         notes,
         contractReference,
         contractVatRate,
         contractCountryId,
         clientAgencySignDate,
+
         additionalParticipants,
       } = input;
 
       try {
-        // 1. Générer titre depuis filename
+        // -------------------------------
+        // 1. Generate title from filename
+        // -------------------------------
         const title = generateContractTitle(fileName);
 
+        // -------------------------------
+        // 2. Convert currency code → ID
+        // -------------------------------
         let currencyId: string | null = null;
 
         if (rateCurrency) {
@@ -1579,7 +1591,9 @@ export const simpleContractRouter = createTRPCRouter({
           currencyId = currency?.id ?? null;
         }
 
-        // 2. Créer le contrat NORM (draft)
+        // -------------------------------
+        // 3. Create the contract
+        // -------------------------------
         const contract = await ctx.prisma.contract.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -1589,30 +1603,32 @@ export const simpleContractRouter = createTRPCRouter({
             workflowStatus: "draft",
             createdBy: ctx.session!.user.id,
             assignedTo: ctx.session!.user.id,
-            description: `Contrat NORM créé automatiquement depuis ${fileName}`,
-            
+            description: `NORM contract automatically created from ${fileName}`,
+
             // Dates
             startDate,
             endDate,
-            
-            // Salary type et paiement
+
+            // Salary type logic
             salaryType,
             payrollUserId,
             userBankIds: userBankIds || [],
-            bankId: userBankId, // Pour Gross mode (single bank)
-            
-            // Tarification
+            bankId: userBankId || null,
+
+            // Rate
             rate: rateAmount,
             rateCycle,
             currencyId,
-            
-            // Marge
+
+            // Margin
             margin: marginAmount,
             marginType,
             marginPaidBy,
-            
-            // Autres
-            invoiceDueDays,
+
+            // 🔥 NEW: Invoice Due Term
+            invoiceDueTerm,
+
+            // Other fields
             notes,
             contractReference,
             contractVatRate,
@@ -1621,12 +1637,16 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 3. Upload PDF vers S3
+        // -------------------------------
+        // 4. Upload PDF to S3
+        // -------------------------------
         const buffer = Buffer.from(pdfBuffer, "base64");
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
 
-        // 4. Créer le document lié
+        // -------------------------------
+        // 5. Create linked document
+        // -------------------------------
         const document = await ctx.prisma.document.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -1644,32 +1664,35 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 5. Créer les participants
-        // Participant 1: Company Tenant
+        // -------------------------------
+        // 6. Create Participants
+        // -------------------------------
+
+        // Company Tenant
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          companyId: companyTenantId ?? undefined,
+          companyId: companyTenantId,
           role: "tenant",
           isPrimary: true,
         });
 
-        // Participant 2: Agency
+        // Agency
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          userId: agencyId ?? undefined,
+          userId: agencyId,
           role: "agency",
           isPrimary: false,
         });
 
-        // Participant 3: Contractor
+        // Contractor
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          userId: contractorId ?? undefined,
+          userId: contractorId,
           role: "contractor",
           isPrimary: false,
         });
 
-        // Participant 4 (optionnel): Payroll User (si salaryType = payroll ou payroll_we_pay)
+        // Payroll User (optional)
         if ((salaryType === "payroll" || salaryType === "payroll_we_pay") && payrollUserId) {
           await createMinimalParticipant(ctx.prisma, {
             contractId: contract.id,
@@ -1679,12 +1702,14 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 5b. Créer les participants supplémentaires (si fournis)
-        if (additionalParticipants && additionalParticipants.length > 0) {
+        // Additional participants (optional)
+        if (additionalParticipants?.length > 0) {
           await createAdditionalParticipants(ctx.prisma, contract.id, additionalParticipants);
         }
 
-        // 6. Audit log
+        // -------------------------------
+        // 7. Audit Log
+        // -------------------------------
         await createAuditLog({
           userId: ctx.session!.user.id,
           userName: ctx.session!.user.name || ctx.session!.user.email,
@@ -1703,7 +1728,9 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 7. Récupérer le contrat avec participants
+        // -------------------------------
+        // 8. Fetch contract full data
+        // -------------------------------
         const contractData = await ctx.prisma.contract.findUnique({
           where: { id: contract.id },
           include: {
@@ -1716,7 +1743,6 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 8. Récupérer les documents liés
         const documents = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -1726,19 +1752,15 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 9. Fusionner et retourner le contrat complet
         return {
           success: true,
-          contract: {
-            ...contractData,
-            documents,
-          },
+          contract: { ...contractData, documents },
         };
       } catch (error) {
         console.error("[createNormContract] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la création du contrat NORM",
+          message: "Failed to create NORM contract",
           cause: error,
         });
       }

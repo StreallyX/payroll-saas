@@ -437,6 +437,7 @@ model Contract {
   salaryType     String?
   bankId         String?
   invoiceDueDays Int?
+  invoiceDueTerm String?
   
   // ============================
   // NORM Contract Fields

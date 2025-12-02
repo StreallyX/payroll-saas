@@ -2,16 +2,35 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, FileText, Info, Calendar, DollarSign } from "lucide-react";
+import {
+  Loader2,
+  FileText,
+  Info,
+  Calendar,
+  DollarSign,
+} from "lucide-react";
 import { toast } from "sonner";
+
 import { PDFUploadZone } from "../shared/PDFUploadZone";
 import { CompanySelect } from "../shared/CompanySelect";
 import { UserSelect } from "../shared/UserSelect";
@@ -19,7 +38,10 @@ import { UserBankSelect } from "../shared/UserBankSelect";
 import { CountrySelect } from "../shared/CountrySelect";
 import { CycleSelect } from "../shared/CycleSelect";
 import { CurrencySelect } from "../shared/CurrencySelect";
-import { ParticipantPreSelector, type ParticipantPreSelection } from "../shared/ParticipantPreSelector";
+import {
+  ParticipantPreSelector,
+  type ParticipantPreSelection,
+} from "../shared/ParticipantPreSelector";
 import { useNormContract } from "@/hooks/contracts/useNormContract";
 import { api } from "@/lib/trpc";
 
@@ -31,15 +53,6 @@ interface CreateNormContractModalProps {
 
 type SalaryType = "gross" | "payroll" | "payroll_we_pay" | "split";
 
-/**
- * Modal de création de contrat NORM (Normal Contract)
- * 
- * Logique conditionnelle selon salaryType:
- * - Gross: une UserBank (userBankId)
- * - Payroll: un payroll user (payrollUserId)
- * - Payroll We Pay: un payroll user (géré par le système)
- * - Split: plusieurs UserBanks (userBankIds[])
- */
 export function CreateNormContractModal({
   open,
   onOpenChange,
@@ -47,40 +60,43 @@ export function CreateNormContractModal({
 }: CreateNormContractModalProps) {
   const router = useRouter();
   const { createNormContract, isCreating } = useNormContract();
-
-  // Récupérer les devises pour la conversion ID -> code
   const { data: currencies } = api.currency.getAll.useQuery();
 
-  // État du formulaire
+  // Form State
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [additionalParticipants, setAdditionalParticipants] = useState<ParticipantPreSelection[]>([]);
+  const [additionalParticipants, setAdditionalParticipants] = useState<
+    ParticipantPreSelection[]
+  >([]);
+
   const [formData, setFormData] = useState({
-    // Champs essentiels
     companyTenantId: "",
     agencyId: "",
     contractorId: "",
     startDate: "",
     endDate: "",
     salaryType: "" as SalaryType,
-    
-    // Champs conditionnels
+
     userBankId: "",
     payrollUserId: "",
     userBankIds: [] as string[],
-    
-    // Champs optionnels - Tarification
+
+    // ✓ Rate
     rateAmount: "",
     rateCurrencyId: "",
     rateCycle: "",
-    
-    // Champs optionnels - Marge
+
+    // ✓ Margin
     marginAmount: "",
     marginCurrencyId: "",
     marginType: "" as "fixed" | "percentage" | "",
-    marginPaidBy: "" as "client" | "agency" | "",
-    
-    // Champs optionnels - Autres
+    marginPaidBy: "" as "client_agency" | "contractor" | "",
+
+    // ✓ New: Invoice terms
+    invoiceDueTerm: "",
+
+    // Old fallback
     invoiceDueDays: "",
+
     notes: "",
     contractReference: "",
     contractVatRate: "",
@@ -88,91 +104,78 @@ export function CreateNormContractModal({
     clientAgencySignDate: "",
   });
 
-  /**
-   * Met à jour un champ du formulaire
-   */
-  const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const updateField = (field: string, value: any) =>
+    setFormData((p) => ({ ...p, [field]: value }));
+
+  // Currency lookup
+  const getCurrencyCode = (currencyId: string): string | undefined => {
+    if (!currencyId || !currencies) return undefined;
+    return currencies.find((c: any) => c.id === currencyId)?.code;
   };
 
-  /**
-   * Valide le formulaire
-   */
+  // Validation
   const validateForm = (): boolean => {
-    if (!pdfFile) {
-      toast.error("Veuillez sélectionner un fichier PDF");
-      return false;
+    const errors: string[] = [];
+
+    if (!pdfFile) errors.push("Missing: Contract PDF file");
+    if (!formData.companyTenantId) errors.push("Missing: Company Tenant");
+    if (!formData.agencyId) errors.push("Missing: Agency");
+    if (!formData.contractorId) errors.push("Missing: Contractor");
+
+    if (!formData.startDate) errors.push("Missing: Start Date");
+    if (!formData.endDate) errors.push("Missing: End Date");
+
+    if (formData.startDate && formData.endDate) {
+      if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+        errors.push("Invalid dates: Start Date must be before End Date");
+      }
     }
 
-    // Champs essentiels
-    if (!formData.companyTenantId || !formData.agencyId || !formData.contractorId) {
-      toast.error("Veuillez remplir tous les champs obligatoires (parties)");
-      return false;
-    }
+    if (!formData.salaryType) errors.push("Missing: Salary Type");
 
-    if (!formData.startDate || !formData.endDate) {
-      toast.error("Veuillez remplir les dates de début et de fin");
-      return false;
-    }
+    // SalaryType conditional validation
+    // GROSS → account optional → donc rien ici
 
-    if (!formData.salaryType) {
-      toast.error("Veuillez sélectionner un type de salaire");
-      return false;
-    }
 
-    // Validation conditionnelle selon salaryType
-    if (formData.salaryType === "gross" && !formData.userBankId) {
-      toast.error("Veuillez sélectionner une méthode de paiement pour le type Gross");
-      return false;
-    }
-
-    if ((formData.salaryType === "payroll" || formData.salaryType === "payroll_we_pay") && !formData.payrollUserId) {
-      toast.error("Veuillez sélectionner un utilisateur Payroll");
-      return false;
+    if (
+      (formData.salaryType === "payroll" ||
+        formData.salaryType === "payroll_we_pay") &&
+      !formData.payrollUserId
+    ) {
+      errors.push("Missing: Payroll user (Payroll type)");
     }
 
     if (formData.salaryType === "split" && formData.userBankIds.length === 0) {
-      toast.error("Veuillez sélectionner au moins une méthode de paiement pour le type Split");
-      return false;
+      errors.push("Missing: Bank accounts (Split type)");
     }
 
-    // Validation des dates
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      toast.error("La date de début doit être antérieure à la date de fin");
+    // If errors → display them all
+    if (errors.length > 0) {
+      toast.error(
+        `Please fix the following:\n• ${errors.join("\n• ")}`,
+        { duration: 6000 }
+      );
       return false;
     }
 
     return true;
   };
 
-  /**
-   * Convertit un currencyId en code de devise
-   */
-  const getCurrencyCode = (currencyId: string): string | undefined => {
-    if (!currencyId || !currencies) return undefined;
-    const currency = currencies.find((c: any) => c.id === currencyId);
-    return currency?.code;
-  };
 
-  /**
-   * Soumet le formulaire
-   */
+  // SUBMIT
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
     try {
-      // Convertir le fichier en base64
       const buffer = await pdfFile!.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
 
-      // Préparer les données
       const payload: any = {
         pdfBuffer: base64,
         fileName: pdfFile!.name,
         mimeType: pdfFile!.type,
         fileSize: pdfFile!.size,
-        
-        // Champs essentiels
+
         companyTenantId: formData.companyTenantId,
         agencyId: formData.agencyId,
         contractorId: formData.contractorId,
@@ -181,41 +184,58 @@ export function CreateNormContractModal({
         salaryType: formData.salaryType,
       };
 
-      // Champs conditionnels
+      // SalaryType logic
       if (formData.salaryType === "gross" && formData.userBankId) {
         payload.userBankId = formData.userBankId;
       }
-      if ((formData.salaryType === "payroll" || formData.salaryType === "payroll_we_pay") && formData.payrollUserId) {
+      if (
+        (formData.salaryType === "payroll" ||
+          formData.salaryType === "payroll_we_pay") &&
+        formData.payrollUserId
+      ) {
         payload.payrollUserId = formData.payrollUserId;
       }
       if (formData.salaryType === "split" && formData.userBankIds.length > 0) {
         payload.userBankIds = formData.userBankIds;
       }
 
-      // Champs optionnels - Tarification
+      // Rate
       if (formData.rateAmount) payload.rateAmount = parseFloat(formData.rateAmount);
       const rateCurrencyCode = getCurrencyCode(formData.rateCurrencyId);
       if (rateCurrencyCode) payload.rateCurrency = rateCurrencyCode;
       if (formData.rateCycle) payload.rateCycle = formData.rateCycle;
 
-      // Champs optionnels - Marge
-      if (formData.marginAmount) payload.marginAmount = parseFloat(formData.marginAmount);
+      // Margin
+      if (formData.marginAmount)
+        payload.marginAmount = parseFloat(formData.marginAmount);
       const marginCurrencyCode = getCurrencyCode(formData.marginCurrencyId);
       if (marginCurrencyCode) payload.marginCurrency = marginCurrencyCode;
       if (formData.marginType) payload.marginType = formData.marginType;
       if (formData.marginPaidBy) payload.marginPaidBy = formData.marginPaidBy;
 
-      // Champs optionnels - Autres
-      if (formData.invoiceDueDays) payload.invoiceDueDays = parseInt(formData.invoiceDueDays);
-      if (formData.notes) payload.notes = formData.notes;
-      if (formData.contractReference) payload.contractReference = formData.contractReference;
-      if (formData.contractVatRate) payload.contractVatRate = parseFloat(formData.contractVatRate);
-      if (formData.contractCountryId) payload.contractCountryId = formData.contractCountryId;
-      if (formData.clientAgencySignDate) payload.clientAgencySignDate = new Date(formData.clientAgencySignDate);
+      // Invoice Due Term (NEW)
+      if (formData.invoiceDueTerm) payload.invoiceDueTerm = formData.invoiceDueTerm;
 
-      // Participants supplémentaires
+      // Legacy fallback
+      if (formData.invoiceDueDays)
+        payload.invoiceDueDays = parseInt(formData.invoiceDueDays);
+
+      // Other info
+      if (formData.notes) payload.notes = formData.notes;
+      if (formData.contractReference)
+        payload.contractReference = formData.contractReference;
+      if (formData.contractVatRate)
+        payload.contractVatRate = parseFloat(formData.contractVatRate);
+      if (formData.contractCountryId)
+        payload.contractCountryId = formData.contractCountryId;
+      if (formData.clientAgencySignDate)
+        payload.clientAgencySignDate = new Date(
+          formData.clientAgencySignDate
+        );
+
+      // Extra participants
       if (additionalParticipants.length > 0) {
-        payload.additionalParticipants = additionalParticipants.map(p => ({
+        payload.additionalParticipants = additionalParticipants.map((p) => ({
           userId: p.userId,
           companyId: p.companyId,
           role: p.role,
@@ -223,49 +243,50 @@ export function CreateNormContractModal({
       }
 
       const result = await createNormContract.mutateAsync(payload);
+
       if (result?.contract?.id) {
         onSuccess?.(result.contract.id);
         handleClose();
         router.push(`/contracts/simple/${result.contract.id}`);
       }
-    } catch (error) {
-      console.error("[CreateNormContractModal] Error:", error);
+    } catch (err) {
+      console.error("CreateNormContractModal error:", err);
+      toast.error("Failed to create contract.");
     }
   };
 
-  /**
-   * Ferme le modal
-   */
   const handleClose = () => {
-    if (!isCreating) {
-      setPdfFile(null);
-      setAdditionalParticipants([]);
-      setFormData({
-        companyTenantId: "",
-        agencyId: "",
-        contractorId: "",
-        startDate: "",
-        endDate: "",
-        salaryType: "" as SalaryType,
-        userBankId: "",
-        payrollUserId: "",
-        userBankIds: [],
-        rateAmount: "",
-        rateCurrencyId: "",
-        rateCycle: "",
-        marginAmount: "",
-        marginCurrencyId: "",
-        marginType: "",
-        marginPaidBy: "",
-        invoiceDueDays: "",
-        notes: "",
-        contractReference: "",
-        contractVatRate: "",
-        contractCountryId: "",
-        clientAgencySignDate: "",
-      });
-      onOpenChange(false);
-    }
+    if (isCreating) return;
+    setPdfFile(null);
+    setAdditionalParticipants([]);
+
+    setFormData({
+      companyTenantId: "",
+      agencyId: "",
+      contractorId: "",
+      startDate: "",
+      endDate: "",
+      salaryType: "" as SalaryType,
+      userBankId: "",
+      payrollUserId: "",
+      userBankIds: [],
+      rateAmount: "",
+      rateCurrencyId: "",
+      rateCycle: "",
+      marginAmount: "",
+      marginCurrencyId: "",
+      marginType: "",
+      marginPaidBy: "",
+      invoiceDueTerm: "",
+      invoiceDueDays: "",
+      notes: "",
+      contractReference: "",
+      contractVatRate: "",
+      contractCountryId: "",
+      clientAgencySignDate: "",
+    });
+
+    onOpenChange(false);
   };
 
   return (
@@ -274,25 +295,25 @@ export function CreateNormContractModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Créer un contrat NORM (Normal Contract)
+            Create NORM Contract
           </DialogTitle>
           <DialogDescription>
-            Créez un nouveau contrat normal avec toutes les informations nécessaires
+            Create a new normal contract with all required information.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Alert d'information */}
+          {/* Info Alert */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Les champs avec un astérisque (*) sont obligatoires
+              Fields with an asterisk (*) are required.
             </AlertDescription>
           </Alert>
 
-          {/* Section: Parties */}
+          {/* PARTIES */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Parties du contrat *</h3>
+            <h3 className="font-semibold">Contract Parties *</h3>
             <CompanySelect
               value={formData.companyTenantId}
               onChange={(v) => updateField("companyTenantId", v)}
@@ -318,40 +339,44 @@ export function CreateNormContractModal({
 
           <Separator />
 
-          {/* Section: Document */}
+          {/* DOCUMENT */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Document *</h3>
-            <PDFUploadZone file={pdfFile} onChange={setPdfFile} disabled={isCreating} />
+            <h3 className="font-semibold">Contract Document *</h3>
+            <PDFUploadZone
+              file={pdfFile}
+              onChange={setPdfFile}
+              disabled={isCreating}
+            />
           </div>
 
           <Separator />
 
-          {/* Section: Dates */}
+          {/* DATES */}
           <div className="space-y-4">
             <h3 className="font-semibold">Dates *</h3>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="required">
                   <Calendar className="h-4 w-4 inline mr-1" />
-                  Date de début *
+                  Start Date *
                 </Label>
                 <Input
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => updateField("startDate", e.target.value)}
-                  disabled={isCreating}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label className="required">
                   <Calendar className="h-4 w-4 inline mr-1" />
-                  Date de fin *
+                  End Date *
                 </Label>
                 <Input
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => updateField("endDate", e.target.value)}
-                  disabled={isCreating}
                 />
               </div>
             </div>
@@ -359,18 +384,18 @@ export function CreateNormContractModal({
 
           <Separator />
 
-          {/* Section: Type de salaire et paiement */}
+          {/* SALARY TYPE */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Type de salaire et paiement *</h3>
+            <h3 className="font-semibold">Salary Type & Payment *</h3>
+
             <div className="space-y-2">
-              <Label className="required">Type de salaire *</Label>
+              <Label className="required">Salary Type *</Label>
               <Select
                 value={formData.salaryType}
                 onValueChange={(v) => updateField("salaryType", v)}
-                disabled={isCreating}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un type..." />
+                  <SelectValue placeholder="Select salary type..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gross">Gross</SelectItem>
@@ -381,23 +406,23 @@ export function CreateNormContractModal({
               </Select>
             </div>
 
-            {/* Champs conditionnels selon salaryType */}
+            {/* CONDITIONAL FIELDS */}
             {formData.salaryType === "gross" && (
               <UserBankSelect
                 userId={formData.contractorId}
                 value={formData.userBankId}
                 onChange={(v) => updateField("userBankId", v)}
-                label="Méthode de paiement"
-                required
+                label="Payment Method (optional)"
               />
             )}
 
-            {(formData.salaryType === "payroll" || formData.salaryType === "payroll_we_pay") && (
+            {(formData.salaryType === "payroll" ||
+              formData.salaryType === "payroll_we_pay") && (
               <>
                 <UserSelect
                   value={formData.payrollUserId}
                   onChange={(v) => updateField("payrollUserId", v)}
-                  label="Utilisateur Payroll"
+                  label="Payroll User"
                   required
                   roleFilter="payroll"
                 />
@@ -405,7 +430,7 @@ export function CreateNormContractModal({
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                      Mode &quot;Payroll We Pay&quot; : géré par le système
+                      Payroll We Pay mode: managed by system.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -416,40 +441,40 @@ export function CreateNormContractModal({
               <UserBankSelect
                 userId={formData.contractorId}
                 values={formData.userBankIds}
-                onChangeMultiple={(v) => updateField("userBankIds", v)}
-                label="Méthodes de paiement (multiple)"
-                required
                 multiple
+                onChangeMultiple={(v) => updateField("userBankIds", v)}
+                label="Payment Methods (multiple)"
               />
             )}
           </div>
 
           <Separator />
 
-          {/* Section: Tarification (optionnelle) */}
+          {/* RATE */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Tarification (optionnel)</h3>
+            <h3 className="font-semibold">Rate (optional)</h3>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>
                   <DollarSign className="h-4 w-4 inline mr-1" />
-                  Montant
+                  Rate Amount
                 </Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={formData.rateAmount}
                   onChange={(e) => updateField("rateAmount", e.target.value)}
-                  disabled={isCreating}
                   placeholder="0.00"
                 />
               </div>
+
               <CurrencySelect
                 value={formData.rateCurrencyId}
                 onChange={(v) => updateField("rateCurrencyId", v)}
-                label="Devise"
-                disabled={isCreating}
+                label="Currency"
               />
+
               <CycleSelect
                 value={formData.rateCycle}
                 onChange={(v) => updateField("rateCycle", v)}
@@ -458,114 +483,142 @@ export function CreateNormContractModal({
             </div>
           </div>
 
-          {/* Section: Marge (optionnelle) */}
+          {/* MARGIN */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Marge (optionnel)</h3>
+            <h3 className="font-semibold">Margin (optional)</h3>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Montant de la marge</Label>
+                <Label>Margin Amount</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={formData.marginAmount}
                   onChange={(e) => updateField("marginAmount", e.target.value)}
-                  disabled={isCreating}
                   placeholder="0.00"
                 />
               </div>
+
               <CurrencySelect
                 value={formData.marginCurrencyId}
                 onChange={(v) => updateField("marginCurrencyId", v)}
-                label="Devise"
-                disabled={isCreating}
+                label="Currency"
               />
+
               <div className="space-y-2">
-                <Label>Type de marge</Label>
+                <Label>Margin Type</Label>
                 <Select
                   value={formData.marginType}
                   onValueChange={(v) => updateField("marginType", v)}
-                  disabled={isCreating}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner..." />
+                    <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="fixed">Fixe</SelectItem>
-                    <SelectItem value="percentage">Pourcentage</SelectItem>
+                    <SelectItem value="fixed">Fixed</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* NEW: marginPaidBy */}
+            <div className="space-y-2">
+              <Label>Margin Paid By</Label>
+              <Select
+                value={formData.marginPaidBy}
+                onValueChange={(v) => updateField("marginPaidBy", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client / Agency</SelectItem>
+                  <SelectItem value="contractor">Contractor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Section: Autres informations (optionnelles) */}
+          <Separator />
+
+          {/* OTHER INFO */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Autres informations (optionnel)</h3>
+            <h3 className="font-semibold">Other Information (optional)</h3>
+
             <div className="grid grid-cols-2 gap-4">
+              {/* NEW: Invoice Due Term */}
               <div className="space-y-2">
-                <Label>Jours avant échéance facture</Label>
-                <Input
-                  type="number"
-                  value={formData.invoiceDueDays}
-                  onChange={(e) => updateField("invoiceDueDays", e.target.value)}
-                  disabled={isCreating}
-                  placeholder="30"
-                />
+                <Label>Invoice Due Date</Label>
+                <Select
+                  value={formData.invoiceDueTerm}
+                  onValueChange={(v) => updateField("invoiceDueTerm", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select term..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upon_receipt">Upon receipt</SelectItem>
+                    <SelectItem value="7_days">7 Days</SelectItem>
+                    <SelectItem value="15_days">15 Days</SelectItem>
+                    <SelectItem value="30_days">30 Days</SelectItem>
+                    <SelectItem value="45_days">45 Days</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
               <div className="space-y-2">
-                <Label>Taux de TVA (%)</Label>
+                <Label>VAT Rate (%)</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={formData.contractVatRate}
                   onChange={(e) => updateField("contractVatRate", e.target.value)}
-                  disabled={isCreating}
                   placeholder="20"
                 />
               </div>
             </div>
+
             <CountrySelect
               value={formData.contractCountryId}
               onChange={(v) => updateField("contractCountryId", v)}
-              label="Pays du contrat"
+              label="Contract Country"
             />
+
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
-                disabled={isCreating}
-                placeholder="Notes additionnelles..."
-                rows={3}
+                placeholder="Additional notes..."
               />
             </div>
           </div>
 
-          {/* Participants supplémentaires */}
+          {/* Extra participants */}
           <Separator />
           <div className="space-y-2">
-            <h3 className="text-sm font-medium">Participants supplémentaires</h3>
+            <h3 className="text-sm font-medium">Additional Participants</h3>
             <ParticipantPreSelector
               participants={additionalParticipants}
               onChange={setAdditionalParticipants}
-              showAddButton={true}
             />
           </div>
         </div>
 
-        {/* Actions */}
+        {/* ACTIONS */}
         <div className="flex justify-end gap-3 border-t pt-4">
           <Button variant="outline" onClick={handleClose} disabled={isCreating}>
-            Annuler
+            Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isCreating}>
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Création en cours...
+                Creating...
               </>
             ) : (
-              "Créer le contrat NORM"
+              "Create Contract"
             )}
           </Button>
         </div>
