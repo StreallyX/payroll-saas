@@ -289,6 +289,7 @@ model User {
   rolesCreated Role[] @relation("RoleCreatedBy")
 
   contractParticipants ContractParticipant[]
+  contractDocuments    ContractDocument[]  @relation("ContractDocumentsUploaded")
   companyUsers         CompanyUser[]
 
   accounts              Account[]
@@ -436,6 +437,14 @@ model Contract {
   salaryType     String?
   bankId         String?
   invoiceDueDays Int?
+  invoiceDueTerm String?
+  
+  // ============================
+  // NORM Contract Fields
+  // ============================
+  payrollUserId      String?     // Pour Payroll et Payroll We Pay
+  contractorSignedAt DateTime?   // Date de signature du contractor
+  userBankIds        String[]    @default([]) // Pour Split mode (plusieurs UserBanks/PaymentMethods)
 
   contractReference  String?   @unique
   contractCountryId  String?
@@ -474,6 +483,7 @@ model Contract {
   contractCountry  Country?  @relation(fields: [contractCountryId], references: [id])
 
   participants     ContractParticipant[]
+  documents        ContractDocument[]
 
   invoices         Invoice[]
   payslips         Payslip[]
@@ -535,6 +545,35 @@ model ContractParticipant {
   @@index([role])
 
   @@map("contract_participants")
+}
+
+/// Table ContractDocument - Documents partagés entre participants
+/// Permet aux participants d'uploader et partager des documents (factures, pièces d'identité, signatures, etc.)
+model ContractDocument {
+  id          String   @id @default(cuid())
+  contractId  String
+  
+  uploadedByUserId String
+  documentId       String
+  
+  description String   // Texte libre décrivant le document
+  category    String   // "Contract", "Invoice", "ID Document", "Signature", "Other"
+  notes       String?  @db.Text // Instructions optionnelles (ex: "please sign and return the attached")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation("ContractDocumentsUploaded", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  @@index([contractId])
+  @@index([uploadedByUserId])
+  @@index([documentId])
+  @@index([category])
+  
+  @@map("contract_documents")
 }
 
 
@@ -1008,7 +1047,8 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractDocuments ContractDocument[]
 
   @@index([tenantId])
   @@index([entityType, entityId])

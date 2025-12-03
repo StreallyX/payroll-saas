@@ -36,7 +36,7 @@ export function TimesheetReviewModal({ timesheetId, onClose }: any) {
 
   const [rejectReason, setRejectReason] = useState("");
 
-  const main = useMemo(() => getMainParticipant(data?.contract), [data]);
+  const main = useMemo(() => getMainParticipant((data as any)?.contract), [data]);
 
   if (isLoading || !data) return null;
 

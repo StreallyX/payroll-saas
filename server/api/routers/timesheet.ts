@@ -41,9 +41,11 @@ export const timesheetRouter = createTRPCRouter({
           contract: {
             select: {
               contractReference: true,
-              company: { select: { name: true } },
               participants: {
-                include: { user: true },
+                include: { 
+                  user: true,
+                  company: { select: { name: true } },
+                },
               },
             },
           },
@@ -66,8 +68,12 @@ export const timesheetRouter = createTRPCRouter({
           submitter: true,
           contract: {
             include: {
-              company: true,
-              participants: { include: { user: true } },
+              participants: { 
+                include: { 
+                  user: true,
+                  company: true,
+                } 
+              },
             },
           },
           entries: true,
@@ -98,8 +104,12 @@ export const timesheetRouter = createTRPCRouter({
         include: {
           contract: {
             include: {
-              company: true,
-              participants: { include: { user: true } },
+              participants: { 
+                include: { 
+                  user: true,
+                  company: true,
+                } 
+              },
             },
           },
           entries: true,
@@ -527,7 +537,7 @@ createRange: tenantProcedure
       if (search) {
         where.OR = [
           { notes: { contains: search, mode: "insensitive" } },
-          { contract: { company: { name: { contains: search, mode: "insensitive" } } } },
+          { contract: { participants: { some: { company: { name: { contains: search, mode: "insensitive" } } } } } },
         ];
       }
 
@@ -539,7 +549,12 @@ createRange: tenantProcedure
         include: {
           contract: {
             include: {
-              company: true,
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                }
+              },
             },
           },
         },

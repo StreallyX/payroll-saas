@@ -81,7 +81,10 @@ export const documentRouter = createTRPCRouter({
   // ================================================================
   getSignedUrl: tenantProcedure
     .use(hasAnyPermission([READ_OWN, READ_GLOBAL, LIST_GLOBAL]))
-    .input(z.object({ documentId: z.string() }))
+    .input(z.object({
+      documentId: z.string(),
+      download: z.boolean().optional()   // 🔥 IMPORTANT : on ajoute download
+    }))
     .query(async ({ ctx, input }) => {
       const doc = await ctx.prisma.document.findFirst({
         where: {
@@ -92,10 +95,16 @@ export const documentRouter = createTRPCRouter({
 
       if (!doc) throw new Error("Document not found.");
 
-      const url = await getSignedUrlForKey(doc.s3Key);
+      // 🔥 ICI : on passe download à la fonction S3
+      const url = await getSignedUrlForKey(
+        doc.s3Key,
+        3600,
+        input.download === true   // ∆ TRUE → download | FALSE → inline
+      );
 
       return { url };
     }),
+
 
   // ================================================================
   // UPLOAD — VERSION 1

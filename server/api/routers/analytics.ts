@@ -264,11 +264,10 @@ export const analyticsRouter = createTRPCRouter({
             },
           },
           include: {
-            company: { select: { name: true } },
             participants: {
-              select: {
-                role: true,
+              include: {
                 user: { select: { name: true } },
+                company: { select: { name: true } },
               },
             },
           },

@@ -145,7 +145,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   // ===========================
   {
     label: "Contracts",
-    href: "/contracts",
+    href: "/contracts/simple",
     icon: FileText,
     permissions: [
       P(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),

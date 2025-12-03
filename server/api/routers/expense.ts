@@ -53,7 +53,12 @@ export const expenseRouter = createTRPCRouter({
               id: true,
               contractReference: true,
               title: true,
-              company: { select: { name: true } },
+              participants: {
+                include: {
+                  user: { select: { name: true } },
+                  company: { select: { name: true } },
+                },
+              },
             },
           },
         },
