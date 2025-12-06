@@ -7,6 +7,8 @@ import {
   hasPermission,
   hasAnyPermission,
 } from "../trpc"
+import { StateTransitionService } from "@/lib/services/StateTransitionService"
+import { WorkflowEntityType, WorkflowAction } from "@/lib/workflows"
 
 // ------------------------------------------------------
 // PERMISSIONS
@@ -19,8 +21,10 @@ const P = {
   SUBMIT_OWN: "timesheet.submit.own",
 
   LIST_ALL: "timesheet.list.global",
+  REVIEW_ALL: "timesheet.review.global",
   APPROVE: "timesheet.approve.global",
   REJECT: "timesheet.reject.global",
+  MODIFY_ALL: "timesheet.modify.global",
 }
 
 // ------------------------------------------------------
@@ -576,6 +580,167 @@ createRange: tenantProcedure
       };
     }),
 
+  // ========================================================
+  // 🔥 NEW WORKFLOW METHODS
+  // ========================================================
 
+  /**
+   * Mark timesheet as under review
+   */
+  reviewTimesheet: tenantProcedure
+    .use(hasPermission(P.REVIEW_ALL))
+    .input(z.object({
+      id: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.TIMESHEET,
+        entityId: input.id,
+        action: WorkflowAction.REVIEW,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Request changes to timesheet
+   */
+  requestChanges: tenantProcedure
+    .use(hasPermission(P.REVIEW_ALL))
+    .input(z.object({
+      id: z.string(),
+      changesRequested: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.TIMESHEET,
+        entityId: input.id,
+        action: WorkflowAction.REQUEST_CHANGES,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.changesRequested,
+        metadata: {
+          changesRequested: input.changesRequested,
+        },
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Modify timesheet amounts (admin only, before approval)
+   */
+  modifyAmounts: tenantProcedure
+    .use(hasPermission(P.MODIFY_ALL))
+    .input(z.object({
+      id: z.string(),
+      totalAmount: z.number().positive(),
+      adminModificationNote: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const timesheet = await ctx.prisma.timesheet.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!timesheet) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      // Only allow modification in submitted or under_review states
+      if (!['submitted', 'under_review'].includes(timesheet.workflowState)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Can only modify amounts in submitted or under_review state",
+        })
+      }
+
+      return ctx.prisma.timesheet.update({
+        where: { id: input.id },
+        data: {
+          adminModifiedAmount: new Prisma.Decimal(input.totalAmount),
+          adminModificationNote: input.adminModificationNote,
+          modifiedBy: ctx.session.user.id,
+          updatedAt: new Date(),
+        },
+      })
+    }),
+
+  /**
+   * Get available workflow actions for a timesheet
+   */
+  getAvailableActions: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const timesheet = await ctx.prisma.timesheet.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!timesheet) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      // Check ownership for OWN permissions
+      const isOwner = timesheet.submittedBy === ctx.session.user.id
+
+      const result = await StateTransitionService.getAvailableActions(
+        WorkflowEntityType.TIMESHEET,
+        input.id,
+        ctx.session.user.id,
+        ctx.tenantId
+      )
+
+      return {
+        ...result,
+        isOwner,
+      }
+    }),
+
+  /**
+   * Get workflow state history for a timesheet
+   */
+  getStateHistory: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const timesheet = await ctx.prisma.timesheet.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!timesheet) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      return StateTransitionService.getStateHistory(
+        WorkflowEntityType.TIMESHEET,
+        input.id,
+        ctx.tenantId
+      )
+    }),
 
 })

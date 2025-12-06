@@ -14,6 +14,8 @@ import {
 
 import { TRPCError } from "@trpc/server"
 import { Prisma } from "@prisma/client"
+import { StateTransitionService } from "@/lib/services/StateTransitionService"
+import { WorkflowEntityType, WorkflowAction } from "@/lib/workflows"
 
 
 /**
@@ -497,6 +499,125 @@ Please ensure the contractor receives payment according to their contract terms 
         failedPayments,
         totalAmount: totalAmount._sum.amount || 0,
       }
+    }),
+
+  // ========================================================
+  // 🔥 NEW WORKFLOW METHODS
+  // ========================================================
+
+  /**
+   * Mark payment as received
+   */
+  markPaymentReceived: tenantProcedure
+    .input(z.object({
+      id: z.string(),
+      amountReceived: z.number().positive().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const action = input.amountReceived
+        ? WorkflowAction.MARK_PARTIALLY_RECEIVED
+        : WorkflowAction.MARK_RECEIVED
+
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.PAYMENT,
+        entityId: input.id,
+        action,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+        metadata: input.amountReceived ? {
+          amountReceived: input.amountReceived,
+        } : undefined,
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Confirm payment
+   */
+  confirmPayment: tenantProcedure
+    .input(z.object({
+      id: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.PAYMENT,
+        entityId: input.id,
+        action: WorkflowAction.CONFIRM,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Get available workflow actions for a payment
+   */
+  getPaymentAvailableActions: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const payment = await ctx.prisma.payment.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!payment) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      const result = await StateTransitionService.getAvailableActions(
+        WorkflowEntityType.PAYMENT,
+        input.id,
+        ctx.session.user.id,
+        ctx.tenantId
+      )
+
+      return result
+    }),
+
+  /**
+   * Get workflow state history for a payment
+   */
+  getPaymentStateHistory: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const payment = await ctx.prisma.payment.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!payment) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      return StateTransitionService.getStateHistory(
+        WorkflowEntityType.PAYMENT,
+        input.id,
+        ctx.tenantId
+      )
     }),
 
 })

@@ -11,6 +11,9 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { StateTransitionService } from "@/lib/services/StateTransitionService"
+import { MarginCalculationService, MarginPaidBy } from "@/lib/services/MarginCalculationService"
+import { WorkflowEntityType, WorkflowAction } from "@/lib/workflows"
 
 const P = {
   READ_OWN: "invoice.read.own",
@@ -25,6 +28,9 @@ const P = {
   APPROVE_GLOBAL: "invoice.approve.global",
   PAY_GLOBAL: "invoice.pay.global",
   EXPORT_GLOBAL: "invoice.export.global",
+  REVIEW_GLOBAL: "invoice.review.global",
+  REJECT_GLOBAL: "invoice.reject.global",
+  MODIFY_GLOBAL: "invoice.modify.global",
 }
 
 export const invoiceRouter = createTRPCRouter({
@@ -474,6 +480,313 @@ export const invoiceRouter = createTRPCRouter({
         invoice: updatedInvoice,
         payment,
       }
+    }),
+
+  // ========================================================
+  // 🔥 NEW WORKFLOW METHODS
+  // ========================================================
+
+  /**
+   * Mark invoice as under review
+   */
+  reviewInvoice: tenantProcedure
+    .use(hasPermission(P.REVIEW_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.id,
+        action: WorkflowAction.REVIEW,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Approve invoice (using workflow)
+   */
+  approveInvoiceWorkflow: tenantProcedure
+    .use(hasPermission(P.APPROVE_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.id,
+        action: WorkflowAction.APPROVE,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Reject invoice
+   */
+  rejectInvoiceWorkflow: tenantProcedure
+    .use(hasPermission(P.REJECT_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      rejectionReason: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.id,
+        action: WorkflowAction.REJECT,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.rejectionReason,
+        metadata: {
+          rejectionReason: input.rejectionReason,
+        },
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Request changes to invoice
+   */
+  requestInvoiceChanges: tenantProcedure
+    .use(hasPermission(P.REVIEW_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      changesRequested: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.id,
+        action: WorkflowAction.REQUEST_CHANGES,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.changesRequested,
+        metadata: {
+          changesRequested: input.changesRequested,
+        },
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Send approved invoice
+   */
+  sendInvoiceWorkflow: tenantProcedure
+    .use(hasPermission(P.SEND_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.id,
+        action: WorkflowAction.SEND,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      return result.entity
+    }),
+
+  /**
+   * Calculate margin for invoice
+   */
+  calculateMargin: tenantProcedure
+    .use(hasPermission(P.MODIFY_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      contractId: z.string().optional(),
+      baseAmount: z.number().positive(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      let calculation
+
+      if (input.contractId) {
+        calculation = await MarginCalculationService.calculateMarginFromContract(
+          input.contractId,
+          input.baseAmount
+        )
+      } else {
+        // Use default margin calculation
+        calculation = MarginCalculationService.calculateMargin({
+          baseAmount: input.baseAmount,
+          marginPaidBy: MarginPaidBy.CLIENT,
+        })
+      }
+
+      if (!calculation) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Could not calculate margin",
+        })
+      }
+
+      // Update invoice with calculated margin
+      await MarginCalculationService.applyMarginToInvoice(input.id, calculation)
+
+      return calculation
+    }),
+
+  /**
+   * Modify invoice amounts and margins (admin only, before approval)
+   */
+  modifyInvoiceAmounts: tenantProcedure
+    .use(hasPermission(P.MODIFY_GLOBAL))
+    .input(z.object({
+      id: z.string(),
+      amount: z.number().positive().optional(),
+      marginAmount: z.number().optional(),
+      marginPercentage: z.number().optional(),
+      adminModificationNote: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      // Only allow modification in draft, submitted, or under_review states
+      if (!['draft', 'submitted', 'under_review'].includes(invoice.workflowState)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Can only modify amounts in draft, submitted, or under_review state",
+        })
+      }
+
+      const updateData: any = {
+        adminModificationNote: input.adminModificationNote,
+        modifiedBy: ctx.session.user.id,
+        updatedAt: new Date(),
+      }
+
+      if (input.amount) {
+        updateData.adminModifiedAmount = new Prisma.Decimal(input.amount)
+        updateData.amount = new Prisma.Decimal(input.amount)
+      }
+
+      if (input.marginAmount !== undefined) {
+        updateData.marginAmount = new Prisma.Decimal(input.marginAmount)
+      }
+
+      if (input.marginPercentage !== undefined) {
+        updateData.marginPercentage = new Prisma.Decimal(input.marginPercentage)
+      }
+
+      return ctx.prisma.invoice.update({
+        where: { id: input.id },
+        data: updateData,
+      })
+    }),
+
+  /**
+   * Get available workflow actions for an invoice
+   */
+  getInvoiceAvailableActions: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      const isOwner = invoice.createdBy === ctx.session.user.id
+
+      const result = await StateTransitionService.getAvailableActions(
+        WorkflowEntityType.INVOICE,
+        input.id,
+        ctx.session.user.id,
+        ctx.tenantId
+      )
+
+      return {
+        ...result,
+        isOwner,
+      }
+    }),
+
+  /**
+   * Get workflow state history for an invoice
+   */
+  getInvoiceStateHistory: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.id,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      return StateTransitionService.getStateHistory(
+        WorkflowEntityType.INVOICE,
+        input.id,
+        ctx.tenantId
+      )
     }),
 
 })
