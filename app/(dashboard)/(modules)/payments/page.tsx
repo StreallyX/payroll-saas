@@ -1,220 +1,238 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { format } from "date-fns";
-import { toast } from "sonner";
 import { api } from "@/lib/trpc";
-
-import { RouteGuard } from "@/components/guards/RouteGuard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Plus, DollarSign } from "lucide-react";
+import { toast } from "sonner";
+import { WorkflowStatusBadge } from "@/components/workflow";
+import { usePermissions } from "@/hooks/use-permissions";
 
-import { EmptyState } from "@/components/shared/empty-state";
-import { LoadingState } from "@/components/shared/loading-state";
+export default function PaymentsPage() {
+  const { hasPermission } = usePermissions();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [recordPaymentModal, setRecordPaymentModal] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentType, setPaymentType] = useState<"full" | "partial">("full");
 
-import { Wallet, CheckCircle, Clock, XCircle, AlertCircle, RefreshCw } from "lucide-react";
-
-function PaymentsPageContent() {
-  const { data: session } = useSession();
   const utils = api.useUtils();
 
-  // -------------------------------
-  // STATE
-  // -------------------------------
-  const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
-
-  // -------------------------------
-  // DATA
-  // -------------------------------
-  const { data: result, isLoading } = api.payment.getAll.useQuery({
-    status: undefined,
-    limit: 100,
-    offset: 0,
+  const { data, isLoading } = api.payment.getAll.useQuery({
+    status: statusFilter === "all" ? undefined : statusFilter as any,
   });
 
-  // -------------------------------
-  // MUTATIONS
-  // -------------------------------
-  const confirmPaymentMutation = api.payment.update.useMutation({
-    onSuccess: (data) => {
-      toast.success("Payment confirmed! Task created for payroll provider.");
+  const recordPaymentMutation = api.payment.recordPayment.useMutation({
+    onSuccess: () => {
+      toast.success("Payment recorded successfully");
       utils.payment.getAll.invalidate();
-      setConfirmingPaymentId(null);
+      setRecordPaymentModal(false);
+      resetForm();
     },
-    onError: (error) => {
-      toast.error(`Error: ${error.message}`);
-    },
+    onError: (err) => toast.error(err.message),
   });
 
-  // -------------------------------
-  // HANDLERS
-  // -------------------------------
-  const handleConfirmPayment = () => {
-    if (!confirmingPaymentId) return;
+  const resetForm = () => {
+    setSelectedInvoiceId("");
+    setPaymentAmount("");
+    setPaymentType("full");
+  };
 
-    confirmPaymentMutation.mutate({
-      id: confirmingPaymentId,
-      status: "completed",
-      completedDate: new Date(),
+  const handleRecordPayment = () => {
+    if (!selectedInvoiceId) {
+      toast.error("Please select an invoice");
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    recordPaymentMutation.mutate({
+      invoiceId: selectedInvoiceId,
+      amount: amount.toString(),
+      paymentType,
     });
   };
 
-  // -------------------------------
-  // STATUS BADGE
-  // -------------------------------
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; icon: any; label: string }> = {
-      pending: { variant: "secondary", icon: Clock, label: "Pending" },
-      processing: { variant: "default", icon: RefreshCw, label: "Processing" },
-      completed: { variant: "success", icon: CheckCircle, label: "Completed" },
-      failed: { variant: "destructive", icon: XCircle, label: "Failed" },
-      refunded: { variant: "outline", icon: AlertCircle, label: "Refunded" },
-    };
+  const canRecordPayment = hasPermission("payment.mark_received.global");
 
-    const config = variants[status] || variants.pending;
-    const Icon = config.icon;
-
+  if (isLoading) {
     return (
-      <Badge variant={config.variant as any} className="flex items-center gap-1">
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  // -------------------------------
-  // LOADING & EMPTY
-  // -------------------------------
-  if (isLoading) return <LoadingState message="Loading payments..." />;
-
-  const payments = result?.payments || [];
-
-  if (payments.length === 0) {
-    return (
-      <EmptyState
-        icon={Wallet}
-        title="No payments yet"
-        description="There are no payments in the system."
-      />
+      <div className="flex justify-center py-10">
+        <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+      </div>
     );
   }
 
-  // -------------------------------
-  // RENDER
-  // -------------------------------
+  const payments = data?.payments || [];
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payments Management"
-        description="View and confirm payments from agencies"
-      />
+        title="Payments"
+        description="Track and manage payment transactions"
+      >
+        {canRecordPayment && (
+          <Button onClick={() => setRecordPaymentModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        )}
+      </PageHeader>
 
+      {/* FILTERS */}
       <Card>
-        <CardHeader>
-          <CardTitle>All Payments</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* PAYMENTS TABLE */}
+      <Card>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Payment ID</TableHead>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Method</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Invoice</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Transaction ID</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Payment Method</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((payment: any) => {
-                return (
+              {payments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    No payments found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                payments.map((payment: any) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-mono text-xs">
-                      {payment.id.slice(0, 8)}
+                    <TableCell>
+                      {new Date(payment.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      {payment.invoice?.invoiceNumber || payment.invoiceId?.slice(0, 8) || "N/A"}
+                      {payment.invoice?.invoiceNumber || "N/A"}
+                    </TableCell>
+                    <TableCell className="capitalize">{payment.type}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                      }).format(Number(payment.amount))}
                     </TableCell>
                     <TableCell>
-                      {payment.amount.toFixed(2)} {payment.currency}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {payment.paymentMethod.replace(/_/g, " ")}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {payment.transactionId || payment.referenceNumber || "—"}
+                      <WorkflowStatusBadge status={payment.status} />
                     </TableCell>
                     <TableCell>
-                      {format(new Date(payment.createdAt), "MMM dd, yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      {payment.status === "pending" ? (
-                        <Button
-                          size="sm"
-                          onClick={() => setConfirmingPaymentId(payment.id)}
-                          variant="default"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Confirm
-                        </Button>
-                      ) : payment.status === "completed" ? (
-                        <span className="text-sm text-green-600 flex items-center gap-1">
-                          <CheckCircle className="w-4 h-4" />
-                          Confirmed
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
+                      {payment.paymentMethodRel?.type || "N/A"}
                     </TableCell>
                   </TableRow>
-                );
-              })}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* CONFIRMATION DIALOG */}
-      <AlertDialog open={!!confirmingPaymentId} onOpenChange={(open) => !open && setConfirmingPaymentId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Payment Receipt</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to confirm this payment? This will automatically create a task for the payroll provider to process the contractor payment.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+      {/* RECORD PAYMENT MODAL */}
+      <Dialog open={recordPaymentModal} onOpenChange={setRecordPaymentModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+          </DialogHeader>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmPayment}
-              disabled={confirmPaymentMutation.isPending}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Payment Type *</Label>
+              <Select
+                value={paymentType}
+                onValueChange={(value: "full" | "partial") => setPaymentType(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full">Full Payment</SelectItem>
+                  <SelectItem value="partial">Partial Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Amount *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecordPaymentModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRecordPayment}
+              disabled={recordPaymentMutation.isPending}
             >
-              {confirmPaymentMutation.isPending ? "Confirming..." : "Confirm Payment"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {recordPaymentMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Record Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
-}
-
-// -------------------------------
-// PAGE WITH GUARD
-// -------------------------------
-export default function PaymentsPage() {
-  return (
-    <PaymentsPageContent />
   );
 }

@@ -2,14 +2,31 @@
 
 import { api } from "@/lib/trpc";
 import {
-  Dialog, DialogContent, DialogHeader,
-  DialogTitle, DialogFooter
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useMemo } from "react";
+import { Loader2, CheckCircle, FileText, Clock, DollarSign, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
+import { usePermissions } from "@/hooks/use-permissions";
+import {
+  WorkflowStatusBadge,
+  WorkflowActionButtons,
+  WorkflowActionPresets,
+  MarginCalculationDisplay,
+} from "@/components/workflow";
 
-// Helper: trouver le participant principal
+// Helper: find main participant
 function getMainParticipant(contract: any) {
   if (!contract) return null;
 
@@ -20,80 +37,535 @@ function getMainParticipant(contract: any) {
   );
 }
 
-export function TimesheetReviewModal({ timesheetId, onClose }: any) {
+interface TimesheetReviewModalProps {
+  timesheetId: string;
+  onClose: () => void;
+}
+
+export function TimesheetReviewModal({
+  timesheetId,
+  onClose,
+}: TimesheetReviewModalProps) {
+  const { hasPermission } = usePermissions();
+  const [adminModifiedAmount, setAdminModifiedAmount] = useState<string>("");
+  const [isModifyingAmount, setIsModifyingAmount] = useState(false);
+
+  const utils = api.useUtils();
+
   const { data, isLoading } = api.timesheet.getById.useQuery(
     { id: timesheetId },
     { enabled: !!timesheetId }
   );
 
+  // Workflow action mutations
+  const reviewMutation = api.timesheet.review.useMutation({
+    onSuccess: () => {
+      toast.success("Timesheet moved to review");
+      utils.timesheet.getAll.invalidate();
+      utils.timesheet.getById.invalidate({ id: timesheetId });
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const approveMutation = api.timesheet.approve.useMutation({
-    onSuccess: () => onClose(),
+    onSuccess: () => {
+      toast.success("Timesheet approved! Invoice will be generated.");
+      utils.timesheet.getAll.invalidate();
+      onClose();
+    },
+    onError: (err) => toast.error(err.message),
   });
 
   const rejectMutation = api.timesheet.reject.useMutation({
-    onSuccess: () => onClose(),
+    onSuccess: () => {
+      toast.success("Timesheet rejected");
+      utils.timesheet.getAll.invalidate();
+      onClose();
+    },
+    onError: (err) => toast.error(err.message),
   });
 
-  const [rejectReason, setRejectReason] = useState("");
+  const requestChangesMutation = api.timesheet.requestChanges.useMutation({
+    onSuccess: () => {
+      toast.success("Changes requested");
+      utils.timesheet.getAll.invalidate();
+      onClose();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const modifyAmountMutation = api.timesheet.modifyAmount.useMutation({
+    onSuccess: () => {
+      toast.success("Amount updated");
+      utils.timesheet.getById.invalidate({ id: timesheetId });
+      setIsModifyingAmount(false);
+      setAdminModifiedAmount("");
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const main = useMemo(() => getMainParticipant((data as any)?.contract), [data]);
 
-  if (isLoading || !data) return null;
+  // Calculate margin breakdown
+  const marginBreakdown = useMemo(() => {
+    if (!data) return null;
+
+    const contract = data.contract;
+    const baseAmount = Number(data.totalAmount || 0);
+    const marginPercent = Number(contract?.margin || 0);
+    const marginAmount = (baseAmount * marginPercent) / 100;
+    const marginPaidBy = contract?.marginPaidBy || "client";
+
+    let totalWithMargin = baseAmount;
+    if (marginPaidBy === "client") {
+      totalWithMargin = baseAmount + marginAmount;
+    } else if (marginPaidBy === "contractor") {
+      totalWithMargin = baseAmount - marginAmount;
+    }
+
+    return {
+      baseAmount,
+      marginAmount,
+      marginPercentage: marginPercent,
+      totalWithMargin,
+      currency: contract?.currency?.code || "USD",
+      marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
+      paymentMode: contract?.paymentMode || "gross",
+    };
+  }, [data]);
+
+  // Handle workflow actions
+  const handleWorkflowAction = async (action: string, reason?: string) => {
+    switch (action) {
+      case "review":
+        await reviewMutation.mutateAsync({ id: timesheetId });
+        break;
+      case "approve":
+        await approveMutation.mutateAsync({ id: timesheetId });
+        break;
+      case "reject":
+        await rejectMutation.mutateAsync({ id: timesheetId, reason });
+        break;
+      case "request_changes":
+        await requestChangesMutation.mutateAsync({ id: timesheetId, reason });
+        break;
+      default:
+        toast.error("Unknown action");
+    }
+  };
+
+  const handleModifyAmount = () => {
+    const amount = parseFloat(adminModifiedAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    modifyAmountMutation.mutate({
+      id: timesheetId,
+      amount: amount.toString(),
+    });
+  };
+
+  if (isLoading || !data) {
+    return (
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl">
+          <div className="flex justify-center py-10">
+            <Loader2 className="animate-spin h-8 w-8 text-gray-500" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const canModify = hasPermission("timesheet.modify.global");
+  const canReview = hasPermission("timesheet.review.global");
+  const canApprove = hasPermission("timesheet.approve.global");
+  const canReject = hasPermission("timesheet.reject.global");
+
+  // Determine available actions based on state and permissions
+  const availableActions = [];
+  const currentState = data.workflowState || data.status;
+
+  if (currentState === "submitted" && canReview) {
+    availableActions.push(WorkflowActionPresets.timesheetReview[0]); // Review
+  }
+
+  if (
+    (currentState === "submitted" || currentState === "under_review") &&
+    canApprove
+  ) {
+    availableActions.push(WorkflowActionPresets.timesheetReview[1]); // Approve
+    availableActions.push(WorkflowActionPresets.timesheetReview[2]); // Request Changes
+  }
+
+  if (
+    (currentState === "submitted" || currentState === "under_review") &&
+    canReject
+  ) {
+    availableActions.push(WorkflowActionPresets.timesheetReview[3]); // Reject
+  }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Review Timesheet</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Timesheet Review</DialogTitle>
+            <WorkflowStatusBadge status={currentState} />
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="entries">Entries</TabsTrigger>
+            <TabsTrigger value="calculation">Calculation</TabsTrigger>
+            <TabsTrigger value="preview">Invoice Preview</TabsTrigger>
+          </TabsList>
 
-          <p>
-            <b>Worker:</b> {main?.user?.name ?? "Unknown"}
-          </p>
+          <ScrollArea className="max-h-[calc(90vh-200px)] mt-4">
+            {/* DETAILS TAB */}
+            <TabsContent value="details" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Worker Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Name</Label>
+                      <p className="font-medium">{main?.user?.name ?? "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <p className="font-medium">{main?.user?.email ?? "N/A"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <p>
-            <b>Period:</b>{" "}
-            {new Date(data.startDate).toLocaleDateString()} →{" "}
-            {new Date(data.endDate).toLocaleDateString()}
-          </p>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Contract Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Contract</Label>
+                      <p className="font-medium">
+                        {data.contract?.title ||
+                          data.contract?.contractReference ||
+                          "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Rate</Label>
+                      <p className="font-medium">
+                        {data.contract?.currency?.symbol || "$"}
+                        {data.contract?.rate?.toString() || "0"} /{" "}
+                        {data.contract?.rateType || "day"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Payment Mode</Label>
+                      <p className="font-medium capitalize">
+                        {(data.contract?.paymentMode || "gross").replace("-", " ")}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Margin</Label>
+                      <p className="font-medium">
+                        {data.contract?.margin?.toString() || "0"}% (paid by{" "}
+                        {data.contract?.marginPaidBy || "client"})
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <p>
-            <b>Total Hours:</b> {Number(data.totalHours)}h
-          </p>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Timesheet Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Period</Label>
+                      <p className="font-medium">
+                        {new Date(data.startDate).toLocaleDateString()} →{" "}
+                        {new Date(data.endDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Total Hours</Label>
+                      <p className="font-medium">{Number(data.totalHours).toFixed(1)}h</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Submitted</Label>
+                      <p className="font-medium">
+                        {data.submittedAt
+                          ? new Date(data.submittedAt).toLocaleDateString()
+                          : "Not submitted"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        {isModifyingAmount ? "Original Amount" : "Amount"}
+                      </Label>
+                      <p className="font-medium text-lg">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: data.contract?.currency?.code || "USD",
+                        }).format(Number(data.totalAmount || 0))}
+                      </p>
+                    </div>
+                  </div>
 
-          <p>
-            <b>Total Amount:</b>{" "}
-            {data.totalAmount ? Number(data.totalAmount) : 0} EUR
-          </p>
+                  {data.notes && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Notes</Label>
+                      <p className="text-sm text-muted-foreground italic">{data.notes}</p>
+                    </div>
+                  )}
 
-          <Textarea
-            placeholder="Rejection reason (optional)"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-          />
-        </div>
+                  {/* Admin Modify Amount */}
+                  {canModify && (currentState === "submitted" || currentState === "under_review") && (
+                    <>
+                      <Separator />
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Admin Adjustment</Label>
+                          {!isModifyingAmount && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setIsModifyingAmount(true);
+                                setAdminModifiedAmount(data.totalAmount?.toString() || "");
+                              }}
+                            >
+                              Modify Amount
+                            </Button>
+                          )}
+                        </div>
 
-        <DialogFooter>
-          <Button
-            onClick={() => approveMutation.mutate({ id: timesheetId })}
-          >
-            Approve
-          </Button>
+                        {isModifyingAmount && (
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={adminModifiedAmount}
+                              onChange={(e) => setAdminModifiedAmount(e.target.value)}
+                              placeholder="Enter new amount"
+                            />
+                            <Button
+                              onClick={handleModifyAmount}
+                              disabled={modifyAmountMutation.isPending}
+                            >
+                              {modifyAmountMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Save"
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setIsModifyingAmount(false);
+                                setAdminModifiedAmount("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
 
-          <Button
-            variant="destructive"
-            onClick={() =>
-              rejectMutation.mutate({
-                id: timesheetId,
-                reason: rejectReason || undefined,
-              })
-            }
-          >
-            Reject
-          </Button>
-        </DialogFooter>
+                        {data.adminModifiedAmount && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              Amount was adjusted by admin to{" "}
+                              {new Intl.NumberFormat("en-US", {
+                                style: "currency",
+                                currency: data.contract?.currency?.code || "USD",
+                              }).format(Number(data.adminModifiedAmount))}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ENTRIES TAB */}
+            <TabsContent value="entries" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Time Entries</CardTitle>
+                  <CardDescription>Daily breakdown of hours worked</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {data.entries && data.entries.length > 0 ? (
+                    <div className="space-y-2">
+                      {data.entries.map((entry: any) => (
+                        <div
+                          key={entry.id}
+                          className="flex justify-between items-center py-2 border-b last:border-0"
+                        >
+                          <div>
+                            <p className="font-medium">
+                              {new Date(entry.date).toLocaleDateString()}
+                            </p>
+                            {entry.description && (
+                              <p className="text-sm text-muted-foreground">
+                                {entry.description}
+                              </p>
+                            )}
+                          </div>
+                          <p className="font-medium">{Number(entry.hours)}h</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No detailed entries available
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* CALCULATION TAB */}
+            <TabsContent value="calculation" className="space-y-4">
+              {marginBreakdown && (
+                <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
+              )}
+
+              {/* Expenses if any */}
+              {data.expenses && data.expenses.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Expenses</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {data.expenses.map((expense: any) => (
+                        <div
+                          key={expense.id}
+                          className="flex justify-between items-center py-2 border-b last:border-0"
+                        >
+                          <div>
+                            <p className="font-medium capitalize">{expense.category}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {expense.description}
+                            </p>
+                          </div>
+                          <p className="font-medium">
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: data.contract?.currency?.code || "USD",
+                            }).format(Number(expense.amount))}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* INVOICE PREVIEW TAB */}
+            <TabsContent value="preview" className="space-y-4">
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  {currentState === "approved"
+                    ? "Invoice has been generated for this timesheet."
+                    : "Upon approval, an invoice will be automatically generated."}
+                </AlertDescription>
+              </Alert>
+
+              {marginBreakdown && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Invoice Summary</CardTitle>
+                    <CardDescription>
+                      Invoice will be sent to: {marginBreakdown.marginPaidBy === "client" ? "Client" : "Agency"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Base Amount:</span>
+                      <span className="font-medium">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: marginBreakdown.currency,
+                        }).format(marginBreakdown.baseAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Margin ({marginBreakdown.marginPercentage}%):
+                      </span>
+                      <span className="font-medium text-blue-600">
+                        +{" "}
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: marginBreakdown.currency,
+                        }).format(marginBreakdown.marginAmount)}
+                      </span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between text-lg">
+                      <span className="font-semibold">Invoice Total:</span>
+                      <span className="font-bold text-green-600">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: marginBreakdown.currency,
+                        }).format(marginBreakdown.totalWithMargin)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
+
+        {/* WORKFLOW ACTIONS */}
+        {availableActions.length > 0 && (
+          <>
+            <Separator />
+            <div className="flex justify-between items-center pt-4">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              <WorkflowActionButtons
+                actions={availableActions}
+                onAction={handleWorkflowAction}
+                isLoading={
+                  reviewMutation.isPending ||
+                  approveMutation.isPending ||
+                  rejectMutation.isPending ||
+                  requestChangesMutation.isPending
+                }
+                className="flex gap-2"
+              />
+            </div>
+          </>
+        )}
+
+        {availableActions.length === 0 && (
+          <div className="flex justify-end pt-4">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
