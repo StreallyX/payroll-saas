@@ -417,7 +417,7 @@ createRange: tenantProcedure
 
      if (!ts) throw new TRPCError({ code: "NOT_FOUND" });
 
-     // 2️⃣ UPDATE → APPROVE
+     // 2️⃣ UPDATE → APPROVE (only change state, don't create invoice)
      await ctx.prisma.timesheet.update({
        where: { id: input.id },
        data: {
@@ -428,89 +428,143 @@ createRange: tenantProcedure
        },
      });
 
-     const userId = ts.submittedBy;
-     const currency = ts.contract?.currency?.name ?? "USD";
-     const contractorName = ts.contract?.participants.find(p => p.userId === userId)?.user?.name ?? "Contractor";
-
-     // Calculate amounts with margin
-     let baseAmount = ts.adminModifiedAmount ?? ts.totalAmount ?? new Prisma.Decimal(0);
-     let marginAmount = new Prisma.Decimal(0);
-     let marginPercentage = new Prisma.Decimal(0);
-     let totalWithMargin = baseAmount;
-     
-     if (ts.contract?.margin) {
-       if (ts.contract.marginType?.toLowerCase() === "fixed") {
-         marginAmount = ts.contract.margin;
-         marginPercentage = baseAmount.gt(0) 
-           ? ts.contract.margin.div(baseAmount).mul(100) 
-           : new Prisma.Decimal(0);
-       } else {
-         marginPercentage = ts.contract.margin;
-         marginAmount = baseAmount.mul(ts.contract.margin).div(100);
-       }
-
-       // Add margin if paid by client, subtract if paid by contractor
-       if (ts.contract.marginPaidBy === "client") {
-         totalWithMargin = baseAmount.add(marginAmount);
-       } else if (ts.contract.marginPaidBy === "contractor") {
-         totalWithMargin = baseAmount.sub(marginAmount);
-       }
-     }
-
-     // ------------------------------------------
-     // 3️⃣ AUTO-INVOICE with proper workflow state
-     // ------------------------------------------
-     if (ts.contractId && ts.totalAmount) {
-       const invoice = await ctx.prisma.invoice.create({
-         data: {
-           tenantId: ctx.tenantId,
-           contractId: ts.contractId,
-           createdBy: userId,
-
-           // Amounts with margin calculation
-           baseAmount: baseAmount,
-           marginAmount: marginAmount,
-           marginPercentage: marginPercentage,
-           marginPaidBy: ts.contract?.marginPaidBy,
-           amount: baseAmount,
-           totalAmount: totalWithMargin,
-           currency,
-
-           // Workflow state - set to submitted/pending approval
-           status: "submitted",
-           workflowState: "for_approval",
-
-           issueDate: new Date(),
-           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-
-           description: `Invoice for ${contractorName} - Period: ${ts.startDate.toISOString().slice(0,10)} to ${ts.endDate.toISOString().slice(0,10)}`,
-           notes: `Auto-generated from approved timesheet. Total hours: ${ts.totalHours}`,
-           
-           timesheets: {
-             connect: { id: ts.id },
-           },
-
-           // Create line items from timesheet entries
-           lineItems: {
-             create: ts.entries.map((entry) => ({
-               description: `Work on ${new Date(entry.date).toISOString().slice(0,10)}${entry.description ? ': ' + entry.description : ''}`,
-               quantity: entry.hours,
-               unitPrice: ts.contract?.rate ?? new Prisma.Decimal(0),
-               amount: entry.hours.mul(ts.contract?.rate ?? new Prisma.Decimal(0)),
-             })),
-           },
-         },
-       });
-
-       // Link invoice back to timesheet
-       await ctx.prisma.timesheet.update({
-         where: { id: ts.id },
-         data: { invoiceId: invoice.id },
-       });
-     }
-
      return { success: true };
    }),
+
+  // ------------------------------------------------------
+  // 🆕 SEND TO AGENCY — Creates Invoice after Approval
+  // ------------------------------------------------------
+  sendToAgency: tenantProcedure
+    .use(hasPermission(P.APPROVE))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+
+      // 1️⃣ RELOAD timesheet with contract details
+      const ts = await ctx.prisma.timesheet.findFirst({
+        where: { id: input.id, tenantId: ctx.tenantId },
+        include: {
+          contract: {
+            include: {
+              currency: true,
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+          entries: true,
+        },
+      });
+
+      if (!ts) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // 2️⃣ Verify timesheet is approved
+      if (ts.workflowState !== "approved") {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "Timesheet must be approved before sending to agency" 
+        });
+      }
+
+      // 3️⃣ Check if invoice already exists
+      if (ts.invoiceId) {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "Invoice already created for this timesheet" 
+        });
+      }
+
+      const userId = ts.submittedBy;
+      const currency = ts.contract?.currency?.name ?? "USD";
+      const contractorName = ts.contract?.participants.find(p => p.userId === userId)?.user?.name ?? "Contractor";
+
+      // Calculate amounts with margin
+      let baseAmount = ts.adminModifiedAmount ?? ts.totalAmount ?? new Prisma.Decimal(0);
+      let marginAmount = new Prisma.Decimal(0);
+      let marginPercentage = new Prisma.Decimal(0);
+      let totalWithMargin = baseAmount;
+      
+      if (ts.contract?.margin) {
+        if (ts.contract.marginType?.toLowerCase() === "fixed") {
+          marginAmount = ts.contract.margin;
+          marginPercentage = baseAmount.gt(0) 
+            ? ts.contract.margin.div(baseAmount).mul(100) 
+            : new Prisma.Decimal(0);
+        } else {
+          marginPercentage = ts.contract.margin;
+          marginAmount = baseAmount.mul(ts.contract.margin).div(100);
+        }
+
+        // Add margin if paid by client, subtract if paid by contractor
+        if (ts.contract.marginPaidBy === "client") {
+          totalWithMargin = baseAmount.add(marginAmount);
+        } else if (ts.contract.marginPaidBy === "contractor") {
+          totalWithMargin = baseAmount.sub(marginAmount);
+        }
+      }
+
+      // 4️⃣ CREATE INVOICE
+      if (ts.contractId && ts.totalAmount) {
+        const invoice = await ctx.prisma.invoice.create({
+          data: {
+            tenantId: ctx.tenantId,
+            contractId: ts.contractId,
+            createdBy: userId,
+
+            // Amounts with margin calculation
+            baseAmount: baseAmount,
+            marginAmount: marginAmount,
+            marginPercentage: marginPercentage,
+            marginPaidBy: ts.contract?.marginPaidBy,
+            amount: baseAmount,
+            totalAmount: totalWithMargin,
+            currency,
+
+            // Workflow state - set to submitted/pending approval
+            status: "submitted",
+            workflowState: "for_approval",
+
+            issueDate: new Date(),
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+
+            description: `Invoice for ${contractorName} - Period: ${ts.startDate.toISOString().slice(0,10)} to ${ts.endDate.toISOString().slice(0,10)}`,
+            notes: `Generated from approved timesheet. Total hours: ${ts.totalHours}`,
+            
+            timesheets: {
+              connect: { id: ts.id },
+            },
+
+            // Create line items from timesheet entries
+            lineItems: {
+              create: ts.entries.map((entry) => ({
+                description: `Work on ${new Date(entry.date).toISOString().slice(0,10)}${entry.description ? ': ' + entry.description : ''}`,
+                quantity: entry.hours,
+                unitPrice: ts.contract?.rate ?? new Prisma.Decimal(0),
+                amount: entry.hours.mul(ts.contract?.rate ?? new Prisma.Decimal(0)),
+              })),
+            },
+          },
+        });
+
+        // Link invoice back to timesheet and update workflow state
+        await ctx.prisma.timesheet.update({
+          where: { id: ts.id },
+          data: { 
+            invoiceId: invoice.id,
+            workflowState: "sent",
+          },
+        });
+
+        return { success: true, invoiceId: invoice.id };
+      }
+
+      throw new TRPCError({ 
+        code: "BAD_REQUEST", 
+        message: "Cannot create invoice without contract or amount" 
+      });
+    }),
 
   // ------------------------------------------------------
   // 9️⃣ REJECT TIMESHEET

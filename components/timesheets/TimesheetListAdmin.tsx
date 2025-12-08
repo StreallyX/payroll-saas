@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send, Eye } from "lucide-react";
 import { WorkflowStatusBadge } from "@/components/workflow";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 import { TimesheetReviewModal } from "./TimesheetReviewModal";
 
@@ -38,10 +39,21 @@ function getMainParticipant(contract: any) {
 }
 
 export function TimesheetListAdmin() {
+  const utils = api.useUtils();
   const { data, isLoading } = api.timesheet.getAll.useQuery();
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Send to agency mutation
+  const sendToAgencyMutation = api.timesheet.sendToAgency.useMutation({
+    onSuccess: () => {
+      toast.success("Invoice created and sent to agency!");
+      utils.timesheet.getAll.invalidate();
+      utils.invoice.getAll.invalidate();
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
 
   if (isLoading) {
     return (
@@ -91,6 +103,7 @@ export function TimesheetListAdmin() {
             <SelectItem value="submitted">Submitted</SelectItem>
             <SelectItem value="under_review">Under Review</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="sent">Sent to Agency</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
             <SelectItem value="changes_requested">Changes Requested</SelectItem>
           </SelectContent>
@@ -183,22 +196,49 @@ export function TimesheetListAdmin() {
 
                     {/* ACTION */}
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant={
-                          t.workflowState === "submitted" ||
-                          t.workflowState === "under_review"
-                            ? "default"
-                            : "outline"
-                        }
-                        onClick={() => setReviewId(t.id)}
-                      >
-                        {t.workflowState === "approved"
-                          ? "View"
-                          : t.workflowState === "draft"
-                          ? "View"
-                          : "Review"}
-                      </Button>
+                      <div className="flex gap-2 justify-end">
+                        {/* Send to Agency button for approved timesheets */}
+                        {t.workflowState === "approved" && !t.invoiceId && (
+                          <Button
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={() => sendToAgencyMutation.mutate({ id: t.id })}
+                            disabled={sendToAgencyMutation.isPending}
+                          >
+                            {sendToAgencyMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-1" />
+                                Send to Agency
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {/* View/Review button */}
+                        <Button
+                          size="sm"
+                          variant={
+                            t.workflowState === "submitted" ||
+                            t.workflowState === "under_review"
+                              ? "default"
+                              : "outline"
+                          }
+                          onClick={() => setReviewId(t.id)}
+                        >
+                          {t.workflowState === "approved" || t.workflowState === "sent"
+                            ? (
+                              <>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </>
+                            )
+                            : t.workflowState === "draft"
+                            ? "View"
+                            : "Review"}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

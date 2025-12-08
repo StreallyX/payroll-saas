@@ -16,16 +16,27 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useMemo } from "react";
-import { Loader2, CheckCircle, FileText, Clock, DollarSign, AlertCircle } from "lucide-react";
+import { 
+  Loader2, 
+  CheckCircle, 
+  FileText, 
+  Clock, 
+  DollarSign, 
+  AlertCircle, 
+  XCircle,
+  Download,
+  Eye,
+  Send
+} from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   WorkflowStatusBadge,
-  WorkflowActionButtons,
-  WorkflowActionPresets,
   MarginCalculationDisplay,
 } from "@/components/workflow";
+import { TimesheetStatusTimeline } from "./TimesheetStatusTimeline";
 
 // Helper: find main participant
 function getMainParticipant(contract: any) {
@@ -50,6 +61,10 @@ export function TimesheetReviewModal({
   const { hasPermission } = usePermissions();
   const [adminModifiedAmount, setAdminModifiedAmount] = useState<string>("");
   const [isModifyingAmount, setIsModifyingAmount] = useState(false);
+  
+  // 2-step confirmation states
+  const [action, setAction] = useState<"approve" | "reject" | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const utils = api.useUtils();
 
@@ -70,11 +85,10 @@ export function TimesheetReviewModal({
 
   const approveMutation = api.timesheet.approve.useMutation({
     onSuccess: () => {
-      toast.success("Timesheet approved! Invoice will be generated.");
+      toast.success("Timesheet approved! Ready to send to agency.");
       utils.timesheet.getAll.invalidate();
       utils.timesheet.getById.invalidate({ id: timesheetId });
-      utils.invoice.getAll.invalidate();
-      onClose();
+      setAction(null);
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -83,6 +97,20 @@ export function TimesheetReviewModal({
     onSuccess: () => {
       toast.success("Timesheet rejected");
       utils.timesheet.getAll.invalidate();
+      utils.timesheet.getById.invalidate({ id: timesheetId });
+      setAction(null);
+      setRejectionReason("");
+      onClose();
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const sendToAgencyMutation = api.timesheet.sendToAgency.useMutation({
+    onSuccess: () => {
+      toast.success("Invoice created and sent to agency!");
+      utils.timesheet.getAll.invalidate();
+      utils.timesheet.getById.invalidate({ id: timesheetId });
+      utils.invoice.getAll.invalidate();
       onClose();
     },
     onError: (err: any) => toast.error(err.message),
@@ -153,23 +181,31 @@ export function TimesheetReviewModal({
   }, [data]);
 
   // Handle workflow actions
-  const handleWorkflowAction = async (action: string, reason?: string) => {
-    switch (action) {
-      case "review":
-        await reviewMutation.mutateAsync({ id: timesheetId });
-        break;
-      case "approve":
-        await approveMutation.mutateAsync({ id: timesheetId });
-        break;
-      case "reject":
-        await rejectMutation.mutateAsync({ id: timesheetId, reason: reason || "" });
-        break;
-      case "request_changes":
-        await requestChangesMutation.mutateAsync({ id: timesheetId, changesRequested: reason || "" });
-        break;
-      default:
-        toast.error("Unknown action");
+  const handleReview = async () => {
+    await reviewMutation.mutateAsync({ id: timesheetId });
+  };
+
+  const handleApprove = async () => {
+    await approveMutation.mutateAsync({ id: timesheetId });
+  };
+
+  const handleReject = async () => {
+    const trimmedReason = rejectionReason.trim();
+    
+    // Validation: minimum 10 characters required
+    if (!trimmedReason || trimmedReason.length < 10) {
+      toast.error("Rejection reason must be at least 10 characters");
+      return;
     }
+
+    await rejectMutation.mutateAsync({ 
+      id: timesheetId, 
+      reason: trimmedReason 
+    });
+  };
+
+  const handleSendToAgency = async () => {
+    await sendToAgencyMutation.mutateAsync({ id: timesheetId });
   };
 
   const handleModifyAmount = () => {
@@ -185,6 +221,21 @@ export function TimesheetReviewModal({
       adminModificationNote: "Amount modified by admin",
     });
   };
+
+  const handleClose = () => {
+    if (!isProcessing) {
+      setAction(null);
+      setRejectionReason("");
+      onClose();
+    }
+  };
+
+  const isProcessing = 
+    reviewMutation.isPending ||
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    sendToAgencyMutation.isPending ||
+    requestChangesMutation.isPending;
 
   if (isLoading || !data) {
     return (
@@ -203,51 +254,251 @@ export function TimesheetReviewModal({
   const canApprove = hasPermission("timesheet.approve.global");
   const canReject = hasPermission("timesheet.reject.global");
 
-  // Determine available actions based on state and permissions
-  const availableActions = [];
   const currentState = data.workflowState || data.status;
 
-  if (currentState === "submitted" && canReview) {
-    availableActions.push(WorkflowActionPresets.timesheetReview[0]); // Review
-  }
-
-  if (
-    (currentState === "submitted" || currentState === "under_review") &&
-    canApprove
-  ) {
-    availableActions.push(WorkflowActionPresets.timesheetReview[1]); // Approve
-    availableActions.push(WorkflowActionPresets.timesheetReview[2]); // Request Changes
-  }
-
-  if (
-    (currentState === "submitted" || currentState === "under_review") &&
-    canReject
-  ) {
-    availableActions.push(WorkflowActionPresets.timesheetReview[3]); // Reject
-  }
-
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={true} onOpenChange={handleClose}>
       <DialogContent className="max-w-7xl max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl">Timesheet Review</DialogTitle>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <FileText className="h-6 w-6" />
+              Timesheet Review
+            </DialogTitle>
             <WorkflowStatusBadge status={currentState} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Review timesheet details, calculations, and approve or request changes
+            Review timesheet details, files, and approve or reject
           </p>
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="timeline" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="files">Files</TabsTrigger>
             <TabsTrigger value="entries">Entries</TabsTrigger>
             <TabsTrigger value="calculation">Calculation</TabsTrigger>
-            <TabsTrigger value="preview">Invoice Preview</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="max-h-[calc(90vh-200px)] mt-4">
+          <ScrollArea className="max-h-[calc(90vh-250px)] mt-4">
+            {/* TIMELINE TAB */}
+            <TabsContent value="timeline" className="space-y-4">
+              <TimesheetStatusTimeline 
+                currentStatus={currentState as any}
+                statusHistory={[]}
+              />
+            </TabsContent>
+
+            {/* FILES TAB */}
+            <TabsContent value="files" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Attached Files</CardTitle>
+                  <CardDescription>View and download timesheet and expense files</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Timesheet File */}
+                  {data.timesheetFileUrl ? (
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-blue-600" />
+                        <div>
+                          <p className="font-medium">Timesheet Document</p>
+                          <p className="text-sm text-muted-foreground">Uploaded timesheet file</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(data.timesheetFileUrl!, "_blank")}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = data.timesheetFileUrl!;
+                            a.download = "timesheet.pdf";
+                            a.click();
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>No timesheet file attached</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Expense Receipts */}
+                  {data.expenseFileUrl ? (
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-green-600" />
+                        <div>
+                          <p className="font-medium">Expense Receipts</p>
+                          <p className="text-sm text-muted-foreground">Uploaded expense documentation</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(data.expenseFileUrl!, "_blank")}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = data.expenseFileUrl!;
+                            a.download = "expenses.pdf";
+                            a.click();
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>No expense files attached</AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* CONFIRMATION UI FOR ACTIONS */}
+            {action && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <Card className="max-w-md w-full">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      {action === "approve" ? (
+                        <>
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          Confirm Approval
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-5 w-5 text-red-600" />
+                          Confirm Rejection
+                        </>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {action === "approve" ? (
+                      <Alert className="border-green-200 bg-green-50">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-900">
+                          You are about to approve this timesheet. It will be ready to send to the agency.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <div className="space-y-3">
+                        <Alert variant="destructive">
+                          <XCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            You are about to reject this timesheet. Please provide a reason.
+                          </AlertDescription>
+                        </Alert>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="reject-reason" className="required">
+                              Rejection Reason *
+                            </Label>
+                            <span className={`text-xs ${
+                              rejectionReason.trim().length < 10 
+                                ? "text-red-500 font-medium" 
+                                : "text-muted-foreground"
+                            }`}>
+                              {rejectionReason.trim().length} / 10 characters minimum
+                            </span>
+                          </div>
+                          <Textarea
+                            id="reject-reason"
+                            placeholder="Explain why you are rejecting this timesheet (minimum 10 characters)..."
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            disabled={isProcessing}
+                            rows={4}
+                            className={rejectionReason.trim().length > 0 && rejectionReason.trim().length < 10 ? "border-red-300" : ""}
+                          />
+                          {rejectionReason.trim().length > 0 && rejectionReason.trim().length < 10 && (
+                            <p className="text-xs text-red-500 font-medium">
+                              ⚠️ The reason must contain at least 10 characters
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                  <DialogFooter className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setAction(null)}
+                      disabled={isProcessing}
+                    >
+                      Cancel
+                    </Button>
+                    {action === "approve" ? (
+                      <Button
+                        onClick={handleApprove}
+                        disabled={isProcessing}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Approving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Confirm Approval
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        onClick={handleReject}
+                        disabled={!rejectionReason.trim() || rejectionReason.trim().length < 10 || isProcessing}
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Rejecting...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Confirm Rejection
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </DialogFooter>
+                </Card>
+              </div>
+            )}
+
             {/* DETAILS TAB */}
             <TabsContent value="details" className="space-y-4">
               <Card>
@@ -586,22 +837,87 @@ export function TimesheetReviewModal({
         </Tabs>
         {/* WORKFLOW ACTIONS */}
         <DialogFooter className="flex justify-between items-center pt-4 mt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={handleClose}>
             Close
           </Button>
-          {availableActions.length > 0 && (
-            <WorkflowActionButtons
-              actions={availableActions}
-              onAction={handleWorkflowAction}
-              isLoading={
-                reviewMutation.isPending ||
-                approveMutation.isPending ||
-                rejectMutation.isPending ||
-                requestChangesMutation.isPending
-              }
-              className="flex gap-2"
-            />
-          )}
+          
+          <div className="flex gap-2">
+            {/* Review button */}
+            {currentState === "submitted" && canReview && !action && (
+              <Button
+                onClick={handleReview}
+                disabled={isProcessing}
+                variant="secondary"
+              >
+                {reviewMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Reviewing...
+                  </>
+                ) : (
+                  <>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Mark Under Review
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Approve button - triggers confirmation */}
+            {(currentState === "submitted" || currentState === "under_review") && canApprove && !action && (
+              <Button
+                onClick={() => setAction("approve")}
+                disabled={isProcessing}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve
+              </Button>
+            )}
+
+            {/* Reject button - triggers confirmation */}
+            {(currentState === "submitted" || currentState === "under_review") && canReject && !action && (
+              <Button
+                onClick={() => setAction("reject")}
+                disabled={isProcessing}
+                variant="destructive"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject
+              </Button>
+            )}
+
+            {/* Send to Agency button - only for approved timesheets */}
+            {currentState === "approved" && canApprove && !data.invoiceId && (
+              <Button
+                onClick={handleSendToAgency}
+                disabled={isProcessing}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {sendToAgencyMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send to Agency
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Show invoice link if already sent */}
+            {currentState === "sent" && data.invoiceId && (
+              <Alert className="max-w-sm">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-900">
+                  Invoice created successfully
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
