@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -585,34 +586,23 @@ export function TimesheetReviewModal({
         </Tabs>
 
         {/* WORKFLOW ACTIONS */}
-        {availableActions.length > 0 && (
-          <>
-            <Separator />
-            <div className="flex justify-between items-center pt-4">
-              <Button variant="outline" onClick={onClose}>
-                Close
-              </Button>
-              <WorkflowActionButtons
-                actions={availableActions}
-                onAction={handleWorkflowAction}
-                isLoading={
-                  reviewMutation.isPending ||
-                  rejectMutation.isPending ||
-                  requestChangesMutation.isPending
-                }
-                className="flex gap-2"
-              />
-            </div>
-          </>
-        )}
-
-        {availableActions.length === 0 && (
-          <div className="flex justify-end pt-4">
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        )}
+        <DialogFooter className="flex justify-between items-center pt-4 mt-4 border-t">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          {availableActions.length > 0 && (
+            <WorkflowActionButtons
+              actions={availableActions}
+              onAction={handleWorkflowAction}
+              isLoading={
+                reviewMutation.isPending ||
+                rejectMutation.isPending ||
+                requestChangesMutation.isPending
+              }
+              className="flex gap-2"
+            />
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
