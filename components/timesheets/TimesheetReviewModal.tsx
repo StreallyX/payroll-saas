@@ -37,6 +37,7 @@ import {
   MarginCalculationDisplay,
 } from "@/components/workflow";
 import { TimesheetStatusTimeline } from "./TimesheetStatusTimeline";
+import { TimesheetFileViewer } from "./TimesheetFileViewer";
 
 // Helper: find main participant
 function getMainParticipant(contract: any) {
@@ -297,105 +298,58 @@ export function TimesheetReviewModal({
           <ScrollArea className="max-h-[calc(90vh-250px)] mt-4">
             {/* TIMELINE TAB */}
             <TabsContent value="timeline" className="space-y-4">
-              <TimesheetStatusTimeline 
-                currentStatus={currentState as any}
-                statusHistory={[]}
-              />
-            </TabsContent>
-
-            {/* FILES TAB */}
-            <TabsContent value="files" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Attached Files</CardTitle>
-                  <CardDescription>View and download timesheet and expense files</CardDescription>
+                  <CardTitle className="text-base">Workflow Timeline</CardTitle>
+                  <CardDescription>Complete history of timesheet status changes</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Timesheet File */}
-                  {data.timesheetFileUrl ? (
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-blue-600" />
-                        <div>
-                          <p className="font-medium">Timesheet Document</p>
-                          <p className="text-sm text-muted-foreground">Uploaded timesheet file</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(data.timesheetFileUrl!, "_blank")}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const a = document.createElement("a");
-                            a.href = data.timesheetFileUrl!;
-                            a.download = "timesheet.pdf";
-                            a.click();
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>No timesheet file attached</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Expense Receipts */}
-                  {data.expenseFileUrl ? (
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-green-600" />
-                        <div>
-                          <p className="font-medium">Expense Receipts</p>
-                          <p className="text-sm text-muted-foreground">Uploaded expense documentation</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(data.expenseFileUrl!, "_blank")}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const a = document.createElement("a");
-                            a.href = data.expenseFileUrl!;
-                            a.download = "expenses.pdf";
-                            a.click();
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>No expense files attached</AlertDescription>
-                    </Alert>
-                  )}
+                <CardContent>
+                  <TimesheetStatusTimeline
+                    currentStatus={currentState as any}
+                    statusHistory={[]}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
 
+            {/* FILES TAB */}
+            <TabsContent value="files" className="space-y-4">
+              <div className="space-y-4">
+                {/* Timesheet File Viewer */}
+                <TimesheetFileViewer
+                  fileUrl={data.timesheetFileUrl}
+                  fileName="timesheet.pdf"
+                  fileType="timesheet"
+                />
+
+                {/* Expense File Viewer */}
+                {data.expenseFileUrl && (
+                  <TimesheetFileViewer
+                    fileUrl={data.expenseFileUrl}
+                    fileName="expense-receipts.pdf"
+                    fileType="expense"
+                  />
+                )}
+
+                {/* Show message if no files at all */}
+                {!data.timesheetFileUrl && !data.expenseFileUrl && (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                      <p className="text-lg font-medium text-muted-foreground">No files attached</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        No timesheet or expense files have been uploaded
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+
+
+            {/* DETAILS TAB */}
+
+            {/* CONFIRMATION UI FOR ACTIONS */}
             {/* CONFIRMATION UI FOR ACTIONS */}
             {action && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -705,108 +659,148 @@ export function TimesheetReviewModal({
               </Card>
             </TabsContent>
 
-            {/* CALCULATION TAB */}
+            {/* CALCULATION TAB - Full Invoice Preview */}
             <TabsContent value="calculation" className="space-y-4">
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  {currentState === "approved" || currentState === "sent"
+                    ? "Invoice preview for this timesheet."
+                    : "Upon approval, an invoice will be generated with these details."}
+                </AlertDescription>
+              </Alert>
+
+              {/* Invoice Line Items */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Invoice Line Items</CardTitle>
+                  <CardDescription>
+                    Breakdown of work performed during the period
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {data.entries && data.entries.length > 0 ? (
+                    <div className="space-y-2">
+                      {data.entries.map((entry: any) => (
+                        <div
+                          key={entry.id}
+                          className="flex justify-between items-center py-2 border-b last:border-0"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium">
+                              {new Date(entry.date).toLocaleDateString("en-US", {
+                                weekday: "short",
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </p>
+                            {entry.description && (
+                              <p className="text-sm text-muted-foreground">{entry.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">
+                              {Number(entry.hours)} {Number(entry.hours) === 1 ? "hour" : "hours"}
+                            </p>
+                            {data.contract?.rate && (
+                              <p className="text-sm text-muted-foreground">
+                                @ {new Intl.NumberFormat("en-US", {
+                                  style: "currency",
+                                  currency: marginBreakdown?.currency || "USD",
+                                }).format(Number(data.contract.rate))}
+                                {data.contract.rateType === "hourly" ? "/hr" : "/day"}
+                              </p>
+                            )}
+                          </div>
+                          <div className="w-24 text-right">
+                            <p className="font-medium">
+                              {data.contract?.rate
+                                ? new Intl.NumberFormat("en-US", {
+                                    style: "currency",
+                                    currency: marginBreakdown?.currency || "USD",
+                                  }).format(
+                                    data.contract.rateType === "hourly"
+                                      ? Number(entry.hours) * Number(data.contract.rate)
+                                      : Number(data.contract.rate)
+                                  )
+                                : "N/A"}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No entries found</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Margin Calculation Display */}
               {marginBreakdown && (
                 <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
               )}
 
-              {/* TODO: Expenses functionality not yet implemented in timesheet model */}
-              {/* {data.expenses && data.expenses.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Expenses</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {data.expenses.map((expense: any) => (
-                        <div
-                          key={expense.id}
-                          className="flex justify-between items-center py-2 border-b last:border-0"
-                        >
-                          <div>
-                            <p className="font-medium capitalize">{expense.category}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {expense.description}
-                            </p>
-                          </div>
-                          <p className="font-medium">
-                            {new Intl.NumberFormat("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                            }).format(Number(expense.amount))}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )} */}
-            </TabsContent>
-
-            {/* INVOICE PREVIEW TAB */}
-            <TabsContent value="preview" className="space-y-4">
-              <Alert>
-                <FileText className="h-4 w-4" />
-                <AlertDescription>
-                  {currentState === "approved"
-                    ? "Invoice has been generated for this timesheet."
-                    : "Upon approval, an invoice will be automatically generated."}
-                </AlertDescription>
-              </Alert>
-
-              {marginBreakdown && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Invoice Summary</CardTitle>
-                    <CardDescription>
-                      Invoice will be sent to: {marginBreakdown.marginPaidBy === "client" ? "Client" : "Agency"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Base Amount:</span>
-                      <span className="font-medium">
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: marginBreakdown.currency,
-                        }).format(marginBreakdown.baseAmount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Margin{" "}
-                        {marginBreakdown.marginType === "fixed"
-                          ? "(Fixed)"
-                          : `(${marginBreakdown.marginPercentage.toFixed(2)}%)`}
-                        :
-                      </span>
-                      <span className="font-medium text-blue-600">
-                        +{" "}
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: marginBreakdown.currency,
-                        }).format(marginBreakdown.marginAmount)}
-                      </span>
-                    </div>
-                    {marginBreakdown.marginType === "fixed" && (
-                      <div className="text-xs text-muted-foreground italic">
-                        Fixed margin ≈ {marginBreakdown.marginPercentage.toFixed(2)}% of base amount
+              {/* Final Invoice Total */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Invoice Summary
+                  </CardTitle>
+                  <CardDescription>
+                    Invoice will be sent to: {marginBreakdown?.marginPaidBy === "client" ? "Client" : "Agency"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal (Base Amount):</span>
+                    <span className="font-medium">
+                      {new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: marginBreakdown?.currency || "USD",
+                      }).format(marginBreakdown?.baseAmount || 0)}
+                    </span>
+                  </div>
+                  {marginBreakdown && marginBreakdown.marginAmount > 0 && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Margin{" "}
+                          {marginBreakdown.marginType === "fixed"
+                            ? "(Fixed)"
+                            : `(${marginBreakdown.marginPercentage.toFixed(2)}%)`}
+                          :
+                        </span>
+                        <span className={`font-medium ${
+                          marginBreakdown.marginPaidBy === "client" ? "text-blue-600" : "text-gray-600"
+                        }`}>
+                          {marginBreakdown.marginPaidBy === "client" ? "+" : "-"}{" "}
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: marginBreakdown.currency,
+                          }).format(marginBreakdown.marginAmount)}
+                        </span>
                       </div>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between text-lg">
-                      <span className="font-semibold">Invoice Total:</span>
-                      <span className="font-bold text-green-600">
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: marginBreakdown.currency,
-                        }).format(marginBreakdown.totalWithMargin)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                      {marginBreakdown.marginType === "fixed" && (
+                        <div className="text-xs text-muted-foreground italic">
+                          Fixed margin ≈ {marginBreakdown.marginPercentage.toFixed(2)}% of base amount
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
+                    <span className="text-lg font-semibold">Invoice Total:</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      {new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: marginBreakdown?.currency || "USD",
+                      }).format(marginBreakdown?.totalWithMargin || 0)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </ScrollArea>
         </Tabs>
