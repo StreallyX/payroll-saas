@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -237,7 +236,7 @@ export function InvoiceReviewModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh]">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl">Invoice Review</DialogTitle>
@@ -248,14 +247,14 @@ export function InvoiceReviewModal({
           </p>
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="w-full">
+        <Tabs defaultValue="details" className="w-full flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="line-items">Line Items</TabsTrigger>
             <TabsTrigger value="calculation">Calculation & Margin</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="max-h-[calc(90vh-200px)] mt-4">
+          <div className="overflow-y-auto flex-1 mt-4 pr-2">
             {/* DETAILS TAB */}
             <TabsContent value="details" className="space-y-4">
               <Card>
@@ -524,7 +523,7 @@ export function InvoiceReviewModal({
                 </CardContent>
               </Card>
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
 
         {/* WORKFLOW ACTIONS */}

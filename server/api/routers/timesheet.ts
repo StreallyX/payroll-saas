@@ -193,7 +193,8 @@ createRange: tenantProcedure
         submittedBy: userId,
         startDate: start,
         endDate: end,
-        status: "submitted",
+        status: "draft",
+        workflowState: "draft",
         totalHours: new Prisma.Decimal(0),
         notes: input.notes || null,
         ...fileData, // 🔥 only added if provided
@@ -386,6 +387,7 @@ createRange: tenantProcedure
         where: { id: input.id },
         data: {
           status: "submitted",
+          workflowState: "submitted",
           submittedAt: new Date(),
         },
       })
@@ -582,6 +584,7 @@ createRange: tenantProcedure
         where: { id: input.id },
         data: {
           status: "rejected",
+          workflowState: "rejected",
           rejectionReason: input.reason,
         },
       });

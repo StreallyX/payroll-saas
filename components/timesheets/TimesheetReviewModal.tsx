@@ -74,6 +74,15 @@ export function TimesheetReviewModal({
   );
 
   // Workflow action mutations
+  const submitMutation = api.timesheet.submitTimesheet.useMutation({
+    onSuccess: () => {
+      toast.success("Timesheet submitted successfully!");
+      utils.timesheet.getAll.invalidate();
+      utils.timesheet.getById.invalidate({ id: timesheetId });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const reviewMutation = api.timesheet.reviewTimesheet.useMutation({
     onSuccess: () => {
       toast.success("Timesheet moved to review");
@@ -181,6 +190,10 @@ export function TimesheetReviewModal({
   }, [data]);
 
   // Handle workflow actions
+  const handleSubmit = async () => {
+    await submitMutation.mutateAsync({ id: timesheetId });
+  };
+
   const handleReview = async () => {
     await reviewMutation.mutateAsync({ id: timesheetId });
   };
@@ -231,6 +244,7 @@ export function TimesheetReviewModal({
   };
 
   const isProcessing = 
+    submitMutation.isPending ||
     reviewMutation.isPending ||
     approveMutation.isPending ||
     rejectMutation.isPending ||
@@ -273,11 +287,10 @@ export function TimesheetReviewModal({
         </DialogHeader>
 
         <Tabs defaultValue="timeline" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="files">Files</TabsTrigger>
-            <TabsTrigger value="entries">Entries</TabsTrigger>
             <TabsTrigger value="calculation">Calculation</TabsTrigger>
           </TabsList>
 
@@ -692,44 +705,6 @@ export function TimesheetReviewModal({
               </Card>
             </TabsContent>
 
-            {/* ENTRIES TAB */}
-            <TabsContent value="entries" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Time Entries</CardTitle>
-                  <CardDescription>Daily breakdown of hours worked</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {data.entries && data.entries.length > 0 ? (
-                    <div className="space-y-2">
-                      {data.entries.map((entry: any) => (
-                        <div
-                          key={entry.id}
-                          className="flex justify-between items-center py-2 border-b last:border-0"
-                        >
-                          <div>
-                            <p className="font-medium">
-                              {new Date(entry.date).toLocaleDateString()}
-                            </p>
-                            {entry.description && (
-                              <p className="text-sm text-muted-foreground">
-                                {entry.description}
-                              </p>
-                            )}
-                          </div>
-                          <p className="font-medium">{Number(entry.hours)}h</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No detailed entries available
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             {/* CALCULATION TAB */}
             <TabsContent value="calculation" className="space-y-4">
               {marginBreakdown && (
@@ -842,6 +817,27 @@ export function TimesheetReviewModal({
           </Button>
           
           <div className="flex gap-2">
+            {/* Submit button for draft timesheets */}
+            {currentState === "draft" && (
+              <Button
+                onClick={handleSubmit}
+                disabled={isProcessing}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {submitMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Submit Timesheet
+                  </>
+                )}
+              </Button>
+            )}
+
             {/* Review button */}
             {currentState === "submitted" && canReview && !action && (
               <Button
