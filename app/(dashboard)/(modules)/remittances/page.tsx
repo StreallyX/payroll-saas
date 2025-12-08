@@ -36,34 +36,35 @@ export default function RemittancesPage() {
   const canProcess = hasPermission("remittance.process.global");
   const canValidate = hasPermission("remittance.validate.global");
 
-  const { data, isLoading } = api.remittance.getAll.useQuery(
-    { status: statusFilter === "all" ? undefined : statusFilter },
+  const { data, isLoading } = api.remittance.getMyRemittances.useQuery(
+    undefined,
     { enabled: canViewGlobal }
   );
 
-  const sendMutation = api.remittance.send.useMutation({
-    onSuccess: () => {
-      toast.success("Remittance sent");
-      utils.remittance.getAll.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // TODO: Implement send, validate, and process mutations when procedures are added to remittance router
+  // const sendMutation = api.remittance.send.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Remittance sent");
+  //     utils.remittance.getMyRemittances.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
 
-  const validateMutation = api.remittance.validate.useMutation({
-    onSuccess: () => {
-      toast.success("Remittance validated");
-      utils.remittance.getAll.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // const validateMutation = api.remittance.validate.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Remittance validated");
+  //     utils.remittance.getMyRemittances.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
 
-  const processMutation = api.remittance.process.useMutation({
-    onSuccess: () => {
-      toast.success("Remittance processing initiated");
-      utils.remittance.getAll.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // const processMutation = api.remittance.process.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Remittance processing initiated");
+  //     utils.remittance.getMyRemittances.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
 
   if (isLoading) {
     return (
@@ -73,7 +74,7 @@ export default function RemittancesPage() {
     );
   }
 
-  const remittances = data?.remittances || [];
+  const remittances = data || [];
 
   return (
     <div className="space-y-6">
@@ -146,12 +147,12 @@ export default function RemittancesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {canValidate && remittance.workflowState === "generated" && (
+                        {/* TODO: Implement validate, send, and process actions when procedures are added */}
+                        {/* {canValidate && remittance.workflowState === "generated" && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => validateMutation.mutate({ id: remittance.id })}
-                            disabled={validateMutation.isPending}
+                            onClick={() => console.log("Validate remittance", remittance.id)}
                           >
                             Validate
                           </Button>
@@ -160,8 +161,7 @@ export default function RemittancesPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => sendMutation.mutate({ id: remittance.id })}
-                            disabled={sendMutation.isPending}
+                            onClick={() => console.log("Send remittance", remittance.id)}
                           >
                             <Send className="mr-2 h-4 w-4" />
                             Send
@@ -170,13 +170,12 @@ export default function RemittancesPage() {
                         {canProcess && remittance.workflowState === "sent" && (
                           <Button
                             size="sm"
-                            onClick={() => processMutation.mutate({ id: remittance.id })}
-                            disabled={processMutation.isPending}
+                            onClick={() => console.log("Process remittance", remittance.id)}
                           >
                             <CheckCircle className="mr-2 h-4 w-4" />
                             Process
                           </Button>
-                        )}
+                        )} */}
                       </div>
                     </TableCell>
                   </TableRow>

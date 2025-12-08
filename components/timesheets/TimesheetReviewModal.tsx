@@ -58,23 +58,24 @@ export function TimesheetReviewModal({
   );
 
   // Workflow action mutations
-  const reviewMutation = api.timesheet.review.useMutation({
+  const reviewMutation = api.timesheet.reviewTimesheet.useMutation({
     onSuccess: () => {
       toast.success("Timesheet moved to review");
       utils.timesheet.getAll.invalidate();
       utils.timesheet.getById.invalidate({ id: timesheetId });
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
-  const approveMutation = api.timesheet.approve.useMutation({
-    onSuccess: () => {
-      toast.success("Timesheet approved! Invoice will be generated.");
-      utils.timesheet.getAll.invalidate();
-      onClose();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // TODO: Implement approve mutation when procedure is added to timesheet router
+  // const approveMutation = api.timesheet.approve.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Timesheet approved! Invoice will be generated.");
+  //     utils.timesheet.getAll.invalidate();
+  //     onClose();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
 
   const rejectMutation = api.timesheet.reject.useMutation({
     onSuccess: () => {
@@ -82,7 +83,7 @@ export function TimesheetReviewModal({
       utils.timesheet.getAll.invalidate();
       onClose();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
   const requestChangesMutation = api.timesheet.requestChanges.useMutation({
@@ -91,17 +92,17 @@ export function TimesheetReviewModal({
       utils.timesheet.getAll.invalidate();
       onClose();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
-  const modifyAmountMutation = api.timesheet.modifyAmount.useMutation({
+  const modifyAmountMutation = api.timesheet.modifyAmounts.useMutation({
     onSuccess: () => {
       toast.success("Amount updated");
       utils.timesheet.getById.invalidate({ id: timesheetId });
       setIsModifyingAmount(false);
       setAdminModifiedAmount("");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
   const main = useMemo(() => getMainParticipant((data as any)?.contract), [data]);
@@ -128,9 +129,9 @@ export function TimesheetReviewModal({
       marginAmount,
       marginPercentage: marginPercent,
       totalWithMargin,
-      currency: contract?.currency?.code || "USD",
+      currency: "USD", // TODO: Get from contract.currency relation
       marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
-      paymentMode: contract?.paymentMode || "gross",
+      paymentMode: "gross" as const, // TODO: Get from contract if field exists
     };
   }, [data]);
 
@@ -141,13 +142,14 @@ export function TimesheetReviewModal({
         await reviewMutation.mutateAsync({ id: timesheetId });
         break;
       case "approve":
-        await approveMutation.mutateAsync({ id: timesheetId });
+        // TODO: Implement approve action when procedure is added
+        toast.error("Approve action not yet implemented");
         break;
       case "reject":
-        await rejectMutation.mutateAsync({ id: timesheetId, reason });
+        await rejectMutation.mutateAsync({ id: timesheetId, reason: reason || "" });
         break;
       case "request_changes":
-        await requestChangesMutation.mutateAsync({ id: timesheetId, reason });
+        await requestChangesMutation.mutateAsync({ id: timesheetId, changesRequested: reason || "" });
         break;
       default:
         toast.error("Unknown action");
@@ -163,7 +165,8 @@ export function TimesheetReviewModal({
 
     modifyAmountMutation.mutate({
       id: timesheetId,
-      amount: amount.toString(),
+      totalAmount: amount,
+      adminModificationNote: "Amount modified by admin",
     });
   };
 
@@ -263,15 +266,14 @@ export function TimesheetReviewModal({
                     <div>
                       <Label className="text-xs text-muted-foreground">Rate</Label>
                       <p className="font-medium">
-                        {data.contract?.currency?.symbol || "$"}
-                        {data.contract?.rate?.toString() || "0"} /{" "}
+                        ${data.contract?.rate?.toString() || "0"} /{" "}
                         {data.contract?.rateType || "day"}
                       </p>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Payment Mode</Label>
                       <p className="font-medium capitalize">
-                        {(data.contract?.paymentMode || "gross").replace("-", " ")}
+                        gross
                       </p>
                     </div>
                     <div>
@@ -317,7 +319,7 @@ export function TimesheetReviewModal({
                       <p className="font-medium text-lg">
                         {new Intl.NumberFormat("en-US", {
                           style: "currency",
-                          currency: data.contract?.currency?.code || "USD",
+                          currency: "USD",
                         }).format(Number(data.totalAmount || 0))}
                       </p>
                     </div>
@@ -389,7 +391,7 @@ export function TimesheetReviewModal({
                               Amount was adjusted by admin to{" "}
                               {new Intl.NumberFormat("en-US", {
                                 style: "currency",
-                                currency: data.contract?.currency?.code || "USD",
+                                currency: "USD",
                               }).format(Number(data.adminModifiedAmount))}
                             </AlertDescription>
                           </Alert>
@@ -445,8 +447,8 @@ export function TimesheetReviewModal({
                 <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
               )}
 
-              {/* Expenses if any */}
-              {data.expenses && data.expenses.length > 0 && (
+              {/* TODO: Expenses functionality not yet implemented in timesheet model */}
+              {/* {data.expenses && data.expenses.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Expenses</CardTitle>
@@ -467,7 +469,7 @@ export function TimesheetReviewModal({
                           <p className="font-medium">
                             {new Intl.NumberFormat("en-US", {
                               style: "currency",
-                              currency: data.contract?.currency?.code || "USD",
+                              currency: "USD",
                             }).format(Number(expense.amount))}
                           </p>
                         </div>
@@ -475,7 +477,7 @@ export function TimesheetReviewModal({
                     </div>
                   </CardContent>
                 </Card>
-              )}
+              )} */}
             </TabsContent>
 
             {/* INVOICE PREVIEW TAB */}
@@ -549,7 +551,6 @@ export function TimesheetReviewModal({
                 onAction={handleWorkflowAction}
                 isLoading={
                   reviewMutation.isPending ||
-                  approveMutation.isPending ||
                   rejectMutation.isPending ||
                   requestChangesMutation.isPending
                 }

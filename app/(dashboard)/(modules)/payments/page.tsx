@@ -48,14 +48,14 @@ export default function PaymentsPage() {
     status: statusFilter === "all" ? undefined : statusFilter as any,
   });
 
-  const recordPaymentMutation = api.payment.recordPayment.useMutation({
+  const recordPaymentMutation = api.payment.create.useMutation({
     onSuccess: () => {
       toast.success("Payment recorded successfully");
       utils.payment.getAll.invalidate();
       setRecordPaymentModal(false);
       resetForm();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
   const resetForm = () => {
@@ -78,8 +78,9 @@ export default function PaymentsPage() {
 
     recordPaymentMutation.mutate({
       invoiceId: selectedInvoiceId,
-      amount: amount.toString(),
-      paymentType,
+      amount: amount,
+      paymentMethod: paymentType === "full" ? "full_payment" : "partial_payment",
+      description: `${paymentType} payment`,
     });
   };
 

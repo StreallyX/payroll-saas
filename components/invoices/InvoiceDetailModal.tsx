@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useState } from "@/lib/react";
+import { useState } from "react";
 import { Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -43,40 +43,40 @@ export function InvoiceDetailModal({
   );
 
   // Workflow mutations
-  const reviewMutation = api.invoice.review.useMutation({
+  const reviewMutation = api.invoice.reviewInvoice.useMutation({
     onSuccess: () => {
       toast.success("Invoice moved to review");
       utils.invoice.getAll.invalidate();
       utils.invoice.getById.invalidate({ id: invoiceId });
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
-  const approveMutation = api.invoice.approve.useMutation({
+  const approveMutation = api.invoice.approveInvoiceWorkflow.useMutation({
     onSuccess: () => {
       toast.success("Invoice approved");
       utils.invoice.getAll.invalidate();
       onClose();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
-  const sendMutation = api.invoice.send.useMutation({
+  const sendMutation = api.invoice.sendInvoiceWorkflow.useMutation({
     onSuccess: () => {
       toast.success("Invoice sent");
       utils.invoice.getAll.invalidate();
       onClose();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
-  const rejectMutation = api.invoice.reject.useMutation({
+  const rejectMutation = api.invoice.rejectInvoiceWorkflow.useMutation({
     onSuccess: () => {
       toast.success("Invoice rejected");
       utils.invoice.getAll.invalidate();
       onClose();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message),
   });
 
   const handleWorkflowAction = async (action: string, reason?: string) => {
@@ -91,7 +91,7 @@ export function InvoiceDetailModal({
         await sendMutation.mutateAsync({ id: invoiceId });
         break;
       case "reject":
-        await rejectMutation.mutateAsync({ id: invoiceId, reason });
+        await rejectMutation.mutateAsync({ id: invoiceId, rejectionReason: reason || "" });
         break;
       default:
         toast.error("Unknown action");

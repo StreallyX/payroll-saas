@@ -38,33 +38,34 @@ export default function PayslipsPage() {
 
   // Fetch based on permissions
   const { data: globalData, isLoading: globalLoading } = api.payslip.getAll.useQuery(
-    { status: statusFilter === "all" ? undefined : statusFilter },
+    undefined,
     { enabled: canViewGlobal }
   );
 
-  const { data: ownData, isLoading: ownLoading } = api.payslip.getMy.useQuery(
+  const { data: ownData, isLoading: ownLoading } = api.payslip.getMyPayslips.useQuery(
     undefined,
     { enabled: canViewOwn && !canViewGlobal }
   );
 
-  const sendMutation = api.payslip.send.useMutation({
-    onSuccess: () => {
-      toast.success("Payslip sent successfully");
-      utils.payslip.getAll.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // TODO: Implement send and validate mutations when procedures are added to payslip router
+  // const sendMutation = api.payslip.send.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Payslip sent successfully");
+  //     utils.payslip.getAll.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
 
-  const validateMutation = api.payslip.validate.useMutation({
-    onSuccess: () => {
-      toast.success("Payslip validated");
-      utils.payslip.getAll.invalidate();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  // const validateMutation = api.payslip.validate.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Payslip validated");
+  //     utils.payslip.getAll.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
 
   const isLoading = canViewGlobal ? globalLoading : ownLoading;
-  const payslips = canViewGlobal ? (globalData?.payslips || []) : (ownData || []);
+  const payslips = canViewGlobal ? (globalData || []) : (ownData || []);
 
   if (isLoading) {
     return (
@@ -148,12 +149,12 @@ export default function PayslipsPage() {
                     {canViewGlobal && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          {canValidate && payslip.workflowState === "generated" && (
+                          {/* TODO: Implement validate and send actions when procedures are added */}
+                          {/* {canValidate && payslip.workflowState === "generated" && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => validateMutation.mutate({ id: payslip.id })}
-                              disabled={validateMutation.isPending}
+                              onClick={() => console.log("Validate payslip", payslip.id)}
                             >
                               Validate
                             </Button>
@@ -161,13 +162,11 @@ export default function PayslipsPage() {
                           {canSend && payslip.workflowState === "validated" && (
                             <Button
                               size="sm"
-                              onClick={() => sendMutation.mutate({ id: payslip.id })}
-                              disabled={sendMutation.isPending}
+                              onClick={() => console.log("Send payslip", payslip.id)}
                             >
                               <Send className="mr-2 h-4 w-4" />
                               Send
-                            </Button>
-                          )}
+                            </Button> */}
                         </div>
                       </TableCell>
                     )}

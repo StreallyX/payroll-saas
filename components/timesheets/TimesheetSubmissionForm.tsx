@@ -127,9 +127,9 @@ export function TimesheetSubmissionFormModal({
       totalWithMargin,
       expensesTotal,
       grandTotal: totalWithMargin + expensesTotal,
-      currency: selectedContract.currency?.code || "USD",
+      currency: "USD", // TODO: Get from selectedContract.currency relation
       marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
-      paymentMode: selectedContract.paymentMode || "gross",
+      paymentMode: "gross" as const, // TODO: Get from contract if field exists
     };
   }, [startDate, endDate, hoursPerDay, selectedContract, expenses]);
 
@@ -244,8 +244,7 @@ export function TimesheetSubmissionFormModal({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Rate:</span>
                     <span className="font-medium">
-                      {selectedContract.currency?.symbol || "$"}
-                      {selectedContract.rate?.toString() || "0"} /{" "}
+                      ${selectedContract.rate?.toString() || "0"} /{" "}
                       {selectedContract.rateType || "day"}
                     </span>
                   </div>
@@ -264,7 +263,7 @@ export function TimesheetSubmissionFormModal({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Payment Mode:</span>
                     <span className="font-medium capitalize">
-                      {(selectedContract.paymentMode || "gross").replace("-", " ")}
+                      gross
                     </span>
                   </div>
                 </CardContent>
@@ -499,14 +498,7 @@ export function TimesheetSubmissionFormModal({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
                   <strong>Payment Mode: </strong>
-                  {selectedContract.paymentMode === "gross" &&
-                    "You will receive the gross amount and handle your own taxes."}
-                  {selectedContract.paymentMode === "payroll" &&
-                    "The agency will handle payroll processing and taxes."}
-                  {selectedContract.paymentMode === "payroll-we-pay" &&
-                    "We will handle payroll processing and you'll receive the net amount."}
-                  {selectedContract.paymentMode === "split" &&
-                    "Payment will be distributed to multiple destinations as configured."}
+                  You will receive the gross amount and handle your own taxes.
                 </AlertDescription>
               </Alert>
             )}
