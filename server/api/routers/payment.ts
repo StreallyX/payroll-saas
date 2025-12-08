@@ -570,6 +570,108 @@ Please ensure the contractor receives payment according to their contract terms 
     }),
 
   /**
+   * Mark payment as received by admin with actual amount
+   * Used when admin confirms payment has been received from client/agency
+   */
+  confirmPaymentReceived: tenantProcedure
+    .use(
+      hasPermission(
+        buildPermissionKey(Resource.PAYMENT, Action.UPDATE, PermissionScope.TENANT)
+      )
+    )
+    .input(z.object({
+      paymentId: z.string(),
+      amountReceived: z.number().positive(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const payment = await ctx.prisma.payment.findFirst({
+        where: { 
+          id: input.paymentId, 
+          tenantId: ctx.tenantId 
+        },
+        include: {
+          invoice: {
+            include: {
+              contract: true,
+              timesheets: true,
+            },
+          },
+        },
+      });
+
+      if (!payment) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" });
+      }
+
+      // Update payment with received details
+      const updatedPayment = await ctx.prisma.payment.update({
+        where: { id: input.paymentId },
+        data: {
+          status: "confirmed",
+          workflowState: "confirmed",
+          amountReceived: new Prisma.Decimal(input.amountReceived),
+          receivedBy: ctx.session.user.id,
+          receivedAt: new Date(),
+          confirmedBy: ctx.session.user.id,
+          confirmedAt: new Date(),
+          notes: input.notes,
+        },
+      });
+
+      // Now trigger payroll/payslip generation based on payment mode
+      if (payment.invoice?.contract) {
+        const contract = payment.invoice.contract;
+        const timesheet = payment.invoice.timesheets?.[0];
+        
+        if (timesheet) {
+          // Check payment mode from contract (this field needs to be added to contract schema)
+          // For now, we'll use a default gross mode
+          const paymentMode = "gross"; // TODO: Get from contract.paymentMode
+          
+          if (paymentMode === "gross") {
+            // Generate payslip directly to contractor
+            await ctx.prisma.payslip.create({
+              data: {
+                tenantId: ctx.tenantId,
+                userId: timesheet.submittedBy,
+                contractId: contract.id,
+                month: timesheet.startDate.getMonth() + 1,
+                year: timesheet.startDate.getFullYear(),
+                grossPay: Number(timesheet.totalAmount),
+                netPay: Number(timesheet.totalAmount),
+                deductions: 0,
+                tax: 0,
+                status: "generated",
+                workflowState: "generated",
+                generatedBy: ctx.session.user.id,
+                notes: `Payslip generated after payment confirmed. Payment ID: ${payment.id}`,
+              },
+            });
+          } else if (paymentMode === "payroll") {
+            // Create remittance to external payroll provider
+            await ctx.prisma.remittance.create({
+              data: {
+                tenantId: ctx.tenantId,
+                userId: timesheet.submittedBy,
+                contractId: contract.id,
+                amount: timesheet.totalAmount ?? new Prisma.Decimal(0),
+                currency: payment.currency,
+                status: "pending",
+                workflowState: "pending",
+                description: `Remittance to payroll provider for ${timesheet.submittedBy}`,
+                notes: `Payment confirmed. Remittance to external payroll provider. Payment ID: ${payment.id}`,
+              },
+            });
+          }
+          // TODO: Add support for "payroll-we-pay" and "split" modes
+        }
+      }
+
+      return updatedPayment;
+    }),
+
+  /**
    * Get available workflow actions for a payment
    */
   getPaymentAvailableActions: tenantProcedure

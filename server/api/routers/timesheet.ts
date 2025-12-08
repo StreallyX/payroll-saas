@@ -392,105 +392,125 @@ createRange: tenantProcedure
     }),
 
  approve: tenantProcedure
-  .use(hasPermission(P.APPROVE))
-  .input(z.object({ id: z.string() }))
-  .mutation(async ({ ctx, input }) => {
+   .use(hasPermission(P.APPROVE))
+   .input(z.object({ id: z.string() }))
+   .mutation(async ({ ctx, input }) => {
 
-    // 1️⃣ UPDATE → APPROVE
-    await ctx.prisma.timesheet.update({
-      where: { id: input.id },
-      data: {
-        status: "approved",
-        approvedAt: new Date(),
-        approvedBy: ctx.session.user.id,
-      },
-    });
+     // 1️⃣ RELOAD timesheet with contract details
+     const ts = await ctx.prisma.timesheet.findFirst({
+       where: { id: input.id, tenantId: ctx.tenantId },
+       include: {
+         contract: {
+           include: {
+             currency: true,
+             participants: {
+               include: {
+                 user: true,
+                 company: true,
+               },
+             },
+           },
+         },
+         entries: true,
+       },
+     });
 
-    // 2️⃣ RELOAD - SÛR & PROPRE (montants corrects)
-    const ts = await ctx.prisma.timesheet.findFirst({
-      where: { id: input.id },
-      include: {
-        contract: {
-          include: {
-            currency: true,       // name, id, etc.
-          },
-        },
-      },
-    });
+     if (!ts) throw new TRPCError({ code: "NOT_FOUND" });
 
-    if (!ts) throw new TRPCError({ code: "NOT_FOUND" });
+     // 2️⃣ UPDATE → APPROVE
+     await ctx.prisma.timesheet.update({
+       where: { id: input.id },
+       data: {
+         status: "approved",
+         workflowState: "approved",
+         approvedAt: new Date(),
+         approvedBy: ctx.session.user.id,
+       },
+     });
 
-    const userId = ts.submittedBy;
-    const currency = ts.contract?.currencyId ?? "EUR";
+     const userId = ts.submittedBy;
+     const currency = ts.contract?.currency?.name ?? "USD";
+     const contractorName = ts.contract?.participants.find(p => p.userId === userId)?.user?.name ?? "Contractor";
 
-    // ------------------------------------------
-    // 3️⃣ AUTO-INVOICE
-    // ------------------------------------------
-    if (ts.contractId && ts.totalAmount) {
-      await ctx.prisma.invoice.create({
-        data: {
-          tenantId: ctx.tenantId,
-          contractId: ts.contractId,
-          createdBy: userId,
+     // Calculate amounts with margin
+     let baseAmount = ts.adminModifiedAmount ?? ts.totalAmount ?? new Prisma.Decimal(0);
+     let marginAmount = new Prisma.Decimal(0);
+     let marginPercentage = new Prisma.Decimal(0);
+     let totalWithMargin = baseAmount;
+     
+     if (ts.contract?.margin) {
+       if (ts.contract.marginType?.toLowerCase() === "fixed") {
+         marginAmount = ts.contract.margin;
+         marginPercentage = baseAmount.gt(0) 
+           ? ts.contract.margin.div(baseAmount).mul(100) 
+           : new Prisma.Decimal(0);
+       } else {
+         marginPercentage = ts.contract.margin;
+         marginAmount = baseAmount.mul(ts.contract.margin).div(100);
+       }
 
-          amount: ts.totalAmount,
-          totalAmount: ts.totalAmount,
-          currency,
+       // Add margin if paid by client, subtract if paid by contractor
+       if (ts.contract.marginPaidBy === "client") {
+         totalWithMargin = baseAmount.add(marginAmount);
+       } else if (ts.contract.marginPaidBy === "contractor") {
+         totalWithMargin = baseAmount.sub(marginAmount);
+       }
+     }
 
-          status: "draft",
-          issueDate: new Date(),
-          dueDate: new Date(),
+     // ------------------------------------------
+     // 3️⃣ AUTO-INVOICE with proper workflow state
+     // ------------------------------------------
+     if (ts.contractId && ts.totalAmount) {
+       const invoice = await ctx.prisma.invoice.create({
+         data: {
+           tenantId: ctx.tenantId,
+           contractId: ts.contractId,
+           createdBy: userId,
 
-          description: `Timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
-          timesheets: {
-            connect: { id: ts.id },
-          },
-        },
-      });
-    }
+           // Amounts with margin calculation
+           baseAmount: baseAmount,
+           marginAmount: marginAmount,
+           marginPercentage: marginPercentage,
+           marginPaidBy: ts.contract?.marginPaidBy,
+           amount: baseAmount,
+           totalAmount: totalWithMargin,
+           currency,
 
-    // ------------------------------------------
-    // 4️⃣ AUTO-PAYSLIP
-    // ------------------------------------------
-    if (userId && ts.totalAmount) {
-      await ctx.prisma.payslip.create({
-        data: {
-          tenantId: ctx.tenantId,
-          userId,
-          contractId: ts.contractId,
-          month: ts.startDate.getMonth() + 1,
-          year: ts.startDate.getFullYear(),
-          grossPay: Number(ts.totalAmount),
-          netPay: Number(ts.totalAmount),
-          deductions: 0,
-          tax: 0,
-          status: "generated",
-          generatedBy: ctx.session.user.id,
-          notes: `Payslip generated from timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
-        },
-      });
-    }
+           // Workflow state - set to submitted/pending approval
+           status: "submitted",
+           workflowState: "for_approval",
 
-    // ------------------------------------------
-    // 5️⃣ AUTO-REMITTANCE
-    // ------------------------------------------
-    if (userId && ts.totalAmount) {
-      await ctx.prisma.remittance.create({
-        data: {
-          tenantId: ctx.tenantId,
-          userId,
-          contractId: ts.contractId,
-          amount: ts.totalAmount,
-          currency,
-          status: "pending",
-          description: `Payment for timesheet ${ts.startDate.toISOString().slice(0,10)} → ${ts.endDate.toISOString().slice(0,10)}`,
-          notes: `Auto-generated remittance after approved timesheet`,
-        },
-      });
-    }
+           issueDate: new Date(),
+           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
 
-    return { success: true };
-  }),
+           description: `Invoice for ${contractorName} - Period: ${ts.startDate.toISOString().slice(0,10)} to ${ts.endDate.toISOString().slice(0,10)}`,
+           notes: `Auto-generated from approved timesheet. Total hours: ${ts.totalHours}`,
+           
+           timesheets: {
+             connect: { id: ts.id },
+           },
+
+           // Create line items from timesheet entries
+           lineItems: {
+             create: ts.entries.map((entry) => ({
+               description: `Work on ${new Date(entry.date).toISOString().slice(0,10)}${entry.description ? ': ' + entry.description : ''}`,
+               quantity: entry.hours,
+               unitPrice: ts.contract?.rate ?? new Prisma.Decimal(0),
+               amount: entry.hours.mul(ts.contract?.rate ?? new Prisma.Decimal(0)),
+             })),
+           },
+         },
+       });
+
+       // Link invoice back to timesheet
+       await ctx.prisma.timesheet.update({
+         where: { id: ts.id },
+         data: { invoiceId: invoice.id },
+       });
+     }
+
+     return { success: true };
+   }),
 
   // ------------------------------------------------------
   // 9️⃣ REJECT TIMESHEET

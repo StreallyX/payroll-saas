@@ -146,7 +146,19 @@ export const invoiceRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
-        include: { lineItems: true, contract: true },
+        include: { 
+          lineItems: true, 
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+        },
       })
 
       if (!invoice) throw new TRPCError({ code: "NOT_FOUND" })
