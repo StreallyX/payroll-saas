@@ -69,7 +69,19 @@ export const invoiceRouter = createTRPCRouter({
     const [invoices, total] = await Promise.all([
       ctx.prisma.invoice.findMany({
         where,
-        include: { lineItems: true, contract: true },
+        include: { 
+          lineItems: true, 
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
         skip: input?.offset,
         take: input?.limit,
@@ -91,7 +103,19 @@ export const invoiceRouter = createTRPCRouter({
           tenantId: ctx.tenantId,
           createdBy: ctx.session.user.id,
         },
-        include: { lineItems: true, contract: true },
+        include: { 
+          lineItems: true, 
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       })
     }),

@@ -68,15 +68,16 @@ export function TimesheetReviewModal({
     onError: (err: any) => toast.error(err.message),
   });
 
-  // TODO: Implement approve mutation when procedure is added to timesheet router
-  // const approveMutation = api.timesheet.approve.useMutation({
-  //   onSuccess: () => {
-  //     toast.success("Timesheet approved! Invoice will be generated.");
-  //     utils.timesheet.getAll.invalidate();
-  //     onClose();
-  //   },
-  //   onError: (err: any) => toast.error(err.message),
-  // });
+  const approveMutation = api.timesheet.approve.useMutation({
+    onSuccess: () => {
+      toast.success("Timesheet approved! Invoice will be generated.");
+      utils.timesheet.getAll.invalidate();
+      utils.timesheet.getById.invalidate({ id: timesheetId });
+      utils.invoice.getAll.invalidate();
+      onClose();
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
 
   const rejectMutation = api.timesheet.reject.useMutation({
     onSuccess: () => {
@@ -158,8 +159,7 @@ export function TimesheetReviewModal({
         await reviewMutation.mutateAsync({ id: timesheetId });
         break;
       case "approve":
-        // TODO: Implement approve action when procedure is added
-        toast.error("Approve action not yet implemented");
+        await approveMutation.mutateAsync({ id: timesheetId });
         break;
       case "reject":
         await rejectMutation.mutateAsync({ id: timesheetId, reason: reason || "" });
@@ -596,6 +596,7 @@ export function TimesheetReviewModal({
               onAction={handleWorkflowAction}
               isLoading={
                 reviewMutation.isPending ||
+                approveMutation.isPending ||
                 rejectMutation.isPending ||
                 requestChangesMutation.isPending
               }
