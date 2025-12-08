@@ -113,9 +113,23 @@ export function TimesheetReviewModal({
 
     const contract = data.contract;
     const baseAmount = Number(data.totalAmount || 0);
-    const marginPercent = Number(contract?.margin || 0);
-    const marginAmount = (baseAmount * marginPercent) / 100;
+    const marginValue = Number(contract?.margin || 0);
+    const marginType = contract?.marginType?.toLowerCase() || "percentage";
     const marginPaidBy = contract?.marginPaidBy || "client";
+    
+    // Calculate margin based on type
+    let marginAmount = 0;
+    let marginPercent = 0;
+    
+    if (marginType === "fixed") {
+      // Fixed amount margin
+      marginAmount = marginValue;
+      marginPercent = baseAmount > 0 ? (marginValue / baseAmount) * 100 : 0;
+    } else {
+      // Percentage margin
+      marginPercent = marginValue;
+      marginAmount = (baseAmount * marginValue) / 100;
+    }
 
     let totalWithMargin = baseAmount;
     if (marginPaidBy === "client") {
@@ -128,6 +142,7 @@ export function TimesheetReviewModal({
       baseAmount,
       marginAmount,
       marginPercentage: marginPercent,
+      marginType: marginType as "fixed" | "percentage",
       totalWithMargin,
       currency: "USD", // TODO: Get from contract.currency relation
       marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
@@ -212,12 +227,15 @@ export function TimesheetReviewModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh]">
+      <DialogContent className="max-w-7xl max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle>Timesheet Review</DialogTitle>
+            <DialogTitle className="text-2xl">Timesheet Review</DialogTitle>
             <WorkflowStatusBadge status={currentState} />
           </div>
+          <p className="text-sm text-muted-foreground">
+            Review timesheet details, calculations, and approve or request changes
+          </p>
         </DialogHeader>
 
         <Tabs defaultValue="details" className="w-full">
@@ -264,23 +282,42 @@ export function TimesheetReviewModal({
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Rate</Label>
+                      <Label className="text-xs text-muted-foreground">Rate Type</Label>
+                      <p className="font-medium capitalize">
+                        {data.contract?.rateType || "daily"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Rate Amount</Label>
                       <p className="font-medium">
                         ${data.contract?.rate?.toString() || "0"} /{" "}
                         {data.contract?.rateType || "day"}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Payment Mode</Label>
+                      <Label className="text-xs text-muted-foreground">Margin Type</Label>
                       <p className="font-medium capitalize">
-                        gross
+                        {data.contract?.marginType || "percentage"}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Margin</Label>
+                      <Label className="text-xs text-muted-foreground">Margin Amount</Label>
                       <p className="font-medium">
-                        {data.contract?.margin?.toString() || "0"}% (paid by{" "}
-                        {data.contract?.marginPaidBy || "client"})
+                        {data.contract?.marginType?.toLowerCase() === "fixed"
+                          ? `$${data.contract?.margin?.toString() || "0"}`
+                          : `${data.contract?.margin?.toString() || "0"}%`}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Margin Paid By</Label>
+                      <p className="font-medium capitalize">
+                        {data.contract?.marginPaidBy || "client"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Payment Mode</Label>
+                      <p className="font-medium capitalize">
+                        gross
                       </p>
                     </div>
                   </div>
@@ -511,7 +548,11 @@ export function TimesheetReviewModal({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        Margin ({marginBreakdown.marginPercentage}%):
+                        Margin{" "}
+                        {marginBreakdown.marginType === "fixed"
+                          ? "(Fixed)"
+                          : `(${marginBreakdown.marginPercentage.toFixed(2)}%)`}
+                        :
                       </span>
                       <span className="font-medium text-blue-600">
                         +{" "}
@@ -521,6 +562,11 @@ export function TimesheetReviewModal({
                         }).format(marginBreakdown.marginAmount)}
                       </span>
                     </div>
+                    {marginBreakdown.marginType === "fixed" && (
+                      <div className="text-xs text-muted-foreground italic">
+                        Fixed margin ≈ {marginBreakdown.marginPercentage.toFixed(2)}% of base amount
+                      </div>
+                    )}
                     <Separator />
                     <div className="flex justify-between text-lg">
                       <span className="font-semibold">Invoice Total:</span>

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, X, FileUp, AlertCircle } from "lucide-react";
+import { Loader2, Plus, X, FileUp, AlertCircle, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,12 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MarginCalculationDisplay } from "@/components/workflow";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Expense interface
 interface Expense {
@@ -47,7 +53,9 @@ export function TimesheetSubmissionFormModal({
   const [contractId, setContractId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [hoursPerDay, setHoursPerDay] = useState("8");
+  const [workingDaysInput, setWorkingDaysInput] = useState(""); // For daily rate contracts
+  const [hoursWorked, setHoursWorked] = useState(""); // For hourly rate contracts
+  const [hoursPerDay, setHoursPerDay] = useState("8"); // Legacy field
   const [notes, setNotes] = useState("");
   const [timesheetFile, setTimesheetFile] = useState<File | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -82,29 +90,54 @@ export function TimesheetSubmissionFormModal({
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    const hoursNum = parseFloat(hoursPerDay) || 8;
-    const totalHours = workingDays * hoursNum;
+    const rate = parseFloat(selectedContract.rate?.toString() || "0");
+    const rateType = selectedContract.rateType?.toLowerCase() || "daily";
+    
+    // Use manual input for working days if provided (for daily rate)
+    const effectiveWorkingDays = workingDaysInput ? parseFloat(workingDaysInput) : workingDays;
+    
+    // Use manual input for hours if provided (for hourly rate)
+    const effectiveHours = hoursWorked ? parseFloat(hoursWorked) : (workingDays * parseFloat(hoursPerDay || "8"));
+    
+    const totalHours = effectiveHours;
 
     // Calculate base amount based on rate type
     let baseAmount = 0;
-    const rate = parseFloat(selectedContract.rate?.toString() || "0");
-    const rateType = selectedContract.rateType;
+    let calculationDetails = "";
 
     if (rateType === "daily") {
-      baseAmount = rate * workingDays;
+      baseAmount = rate * effectiveWorkingDays;
+      calculationDetails = `${effectiveWorkingDays} days × $${rate.toFixed(2)}/day`;
     } else if (rateType === "hourly") {
-      baseAmount = rate * totalHours;
+      baseAmount = rate * effectiveHours;
+      calculationDetails = `${effectiveHours.toFixed(1)} hours × $${rate.toFixed(2)}/hour`;
     } else if (rateType === "monthly") {
-      // Approximate monthly calculation
-      baseAmount = rate * (workingDays / 20);
+      // Approximate monthly calculation based on working days
+      const monthlyProration = effectiveWorkingDays / 20; // Assume 20 working days per month
+      baseAmount = rate * monthlyProration;
+      calculationDetails = `$${rate.toFixed(2)}/month × ${monthlyProration.toFixed(2)} (${effectiveWorkingDays} days / 20)`;
     } else {
       baseAmount = rate;
+      calculationDetails = `Fixed rate: $${rate.toFixed(2)}`;
     }
 
-    // Calculate margin
-    const marginPercent = parseFloat(selectedContract.margin?.toString() || "0");
-    const marginAmount = (baseAmount * marginPercent) / 100;
+    // Calculate margin based on marginType
+    const marginValue = parseFloat(selectedContract.margin?.toString() || "0");
+    const marginType = selectedContract.marginType?.toLowerCase() || "percentage";
     const marginPaidBy = selectedContract.marginPaidBy || "client";
+    
+    let marginAmount = 0;
+    let marginPercent = 0;
+    
+    if (marginType === "fixed") {
+      // Fixed amount margin
+      marginAmount = marginValue;
+      marginPercent = baseAmount > 0 ? (marginValue / baseAmount) * 100 : 0;
+    } else {
+      // Percentage margin
+      marginPercent = marginValue;
+      marginAmount = (baseAmount * marginValue) / 100;
+    }
 
     let totalWithMargin = baseAmount;
     if (marginPaidBy === "client") {
@@ -119,24 +152,29 @@ export function TimesheetSubmissionFormModal({
     }, 0);
 
     return {
-      workingDays,
+      workingDays: effectiveWorkingDays,
       totalHours,
       baseAmount,
       marginAmount,
       marginPercent,
+      marginType: marginType as "fixed" | "percentage",
       totalWithMargin,
       expensesTotal,
       grandTotal: totalWithMargin + expensesTotal,
       currency: "USD", // TODO: Get from selectedContract.currency relation
       marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
       paymentMode: "gross" as const, // TODO: Get from contract if field exists
+      rateType: rateType as "daily" | "hourly" | "monthly",
+      calculationDetails,
     };
-  }, [startDate, endDate, hoursPerDay, selectedContract, expenses]);
+  }, [startDate, endDate, workingDaysInput, hoursWorked, hoursPerDay, selectedContract, expenses]);
 
   const reset = () => {
     setContractId("");
     setStartDate("");
     setEndDate("");
+    setWorkingDaysInput("");
+    setHoursWorked("");
     setHoursPerDay("8");
     setNotes("");
     setTimesheetFile(null);
@@ -210,9 +248,12 @@ export function TimesheetSubmissionFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Create Timesheet</DialogTitle>
+          <DialogTitle className="text-2xl">Create Timesheet</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Submit your timesheet for the selected contract and period
+          </p>
         </DialogHeader>
 
         <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
@@ -238,33 +279,54 @@ export function TimesheetSubmissionFormModal({
             {selectedContract && (
               <Card className="border-purple-200 bg-purple-50/50">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Contract Details</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    Contract Details
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Review the contract terms before submitting</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Rate:</span>
-                    <span className="font-medium">
-                      ${selectedContract.rate?.toString() || "0"} /{" "}
-                      {selectedContract.rateType || "day"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Margin:</span>
-                    <span className="font-medium">
-                      {selectedContract.margin?.toString() || "0"}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Margin Paid By:</span>
-                    <span className="font-medium capitalize">
-                      {selectedContract.marginPaidBy || "client"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Payment Mode:</span>
-                    <span className="font-medium capitalize">
-                      gross
-                    </span>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Rate Type</span>
+                      <p className="font-medium capitalize">
+                        {selectedContract.rateType || "daily"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Rate Amount</span>
+                      <p className="font-medium">
+                        ${selectedContract.rate?.toString() || "0"} /{" "}
+                        {selectedContract.rateType || "day"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Margin Type</span>
+                      <p className="font-medium capitalize">
+                        {selectedContract.marginType || "percentage"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Margin</span>
+                      <p className="font-medium">
+                        {selectedContract.marginType?.toLowerCase() === "fixed" 
+                          ? `$${selectedContract.margin?.toString() || "0"}` 
+                          : `${selectedContract.margin?.toString() || "0"}%`}
+                        {" "}(paid by {selectedContract.marginPaidBy || "client"})
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Payment Mode</span>
+                      <p className="font-medium capitalize">gross</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -282,24 +344,98 @@ export function TimesheetSubmissionFormModal({
               </div>
             </div>
 
-            {/* HOURS */}
-            <div className="space-y-2">
-              <Label>Hours Per Day *</Label>
-              <Input
-                type="number"
-                min={1}
-                max={24}
-                step={0.5}
-                value={hoursPerDay}
-                onChange={(e) => setHoursPerDay(e.target.value)}
-              />
-              {calculatedValues && (
-                <p className="text-xs text-muted-foreground">
-                  {calculatedValues.workingDays} working days × {hoursPerDay} hours ={" "}
-                  {calculatedValues.totalHours} total hours
-                </p>
-              )}
-            </div>
+            {/* CONDITIONAL FIELDS BASED ON RATE TYPE */}
+            {selectedContract && calculatedValues && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    Time Entry
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Enter the time worked based on your contract rate type</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {calculatedValues.rateType === "daily" && "Enter the number of working days"}
+                    {calculatedValues.rateType === "hourly" && "Enter the total hours worked"}
+                    {calculatedValues.rateType === "monthly" && "Monthly billing will be calculated based on working days"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Daily Rate - Show Working Days */}
+                  {calculatedValues.rateType === "daily" && (
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        Working Days *
+                        <span className="text-xs text-muted-foreground font-normal">
+                          (Auto-calculated: {calculatedValues.workingDays} weekdays)
+                        </span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0.5}
+                        step={0.5}
+                        placeholder={calculatedValues.workingDays.toString()}
+                        value={workingDaysInput}
+                        onChange={(e) => setWorkingDaysInput(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {calculatedValues.calculationDetails}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Hourly Rate - Show Hours Worked */}
+                  {calculatedValues.rateType === "hourly" && (
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        Hours Worked *
+                        <span className="text-xs text-muted-foreground font-normal">
+                          (Auto-calculated: {calculatedValues.totalHours.toFixed(1)}h)
+                        </span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0.5}
+                        step={0.5}
+                        placeholder={calculatedValues.totalHours.toFixed(1)}
+                        value={hoursWorked}
+                        onChange={(e) => setHoursWorked(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {calculatedValues.calculationDetails}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Monthly Rate - Show Info */}
+                  {calculatedValues.rateType === "monthly" && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        <strong>Monthly Billing:</strong> {calculatedValues.calculationDetails}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Calculation Summary */}
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Base Amount:</span>
+                      <span className="text-lg font-semibold text-blue-600">
+                        ${calculatedValues.baseAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* TIMESHEET FILE */}
             <div className="space-y-2">

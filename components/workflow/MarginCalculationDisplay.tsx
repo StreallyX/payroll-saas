@@ -15,6 +15,7 @@ interface MarginBreakdown {
   baseAmount: number;
   marginAmount: number;
   marginPercentage: number;
+  marginType?: "fixed" | "percentage";
   totalWithMargin: number;
   currency: string;
   marginPaidBy: "client" | "agency" | "contractor";
@@ -105,13 +106,25 @@ export function MarginCalculationDisplay({
         {/* Margin */}
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">
-            Margin ({breakdown.marginPercentage}%)
+            Margin{" "}
+            {breakdown.marginType === "fixed" 
+              ? `(Fixed: ${formatCurrency(breakdown.marginAmount, breakdown.currency)})`
+              : `(${breakdown.marginPercentage}%)`
+            }
           </span>
           <span className="font-medium text-blue-600">
             {breakdown.marginPaidBy === "contractor" ? "-" : "+"}
             {formatCurrency(breakdown.marginAmount, breakdown.currency)}
           </span>
         </div>
+        
+        {/* Show calculation details */}
+        {breakdown.marginType === "fixed" && (
+          <div className="text-xs text-muted-foreground italic">
+            Fixed margin of {formatCurrency(breakdown.marginAmount, breakdown.currency)} 
+            {" "}(≈{breakdown.marginPercentage.toFixed(2)}% of base)
+          </div>
+        )}
 
         <Separator />
 
