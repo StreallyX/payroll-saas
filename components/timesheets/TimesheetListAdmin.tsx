@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc";
+import Link from "next/link";
 
 import {
   Table,
@@ -25,8 +26,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-import { TimesheetReviewModal } from "./TimesheetReviewModal";
-
 // Helper: participant principal
 function getMainParticipant(contract: any) {
   if (!contract) return null;
@@ -41,7 +40,6 @@ function getMainParticipant(contract: any) {
 export function TimesheetListAdmin() {
   const utils = api.useUtils();
   const { data, isLoading } = api.timesheet.getAll.useQuery();
-  const [reviewId, setReviewId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -225,18 +223,20 @@ export function TimesheetListAdmin() {
                               ? "default"
                               : "outline"
                           }
-                          onClick={() => setReviewId(t.id)}
+                          asChild
                         >
-                          {t.workflowState === "approved" || t.workflowState === "sent"
-                            ? (
-                              <>
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </>
-                            )
-                            : t.workflowState === "draft"
-                            ? "View"
-                            : "Review"}
+                          <Link href={`/timesheets/${t.id}`}>
+                            {t.workflowState === "approved" || t.workflowState === "sent"
+                              ? (
+                                <>
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </>
+                              )
+                              : t.workflowState === "draft"
+                              ? "View"
+                              : "Review"}
+                          </Link>
                         </Button>
                       </div>
                     </TableCell>
@@ -247,14 +247,6 @@ export function TimesheetListAdmin() {
           </TableBody>
         </Table>
       </div>
-
-      {/* REVIEW MODAL */}
-      {reviewId && (
-        <TimesheetReviewModal
-          timesheetId={reviewId}
-          onClose={() => setReviewId(null)}
-        />
-      )}
     </>
   );
 }

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { api } from "@/lib/trpc";
+import Link from "next/link";
 
 import { RouteGuard } from "@/components/guards/RouteGuard";
 import { PageHeader } from "@/components/ui/page-header";
@@ -29,7 +30,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
 import { InvoiceModal } from "@/components/modals/invoice-modal";
-import { InvoiceReviewModal } from "@/components/invoices/InvoiceReviewModal";
 
 import { Eye, Edit, Trash2, Plus, Search, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 
@@ -59,7 +59,6 @@ function InvoicesPageContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any | null>(null);
   const [viewInvoice, setViewInvoice] = useState<any | null>(null);
-  const [reviewInvoiceId, setReviewInvoiceId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // -------------------------------
@@ -282,19 +281,23 @@ function InvoicesPageContent() {
                                 <Button
                                   variant="default"
                                   size="sm"
-                                  onClick={() => setReviewInvoiceId(inv.id)}
+                                  asChild
                                 >
-                                  <Clock className="mr-1 h-3 w-3" />
-                                  Review
+                                  <Link href={`/invoices/${inv.id}`}>
+                                    <Clock className="mr-1 h-3 w-3" />
+                                    Review
+                                  </Link>
                                 </Button>
                               )}
                               
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => setViewInvoice(inv)}
+                                asChild
                               >
-                                <Eye className="h-4 w-4" />
+                                <Link href={`/invoices/${inv.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
                               </Button>
 
                               {canEdit && (
@@ -348,18 +351,6 @@ function InvoicesPageContent() {
         invoice={viewInvoice ?? undefined}
         readOnly
       />
-
-      {/* REVIEW MODAL */}
-      {reviewInvoiceId && (
-        <InvoiceReviewModal
-          invoiceId={reviewInvoiceId}
-          onClose={() => {
-            setReviewInvoiceId(null);
-            utils.invoice.getAll.invalidate();
-            utils.invoice.getMyInvoices.invalidate();
-          }}
-        />
-      )}
 
       {/* DELETE */}
       <DeleteConfirmDialog
