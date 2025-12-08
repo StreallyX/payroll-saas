@@ -584,7 +584,6 @@ export function TimesheetReviewModal({
             </TabsContent>
           </ScrollArea>
         </Tabs>
-
         {/* WORKFLOW ACTIONS */}
         <DialogFooter className="flex justify-between items-center pt-4 mt-4 border-t">
           <Button variant="outline" onClick={onClose}>

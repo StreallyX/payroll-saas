@@ -639,9 +639,7 @@ export function TimesheetSubmissionFormModal({
               </Alert>
             )}
           </div>
-        </ScrollArea>
-
-        <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>
             Cancel
           </Button>
@@ -658,6 +656,7 @@ export function TimesheetSubmissionFormModal({
             Submit for Review
           </Button>
         </DialogFooter>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
