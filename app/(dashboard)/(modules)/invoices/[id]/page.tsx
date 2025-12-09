@@ -18,6 +18,7 @@ import {
   WorkflowActionButtons,
   MarginCalculationDisplay,
 } from "@/components/workflow";
+import { InvoicePDFPreview } from "@/components/invoices/InvoicePDFPreview";
 import Link from "next/link";
 
 export default function InvoiceDetailPage() {
@@ -268,12 +269,41 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="details" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="preview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="line-items">Line Items</TabsTrigger>
           <TabsTrigger value="calculation">Calculation & Margin</TabsTrigger>
         </TabsList>
+
+        {/* PREVIEW TAB - NEW */}
+        <TabsContent value="preview" className="space-y-4 mt-6">
+          <InvoicePDFPreview
+            invoice={{
+              id: data.id,
+              invoiceNumber: data.invoiceNumber,
+              invoiceDate: data.invoiceDate,
+              dueDate: data.dueDate,
+              status: currentState,
+              amount: Number(data.amount || 0),
+              baseAmount: Number(data.baseAmount || data.amount || 0),
+              marginAmount: Number(data.marginAmount || 0),
+              marginPercentage: Number(data.marginPercentage || 0),
+              totalAmount: Number(data.totalAmount || 0),
+              currency: data.currency || "USD",
+              marginPaidBy: data.marginPaidBy,
+              contract: data.contract,
+              timesheet: data.timesheet as any,
+            }}
+            onDownload={() => {
+              toast.info("Download functionality coming soon");
+            }}
+            onPrint={() => {
+              window.print();
+            }}
+          />
+        </TabsContent>
 
         {/* DETAILS TAB */}
         <TabsContent value="details" className="space-y-4 mt-6">
