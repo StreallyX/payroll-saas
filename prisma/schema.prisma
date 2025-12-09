@@ -777,28 +777,33 @@ model Timesheet {
   endDate      DateTime
   
   // STATUS & WORKFLOW
-  status             String    @default("draft") // draft, submitted, under_review, approved, rejected, changes_requested
-  workflowState      String    @default("draft") // Formal workflow state
+  status             String    @default("draft")
+  workflowState      String    @default("draft")
   approvalWorkflowId String?
   approvalWorkflow   ApprovalWorkflow? @relation("WorkflowTimesheets", fields: [approvalWorkflowId], references: [id])
 
   approvedBy        String?
   approvedAt        DateTime?
-  rejectedBy        String?   // 🔥 NEW
-  rejectedAt        DateTime? // 🔥 NEW
-  reviewedBy        String?   // 🔥 NEW - who is currently reviewing
-  reviewedAt        DateTime? // 🔥 NEW
+  rejectedBy        String?
+  rejectedAt        DateTime?
+  reviewedBy        String?
+  reviewedAt        DateTime?
   rejectionReason   String?   @db.Text
-  changesRequested  String?   @db.Text // 🔥 NEW - admin feedback for changes
+  changesRequested  String?   @db.Text
 
   // TOTALS
-  totalHours   Decimal  @db.Decimal(10, 2)
-  totalAmount  Decimal? @db.Decimal(10, 2)
-  
-  // ADMIN MODIFICATIONS (before approval)
-  adminModifiedAmount  Decimal? @db.Decimal(10, 2) // 🔥 NEW
-  adminModificationNote String? @db.Text            // 🔥 NEW
-  modifiedBy           String?                      // 🔥 NEW - userId
+  totalHours    Decimal  @db.Decimal(10, 2)
+  totalAmount   Decimal? @db.Decimal(10, 2)
+
+  // 🔥 FIELDS TO ADD FOR YOUR CALCULATION SYSTEM
+  baseAmount    Decimal? @db.Decimal(10, 2)   // <— required for Deel-style
+  marginAmount  Decimal? @db.Decimal(10, 2)   // <— required
+  currency      String?                      // <— required (USD, EUR, etc.)
+
+  // ADMIN MODIFICATIONS
+  adminModifiedAmount  Decimal? @db.Decimal(10, 2)
+  adminModificationNote String? @db.Text
+  modifiedBy           String?
 
   // FILES + NOTES
   notes            String?   @db.Text
@@ -818,13 +823,13 @@ model Timesheet {
   contract   Contract? @relation(fields: [contractId], references: [id])
   entries    TimesheetEntry[]
   invoice    Invoice?  @relation(fields: [invoiceId], references: [id])
-  stateHistory EntityStateHistory[] @relation("TimesheetStateHistory") // 🔥 NEW
+  stateHistory EntityStateHistory[] @relation("TimesheetStateHistory")
 
   @@index([tenantId])
   @@index([submittedBy])
   @@index([contractId])
   @@index([status])
-  @@index([workflowState]) // 🔥 NEW
+  @@index([workflowState])
   @@map("timesheets")
 }
 

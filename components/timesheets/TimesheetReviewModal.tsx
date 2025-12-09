@@ -350,7 +350,6 @@ export function TimesheetReviewModal({
             {/* DETAILS TAB */}
 
             {/* CONFIRMATION UI FOR ACTIONS */}
-            {/* CONFIRMATION UI FOR ACTIONS */}
             {action && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                 <Card className="max-w-md w-full">

@@ -122,7 +122,7 @@ export const timesheetRouter = createTRPCRouter({
       })
     }),
 
-  // ------------------------------------------------------
+ // ------------------------------------------------------
 // 10️⃣ CREATE TIMESHEET WITH DATE RANGE (DEEL STYLE)
 // ------------------------------------------------------
 createRange: tenantProcedure
@@ -134,8 +134,6 @@ createRange: tenantProcedure
       endDate: z.string(),
       hoursPerDay: z.string(), // validated later
       notes: z.string().optional(),
-
-      // 🔥 optional files
       timesheetFileUrl: z.string().optional().nullable(),
       expenseFileUrl: z.string().optional().nullable(),
     })
@@ -160,7 +158,7 @@ createRange: tenantProcedure
       });
     }
 
-    // Convert dates
+    // Dates
     const start = new Date(input.startDate);
     const end = new Date(input.endDate);
 
@@ -171,21 +169,41 @@ createRange: tenantProcedure
       });
     }
 
-    // Validate hours
-    const hours = Number(input.hoursPerDay);
-    if (isNaN(hours) || hours <= 0 || hours > 24) {
+    // Hours validation
+    const hoursPerDay = Number(input.hoursPerDay);
+    if (isNaN(hoursPerDay) || hoursPerDay <= 0 || hoursPerDay > 24) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Hours per day must be a valid number between 1 and 24.",
+        message: "Hours per day must be between 1 and 24.",
       });
     }
+
+    // 2️⃣ Load contract full details
+    const contract = await ctx.prisma.contract.findFirst({
+      where: { id: input.contractId, tenantId: ctx.tenantId },
+      include: {
+        currency: true,
+      },
+    });
+
+    if (!contract) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found." });
+    }
+
+    const rate = new Prisma.Decimal(contract.rate ?? 0);
+    const rateType = contract.rateType?.toLowerCase() || "daily";
+
+    // Margin system
+    const marginValue = new Prisma.Decimal(contract.margin ?? 0);
+    const marginType = contract.marginType?.toLowerCase() || "percentage";
+    const marginPaidBy = contract.marginPaidBy || "client";
 
     // 🔥 Construct dynamic file fields
     const fileData: any = {};
     if (input.timesheetFileUrl) fileData.timesheetFileUrl = input.timesheetFileUrl;
     if (input.expenseFileUrl) fileData.expenseFileUrl = input.expenseFileUrl;
 
-    // 2️⃣ Create main timesheet
+    // 3️⃣ Create timesheet (only base fields)
     const ts = await ctx.prisma.timesheet.create({
       data: {
         tenantId: ctx.tenantId,
@@ -196,12 +214,15 @@ createRange: tenantProcedure
         status: "draft",
         workflowState: "draft",
         totalHours: new Prisma.Decimal(0),
+        baseAmount: new Prisma.Decimal(0),
+        totalAmount: new Prisma.Decimal(0),
+        marginAmount: new Prisma.Decimal(0),
+        ...fileData,
         notes: input.notes || null,
-        ...fileData, // 🔥 only added if provided
       },
     });
 
-    // 3️⃣ Generate entries for every day of the range
+    // 4️⃣ Generate daily entries
     const entries = [];
     let cursor = new Date(start);
 
@@ -209,7 +230,7 @@ createRange: tenantProcedure
       entries.push({
         timesheetId: ts.id,
         date: cursor,
-        hours: new Prisma.Decimal(hours),
+        hours: new Prisma.Decimal(hoursPerDay),
         amount: null,
       });
 
@@ -218,39 +239,56 @@ createRange: tenantProcedure
 
     await ctx.prisma.timesheetEntry.createMany({ data: entries });
 
-    // 4️⃣ Recalculate total hours
-    const totalHours = new Prisma.Decimal(hours * entries.length);
+    // 5️⃣ Compute total hours
+    const totalHours = new Prisma.Decimal(hoursPerDay).mul(entries.length);
 
-    await ctx.prisma.timesheet.update({
-      where: { id: ts.id },
-      data: { totalHours },
-    });
+    // 6️⃣ Calculate base amount depending on rate type
+    let baseAmount = new Prisma.Decimal(0);
 
-    // 5️⃣ Compute totalAmount from contract rate
-    const contract = await ctx.prisma.contract.findFirst({
-      where: { id: input.contractId },
-      select: { rate: true, rateType: true },
-    });
+    if (rateType === "hourly") {
+      baseAmount = totalHours.mul(rate);
+    } else if (rateType === "daily") {
+      baseAmount = rate.mul(entries.length);
+    } else if (rateType === "monthly") {
+      // Prorated on 20 working days
+      const prorationDays = new Prisma.Decimal(entries.length).div(20);
+      baseAmount = rate.mul(prorationDays);
+    } else if (rateType === "fixed") {
+      baseAmount = rate;
+    }
 
-    let totalAmount = null;
+    // 7️⃣ Apply margin
+    let marginAmount = new Prisma.Decimal(0);
+    let totalWithMargin = baseAmount;
 
-    if (contract?.rate) {
-      if (contract.rateType === "hourly") {
-        totalAmount = new Prisma.Decimal(totalHours).mul(contract.rate);
-      } else if (contract.rateType === "daily") {
-        totalAmount = contract.rate.mul(entries.length);
+    if (marginValue.gt(0)) {
+      if (marginType === "fixed") {
+        marginAmount = marginValue;
+      } else {
+        marginAmount = baseAmount.mul(marginValue).div(100);
+      }
+
+      if (marginPaidBy === "client") {
+        totalWithMargin = baseAmount.add(marginAmount);
+      } else {
+        totalWithMargin = baseAmount.sub(marginAmount);
       }
     }
 
-    // Update timesheet again with amount
+    // 8️⃣ Save everything back into timesheet
     await ctx.prisma.timesheet.update({
       where: { id: ts.id },
-      data: { totalAmount },
+      data: {
+        totalHours,
+        baseAmount,
+        marginAmount,
+        totalAmount: totalWithMargin,
+        currency: contract.currency?.name ?? "USD",
+      },
     });
 
     return { success: true, timesheetId: ts.id };
   }),
-
 
   // ------------------------------------------------------
   // 5️⃣ UPDATE ENTRY
@@ -363,7 +401,6 @@ createRange: tenantProcedure
         where: {
           id: input.id,
           tenantId: ctx.tenantId,
-          submittedBy: ctx.session.user.id,
         },
         include: { entries: true },
       })

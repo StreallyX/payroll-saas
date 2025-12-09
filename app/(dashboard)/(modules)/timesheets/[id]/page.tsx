@@ -37,7 +37,7 @@ function getMainParticipant(contract: any) {
   if (!contract) return null;
 
   return (
-    contract.participants?.find((p: any) => p.isPrimary) ||
+    /*contract.participants?.find((p: any) => p.isPrimary) ||*/
     contract.participants?.find((p: any) => p.role === "contractor") ||
     null
   );
