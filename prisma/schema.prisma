@@ -621,6 +621,7 @@ model Invoice {
   id            String   @id @default(cuid())
   tenantId      String
   contractId    String?  // 🔥 Optionnel - une facture peut ne pas être liée à un contrat
+  timesheetId   String?  // 🔥 NEW - Link to source timesheet for traceability
   invoiceNumber String?  @unique
   
   // Ownership
@@ -676,15 +677,17 @@ model Invoice {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contract    Contract?           @relation(fields: [contractId], references: [id])
-  lineItems   InvoiceLineItem[]
-  payments    Payment[]
-  timesheets  Timesheet[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract     Contract?           @relation(fields: [contractId], references: [id])
+  timesheet    Timesheet?          @relation("InvoiceTimesheet", fields: [timesheetId], references: [id]) // 🔥 NEW
+  lineItems    InvoiceLineItem[]
+  payments     Payment[]
+  timesheets   Timesheet[]         @relation("TimesheetInvoices") // Legacy relation (renamed to avoid conflict)
   stateHistory EntityStateHistory[] @relation("InvoiceStateHistory") // 🔥 NEW
 
   @@index([tenantId])
   @@index([contractId])
+  @@index([timesheetId]) // 🔥 NEW
   @@index([createdBy])
   @@index([status])
   @@index([workflowState]) // 🔥 NEW
@@ -813,7 +816,7 @@ model Timesheet {
   // 🔥 NEW: Total expenses amount
   totalExpenses    Decimal? @db.Decimal(10, 2) @default(0)
 
-  // INVOICE
+  // INVOICE (Legacy field - kept for backward compatibility)
   invoiceId   String?
   submittedAt DateTime?
 
@@ -821,12 +824,13 @@ model Timesheet {
   updatedAt DateTime @updatedAt
 
   // RELATIONS
-  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submitter  User      @relation(fields: [submittedBy], references: [id])
-  contract   Contract? @relation(fields: [contractId], references: [id])
-  entries    TimesheetEntry[]
-  invoice    Invoice?  @relation(fields: [invoiceId], references: [id])
-  documents  TimesheetDocument[] // 🔥 NEW: Multiple expense documents
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submitter    User      @relation(fields: [submittedBy], references: [id])
+  contract     Contract? @relation(fields: [contractId], references: [id])
+  entries      TimesheetEntry[]
+  invoice      Invoice?  @relation("TimesheetInvoices", fields: [invoiceId], references: [id]) // Legacy relation (renamed)
+  invoiceLink  Invoice?  @relation("InvoiceTimesheet") // 🔥 NEW: Proper link from Invoice side
+  documents    TimesheetDocument[] // 🔥 NEW: Multiple expense documents
   stateHistory EntityStateHistory[] @relation("TimesheetStateHistory")
 
   @@index([tenantId])

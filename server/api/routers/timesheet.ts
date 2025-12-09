@@ -137,6 +137,13 @@ createRange: tenantProcedure
       notes: z.string().optional(),
       timesheetFileUrl: z.string().optional().nullable(),
       expenseFileUrl: z.string().optional().nullable(),
+      // 🔥 NEW: Support for expenses
+      expenses: z.array(z.object({
+        category: z.string(),
+        description: z.string(),
+        amount: z.number(),
+        receiptUrl: z.string().optional().nullable(),
+      })).optional(),
     })
   )
   .mutation(async ({ ctx, input }) => {
@@ -276,14 +283,44 @@ createRange: tenantProcedure
       }
     }
 
-    // 8️⃣ Save everything back into timesheet
+    // 8️⃣ Process expenses if provided
+    let totalExpenses = new Prisma.Decimal(0);
+    
+    if (input.expenses && input.expenses.length > 0) {
+      // Create expense documents
+      const expenseDocuments = input.expenses.map((expense, index) => ({
+        timesheetId: ts.id,
+        fileName: `Expense_${expense.category}_${index + 1}.pdf`,
+        fileUrl: expense.receiptUrl || "https://placeholder.com/receipt.pdf",
+        fileSize: 0, // Will be updated when actual file is uploaded
+        mimeType: "application/pdf",
+        description: `${expense.category}: ${expense.description}`,
+        category: "expense",
+      }));
+
+      await ctx.prisma.timesheetDocument.createMany({
+        data: expenseDocuments,
+      });
+
+      // Calculate total expenses
+      totalExpenses = input.expenses.reduce(
+        (sum, exp) => sum.add(new Prisma.Decimal(exp.amount)),
+        new Prisma.Decimal(0)
+      );
+    }
+
+    // 9️⃣ Calculate final total including expenses
+    const finalTotalAmount = totalWithMargin.add(totalExpenses);
+
+    // 🔟 Save everything back into timesheet
     await ctx.prisma.timesheet.update({
       where: { id: ts.id },
       data: {
         totalHours,
         baseAmount,
         marginAmount,
-        totalAmount: totalWithMargin,
+        totalAmount: finalTotalAmount, // 🔥 FIXED: Now includes expenses
+        totalExpenses, // 🔥 NEW: Store total expenses separately
         currency: contract.currency?.name ?? "USD",
       },
     });
@@ -608,6 +645,7 @@ createRange: tenantProcedure
           data: {
             tenantId: ctx.tenantId,
             contractId: ts.contractId,
+            timesheetId: ts.id, // 🔥 NEW: Link to source timesheet
             createdBy: userId,
 
             // Amounts with margin calculation
@@ -640,10 +678,6 @@ ${marginAmount.gt(0) ? `• Margin (${marginPercentage.toFixed(2)}%): ${marginAm
 
 ${agencyParticipant ? `📧 Agency: ${agencyParticipant.company?.name || agencyParticipant.user?.name}` : ''}
 ${ts.documents.length > 0 ? `\n📎 Expense Documents:\n${ts.documents.map((d, i) => `  ${i + 1}. ${d.fileName}`).join('\n')}` : ''}`,
-            
-            timesheets: {
-              connect: { id: ts.id },
-            },
 
             // Create line items
             lineItems: {
@@ -776,10 +810,14 @@ ${ts.documents.length > 0 ? `\n📎 Expense Documents:\n${ts.documents.map((d, i
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      // Update total expenses and recalculate totalAmount
-      const rate = new Prisma.Decimal(ts.baseAmount ?? 0);
+      // 🔥 FIXED: Update total expenses and recalculate totalAmount properly
+      // totalAmount should include: baseAmount (hours × rate) + marginAmount + expenses
+      const baseAmount = new Prisma.Decimal(ts.baseAmount ?? 0);
+      const marginAmount = new Prisma.Decimal(ts.marginAmount ?? 0);
       const expenses = new Prisma.Decimal(input.totalExpenses);
-      const newTotalAmount = rate.add(expenses);
+      
+      // Calculate new total: base + margin + expenses
+      const newTotalAmount = baseAmount.add(marginAmount).add(expenses);
 
       await ctx.prisma.timesheet.update({
         where: { id: input.timesheetId },

@@ -215,9 +215,8 @@ export function TimesheetSubmissionFormModal({
       hoursPerDay,
       notes: notes || undefined,
       timesheetFileUrl: timesheetUrl || undefined,
-      // TODO: Backend needs to support these fields
-      // expenses: expensesWithUrls,
-      // status: asDraft ? "draft" : "submitted",
+      // 🔥 FIXED: Now sending expenses to backend
+      expenses: expensesWithUrls.length > 0 ? expensesWithUrls : undefined,
     });
   };
 
