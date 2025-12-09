@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+
 // Expense interface
 interface Expense {
   id: string;

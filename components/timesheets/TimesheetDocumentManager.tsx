@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Trash2, Eye, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
-import { uploadToS3 } from "@/lib/s3";
+import { uploadFile } from "@/lib/s3";
 
 interface DocumentFile {
   id: string;
   name: string;
-  url: string;
+  url: string;       // <-- S3 KEY (not a public URL)
   size: number;
   uploadedAt: Date;
 }
@@ -36,19 +36,18 @@ export function TimesheetDocumentManager({
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
     if (files.length === 0) return;
 
-    // Check max files limit
     if (documents.length + files.length > maxFiles) {
       toast.error(`Maximum ${maxFiles} files allowed`);
       return;
     }
 
-    // Validate file sizes
-    const oversizedFiles = files.filter(f => f.size > MAX_FILE_SIZE);
-    if (oversizedFiles.length > 0) {
-      toast.error(`Some files exceed the maximum size of ${MAX_FILE_SIZE / 1024 / 1024} MB`);
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      toast.error(
+        `Some files exceed the maximum size of ${MAX_FILE_SIZE / 1024 / 1024} MB`
+      );
       return;
     }
 
@@ -58,39 +57,34 @@ export function TimesheetDocumentManager({
       const uploadedDocs: DocumentFile[] = [];
 
       for (const file of files) {
-        // Convert file to buffer for S3 upload
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Upload to S3
-        const result = await uploadToS3({
-          buffer,
-          fileName: file.name,
-          mimeType: file.type,
-          folder: "timesheet-expenses",
-        });
+        // Build S3 key
+        const key = `timesheet-expenses/${Date.now()}-${file.name}`;
 
-        if (result.success && result.url) {
-          uploadedDocs.push({
-            id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            name: file.name,
-            url: result.url,
-            size: file.size,
-            uploadedAt: new Date(),
-          });
-        }
+        // Upload
+        const uploadedKey = await uploadFile(buffer, key, file.type);
+
+        // Store KEY (not URL)
+        uploadedDocs.push({
+          id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          url: uploadedKey, // <-- This is the S3 KEY
+          size: file.size,
+          uploadedAt: new Date(),
+        });
       }
 
       if (uploadedDocs.length > 0) {
         onDocumentsChange([...documents, ...uploadedDocs]);
         toast.success(`${uploadedDocs.length} file(s) uploaded successfully`);
       }
-    } catch (error) {
-      console.error("Upload error:", error);
+    } catch (err) {
+      console.error("Upload error:", err);
       toast.error("Failed to upload files");
     } finally {
       setIsUploading(false);
-      // Reset input
       e.target.value = "";
     }
   };
@@ -111,12 +105,14 @@ export function TimesheetDocumentManager({
       <CardHeader>
         <CardTitle className="text-base">Expense Documents</CardTitle>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        {/* Upload Section */}
+        {/* Upload */}
         <div className="space-y-2">
           <Label htmlFor="expense-files">
             Upload Expense Receipts ({documents.length}/{maxFiles})
           </Label>
+
           <div className="flex gap-2">
             <Input
               id="expense-files"
@@ -127,49 +123,47 @@ export function TimesheetDocumentManager({
               disabled={disabled || isUploading || documents.length >= maxFiles}
               className="flex-1"
             />
+
             {isUploading && (
               <Button disabled size="icon" variant="outline">
                 <Loader2 className="h-4 w-4 animate-spin" />
               </Button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Accepted formats: PDF, Images, Word documents (max {MAX_FILE_SIZE / 1024 / 1024} MB per file)
-          </p>
         </div>
 
-        {/* Documents List */}
+        {/* Documents */}
         {documents.length > 0 && (
           <div className="space-y-2">
             <Label>Uploaded Documents</Label>
+
             <div className="space-y-2">
               {documents.map((doc, index) => (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between p-3 border rounded-lg"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex-shrink-0">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium">
                         Expense File {index + 1}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground">
                         {doc.name} • {formatFileSize(doc.size)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => window.open(doc.url, "_blank")}
-                      title="View document"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -179,16 +173,15 @@ export function TimesheetDocumentManager({
                         link.download = doc.name;
                         link.click();
                       }}
-                      title="Download document"
                     >
                       <Download className="h-4 w-4" />
                     </Button>
+
                     {!disabled && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveDocument(doc.id)}
-                        title="Remove document"
                       >
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
@@ -200,13 +193,12 @@ export function TimesheetDocumentManager({
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Empty state */}
         {documents.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed rounded-lg">
+          <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed rounded-lg">
             <Upload className="h-12 w-12 text-muted-foreground mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">No expense documents uploaded</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Upload receipts and supporting documents for expenses
+            <p className="text-sm text-muted-foreground">
+              No expense documents uploaded
             </p>
           </div>
         )}

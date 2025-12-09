@@ -4,16 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowRight, Building2, User } from "lucide-react";
 
-interface Participant {
-  role: string;
+export interface Participant {
   user?: {
+    id?: string;
     name?: string | null;
     email?: string | null;
-  };
+  } | null;
+
   company?: {
-    name?: string | null;
-  };
+    id?: string;
+    name?: string;
+  } | null;
+
+  role: string;
+  isPrimary?: boolean;
 }
+
 
 interface TimesheetParticipantDiagramProps {
   participants: Participant[];
