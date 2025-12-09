@@ -809,6 +809,9 @@ model Timesheet {
   notes            String?   @db.Text
   timesheetFileUrl String?
   expenseFileUrl   String?
+  
+  // 🔥 NEW: Total expenses amount
+  totalExpenses    Decimal? @db.Decimal(10, 2) @default(0)
 
   // INVOICE
   invoiceId   String?
@@ -823,6 +826,7 @@ model Timesheet {
   contract   Contract? @relation(fields: [contractId], references: [id])
   entries    TimesheetEntry[]
   invoice    Invoice?  @relation(fields: [invoiceId], references: [id])
+  documents  TimesheetDocument[] // 🔥 NEW: Multiple expense documents
   stateHistory EntityStateHistory[] @relation("TimesheetStateHistory")
 
   @@index([tenantId])
@@ -853,6 +857,27 @@ model TimesheetEntry {
 
   @@index([timesheetId])
   @@map("timesheet_entries")
+}
+
+// 🔥 NEW: Timesheet Document Model for multiple expense files
+model TimesheetDocument {
+  id          String   @id @default(cuid())
+  timesheetId String
+  
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String?
+  
+  description String?  @db.Text
+  category    String   @default("expense") // expense, timesheet, other
+  
+  uploadedAt  DateTime @default(now())
+  
+  timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+  
+  @@index([timesheetId])
+  @@map("timesheet_documents")
 }
 
 // ====

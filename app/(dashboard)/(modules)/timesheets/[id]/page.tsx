@@ -30,6 +30,7 @@ import {
 } from "@/components/workflow";
 import { TimesheetStatusTimeline } from "@/components/timesheets/TimesheetStatusTimeline";
 import { TimesheetFileViewer } from "@/components/timesheets/TimesheetFileViewer";
+import { TimesheetParticipantDiagram } from "@/components/timesheets/TimesheetParticipantDiagram";
 import Link from "next/link";
 
 // Helper: find main participant
@@ -324,14 +325,65 @@ export default function TimesheetDetailPage() {
         <TabsContent value="files" className="space-y-4 mt-6">
           <div className="space-y-4">
             {/* Timesheet File Viewer */}
-            <TimesheetFileViewer
-              fileUrl={data.timesheetFileUrl}
-              fileName="timesheet.pdf"
-              fileType="timesheet"
-            />
+            {data.timesheetFileUrl && (
+              <TimesheetFileViewer
+                fileUrl={data.timesheetFileUrl}
+                fileName="timesheet.pdf"
+                fileType="timesheet"
+              />
+            )}
 
-            {/* Expense File Viewer */}
-            {data.expenseFileUrl && (
+            {/* 🔥 NEW: Multiple Expense Documents */}
+            {(data as any).documents && (data as any).documents.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Expense Documents</CardTitle>
+                  <CardDescription>
+                    {(data as any).documents.length} expense file{(data as any).documents.length > 1 ? 's' : ''} attached
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(data as any).documents.map((doc: any, index: number) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0">
+                          <FileText className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold">
+                            Expense File {index + 1}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {doc.fileName} • {(doc.fileSize / 1024).toFixed(1)} KB
+                          </p>
+                          {doc.description && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {doc.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(doc.fileUrl, "_blank")}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Legacy single expense file (for backward compatibility) */}
+            {data.expenseFileUrl && !(data as any).documents?.length && (
               <TimesheetFileViewer
                 fileUrl={data.expenseFileUrl}
                 fileName="expense-receipts.pdf"
@@ -340,7 +392,7 @@ export default function TimesheetDetailPage() {
             )}
 
             {/* Show message if no files at all */}
-            {!data.timesheetFileUrl && !data.expenseFileUrl && (
+            {!data.timesheetFileUrl && !data.expenseFileUrl && !(data as any).documents?.length && (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <FileText className="h-16 w-16 text-muted-foreground mb-4" />
@@ -472,6 +524,11 @@ export default function TimesheetDetailPage() {
 
         {/* DETAILS TAB */}
         <TabsContent value="details" className="space-y-4 mt-6">
+          {/* 🔥 NEW: Participant Diagram */}
+          {data.contract?.participants && (
+            <TimesheetParticipantDiagram participants={data.contract.participants} />
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Worker Information</CardTitle>
