@@ -1,0 +1,64 @@
+// This file contains the updated Expense model with timesheetId link
+// To be merged into the main schema.prisma
+
+model Expense {
+  id         String   @id @default(cuid())
+  tenantId   String
+  
+  // 🔥 Ownership - qui a soumis la dépense (un User)
+  submittedBy String  // userId
+  
+  // 🔥 Context - contrat lié (optionnel)
+  contractId  String?
+  
+  // 🔥 NEW: Link to timesheet
+  timesheetId String?
+  
+  // Details
+  title         String
+  description   String?  @db.Text
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String
+  category      String   // travel, meals, equipment, software, etc.
+  
+  // 🔥 Receipt (optionnel) - Link to document
+  documentId      String?  // Link to Document table
+  receiptUrl      String?  // Legacy field, kept for backward compatibility
+  receiptFileName String?  // Legacy field
+  
+  // Dates
+  expenseDate DateTime
+  submittedAt DateTime @default(now())
+  
+  // 🔥 Approval (optionnel)
+  status             String    @default("draft") // draft, submitted, approved, rejected, paid
+  approvalWorkflowId String?
+  approvedBy         String?   // userId (optionnel)
+  approvedAt         DateTime?
+  rejectionReason    String?   @db.Text
+  paidAt             DateTime?
+  
+  // Additional
+  notes    String? @db.Text
+  metadata Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submitter        User               @relation(fields: [submittedBy], references: [id])
+  contract         Contract?          @relation(fields: [contractId], references: [id])
+  timesheet        Timesheet?         @relation(fields: [timesheetId], references: [id], onDelete: Cascade) // 🔥 NEW
+  document         Document?          @relation(fields: [documentId], references: [id]) // 🔥 NEW
+  approvalWorkflow ApprovalWorkflow?  @relation(fields: [approvalWorkflowId], references: [id])
+  payments         Payment[]
+
+  @@index([tenantId])
+  @@index([submittedBy])
+  @@index([contractId])
+  @@index([timesheetId]) // 🔥 NEW
+  @@index([documentId])  // 🔥 NEW
+  @@index([status])
+  @@map("expenses")
+}

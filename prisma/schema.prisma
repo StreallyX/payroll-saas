@@ -721,6 +721,9 @@ model Expense {
   // 🔥 Context - contrat lié (optionnel)
   contractId  String?
   
+  // 🔥 NEW: Link to timesheet
+  timesheetId String?
+  
   // Details
   title         String
   description   String?  @db.Text
@@ -728,9 +731,10 @@ model Expense {
   currency      String
   category      String   // travel, meals, equipment, software, etc.
   
-  // 🔥 Receipt (optionnel)
-  receiptUrl      String?
-  receiptFileName String?
+  // 🔥 Receipt (optionnel) - Link to document
+  documentId      String?  // Link to Document table
+  receiptUrl      String?  // Legacy field, kept for backward compatibility
+  receiptFileName String?  // Legacy field
   
   // Dates
   expenseDate DateTime
@@ -755,12 +759,16 @@ model Expense {
   tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   submitter        User               @relation(fields: [submittedBy], references: [id])
   contract         Contract?          @relation(fields: [contractId], references: [id])
+  timesheet        Timesheet?         @relation(fields: [timesheetId], references: [id], onDelete: Cascade) // 🔥 NEW
+  document         Document?          @relation(fields: [documentId], references: [id]) // 🔥 NEW
   approvalWorkflow ApprovalWorkflow?  @relation(fields: [approvalWorkflowId], references: [id])
   payments         Payment[]
 
   @@index([tenantId])
   @@index([submittedBy])
   @@index([contractId])
+  @@index([timesheetId]) // 🔥 NEW
+  @@index([documentId])  // 🔥 NEW
   @@index([status])
   @@map("expenses")
 }
@@ -831,6 +839,7 @@ model Timesheet {
   invoice      Invoice?  @relation("TimesheetInvoices", fields: [invoiceId], references: [id]) // Legacy relation (renamed)
   invoiceLink  Invoice?  @relation("InvoiceTimesheet") // 🔥 NEW: Proper link from Invoice side
   documents    TimesheetDocument[] // 🔥 NEW: Multiple expense documents
+  expenses     Expense[] // 🔥 NEW: Link to Expense table
   stateHistory EntityStateHistory[] @relation("TimesheetStateHistory")
 
   @@index([tenantId])
@@ -1134,6 +1143,7 @@ model Document {
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contractDocuments ContractDocument[]
+  expenses          Expense[]          // 🔥 NEW: Link to Expense table
 
   @@index([tenantId])
   @@index([entityType, entityId])
