@@ -802,6 +802,45 @@ export default function TimesheetDetailPage() {
             <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
           )}
 
+          {/* Expenses Section - NEW */}
+          {(data as any).documents && (data as any).documents.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Expense Items</CardTitle>
+                <CardDescription>
+                  Additional expenses attached to this timesheet
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {(data as any).documents.map((doc: any, index: number) => (
+                    <div
+                      key={doc.id}
+                      className="flex justify-between items-center py-2 border-b last:border-0"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium">Expense {index + 1}</p>
+                        {doc.description && (
+                          <p className="text-sm text-muted-foreground">{doc.description}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(doc.fileUrl, "_blank")}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Receipt
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Final Invoice Total */}
           <Card>
             <CardHeader>
@@ -850,6 +889,22 @@ export default function TimesheetDetailPage() {
                   )}
                 </>
               )}
+              
+              {/* 🔥 NEW: Display expenses in calculation */}
+              {data.totalExpenses && Number(data.totalExpenses) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Expenses ({(data as any).documents?.length || 0} items):
+                  </span>
+                  <span className="font-medium text-blue-600">
+                    + {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: marginBreakdown?.currency || "USD",
+                    }).format(Number(data.totalExpenses))}
+                  </span>
+                </div>
+              )}
+              
               <Separator />
               <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
                 <span className="text-lg font-semibold">Invoice Total:</span>
@@ -857,9 +912,29 @@ export default function TimesheetDetailPage() {
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
                     currency: marginBreakdown?.currency || "USD",
-                  }).format(marginBreakdown?.totalWithMargin || 0)}
+                  }).format(Number(data.totalAmount) || marginBreakdown?.totalWithMargin || 0)}
                 </span>
               </div>
+              
+              {/* 🔥 NEW: Breakdown explanation */}
+              {data.totalExpenses && Number(data.totalExpenses) > 0 && (
+                <div className="text-xs text-muted-foreground italic text-center pt-2 border-t">
+                  Total = Base Amount ({new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: marginBreakdown?.currency || "USD",
+                  }).format(marginBreakdown?.baseAmount || 0)})
+                  {marginBreakdown && marginBreakdown.marginAmount > 0 && (
+                    <> {marginBreakdown.marginPaidBy === "client" ? "+" : "-"} Margin ({new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: marginBreakdown.currency,
+                    }).format(marginBreakdown.marginAmount)})</>
+                  )}
+                  {" + Expenses "}({new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: marginBreakdown?.currency || "USD",
+                  }).format(Number(data.totalExpenses))})
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
