@@ -621,7 +621,7 @@ model Invoice {
   id            String   @id @default(cuid())
   tenantId      String
   contractId    String?  // 🔥 Optionnel - une facture peut ne pas être liée à un contrat
-  timesheetId   String?  // 🔥 NEW - Link to source timesheet for traceability
+  timesheetId   String?  @unique
   invoiceNumber String?  @unique
   
   // Ownership

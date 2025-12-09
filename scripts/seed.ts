@@ -129,6 +129,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.REFERRAL, Action.LIST, PermissionScope.OWN),
     buildPermissionKey(Resource.REFERRAL, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
   ],
 
   PAYROLL: [
