@@ -11,6 +11,7 @@ import { Loader2, Upload, FileText, Info, Link as LinkIcon } from "lucide-react"
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PDFUploadZone } from "../shared/PDFUploadZone";
+import { ParticipantPreSelector, type ParticipantPreSelection } from "../shared/ParticipantPreSelector";
 
 interface CreateSOWModalProps {
   open: boolean;
@@ -37,6 +38,7 @@ export function CreateSOWModal({
   const router = useRouter();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parentMSAId, setParentMSAId] = useState<string>(preselectedMSAId || "");
+  const [additionalParticipants, setAdditionalParticipants] = useState<ParticipantPreSelection[]>([]);
 
   // Reset parentMSAId when modal opens with preselected value
   useEffect(() => {
@@ -61,7 +63,7 @@ export function CreateSOWModal({
   const createMutation = api.simpleContract.createSimpleSOW.useMutation({
     onSuccess: (data) => {
       toast.success("SOW créé avec succès");
-      onSuccess?.(data.contract.id);
+      onSuccess?.(data.contract.id as string);
       setPdfFile(null);
       setParentMSAId("");
       onOpenChange(false);
@@ -91,12 +93,20 @@ export function CreateSOWModal({
       const buffer = await pdfFile.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
 
+      // Préparer les participants (enlever les champs temporaires)
+      const participants = additionalParticipants.map(p => ({
+        userId: p.userId,
+        companyId: p.companyId,
+        role: p.role,
+      }));
+
       createMutation.mutate({
         parentMSAId,
         pdfBuffer: base64,
         fileName: pdfFile.name,
-        mimeType: pdfFile.type,
+        mimeType: "application/pdf",
         fileSize: pdfFile.size,
+        additionalParticipants: participants.length > 0 ? participants : undefined,
       });
     } catch (error) {
       console.error("[CreateSOWModal] Error:", error);
@@ -108,8 +118,9 @@ export function CreateSOWModal({
    * Ferme le modal
    */
   const handleClose = () => {
-    if (!createMutation.isLoading) {
+    if (!createMutation.isPending) {
       setPdfFile(null);
+      setAdditionalParticipants([]);
       if (!preselectedMSAId) {
         setParentMSAId("");
       }
@@ -135,7 +146,7 @@ export function CreateSOWModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -164,7 +175,7 @@ export function CreateSOWModal({
             <Select
               value={parentMSAId}
               onValueChange={setParentMSAId}
-              disabled={createMutation.isLoading || !!preselectedMSAId || isLoadingMSAs}
+              disabled={createMutation.isPending || !!preselectedMSAId || isLoadingMSAs}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner un MSA..." />
@@ -202,7 +213,7 @@ export function CreateSOWModal({
             <PDFUploadZone
               file={pdfFile}
               onChange={setPdfFile}
-              disabled={createMutation.isLoading}
+              disabled={createMutation.isPending}
             />
           </div>
 
@@ -218,6 +229,15 @@ export function CreateSOWModal({
               </p>
             </div>
           )}
+
+          {/* Participants supplémentaires */}
+          <div className="border-t pt-4">
+            <ParticipantPreSelector
+              participants={additionalParticipants}
+              onChange={setAdditionalParticipants}
+              showAddButton={true}
+            />
+          </div>
         </div>
 
         {/* Actions */}
@@ -225,15 +245,15 @@ export function CreateSOWModal({
           <Button
             variant="outline"
             onClick={handleClose}
-            disabled={createMutation.isLoading}
+            disabled={createMutation.isPending}
           >
             Annuler
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!pdfFile || !parentMSAId || createMutation.isLoading}
+            disabled={!pdfFile || !parentMSAId || createMutation.isPending}
           >
-            {createMutation.isLoading ? (
+            {createMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Création en cours...

@@ -23,6 +23,11 @@ import { ContractStatusTimeline } from "./ContractStatusTimeline";
 import { ContractDocumentViewer } from "./ContractDocumentViewer";
 import { AdminReviewModal } from "./AdminReviewModal";
 import { UploadSignedModal } from "./UploadSignedModal";
+import { ModifyContractModal } from "./ModifyContractModal";
+import { NormContractView } from "./NormContractView";
+import { ParticipantSelector } from "../shared/ParticipantSelector";
+import { DocumentUploader } from "../shared/DocumentUploader";
+import { DocumentList } from "../shared/DocumentList";
 import { useSimpleContractWorkflow } from "@/hooks/contracts/useSimpleContractWorkflow";
 
 interface MinimalContractViewProps {
@@ -85,6 +90,7 @@ interface MinimalContractViewProps {
     canUpdate: boolean;
     canApprove: boolean;
     canDelete: boolean;
+    isContractor?: boolean;
   };
   onUpdate?: () => void;
 }
@@ -101,8 +107,14 @@ interface MinimalContractViewProps {
  * - Contrats liés (MSA parent ou SOWs enfants)
  */
 export function MinimalContractView({ contract, permissions, onUpdate }: MinimalContractViewProps) {
+  // Si c'est un contrat NORM, utiliser la vue spécifique
+  if (contract.type === "norm") {
+    return <NormContractView contract={contract as any} permissions={{ ...permissions, isContractor: permissions.isContractor || false }} onUpdate={onUpdate} />;
+  }
+
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showUploadSignedModal, setShowUploadSignedModal] = useState(false);
+  const [showModifyModal, setShowModifyModal] = useState(false);
 
   const { submitForReview, activateContract, isProcessing } = useSimpleContractWorkflow();
 
@@ -171,6 +183,12 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
 
           {/* Actions principales */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {permissions.canUpdate && (
+              <Button variant="outline" onClick={() => setShowModifyModal(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Modifier
+              </Button>
+            )}
             {isDraft && permissions.canUpdate && (
               <Button onClick={handleSubmitForReview} disabled={isProcessing}>
                 <Send className="mr-2 h-4 w-4" />
@@ -250,50 +268,43 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
           )}
 
           {/* Participants */}
-          {contract.participants && contract.participants.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Participants</CardTitle>
-                <CardDescription>
-                  Utilisateurs et entreprises impliqués dans ce contrat
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {contract.participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border"
-                    >
-                      {participant.user ? (
-                        <>
-                          <User className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">
-                              {participant.user.name || participant.user.email}
-                            </p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {participant.role}
-                            </p>
-                          </div>
-                        </>
-                      ) : participant.company ? (
-                        <>
-                          <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{participant.company.name}</p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {participant.role}
-                            </p>
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  ))}
+          <ParticipantSelector
+            contractId={contract.id}
+            canModify={permissions.canUpdate && !isActive}
+          />
+
+          {/* Documents partagés */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents partagés</CardTitle>
+              <CardDescription>
+                Documents additionnels liés à ce contrat
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Liste des documents */}
+              <DocumentList
+                contractId={contract.id}
+                canDelete={permissions.canUpdate && !isActive}
+              />
+
+              {/* Upload de documents (si le contrat n'est pas actif) */}
+              {!isActive && permissions.canUpdate && (
+                <div className="border-t pt-4">
+                  <DocumentUploader
+                    contractId={contract.id}
+                    onSuccess={onUpdate}
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+
+              {isActive && (
+                <div className="text-sm text-muted-foreground text-center py-4 border-t">
+                  Ce contrat est actif. Vous ne pouvez plus ajouter de documents.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Colonne latérale */}
@@ -366,6 +377,13 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
         contractId={contract.id}
         contractTitle={contract.title || undefined}
         onSuccess={onUpdate}
+      />
+
+      <ModifyContractModal
+        contract={contract}
+        isOpen={showModifyModal}
+        onClose={() => setShowModifyModal(false)}
+        onSuccess={() => onUpdate?.()}
       />
     </div>
   );

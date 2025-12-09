@@ -1,31 +1,55 @@
-
 import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  CopyObjectCommand,
+  S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
 import { createS3Client, getBucketConfig } from "./aws-config";
 
-const s3Client = createS3Client();
+// ------------------------------------------------------------
+// S3 CLIENT & CONFIG
+// ------------------------------------------------------------
+const s3Client: S3Client = createS3Client();
 const { bucketName, folderPrefix } = getBucketConfig();
 
 /**
- * Upload a file to S3
- * @param buffer - File buffer
- * @param fileName - File name with optional path
- * @returns S3 key (cloud_storage_path)
+ * Build the final S3 key, with optional prefix (folder)
+ */
+function buildKey(fileName: string) {
+  // si la key inclut déjà le préfixe → ne pas le rajouter
+  if (fileName.startsWith(folderPrefix)) {
+    return fileName;
+  }
+  return `${folderPrefix}${fileName}`;
+}
+
+
+// ------------------------------------------------------------
+// LOW-LEVEL AWS FUNCTIONS (raw operations)
+// ------------------------------------------------------------
+
+/**
+ * Upload a file to S3.
+ * @param buffer File contents (Buffer)
+ * @param fileName Path/name inside the bucket (key)
+ * @param contentType MIME type
+ * @returns string S3 key
  */
 export async function uploadFile(
   buffer: Buffer,
-  fileName: string
+  fileName: string,
+  contentType?: string
 ): Promise<string> {
-  const key = `${folderPrefix}${fileName}`;
+  const key = buildKey(fileName);
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
     Key: key,
     Body: buffer,
+    ContentType: contentType || "application/octet-stream",
   });
 
   await s3Client.send(command);
@@ -34,10 +58,7 @@ export async function uploadFile(
 }
 
 /**
- * Get a signed URL for downloading a file from S3
- * @param key - S3 key (cloud_storage_path)
- * @param expiresIn - URL expiration time in seconds (default: 1 hour)
- * @returns Signed URL
+ * Generate a signed URL to download or view a file.
  */
 export async function downloadFile(
   key: string,
@@ -46,16 +67,15 @@ export async function downloadFile(
   const command = new GetObjectCommand({
     Bucket: bucketName,
     Key: key,
+    ResponseContentDisposition: "inline",       // 🔥 IMPORTANT
+    ResponseContentType: "application/pdf",     // 🔥 Évite les téléchargements
   });
 
-  const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
-
-  return signedUrl;
+  return getSignedUrl(s3Client, command, { expiresIn });
 }
 
 /**
- * Delete a file from S3
- * @param key - S3 key (cloud_storage_path)
+ * Delete a file from S3.
  */
 export async function deleteFile(key: string): Promise<void> {
   const command = new DeleteObjectCommand({
@@ -67,16 +87,74 @@ export async function deleteFile(key: string): Promise<void> {
 }
 
 /**
- * Rename a file in S3 (copy and delete)
- * @param oldKey - Current S3 key
- * @param newKey - New S3 key
+ * "Rename" a file in S3 (actually copy + delete)
  */
 export async function renameFile(
   oldKey: string,
   newKey: string
 ): Promise<string> {
-  // S3 doesn't support direct rename, so we copy and delete
-  // For simplicity, we'll just return the new key since this is rarely used
-  // Implement copy logic here if needed
+  const copyCommand = new CopyObjectCommand({
+    Bucket: bucketName,
+    CopySource: `${bucketName}/${oldKey}`,
+    Key: newKey,
+  });
+
+  await s3Client.send(copyCommand);
+
+  // Delete the original
+  await deleteFile(oldKey);
+
   return newKey;
 }
+
+// ------------------------------------------------------------
+// HIGH-LEVEL HELPERS (used by your router)
+// ------------------------------------------------------------
+
+/**
+ * Used by router.upload (version 1)
+ */
+export async function uploadFileToS3(
+  s3Key: string,
+  buffer: Buffer,
+  contentType?: string
+) {
+  return uploadFile(buffer, s3Key, contentType);
+}
+
+/**
+ * Used by router.delete
+ */
+export async function deleteFromS3(key: string) {
+  return deleteFile(key);
+}
+
+/**
+ * Used by router.getSignedUrl
+ */
+export async function getSignedUrlForKey(
+  key: string,
+  expiresIn = 3600,
+  download = false
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    ResponseContentDisposition: download
+      ? `attachment; filename="${key.split('/').pop()}"`
+      : "inline",
+    ResponseContentType: "application/pdf",
+  });
+
+  return getSignedUrl(s3Client, command, { expiresIn });
+}
+
+
+// ------------------------------------------------------------
+// OPTIONAL: expose a `ctx.s3` helper for TRPC context
+// ------------------------------------------------------------
+export const s3Helpers = {
+  upload: uploadFileToS3,
+  delete: deleteFromS3,
+  getSignedUrl: getSignedUrlForKey,
+};

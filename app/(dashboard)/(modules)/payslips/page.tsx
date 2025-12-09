@@ -1,235 +1,182 @@
+"use client";
 
-"use client"
-
-import { useState } from "react"
-import { PageHeader } from "@/components/ui/page-header"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Edit, Trash2 } from "lucide-react"
-import { api } from "@/lib/trpc"
-import { LoadingState } from "@/components/shared/loading-state"
-import { EmptyState } from "@/components/shared/empty-state"
-import { PayslipModal } from "@/components/modals/payslip-modal"
-import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
-import { toast } from "sonner"
-
-const MONTHS = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+import { useState } from "react";
+import { api } from "@/lib/trpc";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, FileText, Send } from "lucide-react";
+import { toast } from "sonner";
+import { WorkflowStatusBadge } from "@/components/workflow";
+import { usePermissions } from "@/hooks/use-permissions";
 
 export default function PayslipsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedPayslip, setSelectedPayslip] = useState<any>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const { hasPermission } = usePermissions();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: payslips, isLoading } = api.payslip.getAll.useQuery()
-  const { data: stats } = api.payslip.getStats.useQuery()
-  const utils = api.useContext()
+  const utils = api.useUtils();
 
-  const deleteMutation = api.payslip.delete.useMutation({
-    onSuccess: () => {
-      toast.success("Bulletin de paie deleted successfully")
-      utils.payslip.getAll.invalidate()
-      utils.payslip.getStats.invalidate()
-      setDeleteId(null)
-    },
-    onError: (error) => {
-      toast.error("Erreur lors de la suppression: " + error.message)
-    },
-  })
+  const canViewGlobal = hasPermission("payslip.list.global");
+  const canViewOwn = hasPermission("payslip.view.own");
+  const canSend = hasPermission("payslip.send.global");
+  const canValidate = hasPermission("payslip.validate.global");
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "paid": return "bg-green-100 text-green-700"
-      case "sent": return "bg-blue-100 text-blue-700"
-      case "generated": return "bg-purple-100 text-purple-700"
-      case "pending": return "bg-yellow-100 text-yellow-700"
-      default: return "bg-gray-100 text-gray-700"
-    }
-  }
+  // Fetch based on permissions
+  const { data: globalData, isLoading: globalLoading } = api.payslip.getAll.useQuery(
+    undefined,
+    { enabled: canViewGlobal }
+  );
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "paid": return "Payé"
-      case "sent": return "Envoyé"
-      case "generated": return "Généré"
-      case "pending": return "Pending"
-      default: return status
-    }
-  }
+  const { data: ownData, isLoading: ownLoading } = api.payslip.getMyPayslips.useQuery(
+    undefined,
+    { enabled: canViewOwn && !canViewGlobal }
+  );
 
-  const filteredPayslips = payslips?.filter(item => {
-    const employeeName = item.contractor.user.name || ""
-    const searchLower = searchQuery.toLowerCase()
-    return employeeName.toLowerCase().includes(searchLower) ||
-           MONTHS[item.month].toLowerCase().includes(searchLower) ||
-           item.year.toString().includes(searchLower)
-  })
+  // TODO: Implement send and validate mutations when procedures are added to payslip router
+  // const sendMutation = api.payslip.send.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Payslip sent successfully");
+  //     utils.payslip.getAll.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
+
+  // const validateMutation = api.payslip.validate.useMutation({
+  //   onSuccess: () => {
+  //     toast.success("Payslip validated");
+  //     utils.payslip.getAll.invalidate();
+  //   },
+  //   onError: (err: any) => toast.error(err.message),
+  // });
+
+  const isLoading = canViewGlobal ? globalLoading : ownLoading;
+  const payslips = canViewGlobal ? (globalData || []) : (ownData || []);
 
   if (isLoading) {
-    return <LoadingState />
+    return (
+      <div className="flex justify-center py-10">
+        <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="Bulletins de Paie" 
-        description="Manage et générer les bulletins de paie des employés"
-      >
-        <Button onClick={() => {
-          setSelectedPayslip(null)
-          setIsModalOpen(true)
-        }}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Bulletin
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title="Payslips"
+        description="View and manage contractor payslips"
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {/* FILTERS */}
+      {canViewGlobal && (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Ce mois</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.thisMonth || 0}</div>
+          <CardContent className="pt-6">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="generated">Generated</SelectItem>
+                <SelectItem value="validated">Validated</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Générés</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.generated || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Envoyés</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.sent || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.pending || 0}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input 
-              placeholder="Search par nom, mois ou année..." 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-              className="pl-10" 
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {!filteredPayslips || filteredPayslips.length === 0 ? (
-        <EmptyState 
-          title="Aucun bulletin de paie trouvé" 
-          description="Commencez par créer un nouveau bulletin de paie."
-          actionLabel="Create un bulletin"
-          onAction={() => {
-            setSelectedPayslip(null)
-            setIsModalOpen(true)
-          }}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPayslips.map((payslip) => (
-            <Card key={payslip.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate">
-                      {payslip.contractor.user.name || payslip.contractor.user.email}
-                    </CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {MONTHS[payslip.month]} {payslip.year}
-                    </p>
-                  </div>
-                  <Badge className={getStatusColor(payslip.status)} variant="secondary">
-                    {getStatusLabel(payslip.status)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Salaire brut</p>
-                    <p className="font-semibold text-lg">${payslip.grossPay.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Salaire net</p>
-                    <p className="font-semibold text-lg">${payslip.netPay.toLocaleString()}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-gray-600">Généré le</p>
-                    <p className="font-medium">
-                      {new Date(payslip.generatedDate).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 touch-manipulation"
-                    onClick={() => {
-                      setSelectedPayslip(payslip)
-                      setIsModalOpen(true)
-                    }}
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="destructive"
-                    size="sm" 
-                    className="touch-manipulation"
-                    onClick={() => setDeleteId(payslip.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       )}
 
-      {/* Modals */}
-      <PayslipModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setSelectedPayslip(null)
-        }}
-        payslip={selectedPayslip}
-      />
-
-      <DeleteConfirmDialog
-        open={!!deleteId}
-        onOpenChange={(open) => !open && setDeleteId(null)}
-        onConfirm={() => {
-          if (deleteId) {
-            deleteMutation.mutate({ id: deleteId })
-          }
-        }}
-        title="Delete le bulletin de paie"
-        description="Are you sure you want to delete ce bulletin de paie ? Cette action est irréversible."
-      />
+      {/* PAYSLIPS TABLE */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Contractor</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Status</TableHead>
+                {canViewGlobal && <TableHead className="text-right">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payslips.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={canViewGlobal ? 6 : 5}
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    No payslips found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                payslips.map((payslip: any) => (
+                  <TableRow key={payslip.id}>
+                    <TableCell>
+                      {new Date(payslip.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>{payslip.contractor?.name || "N/A"}</TableCell>
+                    <TableCell>
+                      {new Date(payslip.periodStart).toLocaleDateString()} -{" "}
+                      {new Date(payslip.periodEnd).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                      }).format(Number(payslip.amount))}
+                    </TableCell>
+                    <TableCell>
+                      <WorkflowStatusBadge status={payslip.workflowState} />
+                    </TableCell>
+                    {canViewGlobal && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {/* TODO: Implement validate and send actions when procedures are added */}
+                          {/* {canValidate && payslip.workflowState === "generated" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => console.log("Validate payslip", payslip.id)}
+                            >
+                              Validate
+                            </Button>
+                          )}
+                          {canSend && payslip.workflowState === "validated" && (
+                            <Button
+                              size="sm"
+                              onClick={() => console.log("Send payslip", payslip.id)}
+                            >
+                              <Send className="mr-2 h-4 w-4" />
+                              Send
+                            </Button> */}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }

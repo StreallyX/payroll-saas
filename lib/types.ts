@@ -34,6 +34,8 @@ export enum AuditAction {
   UPDATE = "UPDATE",
   DELETE = "DELETE",
   VIEW = "VIEW",
+  SIGN = "SIGN",
+  CANCEL = "CANCEL",
   
   // Specific Actions
   EXPORT = "EXPORT",
@@ -55,6 +57,8 @@ export enum AuditEntityType {
   LEAD = "LEAD",
   CONTRACT = "CONTRACT",
   CONTRACTOR = "CONTRACTOR",
+  TIMESHEET = "TIMESHEET",
+  PAYMENT = "PAYMENT",
   AGENCY = "AGENCY",
   USER = "USER",
   INVOICE = "INVOICE",

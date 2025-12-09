@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { MinimalContractView } from "@/components/contracts/simple/MinimalContractView";
 import { api } from "@/lib/trpc";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+
 
 /**
  * Page de détails d'un contrat simplifié
@@ -35,12 +37,40 @@ export default function SimpleContractDetailPage() {
     }
   );
 
-  // Vérification des permissions (à améliorer avec un système de permissions réel)
-  // Pour l'instant, on suppose que l'utilisateur a les permissions
+  // Récupère la session
+  const { data: session } = useSession();
+  const user = session?.user;
+
+  // Récupère les permissions du user
+  const userPermissions: string[] = user?.permissions || [];
+  const userId = user?.id;
+
+  // Détermine si le user est creator ou participant actif
+  const isCreator = contract?.createdBy === userId;
+
+  const isParticipant = contract?.participants?.some(
+    (p) => p.user?.id === userId
+  );
+
+  // Permissions OWN
+  const canUpdateOwn =
+    userPermissions.includes("contract.update.own") &&
+    (isCreator || isParticipant);
+
+  const canUpdateGlobal =
+    userPermissions.includes("contract.update.global");
+
+  const canApproveGlobal =
+    userPermissions.includes("contract.approve.global");
+
+  const canDeleteGlobal =
+    userPermissions.includes("contract.delete.global");
+
+  // Final: permissions envoyées au composant
   const permissions = {
-    canUpdate: true,
-    canApprove: true,
-    canDelete: true,
+    canUpdate: canUpdateOwn || canUpdateGlobal,
+    canApprove: canApproveGlobal,
+    canDelete: canDeleteGlobal,
   };
 
   // Loading state

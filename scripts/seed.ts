@@ -1,108 +1,437 @@
-// seed.ts
-import { seedPermissions } from "./seed/00-permissions"
-import { seedDefaultRoles } from "./seed/01-roles"
-import { seedSuperAdmin } from "./seed/02-superadmin"
-import { seedTenant } from "./seed/03-tenant"
-import { seedUsers } from "./seed/04-users"
-import { seedSampleAgencies } from "./seed/05-sample-agencies"
-import { seedSampleCompanies } from "./seed/06-sample-companies"
-import { seedSamplePayrollPartners } from "./seed/07-sample-payroll"
-import { seedSampleContractors } from "./seed/08-sample-contractors"
-import { seedSampleContracts } from "./seed/09-sample-contracts"
-import { seedSampleInvoices } from "./seed/10-sample-invoices"
-import { seedSamplePayslips } from "./seed/11-sample-payslips"
-import { seedSampleOnboarding } from "./seed/12-sample-onboarding"
-import { seedSampleTasks } from "./seed/13-sample-tasks"
-import { seedSampleLeads } from "./seed/14-sample-leads"
+/**
+ * ====================================================================
+ * SEED RBAC V4 - Compatible avec la nouvelle base User-centric
+ * ====================================================================
+ */
 
-async function main() {
-  console.log("🌱 STARTING FULL DATABASE SEED\n")
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-  // ---------------------------
-  // 1. SYSTEM-LEVEL SEED
-  // ---------------------------
-  await seedPermissions()
-  await seedSuperAdmin()
+// ⚠️ IMPORTANT : importer TON nouveau fichier RBAC v4
+import {
+  ALL_PERMISSIONS,
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "@/server/rbac/permissions";
 
-  // ---------------------------
-  // 2. TENANT
-  // ---------------------------
-  const tenantId = await seedTenant()
+// ====================================================================
+// DEFAUT ROLES
+// ====================================================================
 
-  // ---------------------------
-  // 3. ROLES (Dynamic RBAC)
-  // ---------------------------
-  await seedDefaultRoles(tenantId)
+export const DEFAULT_ROLES = [
+  {
+    name: "SUPER_ADMIN",
+    displayName: "Super Administrator",
+    description: "Full access to all features and settings",
+    level: 100,
+    homePath: "/admin/dashboard",
+    color: "#dc2626",
+    icon: "shield",
+    isSystem: true,
+  },
+  {
+    name: "ADMIN",
+    displayName: "Administrator",
+    description: "Complete management of the tenant",
+    level: 90,
+    homePath: "/admin/dashboard",
+    color: "#ea580c",
+    icon: "user-cog",
+    isSystem: true,
+  },
+  {
+    name: "CONTRACTOR",
+    displayName: "Contractor",
+    description: "Access to their contracts, timesheets, and expenses",
+    level: 30,
+    homePath: "/contractor/dashboard",
+    color: "#059669",
+    icon: "user",
+    isSystem: true,
+  },
+  {
+    name: "PAYROLL",
+    displayName: "Payroll Manager",
+    description: "Management of payslips and payroll operations",
+    level: 75,
+    homePath: "/payroll/dashboard",
+    color: "#d97706",
+    icon: "money-check",
+    isSystem: true,
+  },
+  {
+    name: "AGENCY",
+    displayName: "Agency Manager",
+    description: "Management of contractors, clients, and contracts within the agency",
+    level: 70,
+    homePath: "/agency/dashboard",
+    color: "#2563eb",
+    icon: "building",
+    isSystem: true,
+  },
+] as const;
 
-  // ---------------------------
-  // 4. USERS
-  // ---------------------------
-  await seedUsers(tenantId)
 
-  // ---------------------------
-  // 5. AGENCIES
-  // ---------------------------
-  const agencies = await seedSampleAgencies(tenantId)
+// ====================================================================
+// ROLE → PERMISSIONS   (clean pour ta DB v4)
+// ====================================================================
 
-  // ---------------------------
-  // 6. COMPANIES
-  // ---------------------------
-  const companies = await seedSampleCompanies(tenantId)
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  SUPER_ADMIN: ALL_PERMISSIONS.map((p) => p.key),
 
-  // ---------------------------
-  // 7. PAYROLL PARTNERS
-  // ---------------------------
-  const payrollPartners = await seedSamplePayrollPartners(tenantId)
+  ADMIN: ALL_PERMISSIONS.map((p) => p.key),
 
-  // ---------------------------
-  // 8. CONTRACTORS
-  // ---------------------------
-  const contractors = await seedSampleContractors(
-    tenantId,
-    agencies,
-  )
+  CONTRACTOR: [
+    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
+    // USER PROFILE
+    buildPermissionKey(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
 
-  // ---------------------------
-  // 9. CONTRACTS
-  // ---------------------------
-  const contracts = await seedSampleContracts(
-    tenantId,
-    agencies,
-    companies,
-    contractors,
-    payrollPartners,
-  )
+    // TIMESHEETS
+    buildPermissionKey(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.TIMESHEET, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.TIMESHEET, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.TIMESHEET, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.TIMESHEET, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.TIMESHEET, Action.SUBMIT, PermissionScope.OWN),
 
-  // ---------------------------
-  // 10. INVOICES
-  // ---------------------------
-  await seedSampleInvoices(tenantId, contracts)
+    // EXPENSES
+    buildPermissionKey(Resource.EXPENSE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.EXPENSE, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.EXPENSE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.EXPENSE, Action.UPDATE, PermissionScope.OWN),
 
-  // ---------------------------
-  // 11. PAYSLIPS
-  // ---------------------------
-  await seedSamplePayslips(tenantId, contracts)
+    // INVOICES
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.INVOICE, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
 
-  // ---------------------------
-  // 12. ONBOARDING
-  // ---------------------------
-  await seedSampleOnboarding(tenantId)
+    // REMITTANCES
+    buildPermissionKey(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.REMITTANCE, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.REMITTANCE, Action.CREATE, PermissionScope.OWN),
 
-  // ---------------------------
-  // 13. TASKS
-  // ---------------------------
-  await seedSampleTasks(tenantId)
+    // PAYSLIPS
+    buildPermissionKey(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.PAYSLIP, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
 
-  // ---------------------------
-  // 14. LEADS
-  // ---------------------------
-  await seedSampleLeads(tenantId)
+    // REFERRALS
+    buildPermissionKey(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.REFERRAL, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.REFERRAL, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
+  ],
 
-  console.log("\n🎉 SEED COMPLETE! Everything is ready to use.")
+  PAYROLL: [
+    // DASHBOARD
+    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
+
+    // USER MANAGEMENT
+    buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
+
+    // INVOICES (own scope)
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
+
+    // INVOICES (global)
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.INVOICE, Action.DELETE, PermissionScope.GLOBAL),
+
+    // REMITTANCE
+    buildPermissionKey(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
+
+    // PAYSLIPS
+    buildPermissionKey(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.PAYSLIP, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.PAYSLIP, Action.DELETE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.PAYSLIP, Action.UPDATE, PermissionScope.GLOBAL),
+
+    // ROLE MANAGEMENT (own)
+    buildPermissionKey(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
+
+    // CONTRACTS (own)
+    buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+  ],
+
+  AGENCY: [
+    // DASHBOARD
+    buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
+
+    // USER MANAGEMENT (own agency scope)
+    buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.USER, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
+
+    // CONTRACTS (own)
+    buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.CONTRACT, Action.SIGN, PermissionScope.OWN),
+    buildPermissionKey(Resource.CONTRACT, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.CONTRACT, Action.CREATE, PermissionScope.GLOBAL),
+
+    buildPermissionKey(Resource.CONTRACT_MSA, Action.CREATE, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.CONTRACT_SOW, Action.CREATE, PermissionScope.GLOBAL),
+
+
+    buildPermissionKey(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
+    //(Resource.COMPANY, Action.CREATE, PermissionScope.OWN),
+    //buildPermissionKey(Resource.COMPANY, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.LIST, PermissionScope.OWN),
+    //buildPermissionKey(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.DOCUMENT, Action.UPLOAD, PermissionScope.OWN),
+    buildPermissionKey(Resource.DOCUMENT, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.DOCUMENT, Action.DELETE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.BANK, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.BANK, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.UPDATE, PermissionScope.OWN),
+
+    // INVOICES (own)
+    buildPermissionKey(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.INVOICE, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.INVOICE, Action.UPDATE, PermissionScope.OWN),
+
+    // ROLES (own scope)
+    buildPermissionKey(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
+  ],
+};
+
+// ====================================================================
+// SEED PRINCIPAL
+// ====================================================================
+
+export async function seedRBAC(prisma: PrismaClient, tenantId: string) {
+  console.log("🌱 SEED RBAC V4…");
+
+  // Permissions
+  for (const perm of ALL_PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { key: perm.key },
+      update: {
+        displayName: perm.displayName,
+        description: perm.description,
+        category: perm.category,
+        scope: perm.scope,
+        action: perm.action,
+        resource: perm.resource,
+      },
+      create: {
+        key: perm.key,
+        resource: perm.resource,
+        action: perm.action,
+        scope: perm.scope,
+        displayName: perm.displayName,
+        description: perm.description,
+        category: perm.category,
+        isSystem: true,
+      },
+    });
+  }
+
+  // Roles
+  const createdRoles = [];
+  for (const role of DEFAULT_ROLES) {
+    const r = await prisma.role.upsert({
+      where: { tenantId_name: { tenantId, name: role.name } },
+      update: role,
+      create: { ...role, tenantId },
+    });
+    createdRoles.push(r);
+  }
+
+  // Assign permissions
+  for (const role of createdRoles) {
+    const keys = ROLE_PERMISSIONS[role.name] || [];
+    const permissions = await prisma.permission.findMany({
+      where: { key: { in: keys } },
+    });
+
+    await prisma.rolePermission.deleteMany({
+      where: { roleId: role.id },
+    });
+
+    await prisma.rolePermission.createMany({
+      data: permissions.map((p) => ({
+        roleId: role.id,
+        permissionId: p.id,
+      })),
+    });
+  }
+
+  console.log("✅ RBAC V4 seed complet !");
 }
 
+// ====================================================================
+// SEED UTILISATEURS DE TEST
+// ====================================================================
+
+export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
+  console.log("👤 Création des utilisateurs…");
+
+  const USERS = [
+    {
+      email: "superadmin@platform.com",
+      name: "Super Admin",
+      role: "SUPER_ADMIN",
+      pass: "SuperAdmin123!",
+    },
+    {
+      email: "admin@demo.com",
+      name: "Admin",
+      role: "ADMIN",
+      pass: "password123",
+    },
+    {
+      email: "payroll@demo.com",
+      name: "Payroll Manager",
+      role: "PAYROLL",
+      pass: "password123",
+    },
+    {
+      email: "contractor@demo.com",
+      name: "Contractor",
+      role: "CONTRACTOR",
+      pass: "password123",
+    },
+    {
+      email: "agency@demo.com",
+      name: "Agency",
+      role: "AGENCY",
+      pass: "password123",
+    },
+    
+  ];
+
+  for (const u of USERS) {
+    const role = await prisma.role.findFirst({
+      where: { tenantId, name: u.role },
+    });
+
+    await prisma.user.upsert({
+      where: { tenantId_email: { tenantId, email: u.email } },
+      update: {},
+      create: {
+        tenantId,
+        email: u.email,
+        name: u.name,
+        passwordHash: await bcrypt.hash(u.pass, 10),
+        roleId: role!.id,
+        mustChangePassword: false,
+        emailVerified: true,
+      },
+    });
+  }
+
+  console.log("✨ Comptes créés !");
+}
+
+// ====================================================================
+// SEED DEFAULT CURRENCY + COUNTRY (CORRIGÉ)
+// ====================================================================
+
+async function seedBaseData(prisma: PrismaClient) {
+  console.log("🌍 Seed currency + country…");
+
+  // 1 currency de base → USD
+  await prisma.currency.upsert({
+    where: { code: "USD" },
+    update: {},
+    create: {
+      code: "USD",
+      name: "United States Dollar",
+      symbol: "$",
+    },
+  });
+
+  // 1 country de base → United States
+  await prisma.country.upsert({
+    where: { code: "US" },        // ✔ utilise TON champ "code"
+    update: {},
+    create: {
+      code: "US",
+      name: "United States",
+    },
+  });
+
+  console.log("✅ Base data OK !");
+}
+
+
+// ====================================================================
+// MAIN
+// ====================================================================
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log("🚀 Lancement du seed…");
+
+  let tenant = await prisma.tenant.findFirst();
+
+  if (!tenant) {
+    console.log("📦 Aucun tenant → création…");
+    tenant = await prisma.tenant.create({
+      data: {
+        name: "Default Tenant",
+        subdomain: "default",
+      },
+    });
+  }
+
+  // Base data (CURRENCY + COUNTRY)
+  await seedBaseData(prisma);
+
+  // RBAC
+  await seedRBAC(prisma, tenant.id);
+
+  // Test Users
+  await seedTestUsers(prisma, tenant.id);
+
+  console.log("✨ Seed terminé !");
+}
+
+
 main()
-  .catch((err) => {
-    console.error("❌ Seed failed:", err)
-    process.exit(1)
-  })
+  .catch((err) => console.error("❌ ERREUR :", err))
+  .finally(() => prisma.$disconnect());

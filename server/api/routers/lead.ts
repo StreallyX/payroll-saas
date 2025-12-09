@@ -7,16 +7,31 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
-import { PERMISSION_TREE } from "../../rbac/permissions"
+
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "../../rbac/permissions"
+
+// ---------------------------------------
+// PERMISSIONS (V3 GLOBAL)
+// ---------------------------------------
+const CAN_LIST    = buildPermissionKey(Resource.LEAD, Action.LIST, PermissionScope.GLOBAL)
+const CAN_CREATE  = buildPermissionKey(Resource.LEAD, Action.CREATE, PermissionScope.GLOBAL)
+const CAN_UPDATE  = buildPermissionKey(Resource.LEAD, Action.UPDATE, PermissionScope.GLOBAL)
+const CAN_DELETE  = buildPermissionKey(Resource.LEAD, Action.DELETE, PermissionScope.GLOBAL)
+const CAN_ASSIGN  = buildPermissionKey(Resource.LEAD, Action.ASSIGN, PermissionScope.GLOBAL)
+const CAN_EXPORT  = buildPermissionKey(Resource.LEAD, Action.EXPORT, PermissionScope.GLOBAL)
 
 export const leadRouter = createTRPCRouter({
 
   // -------------------------------------------------------
-  // GET ALL LEADS
-  // Requires: leads.view
+  // GET ALL (GLOBAL)
   // -------------------------------------------------------
   getAll: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.view))
+    .use(hasPermission(CAN_LIST))
     .query(async ({ ctx }) => {
       return ctx.prisma.lead.findMany({
         where: { tenantId: ctx.tenantId },
@@ -25,11 +40,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET BY ID
-  // Requires: leads.view
+  // GET BY ID (GLOBAL)
   // -------------------------------------------------------
   getById: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.view))
+    .use(hasPermission(CAN_LIST))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.lead.findFirst({
@@ -39,10 +53,9 @@ export const leadRouter = createTRPCRouter({
 
   // -------------------------------------------------------
   // STATS
-  // Requires: leads.view
   // -------------------------------------------------------
   getStats: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.view))
+    .use(hasPermission(CAN_LIST))
     .query(async ({ ctx }) => {
       const tenantId = ctx.tenantId
 
@@ -57,28 +70,28 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // CREATE LEAD
-  // Requires: leads.create
+  // CREATE LEAD (GLOBAL)
   // -------------------------------------------------------
   create: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.create))
-    .input(z.object({
-      name: z.string().min(1),
-      contact: z.string().min(1),
-      email: z.string().email(),
-      phone: z.string().optional(),
-      status: z.enum(["hot", "warm", "cold"]).default("warm"),
-      source: z.string().optional(),
-      value: z.string().optional(),
-      notes: z.string().optional(),
-    }))
+    .use(hasPermission(CAN_CREATE))
+    .input(
+      z.object({
+        name: z.string().min(1),
+        contact: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        status: z.enum(["hot", "warm", "cold"]).default("warm"),
+        source: z.string().optional(),
+        value: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-
       const lead = await ctx.prisma.lead.create({
         data: {
+          tenantId: ctx.tenantId,
           ...input,
           lastContact: new Date(),
-          tenantId: ctx.tenantId,
         },
       })
 
@@ -98,29 +111,32 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE LEAD
-  // Requires: leads.update
+  // UPDATE LEAD (GLOBAL)
   // -------------------------------------------------------
   update: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.update))
-    .input(z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      contact: z.string().optional(),
-      email: z.string().email().optional(),
-      phone: z.string().optional(),
-      status: z.enum(["hot", "warm", "cold"]).optional(),
-      source: z.string().optional(),
-      value: z.string().optional(),
-      notes: z.string().optional(),
-    }))
+    .use(hasPermission(CAN_UPDATE))
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        contact: z.string().optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        status: z.enum(["hot", "warm", "cold"]).optional(),
+        source: z.string().optional(),
+        value: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-
       const { id, ...data } = input
 
       const lead = await ctx.prisma.lead.update({
         where: { id, tenantId: ctx.tenantId },
-        data: { ...data, lastContact: new Date() },
+        data: {
+          ...data,
+          lastContact: new Date(),
+        },
       })
 
       await createAuditLog({
@@ -139,11 +155,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // DELETE LEAD
-  // Requires: leads.delete
+  // DELETE LEAD (GLOBAL)
   // -------------------------------------------------------
   delete: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.delete))
+    .use(hasPermission(CAN_DELETE))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
@@ -172,11 +187,10 @@ export const leadRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // EXPORT LEADS
-  // Requires: leads.export
+  // EXPORT LEADS (GLOBAL)
   // -------------------------------------------------------
   export: tenantProcedure
-    .use(hasPermission(PERMISSION_TREE.leads.export))
+    .use(hasPermission(CAN_EXPORT))
     .mutation(async ({ ctx }) => {
 
       await createAuditLog({
@@ -191,4 +205,5 @@ export const leadRouter = createTRPCRouter({
 
       return { success: true, message: "Leads exported successfully" }
     }),
+
 })

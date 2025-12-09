@@ -57,13 +57,13 @@ function getRedisConnection(): IORedis | null {
         family: 0, // Use both IPv4 and IPv6
       });
       
-      logger.info('✅ Connected to Upstash Redis via TCP endpoint for BullMQ', {
+      /*logger.info('✅ Connected to Upstash Redis via TCP endpoint for BullMQ', {
         endpoint: upstashUrl.substring(0, 30) + '...',
-      });
+      });*/
       
       return connection;
     } catch (error) {
-      logger.error('Failed to create Upstash Redis connection', { error });
+      /*logger.error('Failed to create Upstash Redis connection', { error });*/
       return null;
     }
   }
@@ -73,23 +73,25 @@ function getRedisConnection(): IORedis | null {
   const restToken = process.env.UPSTASH_REDIS_REST_TOKEN;
   
   if (restUrl || restToken) {
+    /*
     logger.warn(
       '⚠️  UPSTASH_REDIS_REST_URL/TOKEN detected, but BullMQ requires TCP endpoint.\n' +
       '   Please add UPSTASH_REDIS_URL (TCP endpoint) from your Upstash Console:\n' +
       '   https://console.upstash.com/ → Your Database → Redis Connect → ioredis\n' +
       '   Format: rediss://default:<password>@<host>:<port>\n' +
       '   Queue system is DISABLED until TCP endpoint is configured.'
-    );
+    );*/
     return null;
   }
 
   // No Redis configuration found
+  /*
   logger.warn(
     '⚠️  No Upstash Redis configuration found.\n' +
     '   Set UPSTASH_REDIS_URL to enable BullMQ queue system.\n' +
     '   Get it from: https://console.upstash.com/ → Your Database → Redis Connect → ioredis\n' +
     '   Queue system will be disabled - operations will run synchronously.'
-  );
+  );*/
   return null;
 }
 
@@ -106,10 +108,11 @@ class QueueManager {
     this.isRedisAvailable = redisConnection !== null && serviceConfig.isServiceEnabled('redis');
     
     if (!this.isRedisAvailable) {
+      /*
       logger.warn(
         '⚠️  Queue system is DISABLED - Background jobs will execute immediately or be skipped. ' +
         'This may impact performance and reliability.'
-      );
+      );*/
     }
   }
 
@@ -125,7 +128,7 @@ class QueueManager {
    */
   getQueue(name: string): Queue | null {
     if (!this.isRedisAvailable || !redisConnection) {
-      logger.warn('Queue system not available', { queue: name });
+      /*logger.warn('Queue system not available', { queue: name });*/
       return null;
     }
 
@@ -156,11 +159,11 @@ class QueueManager {
       this.queueEvents.set(name, events);
 
       events.on('completed', ({ jobId }) => {
-        logger.debug('Job completed', { queue: name, jobId });
+        /*logger.debug('Job completed', { queue: name, jobId });*/
       });
 
       events.on('failed', ({ jobId, failedReason }) => {
-        logger.error('Job failed', { queue: name, jobId, failedReason });
+        /*logger.error('Job failed', { queue: name, jobId, failedReason });*/
       });
     }
 
@@ -178,25 +181,25 @@ class QueueManager {
     options?: JobOptions
   ): Promise<Job<T> | null> {
     if (!this.isRedisAvailable) {
-      logger.debug('Queue not available, job will be processed immediately if possible', {
+      /*logger.debug('Queue not available, job will be processed immediately if possible', {
         queue: queueName,
         job: jobName,
-      });
+      });*/
       return null;
     }
 
     const queue = this.getQueue(queueName);
     
     if (!queue) {
-      logger.warn('Failed to get queue, job skipped', { queue: queueName, job: jobName });
+      /*logger.warn('Failed to get queue, job skipped', { queue: queueName, job: jobName });*/
       return null;
     }
     
-    logger.debug('Adding job to queue', {
+    /*logger.debug('Adding job to queue', {
       queue: queueName,
       job: jobName,
       data,
-    });
+    });*/
 
     return queue.add(jobName, data, options);
   }
@@ -210,24 +213,24 @@ class QueueManager {
     jobs: Array<{ name: string; data: T; opts?: JobOptions }>
   ): Promise<Job<T>[]> {
     if (!this.isRedisAvailable) {
-      logger.debug('Queue not available, bulk jobs skipped', {
+      /*logger.debug('Queue not available, bulk jobs skipped', {
         queue: queueName,
         count: jobs.length,
-      });
+      });*/
       return [];
     }
 
     const queue = this.getQueue(queueName);
     
     if (!queue) {
-      logger.warn('Failed to get queue, bulk jobs skipped', { queue: queueName });
+      /*logger.warn('Failed to get queue, bulk jobs skipped', { queue: queueName });*/
       return [];
     }
     
-    logger.debug('Adding bulk jobs to queue', {
+    /*logger.debug('Adding bulk jobs to queue', {
       queue: queueName,
       count: jobs.length,
-    });
+    });*/
 
     return queue.addBulk(jobs);
   }
@@ -248,23 +251,23 @@ class QueueManager {
     }
   ): Worker<T, R> | null {
     if (!this.isRedisAvailable || !redisConnection) {
-      logger.debug('Queue not available, worker not registered', { queue: queueName });
+      /*logger.debug('Queue not available, worker not registered', { queue: queueName });*/
       return null;
     }
 
     if (this.workers.has(queueName)) {
-      logger.warn('Worker already registered for queue', { queue: queueName });
+      /*logger.warn('Worker already registered for queue', { queue: queueName });*/
       return this.workers.get(queueName) as Worker<T, R>;
     }
 
     const worker = new Worker<T, R>(
       queueName,
       async (job) => {
-        logger.debug('Processing job', {
+        /*logger.debug('Processing job', {
           queue: queueName,
           jobId: job.id,
           jobName: job.name,
-        });
+        });*/
 
         const startTime = Date.now();
         
@@ -272,22 +275,22 @@ class QueueManager {
           const result = await processor(job);
           const duration = Date.now() - startTime;
           
-          logger.info('Job processed successfully', {
+          /*logger.info('Job processed successfully', {
             queue: queueName,
             jobId: job.id,
             duration: `${duration}ms`,
-          });
+          });*/
 
           return result;
         } catch (error) {
           const duration = Date.now() - startTime;
           
-          logger.error('Job processing failed', {
+          /*logger.error('Job processing failed', {
             queue: queueName,
             jobId: job.id,
             duration: `${duration}ms`,
             error,
-          });
+          });*/
 
           throw error;
         }
@@ -303,18 +306,18 @@ class QueueManager {
 
     // Setup worker events
     worker.on('completed', (job) => {
-      logger.debug('Worker completed job', {
+      /*logger.debug('Worker completed job', {
         queue: queueName,
         jobId: job.id,
-      });
+      });*/
     });
 
     worker.on('failed', (job, error) => {
-      logger.error('Worker failed job', {
+      /*logger.error('Worker failed job', {
         queue: queueName,
         jobId: job?.id,
         error,
-      });
+      });*/
     });
 
     return worker;
@@ -375,13 +378,13 @@ class QueueManager {
    */
   async pauseQueue(queueName: string): Promise<void> {
     if (!this.isRedisAvailable) {
-      logger.warn('Cannot pause queue, Redis not available', { queue: queueName });
+      /*logger.warn('Cannot pause queue, Redis not available', { queue: queueName });*/
       return;
     }
     const queue = this.getQueue(queueName);
     if (!queue) return;
     await queue.pause();
-    logger.info('Queue paused', { queue: queueName });
+    /*logger.info('Queue paused', { queue: queueName });*/
   }
 
   /**
@@ -389,13 +392,13 @@ class QueueManager {
    */
   async resumeQueue(queueName: string): Promise<void> {
     if (!this.isRedisAvailable) {
-      logger.warn('Cannot resume queue, Redis not available', { queue: queueName });
+      /*logger.warn('Cannot resume queue, Redis not available', { queue: queueName });*/
       return;
     }
     const queue = this.getQueue(queueName);
     if (!queue) return;
     await queue.resume();
-    logger.info('Queue resumed', { queue: queueName });
+    /*logger.info('Queue resumed', { queue: queueName });*/
   }
 
   /**
@@ -407,13 +410,13 @@ class QueueManager {
     status?: 'completed' | 'failed'
   ): Promise<void> {
     if (!this.isRedisAvailable) {
-      logger.warn('Cannot clean queue, Redis not available', { queue: queueName });
+      /*logger.warn('Cannot clean queue, Redis not available', { queue: queueName });*/
       return;
     }
     const queue = this.getQueue(queueName);
     if (!queue) return;
     await queue.clean(grace, 1000, status);
-    logger.info('Queue cleaned', { queue: queueName, grace, status });
+    /*logger.info('Queue cleaned', { queue: queueName, grace, status });*/
   }
 
   /**
@@ -421,13 +424,13 @@ class QueueManager {
    */
   async obliterateQueue(queueName: string): Promise<void> {
     if (!this.isRedisAvailable) {
-      logger.warn('Cannot obliterate queue, Redis not available', { queue: queueName });
+      /*logger.warn('Cannot obliterate queue, Redis not available', { queue: queueName });*/
       return;
     }
     const queue = this.getQueue(queueName);
     if (!queue) return;
     await queue.obliterate();
-    logger.warn('Queue obliterated', { queue: queueName });
+    /*logger.warn('Queue obliterated', { queue: queueName });*/
   }
 
   /**
@@ -436,17 +439,17 @@ class QueueManager {
   async closeAll(): Promise<void> {
     for (const [name, worker] of this.workers.entries()) {
       await worker.close();
-      logger.info('Worker closed', { queue: name });
+      /*logger.info('Worker closed', { queue: name });*/
     }
 
     for (const [name, queue] of this.queues.entries()) {
       await queue.close();
-      logger.info('Queue closed', { queue: name });
+      /*logger.info('Queue closed', { queue: name });*/
     }
 
     for (const [name, events] of this.queueEvents.entries()) {
       await events.close();
-      logger.info('Queue events closed', { queue: name });
+      /*logger.info('Queue events closed', { queue: name });*/
     }
 
     this.workers.clear();

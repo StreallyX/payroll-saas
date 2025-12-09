@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { useState } from "react"
@@ -7,13 +5,29 @@ import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Edit, Trash2, Landmark } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table"
+
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Landmark
+} from "lucide-react"
+
 import { api } from "@/lib/trpc"
 import { toast } from "sonner"
 import { BankModal } from "@/components/modals/bank-modal"
 import { LoadingState } from "@/components/shared/loading-state"
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
+import { useSession } from "next-auth/react"
 
 export default function BanksPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -21,13 +35,37 @@ export default function BanksPage() {
   const [selectedBank, setSelectedBank] = useState<any>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const { data: banks = [], isLoading } = api.bank.getAll.useQuery()
+  const { data: session } = useSession()
   const utils = api.useUtils()
 
+  // -------------------------------------------------------
+  // Permissions
+  // -------------------------------------------------------
+  const canListGlobal = session?.user.permissions.includes("bank.list.global")
+  const canListOwn    = session?.user.permissions.includes("bank.list.own")
+
+  const canCreate     = session?.user.permissions.includes("bank.create.global")
+  const canUpdate     = session?.user.permissions.includes("bank.update.global")
+  const canDelete     = session?.user.permissions.includes("bank.delete.global")
+
+  // -------------------------------------------------------
+  // Load correct data source based on permissions
+  // -------------------------------------------------------
+  const banksQuery = api.bank[
+    canListGlobal ? "getAll" : "getMine"
+  ].useQuery()
+
+  const banks = banksQuery.data ?? []
+  const isLoading = banksQuery.isLoading
+
+  // -------------------------------------------------------
+  // Delete bank
+  // -------------------------------------------------------
   const deleteMutation = api.bank.delete.useMutation({
     onSuccess: () => {
       toast.success("Bank deleted successfully!")
       utils.bank.getAll.invalidate()
+      utils.bank.getMine.invalidate()
       setDeleteId(null)
     },
     onError: (error: any) => {
@@ -35,15 +73,9 @@ export default function BanksPage() {
     }
   })
 
-  const handleEdit = (bank: any) => {
-    setSelectedBank(bank)
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = (id: string) => {
-    setDeleteId(id)
-  }
-
+  // -------------------------------------------------------
+  // Table logic
+  // -------------------------------------------------------
   const filteredBanks = banks.filter((bank: any) =>
     bank?.name?.toLowerCase()?.includes(searchTerm.toLowerCase())
   )
@@ -68,16 +100,20 @@ export default function BanksPage() {
               className="pl-10 w-64"
             />
           </div>
-          <Button 
-            size="sm"
-            onClick={() => {
-              setSelectedBank(null)
-              setIsModalOpen(true)
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Bank
-          </Button>
+
+          {/* CREATE button only if permission */}
+          {canCreate && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setSelectedBank(null)
+                setIsModalOpen(true)
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Bank
+            </Button>
+          )}
         </div>
       </PageHeader>
 
@@ -86,13 +122,18 @@ export default function BanksPage() {
           <div className="text-center py-12">
             <Landmark className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No banks</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by adding a bank account.</p>
-            <div className="mt-6">
-              <Button onClick={() => setIsModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Bank
-              </Button>
-            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              Get started by adding a bank account.
+            </p>
+
+            {canCreate && (
+              <div className="mt-6">
+                <Button onClick={() => setIsModalOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Bank
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <Table>
@@ -102,9 +143,12 @@ export default function BanksPage() {
                 <TableHead>Account Number</TableHead>
                 <TableHead>SWIFT/IBAN</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {(canUpdate || canDelete) && (
+                  <TableHead className="text-right">Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {filteredBanks.map((bank: any) => (
                 <TableRow key={bank.id}>
@@ -116,37 +160,57 @@ export default function BanksPage() {
                       <span className="font-medium">{bank.name}</span>
                     </div>
                   </TableCell>
+
                   <TableCell>{bank.accountNumber || "-"}</TableCell>
+
                   <TableCell>
                     <div className="text-sm">
                       {bank.swiftCode && <div>SWIFT: {bank.swiftCode}</div>}
-                      {bank.iban && <div className="text-gray-500">IBAN: {bank.iban}</div>}
+                      {bank.iban && (
+                        <div className="text-gray-500">IBAN: {bank.iban}</div>
+                      )}
                       {!bank.swiftCode && !bank.iban && "-"}
                     </div>
                   </TableCell>
+
                   <TableCell>
                     <Badge variant={bank.status === "active" ? "default" : "secondary"}>
                       {bank.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(bank)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(bank.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+
+                  {(canUpdate || canDelete) && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+
+                        {/* EDIT only if allowed */}
+                        {canUpdate && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedBank(bank)
+                              setIsModalOpen(true)
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {/* DELETE only if allowed */}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteId(bank.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -154,23 +218,29 @@ export default function BanksPage() {
         )}
       </div>
 
-      <BankModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        bank={selectedBank}
-        onSuccess={() => {
-          setSelectedBank(null)
-        }}
-      />
+      {/* MODAL */}
+      {canCreate || canUpdate ? (
+        <BankModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          bank={selectedBank}
+          onSuccess={() => {
+            setSelectedBank(null)
+          }}
+        />
+      ) : null}
 
-      <DeleteConfirmDialog
-        open={!!deleteId}
-        onOpenChange={(open) => !open && setDeleteId(null)}
-        onConfirm={() => deleteId && deleteMutation.mutate({ id: deleteId })}
-        title="Delete Bank"
-        description="Are you sure you want to delete this bank? This action cannot be undone."
-        isLoading={deleteMutation.isPending}
-      />
+      {/* DELETE CONFIRM */}
+      {canDelete && (
+        <DeleteConfirmDialog
+          open={!!deleteId}
+          onOpenChange={(open) => !open && setDeleteId(null)}
+          onConfirm={() => deleteId && deleteMutation.mutate({ id: deleteId })}
+          title="Delete Bank"
+          description="Are you sure you want to delete this bank? This action cannot be undone."
+          isLoading={deleteMutation.isPending}
+        />
+      )}
     </div>
   )
 }

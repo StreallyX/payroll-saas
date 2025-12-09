@@ -3,301 +3,512 @@ import {
   Settings, FileText, Receipt, Clock, Upload, UserPlus, 
   Briefcase, PieChart, CheckSquare, TrendingUp, ClipboardList,
   UserCog, FileType, ListChecks, Layers, Globe, BarChart3, Palette,
-  Landmark, Coins
+  Landmark, Coins, Webhook, Mail, MessageSquare, Activity, 
+  CreditCard, Scale, FileSignature, UserCircle
 } from "lucide-react"
+
+import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions"
 
 export interface MenuItem {
   label: string
   href: string
   icon: any
   description?: string
-  permission?: string
   permissions?: string[]
   requireAll?: boolean
   submenu?: MenuItem[]
-  badge?: string | number
-  badgeVariant?: "default" | "secondary" | "destructive" | "outline"
 }
 
+// Helper to map V3 permissions
+const P = (resource: Resource, action: Action, scope: PermissionScope) =>
+  buildPermissionKey(resource, action, scope)
+
 /**
- * Dynamic menu configuration based on permissions
- * Each menu item can have:
- * - permission: single permission required
- * - permissions: array of permissions (uses requireAll to determine AND/OR logic)
- * - requireAll: if true, user must have ALL permissions; if false, user needs ANY permission
+ * MENU V3 ● Compatible avec permissions: "resource.action.scope"
  */
 export const dynamicMenuConfig: MenuItem[] = [
-  { 
-    label: "Dashboard", 
-    href: "/home", 
+
+  {
+    label: "SuperadminDashboard",
+    href: "/superadmin",
     icon: LayoutDashboard,
-    description: "System overview and analytics",
-    // No permission required - everyone can see dashboard
-  },
-  { 
-    label: "Manage Contracts", 
-    href: "/contracts", 
-    icon: FileText,
-    description: "Contract management and tracking",
-    permission: "contracts.view"
-  },
-  { 
-    label: "Manage Onboarding", 
-    href: "/onboarding", 
-    icon: ClipboardList,
-    description: "Onboarding processes and workflows",
-    permission: "onboarding.responses.view"
-  },
-  { 
-    label: "My Tasks", 
-    href: "/tasks", 
-    icon: CheckSquare,
-    description: "Your assigned tasks and to-dos",
-    permission: "tasks.view",
-    badge: "3", // Example: 3 pending tasks
-    badgeVariant: "default"
-  },
-  { 
-    label: "Manage Agency/Clients", 
-    href: "/agencies", 
-    icon: Building2,
-    description: "Client agencies and companies",
-    permission: "agencies.view"
-  },
-  { 
-    label: "Manage Contractors", 
-    href: "/contractors", 
-    icon: UserCheck,
-    description: "Contractor profiles and status",
-    permission: "contractors.view"
-  },
-  { 
-    label: "Leads", 
-    href: "/leads", 
-    icon: TrendingUp,
-    description: "Sales leads and prospects",
-    permission: "leads.view"
-  },
-  { 
-    label: "Manage Invoices", 
-    href: "/invoices", 
-    icon: Receipt,
-    description: "Invoice management",
-    permission: "invoices.view",
-    submenu: [
-      {
-        label: "Agency Invoices",
-        href: "/invoices/agency",
-        icon: Building2,
-        description: "Agency billing and invoices",
-        permission: "invoices.view"
-      },
-      {
-        label: "Contractor Invoices",
-        href: "/invoices/contractor",
-        icon: UserCheck,
-        description: "Contractor billing and invoices",
-        permission: "invoices.view"
-      },
-      {
-        label: "Payroll Partner Invoices",
-        href: "/invoices/payroll-partner",
-        icon: DollarSign,
-        description: "Payroll partner invoices",
-        permission: "invoices.view"
-      }
-    ]
-  },
-  { 
-    label: "Payslips", 
-    href: "/payslips", 
-    icon: FileText,
-    description: "Employee payslip management",
-    permission: "payslip.view"
-  },
-  { 
-    label: "Settings", 
-    href: "/settings", 
-    icon: Settings,
-    description: "System configuration",
+    description: "Your dashboard",
     permissions: [
-      "tenant.users.view",
-      "settings.view",
-      "tenant.roles.view"
-    ],
-    requireAll: false, // Show if user has ANY of these permissions
-    submenu: [
-      {
-        label: "Manage Users",
-        href: "/users",
-        icon: Users,
-        description: "User accounts and permissions",
-        permission: "tenant.users.view"
-      },
-      {
-        label: "Manage Document Type",
-        href: "/settings/document-types",
-        icon: FileType,
-        description: "Document type configuration",
-        permission: "settings.view"
-      },
-      {
-        label: "Master Onboarding",
-        href: "/settings/master-onboarding",
-        icon: ListChecks,
-        description: "Onboarding templates and workflows",
-        permission: "onboarding.templates.view"
-      },
-      {
-        label: "Payroll Partners",
-        href: "/payroll-partners",
-        icon: DollarSign,
-        description: "Payroll service providers",
-        permission: "settings.view"
-      },
-      {
-        label: "Manage Companies",
-        href: "/settings/companies",
-        icon: Layers,
-        description: "Company and organization management",
-        permission: "companies.view"
-      },
-      {
-        label: "Manage Banks",
-        href: "/settings/banks",
-        icon: Landmark,
-        description: "Bank accounts management",
-        permission: "banks.view"
-      },
-      {
-        label: "Manage Currencies",
-        href: "/settings/currencies",
-        icon: Coins,
-        description: "Currency configuration",
-        permission: "settings.view"
-      },
-      {
-        label: "Manage Roles",
-        href: "/settings/roles",
-        icon: UserCog,
-        description: "User roles and permissions",
-        permission: "tenant.roles.view"
-      },
-      {
-        label: "Customization",
-        href: "/settings/tenant",
-        icon: Palette,
-        description: "Platform logo and colors",
-        permission: "tenant.branding.update"
-      },
-      {
-        label: "Manage Country",
-        href: "/settings/countries",
-        icon: Globe,
-        description: "Country and region settings",
-        permission: "settings.view"
-      }
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
     ]
   },
-  { 
-    label: "Report", 
-    href: "/reports", 
+  {
+    label: "SuperAdminUser",
+    href: "/superadmin/users",
+    icon: LayoutDashboard,
+    description: "Your dashboard",
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminTenants",
+    href: "/superadmin/tenants",
+    icon: LayoutDashboard,
+    description: "Your dashboard",
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminSettings",
+    href: "/superadmin/settings",
+    icon: ClipboardList,
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ],
+    submenu: [
+      {
+        label: "SuperAdminCountries",
+        href: "/superadmin/settings/countries",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "SuperAdminCurrencies",
+        href: "/superadmin/settings/currencies",
+        icon: CheckSquare,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "SuperAdminFeatures",
+        href: "/superadmin/settings/features",
+        icon: FileType,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "SuperAdminSubscriptions",
+        href: "/superadmin/settings/subscriptions",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+        ]
+      },
+    ]
+  },
+  {
+    label: "SuperAdminImpersonations",
+    href: "/superadmin/impersonations",
+    icon: LayoutDashboard,
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+  {
+    label: "SuperAdminAnalytics",
+    href: "/superadmin/analytics",
+    icon: LayoutDashboard,
+    permissions: [
+      P(Resource.SUPER_ADMIN, Action.READ, PermissionScope.GLOBAL),
+    ]
+  },
+
+  // ===========================
+  // DASHBOARD
+  // ===========================
+  {
+    label: "Dashboard",
+    href: "/home",
+    icon: LayoutDashboard,
+    description: "Your dashboard",
+    permissions: [
+      P(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // PROFILE
+  // ===========================
+  {
+    label: "My Profile",
+    href: "/profile",
+    icon: UserCircle,
+    description: "View your profile",
+    permissions: [
+      P(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // CONTRACTS
+  // ===========================
+  {
+    label: "Contracts",
+    href: "/contracts/simple",
+    icon: FileText,
+    permissions: [
+      P(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // TIMESHEETS
+  // ===========================
+  {
+    label: "Timesheets",
+    href: "/timesheets",
+    icon: Clock,
+    permissions: [
+      P(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // INVOICES
+  // ===========================
+  {
+    label: "Invoices",
+    href: "/invoices",
+    icon: Receipt,
+    permissions: [
+      P(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  
+
+  // ===========================
+  // EXPENSES
+  // ===========================
+  /*{
+    label: "Expenses",
+    href: "/expenses",
+    icon: Upload,
+    permissions: [
+      P(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
+      P(Resource.EXPENSE, Action.LIST, PermissionScope.GLOBAL),
+    ],
+  },*/
+  {
+    label: "Payslips",
+    href: "/payments/payslips",
+    icon: FileText,
+    permissions: [
+      P(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+  {
+    label: "Remits",
+    href: "/payments/remits",
+    icon: DollarSign,
+    permissions: [
+      P(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // PAYMENTS
+  // ===========================
+  /*{
+    label: "Payments",
+    href: "/payments",
+    icon: DollarSign,
+    permissions: [
+      P(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
+      P(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
+      P(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL),
+    ],
+    submenu: [
+      {
+        label: "Payslips",
+        href: "/payments/payslips",
+        icon: FileText,
+        permissions: [
+          P(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
+          P(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "Remits",
+        href: "/payments/remits",
+        icon: DollarSign,
+        permissions: [
+          P(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
+          P(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      }
+    ]
+  },*/
+
+  // ===========================
+  // ONBOARDING
+  // ===========================
+  {
+    label: "Onboarding",
+    href: "/onboarding",
+    icon: ClipboardList,
+    permissions: [
+      P(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
+      P(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE),
+    ],
+    submenu: [
+      {
+        label: "My Onboarding",
+        href: "/onboarding/my-onboarding",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
+        ]
+      },
+      {
+        label: "Review Submissions",
+        href: "/onboarding/review",
+        icon: CheckSquare,
+        permissions: [
+          P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "Templates",
+        href: "/onboarding/templates",
+        icon: FileType,
+        permissions: [
+          P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      },
+      {
+        label: "ALL Onboarding",
+        href: "/onboarding",
+        icon: UserCheck,
+        permissions: [
+          P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      },
+    ]
+  },
+
+  // ===========================
+  // REFERRALS
+  // ===========================
+  {
+    label: "Referrals",
+    href: "/referrals",
+    icon: UserPlus,
+    permissions: [
+      P(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // TASKS
+  // ===========================
+  {
+    label: "My Tasks",
+    href: "/tasks",
+    icon: CheckSquare,
+    permissions: [
+      P(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // LEADS
+  // ===========================
+  {
+    label: "Leads",
+    href: "/leads",
+    icon: TrendingUp,
+    permissions: [
+      P(Resource.LEAD, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // REPORTS
+  // ===========================
+  {
+    label: "Reports",
+    href: "/reports",
     icon: BarChart3,
-    description: "Analytics and reporting",
-    permission: "audit_logs.view",
+    permissions: [
+      P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE),
+    ],
     submenu: [
       {
         label: "Overview",
         href: "/reports",
         icon: BarChart3,
-        description: "Report overview",
-        permission: "audit_logs.view"
+        permissions: [
+          P(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE),
+        ]
       },
       {
         label: "Activity Logs",
         href: "/reports/activity-logs",
-        icon: ListChecks,
-        description: "Track all user actions",
-        permission: "audit_logs.view"
+        icon: Activity,
+        permissions: [
+          P(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE),
+        ]
       },
       {
-        label: "Analytics",
-        href: "/analytics",
-        icon: PieChart,
-        description: "Business intelligence and insights",
-        permission: "audit_logs.view"
-      }
+        label: "Email Logs",
+        href: "/reports/email-logs",
+        icon: Mail,
+        permissions: [
+          P(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "SMS Logs",
+        href: "/reports/sms-logs",
+        icon: MessageSquare,
+        permissions: [
+          P(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
     ]
   },
-]
 
+  // ===========================
+  // SETTINGS (HUGE SECTION)
+  // ===========================
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    permissions: [
+      P(Resource.SETTINGS, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.BANK, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE),
+    ],
+    submenu: [
+      {
+        label: "Users",
+        href: "/users",
+        icon: Users,
+        permissions: [
+          P(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Roles",
+        href: "/settings/roles",
+        icon: UserCog,
+        permissions: [
+          P(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Permissions",
+        href: "/settings/permissions",
+        icon: CheckSquare,
+        permissions: [
+          P(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Companies",
+        href: "/settings/companies",
+        icon: Layers,
+        permissions: [
+          P(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Banks",
+        href: "/settings/banks",
+        icon: Landmark,
+        permissions: [
+          P(Resource.BANK, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Currencies",
+        href: "/settings/currencies",
+        icon: Coins,
+        permissions: [
+          P(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Countries",
+        href: "/settings/countries",
+        icon: Globe,
+        permissions: [
+          P(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Branding",
+        href: "/settings/branding/login",
+        icon: Palette,
+        permissions: [
+          P(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Customisation",
+        href: "/settings/tenant",
+        icon: Palette,
+        permissions: [
+          P(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
+        label: "Webhooks",
+        href: "/settings/webhooks",
+        icon: Webhook,
+        permissions: [
+          P(Resource.WEBHOOK, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      }
+    ]
+  }
+
+]
 /**
- * Filter menu items based on user permissions
- * @param menuItems - The menu configuration to filter
- * @param userPermissions - Array of user's permission keys
- * @param isSuperAdmin - Whether the user is a super admin
- * @returns Filtered menu items
+ * Filter menu by permissions (RBAC-only)
  */
 export function filterMenuByPermissions(
   menuItems: MenuItem[],
-  userPermissions: string[],
-  isSuperAdmin: boolean = false
+  userPermissions: string[]
 ): MenuItem[] {
-  // SuperAdmin sees everything
-  if (isSuperAdmin) {
-    return menuItems
-  }
 
   return menuItems
     .map(item => {
-      // Check if user has permission for this item
-      let hasAccess = true
 
-      if (item.permission) {
-        hasAccess = userPermissions.includes(item.permission)
-      } else if (item.permissions && item.permissions.length > 0) {
-        if (item.requireAll) {
-          // User must have ALL permissions
-          hasAccess = item.permissions.every(p => userPermissions.includes(p))
-        } else {
-          // User must have ANY permission
-          hasAccess = item.permissions.some(p => userPermissions.includes(p))
-        }
+      // Normalize for safety
+      const hasAccess = item.permissions
+        ? item.permissions.some(p => userPermissions.includes(p))
+        : true;
+
+      if (!hasAccess) return null;
+
+      // Handle submenus
+      if (item.submenu) {
+        const filteredSubmenu = filterMenuByPermissions(item.submenu, userPermissions);
+        if (filteredSubmenu.length === 0) return null;
+        return { ...item, submenu: filteredSubmenu };
       }
 
-      if (!hasAccess) {
-        return null
-      }
-
-      // If item has submenu, filter it recursively
-      if (item.submenu && item.submenu.length > 0) {
-        const filteredSubmenu = filterMenuByPermissions(item.submenu, userPermissions, isSuperAdmin)
-        
-        // Only show parent if at least one submenu item is visible
-        if (filteredSubmenu.length === 0) {
-          return null
-        }
-
-        return {
-          ...item,
-          submenu: filteredSubmenu
-        }
-      }
-
-      return item
+      return item;
     })
-    .filter((item): item is MenuItem => item !== null)
+    .filter(Boolean) as MenuItem[];
 }
 
-/**
- * Get dynamic menu for current user
- * @param userPermissions - Array of user's permission keys
- * @param isSuperAdmin - Whether the user is a super admin
- * @returns Filtered menu items based on permissions
- */
-export function getDynamicMenu(
-  userPermissions: string[],
-  isSuperAdmin: boolean = false
-): MenuItem[] {
-  return filterMenuByPermissions(dynamicMenuConfig, userPermissions, isSuperAdmin)
+export function getDynamicMenu(userPermissions: string[]) {
+  return filterMenuByPermissions(dynamicMenuConfig, userPermissions);
 }

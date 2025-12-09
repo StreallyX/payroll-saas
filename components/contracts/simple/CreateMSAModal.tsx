@@ -10,6 +10,7 @@ import { Loader2, Upload, FileText, Info } from "lucide-react";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PDFUploadZone } from "../shared/PDFUploadZone";
+import { ParticipantPreSelector, type ParticipantPreSelection } from "../shared/ParticipantPreSelector";
 
 interface CreateMSAModalProps {
   open: boolean;
@@ -29,11 +30,12 @@ interface CreateMSAModalProps {
 export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModalProps) {
   const router = useRouter();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [additionalParticipants, setAdditionalParticipants] = useState<ParticipantPreSelection[]>([]);
 
   const createMutation = api.simpleContract.createSimpleMSA.useMutation({
     onSuccess: (data) => {
       toast.success("MSA créé avec succès");
-      onSuccess?.(data.contract.id);
+      onSuccess?.(data.contract.id as string);
       setPdfFile(null);
       onOpenChange(false);
       router.push(`/contracts/simple/${data.contract.id}`);
@@ -57,11 +59,19 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
       const buffer = await pdfFile.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
 
+      // Préparer les participants (enlever les champs temporaires)
+      const participants = additionalParticipants.map(p => ({
+        userId: p.userId,
+        companyId: p.companyId,
+        role: p.role,
+      }));
+
       createMutation.mutate({
         pdfBuffer: base64,
         fileName: pdfFile.name,
-        mimeType: pdfFile.type,
+        mimeType: "application/pdf",
         fileSize: pdfFile.size,
+        additionalParticipants: participants.length > 0 ? participants : undefined,
       });
     } catch (error) {
       console.error("[CreateMSAModal] Error:", error);
@@ -73,8 +83,9 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
    * Ferme le modal
    */
   const handleClose = () => {
-    if (!createMutation.isLoading) {
+    if (!createMutation.isPending) {
       setPdfFile(null);
+      setAdditionalParticipants([]);
       onOpenChange(false);
     }
   };
@@ -95,7 +106,7 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -123,7 +134,7 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
             <PDFUploadZone
               file={pdfFile}
               onChange={setPdfFile}
-              disabled={createMutation.isLoading}
+              disabled={createMutation.isPending}
             />
           </div>
 
@@ -139,6 +150,15 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
               </p>
             </div>
           )}
+
+          {/* Participants supplémentaires */}
+          <div className="border-t pt-4">
+            <ParticipantPreSelector
+              participants={additionalParticipants}
+              onChange={setAdditionalParticipants}
+              showAddButton={true}
+            />
+          </div>
         </div>
 
         {/* Actions */}
@@ -146,15 +166,15 @@ export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModal
           <Button
             variant="outline"
             onClick={handleClose}
-            disabled={createMutation.isLoading}
+            disabled={createMutation.isPending}
           >
             Annuler
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!pdfFile || createMutation.isLoading}
+            disabled={!pdfFile || createMutation.isPending}
           >
-            {createMutation.isLoading ? (
+            {createMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Création en cours...

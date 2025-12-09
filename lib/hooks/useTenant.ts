@@ -14,6 +14,7 @@ export interface TenantSettings {
   sidebarTextColor: string | null
   headerBgColor: string | null
   headerTextColor: string | null
+  customFont: string | null
 }
 
 interface TenantContextType {

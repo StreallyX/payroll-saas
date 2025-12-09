@@ -97,7 +97,7 @@ export function useContractDocument() {
         contractId,
         pdfBuffer: base64,
         fileName: file.name,
-        mimeType: file.type,
+        mimeType: "application/pdf",
         fileSize: file.size,
       });
     } catch (error) {
@@ -116,8 +116,8 @@ export function useContractDocument() {
     validatePDF,
     
     // Loading states
-    isUploading: uploadSignedVersion.isLoading,
+    isUploading: uploadSignedVersion.isPending,
     isConverting,
-    isProcessing: uploadSignedVersion.isLoading || isConverting,
+    isProcessing: uploadSignedVersion.isPending || isConverting,
   };
 }

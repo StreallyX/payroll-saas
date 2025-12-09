@@ -1,137 +1,83 @@
-import { z } from "zod";
-import { createTRPCRouter, tenantProcedure, protectedProcedure, hasPermission } from "../trpc";
-import { PERMISSION_TREE } from "../../rbac/permissions";
+import { z } from "zod"
+import { createTRPCRouter, protectedProcedure } from "../trpc"
+import { createAuditLog } from "@/lib/audit"
 
 export const permissionRouter = createTRPCRouter({
 
-  // -------------------------------------------------------
-  // GET ALL PERMISSIONS
-  // -------------------------------------------------------
-  getAll: protectedProcedure
-    .query(async ({ ctx }) => {
-      return ctx.prisma.permission.findMany({
-        orderBy: { key: "asc" },
-      });
-    }),
+  getAll: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.permission.findMany({
+      orderBy: { key: "asc" },
+    })
+  }),
 
-  // -------------------------------------------------------
-  // GET PERMISSION BY ID
-  // -------------------------------------------------------
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.permission.findUnique({
         where: { id: input.id },
-      });
+      })
     }),
 
-  // -------------------------------------------------------
-  // GET PERMISSIONS BY KEYS
-  // -------------------------------------------------------
   getByKeys: protectedProcedure
     .input(z.object({ keys: z.array(z.string()) }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.permission.findMany({
-        where: {
-          key: {
-            in: input.keys
-          }
-        }
-      });
+        where: { key: { in: input.keys } },
+      })
     }),
 
-  // -------------------------------------------------------
-  // GET CURRENT USER PERMISSIONS
-  // -------------------------------------------------------
-  getMyPermissions: protectedProcedure
-    .query(async ({ ctx }) => {
-      if (!ctx.session?.user) {
-        return [];
-      }
+  getMyPermissions: protectedProcedure.query(async ({ ctx }) => {
+    const user = ctx.session?.user
+    if (!user) return []
 
-      // SuperAdmin has all permissions
-      if (ctx.session.user.isSuperAdmin) {
-        return ctx.session.user.permissions || [];
-      }
+    return user.permissions || []
+  }),
 
-      // Regular user
-      return ctx.session.user.permissions || [];
-    }),
-
-  // -------------------------------------------------------
-  // CHECK IF USER HAS PERMISSION
-  // -------------------------------------------------------
   hasPermission: protectedProcedure
-    .input(z.object({ 
-      permission: z.string() 
-    }))
+    .input(z.object({ permission: z.string() }))
     .query(async ({ ctx, input }) => {
-      if (!ctx.session?.user) {
-        return false;
-      }
-
-      const userPermissions = ctx.session.user.permissions || [];
-      return userPermissions.includes(input.permission);
+      const perms = ctx.session?.user.permissions || []
+      return perms.includes(input.permission)
     }),
 
-  // -------------------------------------------------------
-  // CHECK IF USER HAS ANY OF THE PERMISSIONS
-  // -------------------------------------------------------
   hasAnyPermission: protectedProcedure
-    .input(z.object({ 
-      permissions: z.array(z.string()) 
-    }))
+    .input(z.object({ permissions: z.array(z.string()) }))
     .query(async ({ ctx, input }) => {
-      if (!ctx.session?.user) {
-        return false;
-      }
-
-      const userPermissions = ctx.session.user.permissions || [];
-      return input.permissions.some(p => userPermissions.includes(p));
+      const perms = ctx.session?.user.permissions || []
+      return input.permissions.some(p => perms.includes(p))
     }),
 
-  // -------------------------------------------------------
-  // CHECK IF USER HAS ALL PERMISSIONS
-  // -------------------------------------------------------
   hasAllPermissions: protectedProcedure
-    .input(z.object({ 
-      permissions: z.array(z.string()) 
-    }))
+    .input(z.object({ permissions: z.array(z.string()) }))
     .query(async ({ ctx, input }) => {
-      if (!ctx.session?.user) {
-        return false;
-      }
-
-      const userPermissions = ctx.session.user.permissions || [];
-      return input.permissions.every(p => userPermissions.includes(p));
+      const perms = ctx.session?.user.permissions || []
+      return input.permissions.every(p => perms.includes(p))
     }),
 
-  // -------------------------------------------------------
-  // GET PERMISSIONS GROUPED BY CATEGORY
-  // -------------------------------------------------------
-  getGrouped: protectedProcedure
-    .query(async ({ ctx }) => {
-      const permissions = await ctx.prisma.permission.findMany({
-        orderBy: { key: "asc" },
-      });
+  getGrouped: protectedProcedure.query(async ({ ctx }) => {
+    const userPermissions = ctx.session.user.permissions || []
+    const hasGlobal = userPermissions.includes("permission.list.global")
 
-      // Group permissions by their prefix (e.g., "tenant", "agencies", etc.)
-      const grouped: Record<string, any[]> = {};
+    const permissions = await ctx.prisma.permission.findMany({
+      orderBy: { key: "asc" },
+    })
 
-      permissions.forEach(permission => {
-        const parts = permission.key.split(".");
-        const category = parts[0];
+    const filtered = hasGlobal
+      ? permissions
+      : permissions.filter(p => userPermissions.includes(p.key))
 
-        if (!grouped[category]) {
-          grouped[category] = [];
-        }
+    const grouped: Record<string, any[]> = {}
 
-        grouped[category].push(permission);
-      });
+    filtered.forEach(permission => {
+      const category = permission.key.split(".")[0]
+      if (!grouped[category]) grouped[category] = []
+      grouped[category].push(permission)
+    })
 
-      return Object.entries(grouped).map(([category, perms]) => ({
-        category,
-        permissions: perms
-      }));
-    }),
-});
+    return Object.entries(grouped).map(([category, perms]) => ({
+      category,
+      permissions: perms,
+    }))
+  }),
+
+})

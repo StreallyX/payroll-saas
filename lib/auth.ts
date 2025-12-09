@@ -4,9 +4,6 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./db";
 import bcrypt from "bcryptjs";
 
-// ⭐ IMPORT SUPERADMIN PERMISSIONS
-import { SUPERADMIN_PERMISSIONS } from "@/server/rbac/permissions";
-
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
@@ -95,10 +92,11 @@ export const authOptions: NextAuthOptions = {
       }
 
       // 2) SUPERADMIN → skip DB reload
+      /*
       if (token.isSuperAdmin) {
         token.permissions = SUPERADMIN_PERMISSIONS;
         return token;
-      }
+      }*/
 
       // 3) Always reload user from DB
       if (token.id) {
