@@ -81,6 +81,7 @@ export const timesheetRouter = createTRPCRouter({
             },
           },
           entries: true,
+          documents: true, // 🔥 NEW: Include expense documents
         },
       })
 
@@ -478,7 +479,7 @@ createRange: tenantProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
-      // 1️⃣ RELOAD timesheet with contract details
+      // 1️⃣ RELOAD timesheet with contract details and documents
       const ts = await ctx.prisma.timesheet.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: {
@@ -494,6 +495,7 @@ createRange: tenantProcedure
             },
           },
           entries: true,
+          documents: true, // 🔥 NEW: Include expense documents
         },
       });
 
@@ -518,34 +520,90 @@ createRange: tenantProcedure
       const userId = ts.submittedBy;
       const currency = ts.contract?.currency?.name ?? "USD";
       const contractorName = ts.contract?.participants.find(p => p.userId === userId)?.user?.name ?? "Contractor";
+      const agencyParticipant = ts.contract?.participants.find(p => p.role === "agency");
 
-      // Calculate amounts with margin
-      let baseAmount = ts.adminModifiedAmount ?? ts.totalAmount ?? new Prisma.Decimal(0);
+      // 🔥 Calculate base amount from hours worked
+      const rate = new Prisma.Decimal(ts.contract?.rate ?? 0);
+      const rateType = ts.contract?.rateType?.toLowerCase() || "hourly";
+      let baseAmount = new Prisma.Decimal(0);
+
+      if (rateType === "hourly") {
+        baseAmount = ts.totalHours.mul(rate);
+      } else if (rateType === "daily") {
+        baseAmount = rate.mul(ts.entries.length);
+      } else if (rateType === "monthly") {
+        const prorationDays = new Prisma.Decimal(ts.entries.length).div(20);
+        baseAmount = rate.mul(prorationDays);
+      } else if (rateType === "fixed") {
+        baseAmount = rate;
+      }
+
+      // 🔥 Add expenses to base amount
+      const totalExpenses = ts.totalExpenses ?? new Prisma.Decimal(0);
+      const subtotalWithExpenses = baseAmount.add(totalExpenses);
+
+      // Use admin modified amount if available, otherwise use calculated amount
+      const finalBaseAmount = ts.adminModifiedAmount ?? subtotalWithExpenses;
+
+      // Calculate margin
       let marginAmount = new Prisma.Decimal(0);
       let marginPercentage = new Prisma.Decimal(0);
-      let totalWithMargin = baseAmount;
+      let totalWithMargin = finalBaseAmount;
       
       if (ts.contract?.margin) {
         if (ts.contract.marginType?.toLowerCase() === "fixed") {
           marginAmount = ts.contract.margin;
-          marginPercentage = baseAmount.gt(0) 
-            ? ts.contract.margin.div(baseAmount).mul(100) 
+          marginPercentage = finalBaseAmount.gt(0) 
+            ? ts.contract.margin.div(finalBaseAmount).mul(100) 
             : new Prisma.Decimal(0);
         } else {
           marginPercentage = ts.contract.margin;
-          marginAmount = baseAmount.mul(ts.contract.margin).div(100);
+          marginAmount = finalBaseAmount.mul(ts.contract.margin).div(100);
         }
 
         // Add margin if paid by client, subtract if paid by contractor
         if (ts.contract.marginPaidBy === "client") {
-          totalWithMargin = baseAmount.add(marginAmount);
+          totalWithMargin = finalBaseAmount.add(marginAmount);
         } else if (ts.contract.marginPaidBy === "contractor") {
-          totalWithMargin = baseAmount.sub(marginAmount);
+          totalWithMargin = finalBaseAmount.sub(marginAmount);
         }
       }
 
-      // 4️⃣ CREATE INVOICE
-      if (ts.contractId && ts.totalAmount) {
+      // 4️⃣ CREATE PROFESSIONAL INVOICE
+      if (ts.contractId) {
+        // Prepare line items
+        const lineItems = [];
+
+        // Add work hours line items
+        ts.entries.forEach((entry) => {
+          lineItems.push({
+            description: `Work on ${new Date(entry.date).toISOString().slice(0,10)}${entry.description ? ': ' + entry.description : ''}`,
+            quantity: entry.hours,
+            unitPrice: rate,
+            amount: entry.hours.mul(rate),
+          });
+        });
+
+        // 🔥 Add expense line items with document references
+        if (totalExpenses.gt(0) && ts.documents.length > 0) {
+          ts.documents.forEach((doc, index) => {
+            lineItems.push({
+              description: `Expense File ${index + 1}: ${doc.description || doc.fileName}`,
+              quantity: new Prisma.Decimal(1),
+              unitPrice: new Prisma.Decimal(0), // Will be set from expense amount if available
+              amount: new Prisma.Decimal(0), // Individual expense amounts
+            });
+          });
+
+          // Add total expenses as a summary line
+          lineItems.push({
+            description: `Total Expenses (${ts.documents.length} document${ts.documents.length > 1 ? 's' : ''})`,
+            quantity: new Prisma.Decimal(1),
+            unitPrice: totalExpenses,
+            amount: totalExpenses,
+          });
+        }
+
         const invoice = await ctx.prisma.invoice.create({
           data: {
             tenantId: ctx.tenantId,
@@ -553,12 +611,12 @@ createRange: tenantProcedure
             createdBy: userId,
 
             // Amounts with margin calculation
-            baseAmount: baseAmount,
+            baseAmount: baseAmount, // Hours only
             marginAmount: marginAmount,
             marginPercentage: marginPercentage,
             marginPaidBy: ts.contract?.marginPaidBy,
-            amount: baseAmount,
-            totalAmount: totalWithMargin,
+            amount: finalBaseAmount, // Hours + Expenses
+            totalAmount: totalWithMargin, // Final amount with margin
             currency,
 
             // Workflow state - set to submitted/pending approval
@@ -569,20 +627,27 @@ createRange: tenantProcedure
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
 
             description: `Invoice for ${contractorName} - Period: ${ts.startDate.toISOString().slice(0,10)} to ${ts.endDate.toISOString().slice(0,10)}`,
-            notes: `Generated from approved timesheet. Total hours: ${ts.totalHours}`,
+            notes: `Generated from approved timesheet.
+            
+📊 Summary:
+• Total Hours: ${ts.totalHours}
+• Hourly/Daily Rate: ${rate} ${currency}
+• Subtotal (Hours): ${baseAmount} ${currency}
+${totalExpenses.gt(0) ? `• Expenses: ${totalExpenses} ${currency} (${ts.documents.length} document${ts.documents.length > 1 ? 's' : ''})` : ''}
+• Base Amount: ${finalBaseAmount} ${currency}
+${marginAmount.gt(0) ? `• Margin (${marginPercentage.toFixed(2)}%): ${marginAmount} ${currency}` : ''}
+• Total Amount: ${totalWithMargin} ${currency}
+
+${agencyParticipant ? `📧 Agency: ${agencyParticipant.company?.name || agencyParticipant.user?.name}` : ''}
+${ts.documents.length > 0 ? `\n📎 Expense Documents:\n${ts.documents.map((d, i) => `  ${i + 1}. ${d.fileName}`).join('\n')}` : ''}`,
             
             timesheets: {
               connect: { id: ts.id },
             },
 
-            // Create line items from timesheet entries
+            // Create line items
             lineItems: {
-              create: ts.entries.map((entry) => ({
-                description: `Work on ${new Date(entry.date).toISOString().slice(0,10)}${entry.description ? ': ' + entry.description : ''}`,
-                quantity: entry.hours,
-                unitPrice: ts.contract?.rate ?? new Prisma.Decimal(0),
-                amount: entry.hours.mul(ts.contract?.rate ?? new Prisma.Decimal(0)),
-              })),
+              create: lineItems,
             },
           },
         });
@@ -601,8 +666,130 @@ createRange: tenantProcedure
 
       throw new TRPCError({ 
         code: "BAD_REQUEST", 
-        message: "Cannot create invoice without contract or amount" 
+        message: "Cannot create invoice without contract" 
       });
+    }),
+
+  // ------------------------------------------------------
+  // 🆕 UPLOAD EXPENSE DOCUMENT
+  // ------------------------------------------------------
+  uploadExpenseDocument: tenantProcedure
+    .use(hasPermission(P.UPDATE_OWN))
+    .input(
+      z.object({
+        timesheetId: z.string(),
+        fileName: z.string(),
+        fileUrl: z.string(),
+        fileSize: z.number(),
+        mimeType: z.string().optional(),
+        description: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify ownership
+      const ts = await ctx.prisma.timesheet.findFirst({
+        where: {
+          id: input.timesheetId,
+          tenantId: ctx.tenantId,
+          submittedBy: ctx.session.user.id,
+        },
+      });
+
+      if (!ts) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Timesheet not found" });
+      }
+
+      // Only allow uploads in draft state
+      if (ts.status !== "draft") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Can only upload documents to draft timesheets",
+        });
+      }
+
+      const document = await ctx.prisma.timesheetDocument.create({
+        data: {
+          timesheetId: input.timesheetId,
+          fileName: input.fileName,
+          fileUrl: input.fileUrl,
+          fileSize: input.fileSize,
+          mimeType: input.mimeType,
+          description: input.description,
+          category: "expense",
+        },
+      });
+
+      return document;
+    }),
+
+  // ------------------------------------------------------
+  // 🆕 DELETE EXPENSE DOCUMENT
+  // ------------------------------------------------------
+  deleteExpenseDocument: tenantProcedure
+    .use(hasPermission(P.UPDATE_OWN))
+    .input(z.object({ documentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const document = await ctx.prisma.timesheetDocument.findFirst({
+        where: {
+          id: input.documentId,
+          timesheet: {
+            tenantId: ctx.tenantId,
+            submittedBy: ctx.session.user.id,
+            status: "draft",
+          },
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      await ctx.prisma.timesheetDocument.delete({
+        where: { id: input.documentId },
+      });
+
+      return { success: true };
+    }),
+
+  // ------------------------------------------------------
+  // 🆕 UPDATE TOTAL EXPENSES
+  // ------------------------------------------------------
+  updateTotalExpenses: tenantProcedure
+    .use(hasPermission(P.UPDATE_OWN))
+    .input(
+      z.object({
+        timesheetId: z.string(),
+        totalExpenses: z.number().nonnegative(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const ts = await ctx.prisma.timesheet.findFirst({
+        where: {
+          id: input.timesheetId,
+          tenantId: ctx.tenantId,
+          submittedBy: ctx.session.user.id,
+          status: "draft",
+        },
+      });
+
+      if (!ts) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      // Update total expenses and recalculate totalAmount
+      const rate = new Prisma.Decimal(ts.baseAmount ?? 0);
+      const expenses = new Prisma.Decimal(input.totalExpenses);
+      const newTotalAmount = rate.add(expenses);
+
+      await ctx.prisma.timesheet.update({
+        where: { id: input.timesheetId },
+        data: {
+          totalExpenses: expenses,
+          totalAmount: newTotalAmount,
+        },
+      });
+
+      return { success: true };
     }),
 
   // ------------------------------------------------------
