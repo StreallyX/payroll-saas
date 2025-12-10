@@ -242,11 +242,13 @@ function InvoicesPageContent() {
                     <TableRow>
                       <TableHead>Invoice #</TableHead>
                       <TableHead>Contract</TableHead>
-                      <TableHead>From</TableHead>
+                      <TableHead>Sender</TableHead>
+                      <TableHead>Receiver</TableHead>
                       <TableHead>Issued</TableHead>
                       <TableHead>Due</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Payment</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -261,19 +263,35 @@ function InvoicesPageContent() {
                         (CAN_REVIEW || CAN_APPROVE) && 
                         (inv.workflowState === "for_approval" || inv.workflowState === "under_review");
                       
-                      // Get contractor name from contract participants
-                      const contractorParticipant = inv.contract?.participants?.find((p: any) => p.role === "contractor");
-                      const contractorName = contractorParticipant?.user?.name || contractorParticipant?.company?.name || "N/A";
+                      // Get sender and receiver names
+                      const senderName = inv.sender?.name || "N/A";
+                      const receiverName = inv.receiver?.name || "N/A";
+                      
+                      // Get payment status badge
+                      const getPaymentBadge = () => {
+                        if (inv.workflowState === "PAYMENT_RECEIVED" || inv.paymentReceivedAt) {
+                          return <Badge className="bg-green-100 text-green-800">Received</Badge>;
+                        }
+                        if (inv.workflowState === "MARKED_PAID_BY_AGENCY" || inv.agencyMarkedPaidAt) {
+                          return <Badge className="bg-blue-100 text-blue-800">Paid by Agency</Badge>;
+                        }
+                        if (inv.workflowState === "SENT") {
+                          return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+                        }
+                        return <Badge variant="outline">-</Badge>;
+                      };
 
                       return (
                         <TableRow key={inv.id}>
                           <TableCell>{inv.invoiceNumber || `INV-${inv.id.slice(0, 8)}`}</TableCell>
                           <TableCell>{inv.contract?.contractReference || "-"}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{contractorName}</TableCell>
+                          <TableCell className="text-sm">{senderName}</TableCell>
+                          <TableCell className="text-sm">{receiverName}</TableCell>
                           <TableCell>{format(new Date(inv.issueDate), "MMM dd yyyy")}</TableCell>
                           <TableCell>{format(new Date(inv.dueDate), "MMM dd yyyy")}</TableCell>
                           <TableCell className="font-medium">${Number(inv.totalAmount).toFixed(2)}</TableCell>
                           <TableCell><StatusBadge status={inv.status} workflowState={inv.workflowState} /></TableCell>
+                          <TableCell>{getPaymentBadge()}</TableCell>
 
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">

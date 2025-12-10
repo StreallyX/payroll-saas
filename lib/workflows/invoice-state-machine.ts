@@ -21,10 +21,13 @@ import {
 export enum InvoiceState {
   DRAFT = 'draft',
   SUBMITTED = 'submitted',
+  PENDING_MARGIN_CONFIRMATION = 'pending_margin_confirmation',
   UNDER_REVIEW = 'under_review',
   APPROVED = 'approved',
   REJECTED = 'rejected',
   SENT = 'sent',
+  MARKED_PAID_BY_AGENCY = 'marked_paid_by_agency',
+  PAYMENT_RECEIVED = 'payment_received',
   PAID = 'paid',
   OVERDUE = 'overdue',
   CANCELLED = 'cancelled',
@@ -69,6 +72,12 @@ const states: StateDefinition[] = [
     allowedActions: [WorkflowAction.REVIEW, WorkflowAction.APPROVE, WorkflowAction.REJECT, WorkflowAction.REQUEST_CHANGES],
   },
   {
+    name: InvoiceState.PENDING_MARGIN_CONFIRMATION,
+    displayName: 'Pending Margin Confirmation',
+    description: 'Invoice is pending admin margin review and confirmation',
+    allowedActions: [WorkflowAction.CONFIRM_MARGIN, WorkflowAction.REQUEST_CHANGES],
+  },
+  {
     name: InvoiceState.UNDER_REVIEW,
     displayName: 'Under Review',
     description: 'Invoice is being reviewed by admin',
@@ -91,7 +100,19 @@ const states: StateDefinition[] = [
     name: InvoiceState.SENT,
     displayName: 'Sent',
     description: 'Invoice has been sent to client',
-    allowedActions: [WorkflowAction.MARK_PAID],
+    allowedActions: [WorkflowAction.MARK_PAID_BY_AGENCY],
+  },
+  {
+    name: InvoiceState.MARKED_PAID_BY_AGENCY,
+    displayName: 'Marked Paid by Agency',
+    description: 'Agency has marked invoice as paid',
+    allowedActions: [WorkflowAction.MARK_PAYMENT_RECEIVED],
+  },
+  {
+    name: InvoiceState.PAYMENT_RECEIVED,
+    displayName: 'Payment Received',
+    description: 'Payment has been received and confirmed',
+    allowedActions: [],
   },
   {
     name: InvoiceState.PAID,
@@ -104,7 +125,7 @@ const states: StateDefinition[] = [
     name: InvoiceState.OVERDUE,
     displayName: 'Overdue',
     description: 'Invoice payment is overdue',
-    allowedActions: [WorkflowAction.MARK_PAID],
+    allowedActions: [WorkflowAction.MARK_PAID_BY_AGENCY],
   },
   {
     name: InvoiceState.CANCELLED,
@@ -140,7 +161,23 @@ const transitions: TransitionDefinition[] = [
     ],
   },
   
-  // Submitted → Under Review
+  // Submitted → Pending Margin Confirmation (auto-created invoices from timesheets)
+  {
+    from: InvoiceState.SUBMITTED,
+    to: InvoiceState.PENDING_MARGIN_CONFIRMATION,
+    action: WorkflowAction.REVIEW,
+    requiredPermissions: [InvoicePermissions.REVIEW_ALL],
+  },
+  
+  // Pending Margin Confirmation → Under Review (after margin confirmed)
+  {
+    from: InvoiceState.PENDING_MARGIN_CONFIRMATION,
+    to: InvoiceState.UNDER_REVIEW,
+    action: WorkflowAction.CONFIRM_MARGIN,
+    requiredPermissions: [InvoicePermissions.MODIFY_ALL],
+  },
+  
+  // Submitted → Under Review (direct path for manual invoices)
   {
     from: InvoiceState.SUBMITTED,
     to: InvoiceState.UNDER_REVIEW,
@@ -240,7 +277,23 @@ const transitions: TransitionDefinition[] = [
     requiredPermissions: [InvoicePermissions.SEND_ALL],
   },
   
-  // Sent → Paid
+  // Sent → Marked Paid by Agency
+  {
+    from: InvoiceState.SENT,
+    to: InvoiceState.MARKED_PAID_BY_AGENCY,
+    action: WorkflowAction.MARK_PAID_BY_AGENCY,
+    requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
+  },
+  
+  // Marked Paid by Agency → Payment Received
+  {
+    from: InvoiceState.MARKED_PAID_BY_AGENCY,
+    to: InvoiceState.PAYMENT_RECEIVED,
+    action: WorkflowAction.MARK_PAYMENT_RECEIVED,
+    requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
+  },
+  
+  // Sent → Paid (legacy direct path)
   {
     from: InvoiceState.SENT,
     to: InvoiceState.PAID,
@@ -248,7 +301,15 @@ const transitions: TransitionDefinition[] = [
     requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
   },
   
-  // Overdue → Paid
+  // Overdue → Marked Paid by Agency
+  {
+    from: InvoiceState.OVERDUE,
+    to: InvoiceState.MARKED_PAID_BY_AGENCY,
+    action: WorkflowAction.MARK_PAID_BY_AGENCY,
+    requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
+  },
+  
+  // Overdue → Paid (legacy direct path)
   {
     from: InvoiceState.OVERDUE,
     to: InvoiceState.PAID,

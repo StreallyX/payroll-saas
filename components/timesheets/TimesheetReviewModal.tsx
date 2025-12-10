@@ -34,7 +34,8 @@ import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   WorkflowStatusBadge,
-  MarginCalculationDisplay,
+  // MARGIN HIDDEN: MarginCalculationDisplay import commented out per requirements
+  // MarginCalculationDisplay,
 } from "@/components/workflow";
 import { TimesheetStatusTimeline } from "./TimesheetStatusTimeline";
 import { TimesheetFileViewer } from "./TimesheetFileViewer";
@@ -147,48 +148,48 @@ export function TimesheetReviewModal({
 
   const main = useMemo(() => getMainParticipant((data as any)?.contract), [data]);
 
-  // Calculate margin breakdown
-  const marginBreakdown = useMemo(() => {
-    if (!data) return null;
+  // MARGIN HIDDEN: Margin breakdown calculation commented out per requirements
+  // const marginBreakdown = useMemo(() => {
+  //   if (!data) return null;
 
-    const contract = data.contract;
-    const baseAmount = Number(data.totalAmount || 0);
-    const marginValue = Number(contract?.margin || 0);
-    const marginType = contract?.marginType?.toLowerCase() || "percentage";
-    const marginPaidBy = contract?.marginPaidBy || "client";
+  //   const contract = data.contract;
+  //   const baseAmount = Number(data.totalAmount || 0);
+  //   const marginValue = Number(contract?.margin || 0);
+  //   const marginType = contract?.marginType?.toLowerCase() || "percentage";
+  //   const marginPaidBy = contract?.marginPaidBy || "client";
     
-    // Calculate margin based on type
-    let marginAmount = 0;
-    let marginPercent = 0;
+  //   // Calculate margin based on type
+  //   let marginAmount = 0;
+  //   let marginPercent = 0;
     
-    if (marginType === "fixed") {
-      // Fixed amount margin
-      marginAmount = marginValue;
-      marginPercent = baseAmount > 0 ? (marginValue / baseAmount) * 100 : 0;
-    } else {
-      // Percentage margin
-      marginPercent = marginValue;
-      marginAmount = (baseAmount * marginValue) / 100;
-    }
+  //   if (marginType === "fixed") {
+  //     // Fixed amount margin
+  //     marginAmount = marginValue;
+  //     marginPercent = baseAmount > 0 ? (marginValue / baseAmount) * 100 : 0;
+  //   } else {
+  //     // Percentage margin
+  //     marginPercent = marginValue;
+  //     marginAmount = (baseAmount * marginValue) / 100;
+  //   }
 
-    let totalWithMargin = baseAmount;
-    if (marginPaidBy === "client") {
-      totalWithMargin = baseAmount + marginAmount;
-    } else if (marginPaidBy === "contractor") {
-      totalWithMargin = baseAmount - marginAmount;
-    }
+  //   let totalWithMargin = baseAmount;
+  //   if (marginPaidBy === "client") {
+  //     totalWithMargin = baseAmount + marginAmount;
+  //   } else if (marginPaidBy === "contractor") {
+  //     totalWithMargin = baseAmount - marginAmount;
+  //   }
 
-    return {
-      baseAmount,
-      marginAmount,
-      marginPercentage: marginPercent,
-      marginType: marginType as "fixed" | "percentage",
-      totalWithMargin,
-      currency: "USD", // TODO: Get from contract.currency relation
-      marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
-      paymentMode: "gross" as const, // TODO: Get from contract if field exists
-    };
-  }, [data]);
+  //   return {
+  //     baseAmount,
+  //     marginAmount,
+  //     marginPercentage: marginPercent,
+  //     marginType: marginType as "fixed" | "percentage",
+  //     totalWithMargin,
+  //     currency: "USD", // TODO: Get from contract.currency relation
+  //     marginPaidBy: marginPaidBy as "client" | "agency" | "contractor",
+  //     paymentMode: "gross" as const, // TODO: Get from contract if field exists
+  //   };
+  // }, [data]);
 
   // Handle workflow actions
   const handleSubmit = async () => {
@@ -512,32 +513,36 @@ export function TimesheetReviewModal({
                         {data.contract?.rateType || "day"}
                       </p>
                     </div>
-                    <div>
+                    {/* MARGIN HIDDEN: Margin Type field commented out per requirements */}
+                    {/* <div>
                       <Label className="text-xs text-muted-foreground">Margin Type</Label>
                       <p className="font-medium capitalize">
                         {data.contract?.marginType || "percentage"}
                       </p>
-                    </div>
-                    <div>
+                    </div> */}
+                    {/* MARGIN HIDDEN: Margin Amount field commented out per requirements */}
+                    {/* <div>
                       <Label className="text-xs text-muted-foreground">Margin Amount</Label>
                       <p className="font-medium">
                         {data.contract?.marginType?.toLowerCase() === "fixed"
                           ? `$${data.contract?.margin?.toString() || "0"}`
                           : `${data.contract?.margin?.toString() || "0"}%`}
                       </p>
-                    </div>
-                    <div>
+                    </div> */}
+                    {/* MARGIN HIDDEN: Margin Paid By field commented out per requirements */}
+                    {/* <div>
                       <Label className="text-xs text-muted-foreground">Margin Paid By</Label>
                       <p className="font-medium capitalize">
                         {data.contract?.marginPaidBy || "client"}
                       </p>
-                    </div>
-                    <div>
+                    </div> */}
+                    {/* MARGIN HIDDEN: Payment Mode field commented out per requirements */}
+                    {/* <div>
                       <Label className="text-xs text-muted-foreground">Payment Mode</Label>
                       <p className="font-medium capitalize">
                         gross
                       </p>
-                    </div>
+                    </div> */}
                   </div>
                 </CardContent>
               </Card>
@@ -706,7 +711,7 @@ export function TimesheetReviewModal({
                               <p className="text-sm text-muted-foreground">
                                 @ {new Intl.NumberFormat("en-US", {
                                   style: "currency",
-                                  currency: marginBreakdown?.currency || "USD",
+                                  currency: "USD", // MARGIN HIDDEN: Removed marginBreakdown reference
                                 }).format(Number(data.contract.rate))}
                                 {data.contract.rateType === "hourly" ? "/hr" : "/day"}
                               </p>
@@ -717,7 +722,7 @@ export function TimesheetReviewModal({
                               {data.contract?.rate
                                 ? new Intl.NumberFormat("en-US", {
                                     style: "currency",
-                                    currency: marginBreakdown?.currency || "USD",
+                                    currency: "USD", // MARGIN HIDDEN: Removed marginBreakdown reference
                                   }).format(
                                     data.contract.rateType === "hourly"
                                       ? Number(entry.hours) * Number(data.contract.rate)
@@ -735,10 +740,10 @@ export function TimesheetReviewModal({
                 </CardContent>
               </Card>
 
-              {/* Margin Calculation Display */}
-              {marginBreakdown && (
+              {/* MARGIN HIDDEN: Margin Calculation Display commented out per requirements */}
+              {/* {marginBreakdown && (
                 <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
-              )}
+              )} */}
 
               {/* Final Invoice Total */}
               <Card>
@@ -747,21 +752,23 @@ export function TimesheetReviewModal({
                     <DollarSign className="h-4 w-4" />
                     Invoice Summary
                   </CardTitle>
-                  <CardDescription>
+                  {/* MARGIN HIDDEN: Invoice recipient description commented out per requirements */}
+                  {/* <CardDescription>
                     Invoice will be sent to: {marginBreakdown?.marginPaidBy === "client" ? "Client" : "Agency"}
-                  </CardDescription>
+                  </CardDescription> */}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal (Base Amount):</span>
+                    <span className="text-muted-foreground">Total Amount:</span>
                     <span className="font-medium">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: marginBreakdown?.currency || "USD",
-                      }).format(marginBreakdown?.baseAmount || 0)}
+                        currency: "USD",
+                      }).format(Number(data.totalAmount || 0))}
                     </span>
                   </div>
-                  {marginBreakdown && marginBreakdown.marginAmount > 0 && (
+                  {/* MARGIN HIDDEN: All margin-related calculations commented out per requirements */}
+                  {/* {marginBreakdown && marginBreakdown.marginAmount > 0 && (
                     <>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
@@ -787,15 +794,15 @@ export function TimesheetReviewModal({
                         </div>
                       )}
                     </>
-                  )}
+                  )} */}
                   <Separator />
                   <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
                     <span className="text-lg font-semibold">Invoice Total:</span>
                     <span className="text-2xl font-bold text-green-600">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: marginBreakdown?.currency || "USD",
-                      }).format(marginBreakdown?.totalWithMargin || 0)}
+                        currency: "USD",
+                      }).format(Number(data.totalAmount || 0))}
                     </span>
                   </div>
                 </CardContent>

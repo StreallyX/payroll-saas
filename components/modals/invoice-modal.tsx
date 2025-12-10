@@ -26,6 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { UserSelector } from "@/components/shared/UserSelector";
 
 interface InvoiceModalProps {
   open: boolean;
@@ -46,6 +47,8 @@ export function InvoiceModal({
   const [form, setForm] = useState({
     invoiceNumber: "",
     contractId: "",
+    senderId: "",
+    receiverId: "",
     currency: "USD",
     description: "",
     notes: "",
@@ -74,6 +77,8 @@ export function InvoiceModal({
       setForm({
         invoiceNumber: invoice.invoiceNumber ?? "",
         contractId: invoice.contractId ?? "",
+        senderId: invoice.senderId ?? "",
+        receiverId: invoice.receiverId ?? "",
         currency: invoice.currency ?? "USD",
         description: invoice.description ?? "",
         notes: invoice.notes ?? "",
@@ -218,6 +223,26 @@ export function InvoiceModal({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <UserSelector
+                label="Sender"
+                placeholder="Select sender"
+                value={form.senderId}
+                onValueChange={(v) => setForm({ ...form, senderId: v })}
+                disabled={disabled}
+                required={true}
+              />
+
+              <UserSelector
+                label="Receiver"
+                placeholder="Select receiver"
+                value={form.receiverId}
+                onValueChange={(v) => setForm({ ...form, receiverId: v })}
+                disabled={disabled}
+                required={true}
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-4">

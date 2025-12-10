@@ -319,6 +319,13 @@ model User {
   remittances          Remittance[]
   referralsMade        Referral[]       @relation("ReferralsMade")
   referralsReceived    Referral[]       @relation("ReferralsReceived")
+  
+  // 🔥 NEW: Invoice relations
+  invoicesSent              Invoice[]        @relation("InvoiceSender")
+  invoicesReceived          Invoice[]        @relation("InvoiceReceiver")
+  invoicesAgencyMarkedPaid  Invoice[]        @relation("InvoiceAgencyMarkedPaidBy")
+  invoicesPaymentReceived   Invoice[]        @relation("InvoicePaymentReceivedBy")
+  marginsOverridden         Margin[]         @relation("MarginOverriddenBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -435,12 +442,15 @@ model Contract {
   currencyId     String?
   rateCycle      String?
   margin         Decimal? @db.Decimal(10, 2)
-  marginType     String?
+  marginType     String?  // Note: Can be migrated to MarginType enum in future
   marginPaidBy   String?
   salaryType     String?
   bankId         String?
   invoiceDueDays Int?
   invoiceDueTerm String?
+  
+  // 🔥 NEW: Payment Model (default for this contract)
+  paymentModel   PaymentModel? // gross, payroll, payroll_we_pay, split
   
   // ============================
   // NORM Contract Fields
@@ -495,6 +505,7 @@ model Contract {
   expenses         Expense[]
   timesheets       Timesheet[]
   remittances      Remittance[]
+  margins          Margin[]  // 🔥 NEW: Margins for this contract
 
   @@index([tenantId])
   @@index([createdBy])
@@ -627,6 +638,10 @@ model Invoice {
   // Ownership
   createdBy     String?  // userId qui a créé
   
+  // 🔥 NEW: Sender and Receiver
+  senderId      String?  // userId - the sender of the invoice
+  receiverId    String?  // userId - the receiver of the invoice
+  
   // Status & Workflow
   status        String   @default("draft") // draft, submitted, under_review, approved, rejected, sent, paid, overdue, cancelled
   workflowState String   @default("draft") // 🔥 NEW - Formal workflow state
@@ -659,6 +674,15 @@ model Invoice {
   adminModificationNote String?  @db.Text            // 🔥 NEW
   modifiedBy            String?                      // 🔥 NEW - userId
   
+  // 🔥 NEW: Payment Model (from contract)
+  paymentModel          PaymentModel? // gross, payroll, payroll_we_pay, split
+  
+  // 🔥 NEW: Agency payment tracking
+  agencyMarkedPaidAt    DateTime? // When agency marked invoice as paid
+  agencyMarkedPaidBy    String?   // userId who marked as paid
+  paymentReceivedAt     DateTime? // When payment was actually received
+  paymentReceivedBy     String?   // userId who confirmed receipt
+  
   // Dates
   issueDate     DateTime @default(now())
   dueDate       DateTime @default(now())
@@ -677,18 +701,27 @@ model Invoice {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contract     Contract?           @relation(fields: [contractId], references: [id])
-  timesheet    Timesheet?          @relation("InvoiceTimesheet", fields: [timesheetId], references: [id]) // 🔥 NEW
-  lineItems    InvoiceLineItem[]
-  payments     Payment[]
-  timesheets   Timesheet[]         @relation("TimesheetInvoices") // Legacy relation (renamed to avoid conflict)
-  stateHistory EntityStateHistory[] @relation("InvoiceStateHistory") // 🔥 NEW
+  tenant                  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract                Contract?           @relation(fields: [contractId], references: [id])
+  timesheet               Timesheet?          @relation("InvoiceTimesheet", fields: [timesheetId], references: [id]) // 🔥 NEW
+  sender                  User?               @relation("InvoiceSender", fields: [senderId], references: [id]) // 🔥 NEW
+  receiver                User?               @relation("InvoiceReceiver", fields: [receiverId], references: [id]) // 🔥 NEW
+  agencyMarkedPaidByUser  User?               @relation("InvoiceAgencyMarkedPaidBy", fields: [agencyMarkedPaidBy], references: [id]) // 🔥 NEW
+  paymentReceivedByUser   User?               @relation("InvoicePaymentReceivedBy", fields: [paymentReceivedBy], references: [id]) // 🔥 NEW
+  margin                  Margin?             // 🔥 NEW - 1-to-1 relation
+  lineItems               InvoiceLineItem[]
+  payments                Payment[]
+  timesheets              Timesheet[]         @relation("TimesheetInvoices") // Legacy relation (renamed to avoid conflict)
+  stateHistory            EntityStateHistory[] @relation("InvoiceStateHistory") // 🔥 NEW
 
   @@index([tenantId])
   @@index([contractId])
   @@index([timesheetId]) // 🔥 NEW
   @@index([createdBy])
+  @@index([senderId]) // 🔥 NEW
+  @@index([receiverId]) // 🔥 NEW
+  @@index([agencyMarkedPaidBy]) // 🔥 NEW
+  @@index([paymentReceivedBy]) // 🔥 NEW
   @@index([status])
   @@index([workflowState]) // 🔥 NEW
   @@map("invoices")
@@ -706,6 +739,40 @@ model InvoiceLineItem {
 
   @@index([invoiceId])
   @@map("invoice_line_items")
+}
+
+// ====
+// MARGIN MANAGEMENT
+// ====
+model Margin {
+  id         String  @id @default(cuid())
+  invoiceId  String  @unique
+  contractId String
+  
+  // Margin configuration
+  marginType       MarginType
+  marginPercentage Decimal?   @db.Decimal(5, 2) // For percentage-based margins
+  marginAmount     Decimal?   @db.Decimal(10, 2) // For fixed amount margins
+  calculatedMargin Decimal    @db.Decimal(10, 2) // The final calculated margin value
+  
+  // Override tracking
+  isOverridden   Boolean   @default(false)
+  overriddenBy   String?   // userId who made the override
+  overriddenAt   DateTime?
+  notes          String?   @db.Text
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  invoice           Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  contract          Contract  @relation(fields: [contractId], references: [id])
+  overriddenByUser  User?     @relation("MarginOverriddenBy", fields: [overriddenBy], references: [id])
+  
+  @@index([invoiceId])
+  @@index([contractId])
+  @@index([overriddenBy])
+  @@map("margins")
 }
 
 // ====
@@ -905,6 +972,19 @@ enum PaymentMethodType {
   WISE
   REVOLUT
   OTHER
+}
+
+enum PaymentModel {
+  GROSS
+  PAYROLL
+  PAYROLL_WE_PAY
+  SPLIT
+}
+
+enum MarginType {
+  FIXED
+  VARIABLE
+  CUSTOM
 }
 
 model Payment {

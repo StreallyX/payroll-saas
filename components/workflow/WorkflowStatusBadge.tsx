@@ -25,7 +25,10 @@ const getStatusColor = (status: string): string => {
   // Invoice states
   if (statusLower === "pending") return "bg-gray-100 text-gray-800 hover:bg-gray-100";
   if (statusLower === "reviewing") return "bg-blue-100 text-blue-800 hover:bg-blue-100";
+  if (statusLower === "pending_margin_confirmation") return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100";
   if (statusLower === "sent") return "bg-purple-100 text-purple-800 hover:bg-purple-100";
+  if (statusLower === "marked_paid_by_agency") return "bg-blue-100 text-blue-800 hover:bg-blue-100";
+  if (statusLower === "payment_received") return "bg-green-100 text-green-800 hover:bg-green-100";
   if (statusLower === "paid") return "bg-green-100 text-green-800 hover:bg-green-100";
   if (statusLower === "overdue") return "bg-red-100 text-red-800 hover:bg-red-100";
   if (statusLower === "cancelled") return "bg-gray-100 text-gray-800 hover:bg-gray-100";

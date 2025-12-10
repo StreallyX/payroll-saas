@@ -13,11 +13,15 @@ import { useState, useMemo } from "react";
 import { Loader2, FileText, AlertCircle, User, Building2, DollarSign, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useSession } from "next-auth/react";
 import {
   WorkflowStatusBadge,
   WorkflowActionButtons,
   MarginCalculationDisplay,
 } from "@/components/workflow";
+import { MarginConfirmationCard } from "@/components/invoices/MarginConfirmationCard";
+import { PaymentTrackingCard } from "@/components/invoices/PaymentTrackingCard";
+import { TimesheetFileViewer } from "@/components/timesheets/TimesheetFileViewer";
 import Link from "next/link";
 
 export default function InvoiceDetailPage() {
@@ -26,6 +30,7 @@ export default function InvoiceDetailPage() {
   const invoiceId = params.id as string;
 
   const { hasPermission } = usePermissions();
+  const { data: session } = useSession();
   const [adminModifiedAmount, setAdminModifiedAmount] = useState<string>("");
   const [isModifyingAmount, setIsModifyingAmount] = useState(false);
 
@@ -87,6 +92,31 @@ export default function InvoiceDetailPage() {
       utils.invoice.getById.invalidate({ id: invoiceId });
       setIsModifyingAmount(false);
       setAdminModifiedAmount("");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // New payment workflow mutations
+  const confirmMarginMutation = api.invoice.confirmMargin.useMutation({
+    onSuccess: () => {
+      toast.success("Margin confirmed successfully!");
+      utils.invoice.getById.invalidate({ id: invoiceId });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const markAsPaidByAgencyMutation = api.invoice.markAsPaidByAgency.useMutation({
+    onSuccess: () => {
+      toast.success("Invoice marked as paid by agency");
+      utils.invoice.getById.invalidate({ id: invoiceId });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const markPaymentReceivedMutation = api.invoice.markPaymentReceived.useMutation({
+    onSuccess: () => {
+      toast.success("Payment received confirmed!");
+      utils.invoice.getById.invalidate({ id: invoiceId });
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -161,6 +191,28 @@ export default function InvoiceDetailPage() {
       amount: amount,
       adminModificationNote: "Amount modified by admin",
     });
+  };
+
+  // New payment workflow handlers
+  const handleConfirmMargin = async (overrideAmount?: number, notes?: string) => {
+    const marginId = (data as any).margin?.id;
+    await confirmMarginMutation.mutateAsync({
+      invoiceId,
+      marginId,
+      overrideMarginAmount: overrideAmount,
+      notes,
+    });
+  };
+
+  const handleMarkAsPaidByAgency = async () => {
+    await markAsPaidByAgencyMutation.mutateAsync({ 
+      invoiceId,
+      paymentMethod: "bank_transfer",
+    });
+  };
+
+  const handleMarkPaymentReceived = async () => {
+    await markPaymentReceivedMutation.mutateAsync({ invoiceId });
   };
 
   // Loading state
@@ -267,56 +319,100 @@ export default function InvoiceDetailPage() {
         <WorkflowStatusBadge status={currentState} />
       </div>
 
+      {/* Margin Confirmation Section - Only show when state is PENDING_MARGIN_CONFIRMATION */}
+      {currentState === "PENDING_MARGIN_CONFIRMATION" && (data as any).margin && (
+        <MarginConfirmationCard
+          marginDetails={{
+            marginType: (data as any).margin.marginType,
+            marginPercentage: Number((data as any).margin.marginPercentage || 0),
+            marginAmount: Number((data as any).margin.marginAmount || 0),
+            calculatedMargin: Number((data as any).margin.calculatedMargin || 0),
+            isOverridden: (data as any).margin.isOverridden || false,
+            overriddenBy: (data as any).margin.overriddenBy?.name,
+            notes: (data as any).margin.notes,
+            contractId: data.contractId || undefined,
+          }}
+          baseAmount={Number((data as any).baseAmount || data.amount || 0)}
+          currency={data.currency || "USD"}
+          onConfirmMargin={handleConfirmMargin}
+          isLoading={confirmMarginMutation.isPending}
+        />
+      )}
+
+      {/* Payment Tracking Section - Show when invoice has been sent */}
+      {(currentState === "SENT" || currentState === "MARKED_PAID_BY_AGENCY" || currentState === "PAYMENT_RECEIVED") && (
+        <PaymentTrackingCard
+          paymentStatus={{
+            state: currentState,
+            agencyMarkedPaidAt: (data as any).agencyMarkedPaidAt,
+            paymentReceivedAt: (data as any).paymentReceivedAt,
+            paymentReceivedBy: (data as any).paymentReceivedBy,
+            agencyMarkedPaidBy: (data as any).agencyMarkedPaidBy,
+          }}
+          paymentModel={(data as any).paymentModel || "GROSS"}
+          userRole={session?.user?.roleName || ""}
+          onMarkAsPaidByAgency={handleMarkAsPaidByAgency}
+          onMarkPaymentReceived={handleMarkPaymentReceived}
+          isLoading={markAsPaidByAgencyMutation.isPending || markPaymentReceivedMutation.isPending}
+        />
+      )}
+
       {/* Main Content */}
       <Tabs defaultValue="details" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="line-items">Line Items</TabsTrigger>
           <TabsTrigger value="calculation">Calculation & Margin</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         {/* DETAILS TAB */}
         <TabsContent value="details" className="space-y-4 mt-6">
+          {/* Sender Information */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <User className="h-4 w-4" />
-                From (Contractor)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Name</Label>
-                  <p className="font-medium">{contractorName}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <p className="font-medium">{contractorParticipant?.user?.email || "N/A"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                To (Invoice Recipient)
+                Sender
               </CardTitle>
               <CardDescription>
-                Invoice will be sent to: {data.marginPaidBy === "contractor" ? "Contractor" : (data.marginPaidBy === "agency" ? "Agency" : "Client")}
+                Person or entity sending this invoice
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Recipient Name</Label>
-                  <p className="font-medium">{invoiceRecipient}</p>
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <p className="font-medium">{(data as any).sender?.name || "N/A"}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Type</Label>
-                  <p className="font-medium capitalize">{data.marginPaidBy || "client"}</p>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="font-medium">{(data as any).sender?.email || "N/A"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Receiver Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Receiver (Invoice Recipient)
+              </CardTitle>
+              <CardDescription>
+                Person or entity receiving this invoice
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <p className="font-medium">{(data as any).receiver?.name || invoiceRecipient}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="font-medium">{(data as any).receiver?.email || "N/A"}</p>
                 </div>
               </div>
             </CardContent>
@@ -540,6 +636,67 @@ export default function InvoiceDetailPage() {
                   }).format(Number(data.totalAmount || 0))}
                 </span>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* DOCUMENTS TAB */}
+        <TabsContent value="documents" className="space-y-4 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Attached Documents</CardTitle>
+              <CardDescription>
+                Files and receipts attached to this invoice
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Display documents from invoice */}
+              {(data as any).documents && (data as any).documents.length > 0 ? (
+                <div className="space-y-3">
+                  {(data as any).documents.map((doc: any, index: number) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0">
+                          <FileText className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold">
+                            {doc.fileName || `Document ${index + 1}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {doc.fileType} • {(doc.fileSize / 1024).toFixed(1)} KB
+                          </p>
+                          {doc.description && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {doc.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(doc.fileUrl, "_blank")}
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground">No documents attached</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    No documents have been uploaded for this invoice
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

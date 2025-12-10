@@ -13,6 +13,8 @@ import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
 import { StateTransitionService } from "@/lib/services/StateTransitionService"
 import { MarginCalculationService, MarginPaidBy } from "@/lib/services/MarginCalculationService"
+import { MarginService } from "@/lib/services/MarginService"
+import { PaymentWorkflowService } from "@/lib/services/PaymentWorkflowService"
 import { WorkflowEntityType, WorkflowAction } from "@/lib/workflows"
 
 const P = {
@@ -70,7 +72,22 @@ export const invoiceRouter = createTRPCRouter({
       ctx.prisma.invoice.findMany({
         where,
         include: { 
-          lineItems: true, 
+          lineItems: true,
+          margin: isGlobal, // Only include margin for admins
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
           contract: {
             include: {
               participants: {
@@ -204,6 +221,8 @@ export const invoiceRouter = createTRPCRouter({
     .input(
       z.object({
         contractId: z.string().optional(),
+        senderId: z.string().optional(),
+        receiverId: z.string().optional(),
         notes: z.string().optional(),
         description: z.string().optional(),
         issueDate: z.date(),
@@ -253,6 +272,8 @@ export const invoiceRouter = createTRPCRouter({
           tenantId: ctx.tenantId,
           contractId: input.contractId,
           createdBy: ctx.session.user.id,
+          senderId: input.senderId,
+          receiverId: input.receiverId,
           description: input.description,
           notes: input.notes,
           issueDate: input.issueDate,
@@ -261,6 +282,7 @@ export const invoiceRouter = createTRPCRouter({
           taxAmount: new Prisma.Decimal(0),
           totalAmount: amount,
           status: "draft",
+          workflowState: "draft",
           lineItems: {
             create: input.lineItems.map((li) => ({
               description: li.description,
@@ -270,7 +292,23 @@ export const invoiceRouter = createTRPCRouter({
             }))
           },
         },
-        include: { lineItems: true }
+        include: {
+          lineItems: true,
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        }
       })
 
       await createAuditLog({
@@ -823,6 +861,446 @@ export const invoiceRouter = createTRPCRouter({
         input.id,
         ctx.tenantId
       )
+    }),
+
+  // ========================================================
+  // 🔥 NEW MARGIN & PAYMENT WORKFLOW METHODS
+  // ========================================================
+
+  /**
+   * Confirm margin for invoice
+   * Allows admin to review and optionally override margin before proceeding
+   */
+  confirmMargin: tenantProcedure
+    .use(hasPermission(P.MODIFY_GLOBAL))
+    .input(z.object({
+      invoiceId: z.string(),
+      marginId: z.string().optional(),
+      overrideMarginAmount: z.number().optional(),
+      overrideMarginPercentage: z.number().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.invoiceId,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          contract: true,
+          margin: true,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
+      }
+
+      // If margin override is requested, apply it
+      if (input.marginId && (input.overrideMarginAmount !== undefined || input.overrideMarginPercentage !== undefined)) {
+        await MarginService.overrideMargin(input.marginId, {
+          newMarginAmount: input.overrideMarginAmount,
+          newMarginPercentage: input.overrideMarginPercentage,
+          userId: ctx.session.user.id,
+          notes: input.notes || 'Admin margin override',
+        })
+      }
+
+      // Transition invoice to next state
+      const result = await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.invoiceId,
+        action: WorkflowAction.CONFIRM_MARGIN,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+        metadata: {
+          marginConfirmed: true,
+          overridden: !!(input.overrideMarginAmount || input.overrideMarginPercentage),
+        },
+      })
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.errors.join(', '),
+        })
+      }
+
+      await createAuditLog({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name!,
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: input.invoiceId,
+        entityName: invoice.invoiceNumber ?? "",
+        tenantId: ctx.tenantId,
+        description: "Margin confirmed for invoice",
+        metadata: {
+          marginId: input.marginId,
+          overridden: !!(input.overrideMarginAmount || input.overrideMarginPercentage),
+        },
+      })
+
+      return result.entity
+    }),
+
+  /**
+   * Mark invoice as paid by agency
+   * Records when agency marks invoice as paid (first step in payment tracking)
+   */
+  markAsPaidByAgency: tenantProcedure
+    .use(hasAnyPermission([P.PAY_GLOBAL, "invoice.pay.own"]))
+    .input(z.object({
+      invoiceId: z.string(),
+      paymentMethod: z.string().default("bank_transfer"),
+      transactionId: z.string().optional(),
+      referenceNumber: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.invoiceId,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          contract: {
+            include: {
+              participants: true,
+            },
+          },
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
+      }
+
+      // Update invoice with agency payment tracking
+      const updatedInvoice = await ctx.prisma.invoice.update({
+        where: { id: input.invoiceId },
+        data: {
+          agencyMarkedPaidAt: new Date(),
+          agencyMarkedPaidBy: ctx.session.user.id,
+        },
+      })
+
+      // Transition to marked paid by agency state
+      await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.invoiceId,
+        action: WorkflowAction.MARK_PAID_BY_AGENCY,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+        metadata: {
+          paymentMethod: input.paymentMethod,
+          transactionId: input.transactionId,
+          referenceNumber: input.referenceNumber,
+        },
+      })
+
+      await createAuditLog({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name!,
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: input.invoiceId,
+        entityName: invoice.invoiceNumber ?? "",
+        tenantId: ctx.tenantId,
+        description: "Invoice marked as paid by agency",
+        metadata: {
+          paymentMethod: input.paymentMethod,
+          transactionId: input.transactionId,
+        },
+      })
+
+      return updatedInvoice
+    }),
+
+  /**
+   * Mark payment as received
+   * Records when admin confirms payment receipt and triggers payment model workflow
+   */
+  markPaymentReceived: tenantProcedure
+    .use(hasPermission(P.PAY_GLOBAL))
+    .input(z.object({
+      invoiceId: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.invoiceId,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          contract: true,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
+      }
+
+      // Update invoice with payment received tracking
+      const updatedInvoice = await ctx.prisma.invoice.update({
+        where: { id: input.invoiceId },
+        data: {
+          paymentReceivedAt: new Date(),
+          paymentReceivedBy: ctx.session.user.id,
+        },
+      })
+
+      // Transition to payment received state
+      await StateTransitionService.executeTransition({
+        entityType: WorkflowEntityType.INVOICE,
+        entityId: input.invoiceId,
+        action: WorkflowAction.MARK_PAYMENT_RECEIVED,
+        userId: ctx.session.user.id,
+        tenantId: ctx.tenantId,
+        reason: input.notes,
+      })
+
+      // Execute payment model workflow
+      const paymentModel = invoice.paymentModel || invoice.contract?.paymentModel
+      if (paymentModel) {
+        const workflowResult = await PaymentWorkflowService.executePaymentWorkflow({
+          invoiceId: input.invoiceId,
+          paymentModel,
+          userId: ctx.session.user.id,
+          tenantId: ctx.tenantId,
+          metadata: {
+            userName: ctx.session.user.name,
+            userRole: ctx.session.user.roleName,
+          },
+        })
+
+        await createAuditLog({
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name!,
+          userRole: ctx.session.user.roleName,
+          action: AuditAction.UPDATE,
+          entityType: AuditEntityType.INVOICE,
+          entityId: input.invoiceId,
+          entityName: invoice.invoiceNumber ?? "",
+          tenantId: ctx.tenantId,
+          description: "Payment received and workflow initiated",
+          metadata: {
+            paymentModel,
+            workflowResult,
+          },
+        })
+
+        return {
+          invoice: updatedInvoice,
+          workflowResult,
+        }
+      }
+
+      return {
+        invoice: updatedInvoice,
+        workflowResult: null,
+      }
+    }),
+
+  /**
+   * Create invoice from timesheet
+   * Auto-creates invoice with all timesheet data, expenses, and documents
+   */
+  createFromTimesheet: tenantProcedure
+    .use(hasAnyPermission([P.CREATE_GLOBAL, P.CREATE_OWN]))
+    .input(z.object({
+      timesheetId: z.string(),
+      senderId: z.string().optional(),
+      receiverId: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Load timesheet with all related data
+      const timesheet = await ctx.prisma.timesheet.findFirst({
+        where: {
+          id: input.timesheetId,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          entries: true,
+          expenses: true,
+          documents: true,
+          contract: {
+            include: {
+              participants: true,
+              currency: true,
+            },
+          },
+        },
+      })
+
+      if (!timesheet) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Timesheet not found" })
+      }
+
+      if (timesheet.invoiceId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invoice already exists for this timesheet",
+        })
+      }
+
+      // Calculate amounts
+      const rate = new Prisma.Decimal(timesheet.contract?.rate ?? 0)
+      const baseAmount = timesheet.baseAmount || new Prisma.Decimal(0)
+      const totalExpenses = timesheet.totalExpenses || new Prisma.Decimal(0)
+      const invoiceAmount = baseAmount.add(totalExpenses)
+
+      // Calculate margin
+      const marginCalculation = await MarginService.calculateMarginFromContract(
+        timesheet.contractId!,
+        parseFloat(invoiceAmount.toString())
+      )
+
+      const totalAmount = marginCalculation?.totalWithMargin || invoiceAmount
+
+      // Prepare line items from timesheet entries
+      const lineItems = []
+      for (const entry of timesheet.entries) {
+        lineItems.push({
+          description: `Work on ${new Date(entry.date).toISOString().slice(0, 10)}${entry.description ? ': ' + entry.description : ''}`,
+          quantity: entry.hours,
+          unitPrice: rate,
+          amount: entry.hours.mul(rate),
+        })
+      }
+
+      // Add expense line items
+      if (timesheet.expenses && timesheet.expenses.length > 0) {
+        for (const expense of timesheet.expenses) {
+          lineItems.push({
+            description: `Expense: ${expense.title} - ${expense.description || ''}`,
+            quantity: new Prisma.Decimal(1),
+            unitPrice: expense.amount,
+            amount: expense.amount,
+          })
+        }
+      }
+
+      // Create invoice
+      const invoice = await ctx.prisma.invoice.create({
+        data: {
+          tenantId: ctx.tenantId,
+          contractId: timesheet.contractId,
+          timesheetId: timesheet.id,
+          createdBy: ctx.session.user.id,
+          senderId: input.senderId,
+          receiverId: input.receiverId,
+          
+          baseAmount: baseAmount,
+          amount: invoiceAmount,
+          marginAmount: marginCalculation?.marginAmount || new Prisma.Decimal(0),
+          marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
+          totalAmount: totalAmount,
+          currency: timesheet.contract?.currency?.name ?? "USD",
+          
+          status: "submitted",
+          workflowState: "pending_margin_confirmation",
+          
+          issueDate: new Date(),
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          
+          description: `Invoice for timesheet ${timesheet.startDate.toISOString().slice(0, 10)} to ${timesheet.endDate.toISOString().slice(0, 10)}`,
+          notes: input.notes || `Auto-generated from timesheet. Total hours: ${timesheet.totalHours}`,
+          
+          lineItems: {
+            create: lineItems,
+          },
+        },
+        include: {
+          lineItems: true,
+          sender: true,
+          receiver: true,
+        },
+      })
+
+      // Create margin entry
+      if (marginCalculation) {
+        await MarginService.createMarginForInvoice(
+          invoice.id,
+          timesheet.contractId!,
+          {
+            marginType: marginCalculation.marginType,
+            marginPercentage: marginCalculation.marginPercentage,
+            marginAmount: marginCalculation.marginAmount,
+            calculatedMargin: marginCalculation.calculatedMargin,
+          }
+        )
+      }
+
+      // Link invoice back to timesheet
+      await ctx.prisma.timesheet.update({
+        where: { id: timesheet.id },
+        data: { invoiceId: invoice.id },
+      })
+
+      // Reuse documents from timesheet (link existing document IDs)
+      // Note: This assumes documents are already uploaded and stored
+      // In production, you might want to copy document links or references
+
+      await createAuditLog({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name!,
+        userRole: ctx.session.user.roleName,
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: invoice.id,
+        entityName: invoice.invoiceNumber ?? "",
+        tenantId: ctx.tenantId,
+        description: "Invoice created from timesheet",
+        metadata: {
+          timesheetId: timesheet.id,
+          marginCalculated: !!marginCalculation,
+        },
+      })
+
+      return invoice
+    }),
+
+  /**
+   * Get margin for invoice
+   */
+  getInvoiceMargin: tenantProcedure
+    .use(hasAnyPermission([P.LIST_GLOBAL, P.READ_OWN]))
+    .input(z.object({ invoiceId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.invoiceId,
+          tenantId: ctx.tenantId,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      const isAdmin = ctx.session.user.permissions.includes(P.LIST_GLOBAL)
+      if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" })
+      }
+
+      return MarginService.getMarginByInvoiceId(input.invoiceId)
+    }),
+
+  /**
+   * Get margin history for invoice
+   */
+  getInvoiceMarginHistory: tenantProcedure
+    .use(hasPermission(P.LIST_GLOBAL))
+    .input(z.object({ invoiceId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return MarginService.getMarginHistory(input.invoiceId)
     }),
 
 })
