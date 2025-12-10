@@ -81,7 +81,8 @@ export const timesheetRouter = createTRPCRouter({
             },
           },
           entries: true,
-          documents: true, // 🔥 NEW: Include expense documents
+          documents: true, // Legacy: expense documents
+          expenses: true, // 🔥 NEW: Include expenses from Expense table
         },
       })
 
@@ -283,23 +284,28 @@ createRange: tenantProcedure
       }
     }
 
-    // 8️⃣ Process expenses if provided
+    // 8️⃣ Process expenses if provided - Create Expense entries
     let totalExpenses = new Prisma.Decimal(0);
     
     if (input.expenses && input.expenses.length > 0) {
-      // Create expense documents
-      const expenseDocuments = input.expenses.map((expense, index) => ({
+      // 🔥 NEW: Create Expense entries in the Expense table
+      const expenseEntries = input.expenses.map((expense) => ({
+        tenantId: ctx.tenantId,
         timesheetId: ts.id,
-        fileName: `Expense_${expense.category}_${index + 1}.pdf`,
-        fileUrl: expense.receiptUrl || "https://placeholder.com/receipt.pdf",
-        fileSize: 0, // Will be updated when actual file is uploaded
-        mimeType: "application/pdf",
-        description: `${expense.category}: ${expense.description}`,
-        category: "expense",
+        contractId: input.contractId,
+        submittedBy: userId,
+        title: expense.category,
+        description: expense.description,
+        amount: new Prisma.Decimal(expense.amount),
+        currency: contract.currency?.name ?? "USD",
+        category: expense.category,
+        receiptUrl: expense.receiptUrl,
+        expenseDate: start, // Use timesheet start date as expense date
+        status: "draft",
       }));
 
-      await ctx.prisma.timesheetDocument.createMany({
-        data: expenseDocuments,
+      await ctx.prisma.expense.createMany({
+        data: expenseEntries,
       });
 
       // Calculate total expenses
@@ -516,7 +522,7 @@ createRange: tenantProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
-      // 1️⃣ RELOAD timesheet with contract details and documents
+      // 1️⃣ RELOAD timesheet with contract details, entries, and expenses
       const ts = await ctx.prisma.timesheet.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: {
@@ -532,7 +538,8 @@ createRange: tenantProcedure
             },
           },
           entries: true,
-          documents: true, // 🔥 NEW: Include expense documents
+          documents: true, // Legacy: expense documents
+          expenses: true, // 🔥 NEW: Include expenses from Expense table
         },
       });
 
@@ -575,8 +582,14 @@ createRange: tenantProcedure
         baseAmount = rate;
       }
 
-      // 🔥 Add expenses to base amount
-      const totalExpenses = ts.totalExpenses ?? new Prisma.Decimal(0);
+      // 🔥 Calculate total expenses from Expense table
+      let totalExpenses = new Prisma.Decimal(0);
+      if (ts.expenses && ts.expenses.length > 0) {
+        totalExpenses = ts.expenses.reduce(
+          (sum, exp) => sum.add(exp.amount),
+          new Prisma.Decimal(0)
+        );
+      }
       const subtotalWithExpenses = baseAmount.add(totalExpenses);
 
       // Use admin modified amount if available, otherwise use calculated amount
@@ -621,23 +634,15 @@ createRange: tenantProcedure
           });
         });
 
-        // 🔥 Add expense line items with document references
-        if (totalExpenses.gt(0) && ts.documents.length > 0) {
-          ts.documents.forEach((doc, index) => {
+        // 🔥 NEW: Add expense line items from Expense table
+        if (ts.expenses && ts.expenses.length > 0) {
+          ts.expenses.forEach((expense) => {
             lineItems.push({
-              description: `Expense File ${index + 1}: ${doc.description || doc.fileName}`,
+              description: `Expense: ${expense.title} - ${expense.description || ''}`,
               quantity: new Prisma.Decimal(1),
-              unitPrice: new Prisma.Decimal(0), // Will be set from expense amount if available
-              amount: new Prisma.Decimal(0), // Individual expense amounts
+              unitPrice: expense.amount,
+              amount: expense.amount,
             });
-          });
-
-          // Add total expenses as a summary line
-          lineItems.push({
-            description: `Total Expenses (${ts.documents.length} document${ts.documents.length > 1 ? 's' : ''})`,
-            quantity: new Prisma.Decimal(1),
-            unitPrice: totalExpenses,
-            amount: totalExpenses,
           });
         }
 
@@ -671,13 +676,13 @@ createRange: tenantProcedure
 • Total Hours: ${ts.totalHours}
 • Hourly/Daily Rate: ${rate} ${currency}
 • Subtotal (Hours): ${baseAmount} ${currency}
-${totalExpenses.gt(0) ? `• Expenses: ${totalExpenses} ${currency} (${ts.documents.length} document${ts.documents.length > 1 ? 's' : ''})` : ''}
+${totalExpenses.gt(0) ? `• Expenses: ${totalExpenses} ${currency} (${ts.expenses?.length || 0} expense${(ts.expenses?.length || 0) > 1 ? 's' : ''})` : ''}
 • Base Amount: ${finalBaseAmount} ${currency}
 ${marginAmount.gt(0) ? `• Margin (${marginPercentage.toFixed(2)}%): ${marginAmount} ${currency}` : ''}
 • Total Amount: ${totalWithMargin} ${currency}
 
 ${agencyParticipant ? `📧 Agency: ${agencyParticipant.company?.name || agencyParticipant.user?.name}` : ''}
-${ts.documents.length > 0 ? `\n📎 Expense Documents:\n${ts.documents.map((d, i) => `  ${i + 1}. ${d.fileName}`).join('\n')}` : ''}`,
+${ts.expenses && ts.expenses.length > 0 ? `\n💰 Expenses:\n${ts.expenses.map((e, i) => `  ${i + 1}. ${e.title}: ${e.amount} ${e.currency}`).join('\n')}` : ''}`,
 
             // Create line items
             lineItems: {
