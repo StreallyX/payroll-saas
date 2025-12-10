@@ -313,33 +313,108 @@ export function TimesheetReviewModal({
               </Card>
             </TabsContent>
 
-            {/* FILES TAB */}
+            {/* FILES TAB - 🔥 FIXED: Display TimesheetDocument records */}
             <TabsContent value="files" className="space-y-4">
               <div className="space-y-4">
-                {/* Timesheet File Viewer */}
-                <TimesheetFileViewer
-                  fileUrl={data.timesheetFileUrl}
-                  fileName="timesheet.pdf"
-                  fileType="timesheet"
-                />
+                {/* 🔥 NEW: Display TimesheetDocument records */}
+                {data.documents && data.documents.length > 0 ? (
+                  <div className="space-y-3">
+                    {/* Timesheet Documents */}
+                    {data.documents.filter((doc: any) => doc.category === "timesheet").length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Timesheet Documents
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {data.documents
+                            .filter((doc: any) => doc.category === "timesheet")
+                            .map((doc: any) => (
+                              <div
+                                key={doc.id}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <FileText className="h-5 w-5 text-blue-600" />
+                                  <div>
+                                    <p className="font-medium text-sm">{doc.fileName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {(doc.fileSize / 1024).toFixed(1)} KB • {doc.mimeType || "Unknown type"}
+                                    </p>
+                                    {doc.description && (
+                                      <p className="text-xs text-muted-foreground mt-1">{doc.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="outline" size="sm">
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View
+                                  </Button>
+                                  <Button variant="outline" size="sm">
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                        </CardContent>
+                      </Card>
+                    )}
 
-                {/* Expense File Viewer */}
-                {data.expenseFileUrl && (
-                  <TimesheetFileViewer
-                    fileUrl={data.expenseFileUrl}
-                    fileName="expense-receipts.pdf"
-                    fileType="expense"
-                  />
-                )}
-
-                {/* Show message if no files at all */}
-                {!data.timesheetFileUrl && !data.expenseFileUrl && (
+                    {/* Expense Documents */}
+                    {data.documents.filter((doc: any) => doc.category === "expense").length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Expense Receipts
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {data.documents
+                            .filter((doc: any) => doc.category === "expense")
+                            .map((doc: any) => (
+                              <div
+                                key={doc.id}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <FileText className="h-5 w-5 text-green-600" />
+                                  <div>
+                                    <p className="font-medium text-sm">{doc.fileName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {(doc.fileSize / 1024).toFixed(1)} KB • {doc.mimeType || "Unknown type"}
+                                    </p>
+                                    {doc.description && (
+                                      <p className="text-xs text-muted-foreground mt-1">{doc.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="outline" size="sm">
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View
+                                  </Button>
+                                  <Button variant="outline" size="sm">
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                ) : (
+                  /* 🔥 NEW: Empty state when no documents */
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center py-12">
                       <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                      <p className="text-lg font-medium text-muted-foreground">No files attached</p>
+                      <p className="text-lg font-medium text-muted-foreground">No documents attached</p>
                       <p className="text-sm text-muted-foreground mt-2">
-                        No timesheet or expense files have been uploaded
+                        No timesheet or expense documents have been uploaded
                       </p>
                     </CardContent>
                   </Card>

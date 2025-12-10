@@ -27,8 +27,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { uploadFile as uploadToS3 } from "@/lib/s3";
-
 // Expense interface
 interface Expense {
   id: string;
@@ -38,22 +36,19 @@ interface Expense {
   receipt: File | null;
 }
 
-// 🔥 FIX: Real S3 upload function
-async function uploadFileToS3(file: File | null, prefix: string = "timesheets"): Promise<string | null> {
-  if (!file) return null;
-  
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const key = `${prefix}/${Date.now()}-${file.name}`;
-    
-    const uploadedKey = await uploadToS3(buffer, key, file.type);
-    return uploadedKey;
-  } catch (error) {
-    console.error("[uploadFileToS3] Error:", error);
-    toast.error("Failed to upload file");
-    return null;
-  }
+// 🔥 FIX: Convert file to base64 (matching contract pattern)
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix (e.g., "data:image/png;base64,")
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+  });
 }
 
 export function TimesheetSubmissionFormModal({
@@ -199,7 +194,7 @@ export function TimesheetSubmissionFormModal({
 
   const create = api.timesheet.createRange.useMutation({
     onSuccess: async (data) => {
-      // 🔥 FIX: Create TimesheetDocument records for uploaded files
+      // 🔥 FIX: Upload files using backend mutation (matching contract pattern)
       const timesheetId = data.timesheetId;
       
       console.log("[TimesheetSubmission] Timesheet created, uploading files...", { 
@@ -215,22 +210,22 @@ export function TimesheetSubmissionFormModal({
         // Upload main timesheet file if exists
         if (timesheetFile) {
           console.log("[TimesheetSubmission] Uploading main timesheet file:", timesheetFile.name);
-          const timesheetFileUrl = await uploadFileToS3(timesheetFile, "timesheet-documents");
           
-          if (timesheetFileUrl) {
-            console.log("[TimesheetSubmission] File uploaded to S3:", timesheetFileUrl);
+          try {
+            const base64 = await fileToBase64(timesheetFile);
             await uploadTimesheetDocument.mutateAsync({
               timesheetId,
               fileName: timesheetFile.name,
-              fileUrl: timesheetFileUrl,
+              fileBuffer: base64, // 🔥 FIX: Send base64 to backend
               fileSize: timesheetFile.size,
               mimeType: timesheetFile.type,
               description: "Timesheet document",
+              category: "timesheet",
             });
-            console.log("[TimesheetSubmission] TimesheetDocument record created for main file");
+            console.log("[TimesheetSubmission] Main file uploaded successfully");
             uploadedCount++;
-          } else {
-            console.error("[TimesheetSubmission] Failed to upload main file to S3");
+          } catch (error) {
+            console.error("[TimesheetSubmission] Failed to upload main file:", error);
             failedCount++;
           }
         }
@@ -239,22 +234,22 @@ export function TimesheetSubmissionFormModal({
         for (const expense of expenses) {
           if (expense.receipt) {
             console.log("[TimesheetSubmission] Uploading expense receipt:", expense.receipt.name);
-            const receiptUrl = await uploadFileToS3(expense.receipt, "timesheet-documents/expenses");
             
-            if (receiptUrl) {
-              console.log("[TimesheetSubmission] Receipt uploaded to S3:", receiptUrl);
+            try {
+              const base64 = await fileToBase64(expense.receipt);
               await uploadTimesheetDocument.mutateAsync({
                 timesheetId,
                 fileName: expense.receipt.name,
-                fileUrl: receiptUrl,
+                fileBuffer: base64, // 🔥 FIX: Send base64 to backend
                 fileSize: expense.receipt.size,
                 mimeType: expense.receipt.type,
                 description: `Expense receipt: ${expense.category} - ${expense.description}`,
+                category: "expense",
               });
-              console.log("[TimesheetSubmission] TimesheetDocument record created for receipt");
+              console.log("[TimesheetSubmission] Receipt uploaded successfully");
               uploadedCount++;
-            } else {
-              console.error("[TimesheetSubmission] Failed to upload receipt to S3");
+            } catch (error) {
+              console.error("[TimesheetSubmission] Failed to upload receipt:", error);
               failedCount++;
             }
           }

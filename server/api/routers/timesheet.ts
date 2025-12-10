@@ -734,7 +734,7 @@ createRange: tenantProcedure
     }),
 
   // ------------------------------------------------------
-  // 🆕 UPLOAD EXPENSE DOCUMENT
+  // 🆕 UPLOAD EXPENSE DOCUMENT (FIXED TO MATCH CONTRACT PATTERN)
   // ------------------------------------------------------
   uploadExpenseDocument: tenantProcedure
     .use(hasPermission(P.UPDATE_OWN))
@@ -742,14 +742,15 @@ createRange: tenantProcedure
       z.object({
         timesheetId: z.string(),
         fileName: z.string(),
-        fileUrl: z.string(),
+        fileBuffer: z.string(), // 🔥 FIX: Accept base64 buffer instead of fileUrl
         fileSize: z.number(),
         mimeType: z.string().optional(),
         description: z.string().optional(),
+        category: z.string().optional().default("expense"), // expense, timesheet, other
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership
+      // 1. Verify ownership
       const ts = await ctx.prisma.timesheet.findFirst({
         where: {
           id: input.timesheetId,
@@ -762,7 +763,7 @@ createRange: tenantProcedure
         throw new TRPCError({ code: "NOT_FOUND", message: "Timesheet not found" });
       }
 
-      // Only allow uploads in draft state
+      // 2. Only allow uploads in draft state
       if (ts.status !== "draft") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -770,16 +771,40 @@ createRange: tenantProcedure
         });
       }
 
+      // 3. 🔥 FIX: Upload file to S3 (matching contract pattern)
+      const { uploadFile } = await import("@/lib/s3");
+      const buffer = Buffer.from(input.fileBuffer, "base64");
+      const s3FileName = `tenant_${ctx.tenantId}/timesheet/${input.timesheetId}/${Date.now()}-${input.fileName}`;
+      
+      let s3Key: string;
+      try {
+        s3Key = await uploadFile(buffer, s3FileName, input.mimeType || "application/octet-stream");
+      } catch (error) {
+        console.error("[uploadExpenseDocument] S3 upload failed:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to upload file to S3",
+        });
+      }
+
+      // 4. 🔥 FIX: Create TimesheetDocument record with S3 key
       const document = await ctx.prisma.timesheetDocument.create({
         data: {
           timesheetId: input.timesheetId,
           fileName: input.fileName,
-          fileUrl: input.fileUrl,
+          fileUrl: s3Key, // Store S3 key in fileUrl field
           fileSize: input.fileSize,
           mimeType: input.mimeType,
           description: input.description,
-          category: "expense",
+          category: input.category || "expense",
         },
+      });
+
+      console.log("[uploadExpenseDocument] Document uploaded successfully:", {
+        documentId: document.id,
+        timesheetId: input.timesheetId,
+        s3Key,
+        fileName: input.fileName,
       });
 
       return document;

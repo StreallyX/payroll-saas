@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Upload, Loader2 } from "lucide-react";
 import { useTimesheetDocuments } from "@/hooks/timesheets/useTimesheetDocuments";
 import { toast } from "sonner";
-import { uploadFile } from "@/lib/s3";
 
 interface TimesheetDocumentUploaderProps {
   timesheetId: string;
@@ -57,22 +56,29 @@ export function TimesheetDocumentUploader({
     }
     
     try {
-      // Upload file to S3
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const key = `timesheet-documents/${timesheetId}/${Date.now()}-${file.name}`;
+      // 🔥 FIX: Convert file to base64 (matching contract pattern)
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data URL prefix (e.g., "data:image/png;base64,")
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = (error) => reject(error);
+      });
       
-      const uploadedKey = await uploadFile(buffer, key, file.type);
-      
-      // Create document record
+      // 🔥 FIX: Send base64 to backend (backend handles S3 upload)
       uploadDocument(
         {
           timesheetId,
           fileName: file.name,
-          fileUrl: uploadedKey,
+          fileBuffer: base64, // Send base64 instead of fileUrl
           fileSize: file.size,
           mimeType: file.type,
           description: description.trim(),
+          category: "timesheet", // Default category
         },
         {
           onSuccess: () => {
