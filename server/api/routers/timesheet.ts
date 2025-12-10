@@ -701,18 +701,21 @@ createRange: tenantProcedure
           },
         });
 
-        // Create margin entry
+        // Create margin entry directly within the transaction
+        // 🔥 FIX: Create margin using the transaction's prisma instance
+        // to avoid foreign key constraint errors
         if (marginCalculation) {
-          await MarginService.createMarginForInvoice(
-            invoice.id,
-            timesheet.contractId!,
-            {
+          await prisma.margin.create({
+            data: {
+              invoiceId: invoice.id,
+              contractId: timesheet.contractId!,
               marginType: marginCalculation.marginType,
               marginPercentage: marginCalculation.marginPercentage,
               marginAmount: marginCalculation.marginAmount,
               calculatedMargin: marginCalculation.calculatedMargin,
-            }
-          );
+              isOverridden: false,
+            },
+          });
         }
 
         // Link invoice back to timesheet

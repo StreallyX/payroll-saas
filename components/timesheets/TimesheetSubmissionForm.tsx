@@ -202,11 +202,23 @@ export function TimesheetSubmissionFormModal({
       // 🔥 FIX: Create TimesheetDocument records for uploaded files
       const timesheetId = data.timesheetId;
       
+      console.log("[TimesheetSubmission] Timesheet created, uploading files...", { 
+        timesheetId, 
+        hasTimesheetFile: !!timesheetFile,
+        expenseCount: expenses.filter(e => e.receipt).length 
+      });
+      
+      let uploadedCount = 0;
+      let failedCount = 0;
+      
       try {
         // Upload main timesheet file if exists
         if (timesheetFile) {
+          console.log("[TimesheetSubmission] Uploading main timesheet file:", timesheetFile.name);
           const timesheetFileUrl = await uploadFileToS3(timesheetFile, "timesheet-documents");
+          
           if (timesheetFileUrl) {
+            console.log("[TimesheetSubmission] File uploaded to S3:", timesheetFileUrl);
             await uploadTimesheetDocument.mutateAsync({
               timesheetId,
               fileName: timesheetFile.name,
@@ -215,14 +227,22 @@ export function TimesheetSubmissionFormModal({
               mimeType: timesheetFile.type,
               description: "Timesheet document",
             });
+            console.log("[TimesheetSubmission] TimesheetDocument record created for main file");
+            uploadedCount++;
+          } else {
+            console.error("[TimesheetSubmission] Failed to upload main file to S3");
+            failedCount++;
           }
         }
 
         // Upload expense receipts
         for (const expense of expenses) {
           if (expense.receipt) {
+            console.log("[TimesheetSubmission] Uploading expense receipt:", expense.receipt.name);
             const receiptUrl = await uploadFileToS3(expense.receipt, "timesheet-documents/expenses");
+            
             if (receiptUrl) {
+              console.log("[TimesheetSubmission] Receipt uploaded to S3:", receiptUrl);
               await uploadTimesheetDocument.mutateAsync({
                 timesheetId,
                 fileName: expense.receipt.name,
@@ -231,17 +251,34 @@ export function TimesheetSubmissionFormModal({
                 mimeType: expense.receipt.type,
                 description: `Expense receipt: ${expense.category} - ${expense.description}`,
               });
+              console.log("[TimesheetSubmission] TimesheetDocument record created for receipt");
+              uploadedCount++;
+            } else {
+              console.error("[TimesheetSubmission] Failed to upload receipt to S3");
+              failedCount++;
             }
           }
         }
       } catch (error) {
         console.error("[TimesheetSubmission] Error uploading documents:", error);
-        toast.error("Timesheet created but some files failed to upload");
+        failedCount++;
       }
 
-      toast.success("Timesheet submitted successfully");
-      utils.timesheet.getMyTimesheets.invalidate();
-      utils.timesheet.getById.invalidate({ id: timesheetId });
+      console.log("[TimesheetSubmission] Upload complete:", { uploadedCount, failedCount });
+
+      // Invalidate queries to refetch with new documents
+      await utils.timesheet.getMyTimesheets.invalidate();
+      await utils.timesheet.getById.invalidate({ id: timesheetId });
+
+      // Show appropriate success message
+      if (failedCount > 0) {
+        toast.warning(`Timesheet created but ${failedCount} file(s) failed to upload. You can upload them later from the timesheet detail page.`);
+      } else if (uploadedCount > 0) {
+        toast.success(`Timesheet created successfully with ${uploadedCount} file(s)!`);
+      } else {
+        toast.success("Timesheet created successfully!");
+      }
+      
       reset();
       onOpenChange(false);
     },
