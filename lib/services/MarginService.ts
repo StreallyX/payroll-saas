@@ -37,6 +37,36 @@ export interface MarginOverrideInput {
 
 export class MarginService {
   /**
+   * Normalize margin type string to MarginType enum
+   * Handles lowercase strings from legacy data
+   */
+  static normalizeMarginType(marginType: string | MarginType | null | undefined): MarginType {
+    if (!marginType) {
+      return MarginType.VARIABLE
+    }
+
+    // If already an enum value, return it
+    if (Object.values(MarginType).includes(marginType as MarginType)) {
+      return marginType as MarginType
+    }
+
+    // Convert lowercase string to uppercase enum
+    const normalized = marginType.toString().toUpperCase()
+    switch (normalized) {
+      case 'FIXED':
+        return MarginType.FIXED
+      case 'VARIABLE':
+      case 'PERCENTAGE': // Handle legacy 'percentage' value
+        return MarginType.VARIABLE
+      case 'CUSTOM':
+        return MarginType.CUSTOM
+      default:
+        console.warn(`Unknown margin type: ${marginType}, defaulting to VARIABLE`)
+        return MarginType.VARIABLE
+    }
+  }
+
+  /**
    * Calculate margin from contract settings
    * Loads contract margin configuration and calculates based on invoice amount
    */
@@ -57,7 +87,8 @@ export class MarginService {
       return null
     }
 
-    const marginType = (contract.marginType as MarginType) || MarginType.VARIABLE
+    // 🔥 FIX: Normalize margin type to ensure correct enum value
+    const marginType = this.normalizeMarginType(contract.marginType)
     const marginValue = contract.margin ? parseFloat(contract.margin.toString()) : 0
     const invoiceAmountDecimal = new Decimal(invoiceAmount)
 

@@ -193,13 +193,16 @@ export default function TimesheetDetailPage() {
   const isDraft = currentState === "draft";
   const canUploadFiles = isDraft && (isOwner || canModify);
 
-  // Calculate totals
+  // 🔥 FIX: Use correct amount fields from timesheet
+  // - baseAmount = work amount (hours × rate)
+  // - marginAmount = calculated margin (hidden from contractors)
+  // - totalExpenses = sum of expenses
+  // - totalAmount = final total (baseAmount + marginAmount + totalExpenses)
   const hoursTotal = Number(data.totalHours || 0);
-  const baseAmount = Number(data.totalAmount || 0);
-  const expensesTotal = (data.expenses || []).reduce(
-    (sum: number, exp: any) => sum + Number(exp.amount || 0),
-    0
-  );
+  const workAmount = Number(data.baseAmount || 0); // Work amount (hours × rate)
+  const marginAmount = Number(data.marginAmount || 0); // Margin (hidden from contractors)
+  const expensesAmount = Number(data.totalExpenses || 0); // Total expenses from timesheet
+  const totalAmount = Number(data.totalAmount || 0); // Final total (already includes everything)
 
   return (
     <div className="container mx-auto max-w-7xl p-6 space-y-6">
@@ -388,7 +391,7 @@ export default function TimesheetDetailPage() {
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
                         currency: "USD",
-                      }).format(expensesTotal)}
+                      }).format(expensesAmount)}
                     </span>
                   </div>
                 </div>
@@ -446,22 +449,23 @@ export default function TimesheetDetailPage() {
             <CardContent className="space-y-3">
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Hours ({hoursTotal.toFixed(1)}h):</span>
+                  <span className="text-muted-foreground">Work Amount ({hoursTotal.toFixed(1)}h):</span>
                   <span className="font-medium">
                     {new Intl.NumberFormat("en-US", {
                       style: "currency",
                       currency: "USD",
-                    }).format(baseAmount)}
+                    }).format(workAmount)}
                   </span>
                 </div>
-                {expensesTotal > 0 && (
+                {/* MARGIN HIDDEN: Margin not shown to contractors per requirements */}
+                {expensesAmount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Expenses:</span>
                     <span className="font-medium">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
                         currency: "USD",
-                      }).format(expensesTotal)}
+                      }).format(expensesAmount)}
                     </span>
                   </div>
                 )}
@@ -470,10 +474,11 @@ export default function TimesheetDetailPage() {
               <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
                 <span className="text-lg font-semibold">Total Amount:</span>
                 <span className="text-2xl font-bold text-green-600">
+                  {/* 🔥 FIX: Use totalAmount directly (already includes work + margin + expenses) */}
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
                     currency: "USD",
-                  }).format(baseAmount + expensesTotal)}
+                  }).format(totalAmount)}
                 </span>
               </div>
             </CardContent>

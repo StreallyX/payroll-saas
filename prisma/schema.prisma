@@ -869,27 +869,34 @@ model Timesheet {
   rejectionReason   String?   @db.Text
   changesRequested  String?   @db.Text
 
-  // TOTALS
-  totalHours    Decimal  @db.Decimal(10, 2)
-  totalAmount   Decimal? @db.Decimal(10, 2)
-
-  // 🔥 FIELDS TO ADD FOR YOUR CALCULATION SYSTEM
-  baseAmount    Decimal? @db.Decimal(10, 2)   // <— required for Deel-style
-  marginAmount  Decimal? @db.Decimal(10, 2)   // <— required
-  currency      String?                      // <— required (USD, EUR, etc.)
+  // TOTALS & AMOUNT BREAKDOWN
+  // 📊 Amount Calculation Logic:
+  // - baseAmount = work amount (hours × rate)
+  // - marginAmount = calculated margin based on contract settings
+  // - totalExpenses = sum of all expense amounts
+  // - totalAmount = final total (baseAmount + marginAmount + totalExpenses)
+  //
+  // ⚠️ IMPORTANT: 
+  // - totalAmount already includes ALL components (work + margin + expenses)
+  // - UI should display totalAmount directly WITHOUT re-adding components
+  // - Margin is HIDDEN from contractors (only visible to admins)
+  
+  totalHours       Decimal  @db.Decimal(10, 2)    // Total hours worked
+  baseAmount       Decimal? @db.Decimal(10, 2)    // Work amount (hours × rate)
+  marginAmount     Decimal? @db.Decimal(10, 2)    // Calculated margin (HIDDEN from contractors)
+  totalExpenses    Decimal? @db.Decimal(10, 2) @default(0) // Sum of all expenses
+  totalAmount      Decimal? @db.Decimal(10, 2)    // Final total (baseAmount + marginAmount + totalExpenses)
+  currency         String?                         // Currency code (USD, EUR, etc.)
 
   // ADMIN MODIFICATIONS
   adminModifiedAmount  Decimal? @db.Decimal(10, 2)
   adminModificationNote String? @db.Text
   modifiedBy           String?
 
-  // FILES + NOTES
+  // FILES + NOTES (Legacy fields - use TimesheetDocument table instead)
   notes            String?   @db.Text
-  timesheetFileUrl String?
-  expenseFileUrl   String?
-  
-  // 🔥 NEW: Total expenses amount
-  totalExpenses    Decimal? @db.Decimal(10, 2) @default(0)
+  timesheetFileUrl String?  // DEPRECATED: Use TimesheetDocument table
+  expenseFileUrl   String?  // DEPRECATED: Use TimesheetDocument table
 
   // INVOICE (Legacy field - kept for backward compatibility)
   invoiceId   String?
