@@ -136,7 +136,7 @@ export default function InvoiceDetailPage() {
       marginPercentage: marginPercent,
       marginType: "percentage" as const, // TODO: Get from contract
       totalWithMargin,
-      currency: data.currency || "USD",
+      currency: data.currencyRelation?.code || "USD",
       marginPaidBy: (data.marginPaidBy || "client") as "client" | "agency" | "contractor",
       paymentMode: "gross" as const, // TODO: Get from contract if field exists
     };
@@ -437,7 +437,7 @@ export default function InvoiceDetailPage() {
                     <p className="text-2xl font-bold text-green-600">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: data.currency,
+                        currency: data.currencyRelation?.code || "USD",
                       }).format(Number(data.totalAmount || 0))}
                     </p>
                   </div>
@@ -681,7 +681,7 @@ export default function InvoiceDetailPage() {
                   <p className="font-medium text-lg text-green-600">
                     {new Intl.NumberFormat("en-US", {
                       style: "currency",
-                      currency: data.currency,
+                      currency: data.currencyRelation?.code || "USD",
                     }).format(Number(data.totalAmount || 0))}
                   </p>
                 </div>
@@ -760,7 +760,7 @@ export default function InvoiceDetailPage() {
                           Amount was adjusted by admin to{" "}
                           {new Intl.NumberFormat("en-US", {
                             style: "currency",
-                            currency: data.currency,
+                            currency: data.currencyRelation?.code || "USD",
                           }).format(Number(data.adminModifiedAmount))}
                         </AlertDescription>
                       </Alert>
@@ -837,7 +837,7 @@ export default function InvoiceDetailPage() {
                 <span className="text-2xl font-bold text-green-600">
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
-                    currency: data.currency,
+                    currency: data.currencyRelation?.code || "USD",
                   }).format(Number(data.totalAmount || 0))}
                 </span>
               </div>

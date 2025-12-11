@@ -177,61 +177,77 @@ export const invoiceRouter = createTRPCRouter({
         orderBy: { createdAt: "desc" },
       })
     }),
+// ---------------------------------------------------------
+// 3️⃣ GET ONE (OWN OR GLOBAL)
+// ---------------------------------------------------------
+getById: tenantProcedure
+  .use(hasAnyPermission([P.LIST_GLOBAL, P.READ_OWN]))
+  .input(z.object({ id: z.string() }))
+  .query(async ({ ctx, input }) => {
+    const isAdmin = ctx.session.user.permissions.includes(P.LIST_GLOBAL)
 
-  // ---------------------------------------------------------
-  // 3️⃣ GET ONE (OWN OR GLOBAL)
-  // ---------------------------------------------------------
-  getById: tenantProcedure
-    .use(hasAnyPermission([P.LIST_GLOBAL, P.READ_OWN]))
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const isAdmin = ctx.session.user.permissions.includes(P.LIST_GLOBAL)
-      
-      const invoice = await ctx.prisma.invoice.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-        include: { 
-          lineItems: true, 
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-          receiver: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-          currencyRelation: true, // 🔥 NEW: Currency relation
-          margin: isAdmin, // Only include margin for admins
-          contract: {
-            include: {
-              participants: {
-                include: {
-                  user: true,
-                  company: true,
-                },
-              },
-              currency: true, // Include currency from contract
-              bank: true, // 🔥 NEW: Include bank account details
-            },
+    const invoice = await ctx.prisma.invoice.findFirst({
+      where: { id: input.id, tenantId: ctx.tenantId },
+      include: {
+        lineItems: true,
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
           },
         },
-      })
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
 
-      if (!invoice) throw new TRPCError({ code: "NOT_FOUND" })
+        // 🔥 NEW — Currency from invoice
+        currencyRelation: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            symbol: true,
+          },
+        },
 
-      if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" })
-      }
+        // 🔥 Only admin sees margin
+        margin: isAdmin,
 
-      return invoice
-    }),
+        contract: {
+          include: {
+            participants: {
+              include: {
+                user: true,
+                company: true,
+              },
+            },
+
+            // 🔥 Contract currency (EXACT matching)
+            currency: true,
+
+            // 🔥 NEW: bank details
+            bank: true,
+          },
+        },
+      },
+    })
+
+    if (!invoice) throw new TRPCError({ code: "NOT_FOUND" })
+
+    // Security: non-admin can only read their own items
+    if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
+      throw new TRPCError({ code: "FORBIDDEN" })
+    }
+
+    return invoice
+  }),
 
   // ---------------------------------------------------------
   // 4️⃣ CREATE — OWN OR GLOBAL

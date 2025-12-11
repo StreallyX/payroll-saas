@@ -707,7 +707,6 @@ createRange: tenantProcedure
             marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
             totalAmount: totalAmount,
             currencyId: timesheet.contract?.currencyId, // 🔥 NEW: Use currencyId
-            currency: timesheet.contract?.currency?.name ?? "USD", // Legacy field
             
             status: "submitted",
             workflowState: "pending_margin_confirmation",
