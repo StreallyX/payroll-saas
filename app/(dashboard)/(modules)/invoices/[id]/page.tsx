@@ -559,8 +559,11 @@ export default function InvoiceDetailPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          navigator.clipboard.writeText(data.contract.bank.accountNumber);
-                          toast.success("Account number copied to clipboard");
+                          const accountNumber = data.contract?.bank?.accountNumber;
+                          if (accountNumber) {
+                            navigator.clipboard.writeText(accountNumber);
+                            toast.success("Account number copied to clipboard");
+                          }
                         }}
                       >
                         Copy
@@ -577,8 +580,11 @@ export default function InvoiceDetailPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          navigator.clipboard.writeText(data.contract.bank.iban);
-                          toast.success("IBAN copied to clipboard");
+                          const iban = data.contract?.bank?.iban;
+                          if (iban) {
+                            navigator.clipboard.writeText(iban);
+                            toast.success("IBAN copied to clipboard");
+                          }
                         }}
                       >
                         Copy
@@ -595,8 +601,11 @@ export default function InvoiceDetailPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          navigator.clipboard.writeText(data.contract.bank.swiftCode);
-                          toast.success("SWIFT code copied to clipboard");
+                          const swiftCode = data.contract?.bank?.swiftCode;
+                          if (swiftCode) {
+                            navigator.clipboard.writeText(swiftCode);
+                            toast.success("SWIFT code copied to clipboard");
+                          }
                         }}
                       >
                         Copy
