@@ -66,6 +66,7 @@ export const timesheetRouter = createTRPCRouter({
           submitter: true,
           contract: {
             select: {
+              title: true,   
               contractReference: true,
               margin: isAdmin, // Only include for admins
               marginType: isAdmin,
@@ -664,40 +665,80 @@ createRange: tenantProcedure
           }
         }
 
-        // Create invoice
         const invoice = await prisma.invoice.create({
           data: {
             tenantId: ctx.tenantId,
             contractId: timesheet.contractId,
             timesheetId: timesheet.id,
             createdBy: ctx.session.user.id,
+
             senderId: input.senderId,
             receiverId: input.receiverId,
-            
+
             baseAmount: baseAmount,
             amount: invoiceAmount,
             marginAmount: marginCalculation?.marginAmount || new Prisma.Decimal(0),
             marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
             totalAmount: totalAmount,
-            currency: timesheet.contract?.currency?.name ?? "USD",
-            
+
+            currency: timesheet.contract?.currency?.code ?? "USD",
+
             status: "submitted",
             workflowState: "pending_margin_confirmation",
-            
+
             issueDate: new Date(),
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            
+
             description: `Invoice for timesheet ${timesheet.startDate.toISOString().slice(0, 10)} to ${timesheet.endDate.toISOString().slice(0, 10)}`,
             notes: input.notes || `Auto-generated from timesheet. Total hours: ${timesheet.totalHours}`,
-            
+
             lineItems: {
               create: lineItems,
             },
           },
+
+          // ⭐️ INCLUDE COMPLET POUR RETURN L’INVOICE COMPLÈTE
           include: {
             lineItems: true,
-            sender: true,
-            receiver: true,
+
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            receiver: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+
+            contract: {
+              select: {
+                id: true,
+                title: true,
+                contractReference: true,
+                rate: true,
+                currency: { select: { name: true, code: true } },
+
+                participants: {
+                  select: {
+                    id: true,
+                    role: true,
+                    isPrimary: true,
+                    user: {
+                      select: { id: true, name: true, email: true },
+                    },
+                    company: {
+                      select: { id: true, name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         });
 
