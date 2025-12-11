@@ -185,10 +185,30 @@ export const invoiceRouter = createTRPCRouter({
     .use(hasAnyPermission([P.LIST_GLOBAL, P.READ_OWN]))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      const isAdmin = ctx.session.user.permissions.includes(P.LIST_GLOBAL)
+      
       const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: { 
           lineItems: true, 
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          currencyRelation: true, // 🔥 NEW: Currency relation
+          margin: isAdmin, // Only include margin for admins
           contract: {
             include: {
               participants: {
@@ -197,14 +217,14 @@ export const invoiceRouter = createTRPCRouter({
                   company: true,
                 },
               },
+              currency: true, // Include currency from contract
+              bank: true, // 🔥 NEW: Include bank account details
             },
           },
         },
       })
 
       if (!invoice) throw new TRPCError({ code: "NOT_FOUND" })
-
-      const isAdmin = ctx.session.user.permissions.includes(P.LIST_GLOBAL)
 
       if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" })

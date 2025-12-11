@@ -569,8 +569,8 @@ createRange: tenantProcedure
     .use(hasPermission(P.APPROVE))
     .input(z.object({
       id: z.string(),
-      senderId: z.string().optional(),
-      receiverId: z.string().optional(),
+      senderId: z.string().optional(), // Optional override
+      receiverId: z.string().optional(), // Optional override
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -582,6 +582,7 @@ createRange: tenantProcedure
           contract: {
             include: {
               participants: true,
+              currency: true,
             },
           },
         },
@@ -604,7 +605,31 @@ createRange: tenantProcedure
         });
       }
 
-      // 3️⃣ Create invoice using the new createFromTimesheet mutation logic
+      // 3️⃣ Determine Sender and Receiver
+      // Sender = person who will receive payment (usually contractor who submitted timesheet)
+      // Receiver = entity that will pay the invoice (client or agency)
+      
+      const senderId = input.senderId || ts.submittedBy; // Default to timesheet submitter
+      
+      // Find receiver from contract participants
+      let receiverId = input.receiverId;
+      if (!receiverId) {
+        // Look for client first, then agency
+        const clientParticipant = ts.contract?.participants?.find((p: any) => p.role === "client");
+        const agencyParticipant = ts.contract?.participants?.find((p: any) => p.role === "agency");
+        
+        const payer = clientParticipant || agencyParticipant;
+        if (payer?.userId) {
+          receiverId = payer.userId;
+        } else {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Could not determine invoice receiver. Please specify receiverId.",
+          });
+        }
+      }
+
+      // 4️⃣ Create invoice using the new createFromTimesheet mutation logic
       // This will handle margin calculation, line items, expenses, and documents
       const invoice = await ctx.prisma.$transaction(async (prisma) => {
         // Load timesheet with all related data
@@ -665,24 +690,25 @@ createRange: tenantProcedure
           }
         }
 
+
+        // Create invoice with currencyId (new) and currency string (legacy)
         const invoice = await prisma.invoice.create({
           data: {
             tenantId: ctx.tenantId,
             contractId: timesheet.contractId,
             timesheetId: timesheet.id,
             createdBy: ctx.session.user.id,
-
-            senderId: input.senderId,
-            receiverId: input.receiverId,
-
+            senderId: senderId,
+            receiverId: receiverId,
+            
             baseAmount: baseAmount,
             amount: invoiceAmount,
             marginAmount: marginCalculation?.marginAmount || new Prisma.Decimal(0),
             marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
             totalAmount: totalAmount,
-
-            currency: timesheet.contract?.currency?.code ?? "USD",
-
+            currencyId: timesheet.contract?.currencyId, // 🔥 NEW: Use currencyId
+            currency: timesheet.contract?.currency?.name ?? "USD", // Legacy field
+            
             status: "submitted",
             workflowState: "pending_margin_confirmation",
 
@@ -697,48 +723,12 @@ createRange: tenantProcedure
             },
           },
 
-          // ⭐️ INCLUDE COMPLET POUR RETURN L’INVOICE COMPLÈTE
+          // ⭐️ INCLUDE COMPLET POUR RETURN L'INVOICE COMPLÈTE
           include: {
             lineItems: true,
-
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            receiver: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-
-            contract: {
-              select: {
-                id: true,
-                title: true,
-                contractReference: true,
-                rate: true,
-                currency: { select: { name: true, code: true } },
-
-                participants: {
-                  select: {
-                    id: true,
-                    role: true,
-                    isPrimary: true,
-                    user: {
-                      select: { id: true, name: true, email: true },
-                    },
-                    company: {
-                      select: { id: true, name: true },
-                    },
-                  },
-                },
-              },
-            },
+            sender: true,
+            receiver: true,
+            currencyRelation: true, // 🔥 NEW: Include currency relation
           },
         });
 

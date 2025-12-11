@@ -418,6 +418,202 @@ export default function InvoiceDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Pay Invoice Section - Only visible to receiver */}
+          {data.receiverId === session?.user?.id && currentState !== "paid" && (
+            <Card className="border-green-200 bg-green-50/50">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 text-green-700">
+                  <DollarSign className="h-4 w-4" />
+                  Payment Required
+                </CardTitle>
+                <CardDescription>
+                  You are responsible for paying this invoice
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-white rounded-lg border">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Amount to Pay</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: data.currency,
+                      }).format(Number(data.totalAmount || 0))}
+                    </p>
+                  </div>
+                  <Button 
+                    size="lg" 
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      // TODO: Implement payment workflow
+                      toast.info("Payment workflow will be implemented here");
+                    }}
+                  >
+                    Pay Invoice
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Company Information */}
+          {(clientParticipant?.company || agencyParticipant?.company) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Company Information
+                </CardTitle>
+                <CardDescription>
+                  Business details for this contract
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {clientParticipant?.company && (
+                  <div className="pb-3 border-b last:border-0">
+                    <Label className="text-xs text-muted-foreground font-semibold">Client Company</Label>
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Name</Label>
+                        <p className="font-medium">{clientParticipant.company.name}</p>
+                      </div>
+                      {clientParticipant.company.contactEmail && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Contact Email</Label>
+                          <p className="text-sm">{clientParticipant.company.contactEmail}</p>
+                        </div>
+                      )}
+                      {clientParticipant.company.contactPhone && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Contact Phone</Label>
+                          <p className="text-sm">{clientParticipant.company.contactPhone}</p>
+                        </div>
+                      )}
+                      {(clientParticipant.company.address1 || clientParticipant.company.city) && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Address</Label>
+                          <p className="text-sm">
+                            {[
+                              clientParticipant.company.address1,
+                              clientParticipant.company.address2,
+                              clientParticipant.company.city,
+                              clientParticipant.company.state,
+                              clientParticipant.company.postCode,
+                            ].filter(Boolean).join(", ")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {agencyParticipant?.company && (
+                  <div className="pt-3">
+                    <Label className="text-xs text-muted-foreground font-semibold">Agency Company</Label>
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Name</Label>
+                        <p className="font-medium">{agencyParticipant.company.name}</p>
+                      </div>
+                      {agencyParticipant.company.contactEmail && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Contact Email</Label>
+                          <p className="text-sm">{agencyParticipant.company.contactEmail}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bank Account Details */}
+          {data.contract?.bank && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Payment Details
+                </CardTitle>
+                <CardDescription>
+                  Bank account information for payment
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                  {data.contract.bank.name && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                        <p className="font-medium">{data.contract.bank.name}</p>
+                      </div>
+                    </div>
+                  )}
+                  {data.contract.bank.accountNumber && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground">Account Number</Label>
+                        <p className="font-mono text-sm">{data.contract.bank.accountNumber}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(data.contract.bank.accountNumber);
+                          toast.success("Account number copied to clipboard");
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  )}
+                  {data.contract.bank.iban && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground">IBAN</Label>
+                        <p className="font-mono text-sm">{data.contract.bank.iban}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(data.contract.bank.iban);
+                          toast.success("IBAN copied to clipboard");
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  )}
+                  {data.contract.bank.swiftCode && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
+                        <p className="font-mono text-sm">{data.contract.bank.swiftCode}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(data.contract.bank.swiftCode);
+                          toast.success("SWIFT code copied to clipboard");
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  )}
+                  {data.contract.bank.address && (
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <Label className="text-xs text-muted-foreground">Bank Address</Label>
+                      <p className="text-sm mt-1">{data.contract.bank.address}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Contract Details</CardTitle>
