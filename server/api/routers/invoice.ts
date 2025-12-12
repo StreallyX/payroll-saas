@@ -282,8 +282,8 @@ getById: tenantProcedure
 
     if (!invoice) throw new TRPCError({ code: "NOT_FOUND" })
 
-    // Security: non-admin can only read their own items
-    if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
+    // Security: non-admin can only read items they created OR received
+    if (!isAdmin && invoice.createdBy !== ctx.session.user.id && invoice.receiverId !== ctx.session.user.id) {
       throw new TRPCError({ code: "FORBIDDEN" })
     }
 
@@ -432,7 +432,8 @@ getById: tenantProcedure
 
       const isAdmin = ctx.session.user.permissions.includes(P.UPDATE_GLOBAL)
 
-      if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
+      // Security: non-admin can only update items they created OR received
+      if (!isAdmin && invoice.createdBy !== ctx.session.user.id && invoice.receiverId !== ctx.session.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" })
       }
 
@@ -1392,7 +1393,8 @@ getById: tenantProcedure
       }
 
       const isAdmin = ctx.session.user.permissions.includes(P.LIST_GLOBAL)
-      if (!isAdmin && invoice.createdBy !== ctx.session.user.id) {
+      // Security: non-admin can only view margin for items they created OR received
+      if (!isAdmin && invoice.createdBy !== ctx.session.user.id && invoice.receiverId !== ctx.session.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" })
       }
 
