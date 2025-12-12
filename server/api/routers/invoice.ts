@@ -951,7 +951,7 @@ getById: tenantProcedure
    * Allows admin to review and optionally override margin before proceeding
    */
   confirmMargin: tenantProcedure
-    .use(hasPermission(P.MODIFY_GLOBAL))
+    .use(hasPermission(P.UPDATE_GLOBAL))
     .input(z.object({
       invoiceId: z.string(),
       marginId: z.string().optional(),
