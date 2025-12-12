@@ -702,6 +702,7 @@ model Invoice {
   paymentReceivedByUser  User?                @relation("InvoicePaymentReceivedBy", fields: [paymentReceivedBy], references: [id]) // 🔥 NEW
   margin                 Margin? // 🔥 NEW - 1-to-1 relation
   lineItems              InvoiceLineItem[]
+  documents              InvoiceDocument[]    @relation("InvoiceDocuments") // 🔥 NEW - Invoice documents
   payments               Payment[]
   timesheets             Timesheet[]          @relation("TimesheetInvoices") // Legacy relation (renamed to avoid conflict)
   stateHistory           EntityStateHistory[] @relation("InvoiceStateHistory") // 🔥 NEW
@@ -732,6 +733,27 @@ model InvoiceLineItem {
 
   @@index([invoiceId])
   @@map("invoice_line_items")
+}
+
+// 🔥 NEW: Invoice Document Model for storing documents attached to invoices
+model InvoiceDocument {
+  id        String @id @default(cuid())
+  invoiceId String
+
+  fileName String
+  fileUrl  String
+  fileSize Int
+  mimeType String?
+
+  description String? @db.Text
+  category    String  @default("invoice") // invoice, receipt, other
+
+  uploadedAt DateTime @default(now())
+
+  invoice Invoice @relation("InvoiceDocuments", fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_documents")
 }
 
 // ====

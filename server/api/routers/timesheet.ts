@@ -668,13 +668,15 @@ createRange: tenantProcedure
         const totalAmount = marginCalculation?.totalWithMargin || invoiceAmount;
 
         // Prepare line items from timesheet entries
+        // 🔥 FIX: Line items should be per day, NOT per hour
+        // Rate is already a daily rate, so quantity should be 1 for each day
         const lineItems = [];
         for (const entry of timesheet.entries) {
           lineItems.push({
-            description: `Work on ${new Date(entry.date).toISOString().slice(0, 10)}${entry.description ? ': ' + entry.description : ''}`,
-            quantity: entry.hours,
-            unitPrice: rate,
-            amount: entry.hours.mul(rate),
+            description: `Work on ${new Date(entry.date).toISOString().slice(0, 10)} (${entry.hours}h)${entry.description ? ': ' + entry.description : ''}`,
+            quantity: new Prisma.Decimal(1), // 🔥 FIX: 1 day, not hours
+            unitPrice: rate, // 🔥 Rate is per day
+            amount: rate, // 🔥 FIX: Amount is rate per day (not hours * rate)
           });
         }
 
@@ -725,8 +727,20 @@ createRange: tenantProcedure
           // ⭐️ INCLUDE COMPLET POUR RETURN L'INVOICE COMPLÈTE
           include: {
             lineItems: true,
-            sender: true,
-            receiver: true,
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            receiver: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
             currencyRelation: true, // 🔥 NEW: Include currency relation
           },
         });
@@ -756,6 +770,23 @@ createRange: tenantProcedure
             workflowState: "sent",
           },
         });
+
+        // 🔥 NEW: Copy documents from timesheet to invoice
+        if (timesheet.documents && timesheet.documents.length > 0) {
+          const invoiceDocuments = timesheet.documents.map((doc: any) => ({
+            invoiceId: invoice.id,
+            fileName: doc.fileName,
+            fileUrl: doc.fileUrl,
+            fileSize: doc.fileSize,
+            mimeType: doc.mimeType,
+            description: doc.description,
+            category: doc.category,
+          }));
+
+          await prisma.invoiceDocument.createMany({
+            data: invoiceDocuments,
+          });
+        }
 
         return invoice;
       });

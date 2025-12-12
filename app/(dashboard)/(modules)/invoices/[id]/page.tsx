@@ -445,13 +445,89 @@ export default function InvoiceDetailPage() {
                     size="lg" 
                     className="bg-green-600 hover:bg-green-700"
                     onClick={() => {
-                      // TODO: Implement payment workflow
-                      toast.info("Payment workflow will be implemented here");
+                      handleMarkAsPaidByAgency();
                     }}
                   >
-                    Pay Invoice
+                    Mark as Paid
                   </Button>
                 </div>
+
+                {/* Bank Account Details for Payment */}
+                {data.contract?.bank && (
+                  <div className="mt-4 p-4 bg-white rounded-lg border space-y-3">
+                    <h4 className="font-semibold text-sm">Bank Account Details</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      {data.contract.bank.name && (
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                            <p className="font-medium text-sm">{data.contract.bank.name}</p>
+                          </div>
+                        </div>
+                      )}
+                      {data.contract.bank.accountNumber && (
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">Account Number</Label>
+                            <p className="font-mono text-sm">{data.contract.bank.accountNumber}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (data.contract?.bank?.accountNumber) {
+                                navigator.clipboard.writeText(data.contract.bank.accountNumber);
+                                toast.success("Account number copied");
+                              }
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      )}
+                      {data.contract.bank.iban && (
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">IBAN</Label>
+                            <p className="font-mono text-sm">{data.contract.bank.iban}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (data.contract?.bank?.iban) {
+                                navigator.clipboard.writeText(data.contract.bank.iban);
+                                toast.success("IBAN copied");
+                              }
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      )}
+                      {data.contract.bank.swiftCode && (
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">SWIFT/BIC</Label>
+                            <p className="font-mono text-sm">{data.contract.bank.swiftCode}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (data.contract?.bank?.swiftCode) {
+                                navigator.clipboard.writeText(data.contract.bank.swiftCode);
+                                toast.success("SWIFT code copied");
+                              }
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

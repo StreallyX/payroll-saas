@@ -63,9 +63,12 @@ export const invoiceRouter = createTRPCRouter({
     if (input?.status) where.status = input.status;
     if (input?.contractId) where.contractId = input.contractId;
 
-    // OWN → LIMIT to createdBy
+    // OWN → LIMIT to createdBy OR receiverId (users can see invoices they created or received)
     if (!isGlobal) {
-      where.createdBy = user.id;
+      where.OR = [
+        { createdBy: user.id },
+        { receiverId: user.id },
+      ];
     }
 
     const [invoices, total] = await Promise.all([
@@ -118,10 +121,27 @@ export const invoiceRouter = createTRPCRouter({
       return ctx.prisma.invoice.findMany({
         where: {
           tenantId: ctx.tenantId,
-          createdBy: ctx.session.user.id,
+          OR: [
+            { createdBy: ctx.session.user.id },
+            { receiverId: ctx.session.user.id }, // 🔥 NEW - Include invoices where user is receiver
+          ],
         },
         include: { 
-          lineItems: true, 
+          lineItems: true,
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
           contract: {
             include: {
               participants: {
@@ -190,6 +210,7 @@ getById: tenantProcedure
       where: { id: input.id, tenantId: ctx.tenantId },
       include: {
         lineItems: true,
+        documents: true, // 🔥 NEW - Include invoice documents
         sender: {
           select: {
             id: true,
@@ -224,8 +245,28 @@ getById: tenantProcedure
           include: {
             participants: {
               include: {
-                user: true,
-                company: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                    contactEmail: true,
+                    contactPhone: true,
+                    address1: true,
+                    address2: true,
+                    city: true,
+                    state: true,
+                    postCode: true,
+                    country: true,
+                  },
+                },
               },
             },
 
@@ -1202,13 +1243,15 @@ getById: tenantProcedure
       const totalAmount = marginCalculation?.totalWithMargin || invoiceAmount
 
       // Prepare line items from timesheet entries
+      // 🔥 FIX: Line items should be per day, NOT per hour
+      // Rate is already a daily rate, so quantity should be 1 for each day
       const lineItems = []
       for (const entry of timesheet.entries) {
         lineItems.push({
-          description: `Work on ${new Date(entry.date).toISOString().slice(0, 10)}${entry.description ? ': ' + entry.description : ''}`,
-          quantity: entry.hours,
-          unitPrice: rate,
-          amount: entry.hours.mul(rate),
+          description: `Work on ${new Date(entry.date).toISOString().slice(0, 10)} (${entry.hours}h)${entry.description ? ': ' + entry.description : ''}`,
+          quantity: new Prisma.Decimal(1), // 🔥 FIX: 1 day, not hours
+          unitPrice: rate, // 🔥 Rate is per day
+          amount: rate, // 🔥 FIX: Amount is rate per day (not hours * rate)
         })
       }
 
@@ -1256,8 +1299,20 @@ getById: tenantProcedure
         },
         include: {
           lineItems: true,
-          sender: true,
-          receiver: true,
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       })
 
@@ -1281,9 +1336,22 @@ getById: tenantProcedure
         data: { invoiceId: invoice.id },
       })
 
-      // Reuse documents from timesheet (link existing document IDs)
-      // Note: This assumes documents are already uploaded and stored
-      // In production, you might want to copy document links or references
+      // 🔥 NEW: Copy documents from timesheet to invoice
+      if (timesheet.documents && timesheet.documents.length > 0) {
+        const invoiceDocuments = timesheet.documents.map((doc: any) => ({
+          invoiceId: invoice.id,
+          fileName: doc.fileName,
+          fileUrl: doc.fileUrl,
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
+          description: doc.description,
+          category: doc.category,
+        }))
+
+        await ctx.prisma.invoiceDocument.createMany({
+          data: invoiceDocuments,
+        })
+      }
 
       await createAuditLog({
         userId: ctx.session.user.id,
@@ -1298,6 +1366,7 @@ getById: tenantProcedure
         metadata: {
           timesheetId: timesheet.id,
           marginCalculated: !!marginCalculation,
+          documentsCopied: timesheet.documents?.length || 0,
         },
       })
 
