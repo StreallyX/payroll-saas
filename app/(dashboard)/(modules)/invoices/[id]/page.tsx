@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useMemo } from "react";
-import { Loader2, FileText, AlertCircle, User, Building2, DollarSign, ArrowLeft } from "lucide-react";
+import { Loader2, FileText, AlertCircle, User, Building2, DollarSign, ArrowLeft, Link as LinkIcon, Copy, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSession } from "next-auth/react";
@@ -33,6 +33,7 @@ export default function InvoiceDetailPage() {
   const { data: session } = useSession();
   const [adminModifiedAmount, setAdminModifiedAmount] = useState<string>("");
   const [isModifyingAmount, setIsModifyingAmount] = useState(false);
+  const [showFullInvoice, setShowFullInvoice] = useState(true);
 
   const utils = api.useUtils();
 
@@ -73,6 +74,7 @@ export default function InvoiceDetailPage() {
     onSuccess: () => {
       toast.success("Changes requested");
       utils.invoice.getAll.invalidate();
+      utils.invoice.getById.invalidate({ id: invoiceId });
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -99,7 +101,7 @@ export default function InvoiceDetailPage() {
   // New payment workflow mutations
   const confirmMarginMutation = api.invoice.confirmMargin.useMutation({
     onSuccess: () => {
-      toast.success("Margin confirmed successfully!");
+      toast.success("Margin confirmed successfully! Invoice status updated.");
       utils.invoice.getById.invalidate({ id: invoiceId });
     },
     onError: (err: any) => toast.error(err.message),
@@ -134,27 +136,52 @@ export default function InvoiceDetailPage() {
       baseAmount,
       marginAmount: marginValue,
       marginPercentage: marginPercent,
-      marginType: "percentage" as const, // TODO: Get from contract
+      marginType: "percentage" as const,
       totalWithMargin,
       currency: data.currencyRelation?.code || "USD",
       marginPaidBy: (data.marginPaidBy || "client") as "client" | "agency" | "contractor",
-      paymentMode: "gross" as const, // TODO: Get from contract if field exists
+      paymentMode: "gross" as const,
     };
   }, [data]);
 
-  // Get contractor and client info
+  // Get contract participants
   const contractorParticipant = data?.contract?.participants?.find((p: any) => p.role === "contractor");
   const clientParticipant = data?.contract?.participants?.find((p: any) => p.role === "client");
   const agencyParticipant = data?.contract?.participants?.find((p: any) => p.role === "agency");
+  const tenantParticipant = data?.contract?.participants?.find((p: any) => p.role === "tenant");
 
   const contractorName = contractorParticipant?.user?.name || contractorParticipant?.company?.name || "N/A";
   const clientName = clientParticipant?.user?.name || clientParticipant?.company?.name || "N/A";
   const agencyName = agencyParticipant?.user?.name || agencyParticipant?.company?.name || "N/A";
+  const tenantCompany = tenantParticipant?.company;
 
   // Determine invoice recipient based on margin paid by
   const invoiceRecipient = data?.marginPaidBy === "contractor" 
     ? contractorName 
     : (data?.marginPaidBy === "agency" ? agencyName : clientName);
+
+  // Calculate totals from line items
+  const lineItemsTotals = useMemo(() => {
+    if (!data?.lineItems) return { subtotal: 0, expenses: 0, workTotal: 0 };
+    
+    let workTotal = 0;
+    let expenses = 0;
+    
+    data.lineItems.forEach((item: any) => {
+      const amount = Number(item.amount || 0);
+      if (item.description?.toLowerCase().includes('expense')) {
+        expenses += amount;
+      } else {
+        workTotal += amount;
+      }
+    });
+    
+    return {
+      subtotal: workTotal + expenses,
+      expenses,
+      workTotal,
+    };
+  }, [data?.lineItems]);
 
   // Handle workflow actions
   const handleWorkflowAction = async (action: string, reason?: string) => {
@@ -215,6 +242,18 @@ export default function InvoiceDetailPage() {
     await markPaymentReceivedMutation.mutateAsync({ invoiceId });
   };
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: data?.currencyRelation?.code || "USD",
+    }).format(amount);
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -251,12 +290,13 @@ export default function InvoiceDetailPage() {
   const canApprove = hasPermission("invoice.approve.global");
   const canReject = hasPermission("invoice.reject.global");
   const canSend = hasPermission("invoice.send.global");
+  const canViewContract = hasPermission("contract.read.own") || hasPermission("contract.read.global");
 
   // Determine available actions based on state and permissions
   const availableActions = [];
   const currentState = data.workflowState || data.status;
 
-  if (currentState === "for_approval" && canReview) {
+  if (currentState === "submitted" && canReview) {
     availableActions.push({
       action: "review",
       label: "Mark as Under Review",
@@ -264,7 +304,7 @@ export default function InvoiceDetailPage() {
     });
   }
 
-  if ((currentState === "for_approval" || currentState === "under_review") && canApprove) {
+  if ((currentState === "submitted" || currentState === "under_review") && canApprove) {
     availableActions.push({
       action: "approve",
       label: "Approve Invoice",
@@ -278,7 +318,7 @@ export default function InvoiceDetailPage() {
     });
   }
 
-  if ((currentState === "for_approval" || currentState === "under_review") && canReject) {
+  if ((currentState === "submitted" || currentState === "under_review") && canReject) {
     availableActions.push({
       action: "reject",
       label: "Reject Invoice",
@@ -309,18 +349,23 @@ export default function InvoiceDetailPage() {
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <FileText className="h-8 w-8" />
-              Invoice Review
+              Invoice {data.invoiceNumber || `#${data.id.slice(0, 8)}`}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Review invoice details, calculations, and approve or request changes
+              Professional invoice with complete details
             </p>
           </div>
         </div>
-        <WorkflowStatusBadge status={currentState} />
+        <div className="flex items-center gap-3">
+          <WorkflowStatusBadge status={currentState} />
+          <Button variant="outline" size="sm" onClick={() => setShowFullInvoice(!showFullInvoice)}>
+            {showFullInvoice ? "Show Tabs View" : "Show Invoice View"}
+          </Button>
+        </div>
       </div>
 
       {/* Margin Confirmation Section - Only show when state is PENDING_MARGIN_CONFIRMATION */}
-      {currentState === "PENDING_MARGIN_CONFIRMATION" && (data as any).margin && (
+      {currentState === "pending_margin_confirmation" && (data as any).margin && (
         <MarginConfirmationCard
           marginDetails={{
             marginType: (data as any).margin.marginType,
@@ -340,7 +385,7 @@ export default function InvoiceDetailPage() {
       )}
 
       {/* Payment Tracking Section - Show when invoice has been sent */}
-      {(currentState === "SENT" || currentState === "MARKED_PAID_BY_AGENCY" || currentState === "PAYMENT_RECEIVED") && (
+      {(currentState === "sent" || currentState === "marked_paid_by_agency" || currentState === "payment_received") && (
         <PaymentTrackingCard
           paymentStatus={{
             state: currentState,
@@ -357,607 +402,636 @@ export default function InvoiceDetailPage() {
         />
       )}
 
-      {/* Main Content */}
-      <Tabs defaultValue="details" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="line-items">Line Items</TabsTrigger>
-          <TabsTrigger value="calculation">Calculation & Margin</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-        </TabsList>
-
-        {/* DETAILS TAB */}
-        <TabsContent value="details" className="space-y-4 mt-6">
-          {/* Sender Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Sender
-              </CardTitle>
-              <CardDescription>
-                Person or entity sending this invoice
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Name</Label>
-                  <p className="font-medium">{(data as any).sender?.name || "N/A"}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <p className="font-medium">{(data as any).sender?.email || "N/A"}</p>
-                </div>
+      {/* PROFESSIONAL INVOICE LAYOUT */}
+      {showFullInvoice ? (
+        <Card className="border-2">
+          <CardContent className="p-8 space-y-8">
+            {/* Invoice Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-4xl font-bold mb-2">INVOICE</h2>
+                <p className="text-lg text-muted-foreground">
+                  {data.invoiceNumber || `INV-${data.id.slice(0, 8)}`}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Receiver Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Receiver (Invoice Recipient)
-              </CardTitle>
-              <CardDescription>
-                Person or entity receiving this invoice
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Name</Label>
-                  <p className="font-medium">{(data as any).receiver?.name || invoiceRecipient}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <p className="font-medium">{(data as any).receiver?.email || "N/A"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Pay Invoice Section - Only visible to receiver */}
-          {data.receiverId === session?.user?.id && currentState !== "paid" && (
-            <Card className="border-green-200 bg-green-50/50">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 text-green-700">
-                  <DollarSign className="h-4 w-4" />
-                  Payment Required
-                </CardTitle>
-                <CardDescription>
-                  You are responsible for paying this invoice
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-white rounded-lg border">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Amount to Pay</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: data.currencyRelation?.code || "USD",
-                      }).format(Number(data.totalAmount || 0))}
-                    </p>
-                  </div>
-                  <Button 
-                    size="lg" 
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={() => {
-                      handleMarkAsPaidByAgency();
-                    }}
-                  >
-                    Mark as Paid
-                  </Button>
-                </div>
-
-                {/* Bank Account Details for Payment */}
-                {data.contract?.bank && (
-                  <div className="mt-4 p-4 bg-white rounded-lg border space-y-3">
-                    <h4 className="font-semibold text-sm">Bank Account Details</h4>
-                    <div className="grid grid-cols-1 gap-3">
-                      {data.contract.bank.name && (
-                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Bank Name</Label>
-                            <p className="font-medium text-sm">{data.contract.bank.name}</p>
-                          </div>
-                        </div>
-                      )}
-                      {data.contract.bank.accountNumber && (
-                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                          <div className="flex-1">
-                            <Label className="text-xs text-muted-foreground">Account Number</Label>
-                            <p className="font-mono text-sm">{data.contract.bank.accountNumber}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (data.contract?.bank?.accountNumber) {
-                                navigator.clipboard.writeText(data.contract.bank.accountNumber);
-                                toast.success("Account number copied");
-                              }
-                            }}
-                          >
-                            Copy
-                          </Button>
-                        </div>
-                      )}
-                      {data.contract.bank.iban && (
-                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                          <div className="flex-1">
-                            <Label className="text-xs text-muted-foreground">IBAN</Label>
-                            <p className="font-mono text-sm">{data.contract.bank.iban}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (data.contract?.bank?.iban) {
-                                navigator.clipboard.writeText(data.contract.bank.iban);
-                                toast.success("IBAN copied");
-                              }
-                            }}
-                          >
-                            Copy
-                          </Button>
-                        </div>
-                      )}
-                      {data.contract.bank.swiftCode && (
-                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                          <div className="flex-1">
-                            <Label className="text-xs text-muted-foreground">SWIFT/BIC</Label>
-                            <p className="font-mono text-sm">{data.contract.bank.swiftCode}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (data.contract?.bank?.swiftCode) {
-                                navigator.clipboard.writeText(data.contract.bank.swiftCode);
-                                toast.success("SWIFT code copied");
-                              }
-                            }}
-                          >
-                            Copy
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Company Information */}
-          {(clientParticipant?.company || agencyParticipant?.company) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Company Information
-                </CardTitle>
-                <CardDescription>
-                  Business details for this contract
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {clientParticipant?.company && (
-                  <div className="pb-3 border-b last:border-0">
-                    <Label className="text-xs text-muted-foreground font-semibold">Client Company</Label>
-                    <div className="mt-2 space-y-2">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Name</Label>
-                        <p className="font-medium">{clientParticipant.company.name}</p>
-                      </div>
-                      {clientParticipant.company.contactEmail && (
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Contact Email</Label>
-                          <p className="text-sm">{clientParticipant.company.contactEmail}</p>
-                        </div>
-                      )}
-                      {clientParticipant.company.contactPhone && (
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Contact Phone</Label>
-                          <p className="text-sm">{clientParticipant.company.contactPhone}</p>
-                        </div>
-                      )}
-                      {(clientParticipant.company.address1 || clientParticipant.company.city) && (
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Address</Label>
-                          <p className="text-sm">
-                            {[
-                              clientParticipant.company.address1,
-                              clientParticipant.company.address2,
-                              clientParticipant.company.city,
-                              clientParticipant.company.state,
-                              clientParticipant.company.postCode,
-                            ].filter(Boolean).join(", ")}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {agencyParticipant?.company && (
-                  <div className="pt-3">
-                    <Label className="text-xs text-muted-foreground font-semibold">Agency Company</Label>
-                    <div className="mt-2 space-y-2">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Name</Label>
-                        <p className="font-medium">{agencyParticipant.company.name}</p>
-                      </div>
-                      {agencyParticipant.company.contactEmail && (
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Contact Email</Label>
-                          <p className="text-sm">{agencyParticipant.company.contactEmail}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Bank Account Details */}
-          {data.contract?.bank && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Payment Details
-                </CardTitle>
-                <CardDescription>
-                  Bank account information for payment
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 gap-3">
-                  {data.contract.bank.name && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Bank Name</Label>
-                        <p className="font-medium">{data.contract.bank.name}</p>
-                      </div>
-                    </div>
-                  )}
-                  {data.contract.bank.accountNumber && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <Label className="text-xs text-muted-foreground">Account Number</Label>
-                        <p className="font-mono text-sm">{data.contract.bank.accountNumber}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const accountNumber = data.contract?.bank?.accountNumber;
-                          if (accountNumber) {
-                            navigator.clipboard.writeText(accountNumber);
-                            toast.success("Account number copied to clipboard");
-                          }
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  )}
-                  {data.contract.bank.iban && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <Label className="text-xs text-muted-foreground">IBAN</Label>
-                        <p className="font-mono text-sm">{data.contract.bank.iban}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const iban = data.contract?.bank?.iban;
-                          if (iban) {
-                            navigator.clipboard.writeText(iban);
-                            toast.success("IBAN copied to clipboard");
-                          }
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  )}
-                  {data.contract.bank.swiftCode && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
-                        <p className="font-mono text-sm">{data.contract.bank.swiftCode}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const swiftCode = data.contract?.bank?.swiftCode;
-                          if (swiftCode) {
-                            navigator.clipboard.writeText(swiftCode);
-                            toast.success("SWIFT code copied to clipboard");
-                          }
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  )}
-                  {data.contract.bank.address && (
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <Label className="text-xs text-muted-foreground">Bank Address</Label>
-                      <p className="text-sm mt-1">{data.contract.bank.address}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Contract Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Contract Reference</Label>
-                  <p className="font-medium">
-                    {data.contract?.contractReference || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Client</Label>
-                  <p className="font-medium">{clientName}</p>
-                </div>
-                {agencyName !== "N/A" && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Agency</Label>
-                    <p className="font-medium">{agencyName}</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Invoice Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Invoice Number</Label>
-                  <p className="font-medium">{data.invoiceNumber || `INV-${data.id.slice(0, 8)}`}</p>
-                </div>
+              <div className="text-right space-y-1">
                 <div>
                   <Label className="text-xs text-muted-foreground">Issue Date</Label>
-                  <p className="font-medium">
-                    {new Date(data.issueDate).toLocaleDateString()}
-                  </p>
+                  <p className="font-medium">{new Date(data.issueDate).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Due Date</Label>
-                  <p className="font-medium">
-                    {new Date(data.dueDate).toLocaleDateString()}
-                  </p>
+                  <p className="font-medium text-red-600">{new Date(data.dueDate).toLocaleDateString()}</p>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    {isModifyingAmount ? "Original Amount" : "Total Amount"}
-                  </Label>
-                  <p className="font-medium text-lg text-green-600">
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: data.currencyRelation?.code || "USD",
-                    }).format(Number(data.totalAmount || 0))}
-                  </p>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+
+            {/* From / To Section */}
+            <div className="grid grid-cols-2 gap-8">
+              {/* From (Sender) */}
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">FROM</h3>
+                <div className="space-y-1">
+                  <p className="font-bold text-lg">{data.sender?.name || "N/A"}</p>
+                  {data.sender?.email && <p className="text-sm">{data.sender.email}</p>}
+                  {data.sender?.phone && <p className="text-sm">{data.sender.phone}</p>}
+                  {contractorParticipant?.company && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      <p>{contractorParticipant.company.name}</p>
+                      {contractorParticipant.company.address1 && (
+                        <p>{contractorParticipant.company.address1}</p>
+                      )}
+                      {contractorParticipant.company.city && (
+                        <p>
+                          {[
+                            contractorParticipant.company.city,
+                            contractorParticipant.company.state,
+                            contractorParticipant.company.postCode,
+                          ].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {data.description && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Description</Label>
-                  <p className="text-sm">{data.description}</p>
+              {/* To (Receiver - Payment Destination) */}
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">BILL TO</h3>
+                <div className="space-y-1">
+                  <p className="font-bold text-lg">{data.receiver?.name || invoiceRecipient}</p>
+                  {data.receiver?.email && <p className="text-sm">{data.receiver.email}</p>}
+                  {data.receiver?.phone && <p className="text-sm">{data.receiver.phone}</p>}
+                  {(agencyParticipant?.company || clientParticipant?.company) && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {agencyParticipant?.company && (
+                        <>
+                          <p>{agencyParticipant.company.name}</p>
+                          {agencyParticipant.company.contactEmail && (
+                            <p>{agencyParticipant.company.contactEmail}</p>
+                          )}
+                        </>
+                      )}
+                      {!agencyParticipant?.company && clientParticipant?.company && (
+                        <>
+                          <p>{clientParticipant.company.name}</p>
+                          {clientParticipant.company.address1 && (
+                            <p>{clientParticipant.company.address1}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            </div>
 
-              {data.notes && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Notes</Label>
-                  <p className="text-sm text-muted-foreground italic">{data.notes}</p>
-                </div>
-              )}
-
-              {/* Admin Modify Amount */}
-              {canModify && (currentState === "for_approval" || currentState === "under_review") && (
-                <>
-                  <Separator />
+            {/* Payment Destination - Tenant Company Information */}
+            {tenantCompany && (
+              <>
+                <Separator className="my-6" />
+                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-green-700" />
+                    <h3 className="text-lg font-bold text-green-900">PAYMENT DESTINATION</h3>
+                  </div>
+                  
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Admin Adjustment</Label>
-                      {!isModifyingAmount && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground font-semibold">Company Name</Label>
+                      <p className="font-bold text-lg">{tenantCompany.name}</p>
+                    </div>
+                    
+                    {tenantCompany.contactEmail && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Email</Label>
+                          <p className="text-sm">{tenantCompany.contactEmail}</p>
+                        </div>
+                        {tenantCompany.contactPhone && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Phone</Label>
+                            <p className="text-sm">{tenantCompany.contactPhone}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {tenantCompany.address1 && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Address</Label>
+                        <p className="text-sm">
+                          {[
+                            tenantCompany.address1,
+                            tenantCompany.address2,
+                            tenantCompany.city,
+                            tenantCompany.state,
+                            tenantCompany.postCode,
+                            tenantCompany.country,
+                          ].filter(Boolean).join(", ")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bank Account Details */}
+                  {data.contract?.bank && (
+                    <div className="mt-4 pt-4 border-t-2 border-green-300">
+                      <h4 className="font-semibold text-sm text-green-900 mb-3">BANK ACCOUNT DETAILS</h4>
+                      <div className="grid grid-cols-1 gap-3">
+                        {data.contract.bank.name && (
+                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                              <p className="font-medium">{data.contract.bank.name}</p>
+                            </div>
+                          </div>
+                        )}
+                        {data.contract.bank.accountNumber && (
+                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                            <div className="flex-1">
+                              <Label className="text-xs text-muted-foreground">Account Number</Label>
+                              <p className="font-mono text-sm font-bold">{data.contract.bank.accountNumber}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(data.contract!.bank!.accountNumber!, "Account number")}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {data.contract.bank.iban && (
+                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                            <div className="flex-1">
+                              <Label className="text-xs text-muted-foreground">IBAN</Label>
+                              <p className="font-mono text-sm font-bold">{data.contract.bank.iban}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(data.contract!.bank!.iban!, "IBAN")}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {data.contract.bank.swiftCode && (
+                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                            <div className="flex-1">
+                              <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
+                              <p className="font-mono text-sm font-bold">{data.contract.bank.swiftCode}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(data.contract!.bank!.swiftCode!, "SWIFT code")}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {data.contract.bank.address && (
+                          <div className="p-3 bg-white rounded-lg border border-green-200">
+                            <Label className="text-xs text-muted-foreground">Bank Address</Label>
+                            <p className="text-sm mt-1">{data.contract.bank.address}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            <Separator className="my-6" />
+
+            {/* Contract Reference */}
+            {data.contract && (
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Related Contract</Label>
+                  <p className="font-medium">{data.contract.contractReference || `Contract #${data.contractId?.slice(0, 8)}`}</p>
+                </div>
+                {canViewContract && data.contractId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <Link href={`/contracts/${data.contractId}`}>
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      View Contract
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <Separator className="my-6" />
+
+            {/* LINE ITEMS TABLE */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">SERVICES / LINE ITEMS</h3>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left p-3 font-semibold text-sm">Description</th>
+                      <th className="text-right p-3 font-semibold text-sm w-24">Qty</th>
+                      <th className="text-right p-3 font-semibold text-sm w-32">Unit Price</th>
+                      <th className="text-right p-3 font-semibold text-sm w-32">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {data.lineItems && data.lineItems.length > 0 ? (
+                      data.lineItems
+                        .filter((item: any) => !item.description?.toLowerCase().includes('expense'))
+                        .map((item: any, index: number) => (
+                          <tr key={item.id} className="hover:bg-muted/20">
+                            <td className="p-3 text-sm">{item.description}</td>
+                            <td className="p-3 text-sm text-right">{Number(item.quantity)}</td>
+                            <td className="p-3 text-sm text-right">{formatCurrency(Number(item.unitPrice))}</td>
+                            <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(item.amount))}</td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                          No line items available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Work Subtotal */}
+              {data.lineItems && data.lineItems.length > 0 && (
+                <div className="flex justify-end mt-3">
+                  <div className="w-64 flex justify-between items-center px-4 py-2 bg-muted/30 rounded">
+                    <span className="text-sm font-medium">Work Subtotal:</span>
+                    <span className="font-semibold">{formatCurrency(lineItemsTotals.workTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* EXPENSES SECTION */}
+            {lineItemsTotals.expenses > 0 && (
+              <>
+                <Separator className="my-6" />
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">EXPENSES</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left p-3 font-semibold text-sm">Description</th>
+                          <th className="text-right p-3 font-semibold text-sm w-32">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {data.lineItems
+                          ?.filter((item: any) => item.description?.toLowerCase().includes('expense'))
+                          .map((item: any) => (
+                            <tr key={item.id} className="hover:bg-muted/20">
+                              <td className="p-3 text-sm">{item.description}</td>
+                              <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(item.amount))}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Expenses Total */}
+                  <div className="flex justify-end mt-3">
+                    <div className="w-64 flex justify-between items-center px-4 py-2 bg-muted/30 rounded">
+                      <span className="text-sm font-medium">Total Expenses:</span>
+                      <span className="font-semibold">{formatCurrency(lineItemsTotals.expenses)}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <Separator className="my-6" />
+
+            {/* MARGINS & TOTALS */}
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <div className="w-96 space-y-3">
+                  {/* Base Amount (Subtotal) */}
+                  <div className="flex justify-between items-center px-4 py-2">
+                    <span className="text-sm">Subtotal (Base Amount):</span>
+                    <span className="font-medium">{formatCurrency(Number(data.baseAmount || data.amount || 0))}</span>
+                  </div>
+                  
+                  {/* Margin Calculation */}
+                  {marginBreakdown && marginBreakdown.marginAmount > 0 && (
+                    <>
+                      <Separator />
+                      <div className="px-4 py-3 bg-blue-50 rounded-lg space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <DollarSign className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-semibold text-blue-900">Margin Calculation</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            Margin ({marginBreakdown.marginPercentage}%):
+                          </span>
+                          <span className="font-medium text-blue-700">
+                            {formatCurrency(marginBreakdown.marginAmount)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Paid by: {marginBreakdown.marginPaidBy}
+                        </div>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+                  
+                  {/* Total Amount */}
+                  <div className="flex justify-between items-center px-4 py-4 bg-green-600 text-white rounded-lg">
+                    <span className="text-lg font-bold">TOTAL AMOUNT DUE:</span>
+                    <span className="text-2xl font-bold">{formatCurrency(Number(data.totalAmount || 0))}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Description & Notes */}
+            {(data.description || data.notes) && (
+              <>
+                <Separator className="my-6" />
+                <div className="space-y-3">
+                  {data.description && (
+                    <div>
+                      <Label className="text-sm font-semibold">Description</Label>
+                      <p className="text-sm text-muted-foreground mt-1">{data.description}</p>
+                    </div>
+                  )}
+                  {data.notes && (
+                    <div>
+                      <Label className="text-sm font-semibold">Notes</Label>
+                      <p className="text-sm text-muted-foreground italic mt-1">{data.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Payment Instructions */}
+            <div className="mt-8 p-4 border-t-2 border-muted">
+              <p className="text-sm text-muted-foreground text-center">
+                Please make payment to the account details shown above. 
+                Payment is due by {new Date(data.dueDate).toLocaleDateString()}.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        /* TABS VIEW (Original) */
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="line-items">Line Items</TabsTrigger>
+            <TabsTrigger value="calculation">Calculation & Margin</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+          </TabsList>
+
+          {/* DETAILS TAB */}
+          <TabsContent value="details" className="space-y-4 mt-6">
+            {/* Sender Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Sender
+                </CardTitle>
+                <CardDescription>
+                  Person or entity sending this invoice
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Name</Label>
+                    <p className="font-medium">{(data as any).sender?.name || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p className="font-medium">{(data as any).sender?.email || "N/A"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Receiver Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Receiver (Invoice Recipient)
+                </CardTitle>
+                <CardDescription>
+                  Person or entity receiving this invoice
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Name</Label>
+                    <p className="font-medium">{(data as any).receiver?.name || invoiceRecipient}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p className="font-medium">{(data as any).receiver?.email || "N/A"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contract Reference with Link */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Contract Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Contract Reference</Label>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">
+                        {data.contract?.contractReference || "N/A"}
+                      </p>
+                      {canViewContract && data.contractId && (
                         <Button
+                          variant="ghost"
                           size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setIsModifyingAmount(true);
-                            setAdminModifiedAmount(data.totalAmount?.toString() || "");
-                          }}
+                          asChild
                         >
-                          Modify Amount
+                          <Link href={`/contracts/${data.contractId}`}>
+                            <LinkIcon className="h-3 w-3" />
+                          </Link>
                         </Button>
                       )}
                     </div>
-
-                    {isModifyingAmount && (
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={adminModifiedAmount}
-                          onChange={(e) => setAdminModifiedAmount(e.target.value)}
-                          placeholder="Enter new amount"
-                        />
-                        <Button
-                          onClick={handleModifyAmount}
-                          disabled={modifyAmountMutation.isPending}
-                        >
-                          {modifyAmountMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Save"
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setIsModifyingAmount(false);
-                            setAdminModifiedAmount("");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
-
-                    {data.adminModifiedAmount && (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Amount was adjusted by admin to{" "}
-                          {new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: data.currencyRelation?.code || "USD",
-                          }).format(Number(data.adminModifiedAmount))}
-                        </AlertDescription>
-                      </Alert>
-                    )}
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* LINE ITEMS TAB */}
-        <TabsContent value="line-items" className="space-y-4 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Invoice Line Items</CardTitle>
-              <CardDescription>Detailed breakdown of services and charges</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {data.lineItems && data.lineItems.length > 0 ? (
-                <div className="space-y-2">
-                  {data.lineItems.map((item: any) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between items-start py-3 border-b last:border-0"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium">{item.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {Number(item.quantity)} × ${Number(item.unitPrice).toFixed(2)}
-                        </p>
-                      </div>
-                      <p className="font-medium text-lg">
-                        ${Number(item.amount).toFixed(2)}
-                      </p>
-                    </div>
-                  ))}
-                  <Separator />
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="font-semibold">Subtotal:</span>
-                    <span className="font-semibold text-lg">
-                      ${Number(data.amount || 0).toFixed(2)}
-                    </span>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Client</Label>
+                    <p className="font-medium">{clientName}</p>
                   </div>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No line items available
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
 
-        {/* CALCULATION TAB */}
-        <TabsContent value="calculation" className="space-y-4 mt-6">
-          {marginBreakdown && (
-            <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
-          )}
+            {/* Invoice Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Invoice Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Invoice Number</Label>
+                    <p className="font-medium">{data.invoiceNumber || `INV-${data.id.slice(0, 8)}`}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Issue Date</Label>
+                    <p className="font-medium">
+                      {new Date(data.issueDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Due Date</Label>
+                    <p className="font-medium">
+                      {new Date(data.dueDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Total Amount</Label>
+                    <p className="font-medium text-lg text-green-600">
+                      {formatCurrency(Number(data.totalAmount || 0))}
+                    </p>
+                  </div>
+                </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Final Amount
-              </CardTitle>
-              <CardDescription>
-                This is the total amount that will be invoiced to {invoiceRecipient}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
-                <span className="text-lg font-semibold">Total Amount:</span>
-                <span className="text-2xl font-bold text-green-600">
-                  {new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: data.currencyRelation?.code || "USD",
-                  }).format(Number(data.totalAmount || 0))}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                {data.description && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Description</Label>
+                    <p className="text-sm">{data.description}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* DOCUMENTS TAB */}
-        <TabsContent value="documents" className="space-y-4 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Attached Documents</CardTitle>
-              <CardDescription>
-                Files and receipts attached to this invoice
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Display documents from invoice */}
-              {(data as any).documents && (data as any).documents.length > 0 ? (
-                <div className="space-y-3">
-                  {(data as any).documents.map((doc: any, index: number) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="flex-shrink-0">
-                          <FileText className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold">
-                            {doc.fileName || `Document ${index + 1}`}
+          {/* LINE ITEMS TAB */}
+          <TabsContent value="line-items" className="space-y-4 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Invoice Line Items</CardTitle>
+                <CardDescription>Detailed breakdown of services and charges</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data.lineItems && data.lineItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {data.lineItems.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-start py-3 border-b last:border-0"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{item.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {Number(item.quantity)} × {formatCurrency(Number(item.unitPrice))}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {doc.fileType} • {(doc.fileSize / 1024).toFixed(1)} KB
-                          </p>
-                          {doc.description && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {doc.description}
-                            </p>
-                          )}
                         </div>
+                        <p className="font-medium text-lg">
+                          {formatCurrency(Number(item.amount))}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    ))}
+                    <Separator />
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="font-semibold">Subtotal:</span>
+                      <span className="font-semibold text-lg">
+                        {formatCurrency(Number(data.amount || 0))}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No line items available
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* CALCULATION TAB */}
+          <TabsContent value="calculation" className="space-y-4 mt-6">
+            {marginBreakdown && (
+              <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Final Amount
+                </CardTitle>
+                <CardDescription>
+                  This is the total amount that will be invoiced to {invoiceRecipient}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
+                  <span className="text-lg font-semibold">Total Amount:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    {formatCurrency(Number(data.totalAmount || 0))}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DOCUMENTS TAB */}
+          <TabsContent value="documents" className="space-y-4 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Attached Documents</CardTitle>
+                <CardDescription>
+                  Files and receipts attached to this invoice
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(data as any).documents && (data as any).documents.length > 0 ? (
+                  <div className="space-y-3">
+                    {(data as any).documents.map((doc: any, index: number) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <FileText className="h-6 w-6 text-blue-600" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold">
+                              {doc.fileName || `Document ${index + 1}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {doc.fileType} • {(doc.fileSize / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"
@@ -966,22 +1040,19 @@ export default function InvoiceDetailPage() {
                           View
                         </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground">No documents attached</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    No documents have been uploaded for this invoice
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium text-muted-foreground">No documents attached</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
 
       {/* WORKFLOW ACTIONS */}
       {availableActions.length > 0 && (
