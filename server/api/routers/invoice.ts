@@ -499,7 +499,8 @@ getById: tenantProcedure
             include: {
               participants: {
                 where: { isActive: true }
-              }
+              },
+              currency: true
             }
           }
         }
@@ -538,7 +539,7 @@ getById: tenantProcedure
           tenantId: ctx.tenantId,
           invoiceId: invoice.id,
           amount: invoice.totalAmount,
-          currency: invoice.currency,
+          currency: invoice.contract?.currency?.code || "USD",
           status: "pending", // En attente de confirmation par l'admin
           paymentMethod: input.paymentMethod,
           transactionId: input.transactionId,
@@ -1238,7 +1239,7 @@ getById: tenantProcedure
           marginAmount: marginCalculation?.marginAmount || new Prisma.Decimal(0),
           marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
           totalAmount: totalAmount,
-          currency: timesheet.contract?.currency?.name ?? "USD",
+          currencyId: timesheet.contract?.currencyId,
           
           status: "submitted",
           workflowState: "pending_margin_confirmation",

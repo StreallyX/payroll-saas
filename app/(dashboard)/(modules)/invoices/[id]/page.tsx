@@ -333,7 +333,7 @@ export default function InvoiceDetailPage() {
             contractId: data.contractId || undefined,
           }}
           baseAmount={Number((data as any).baseAmount || data.amount || 0)}
-          currency={data.currency || "USD"}
+          currency={data.contract?.currency?.code || "USD"}
           onConfirmMargin={handleConfirmMargin}
           isLoading={confirmMarginMutation.isPending}
         />
