@@ -196,6 +196,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
 
+    buildPermissionKey(Resource.INVOICE, Action.PAY, PermissionScope.OWN),
+
     // CONTRACTS (own)
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
