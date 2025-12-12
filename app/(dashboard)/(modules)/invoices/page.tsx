@@ -67,16 +67,16 @@ function InvoicesPageContent() {
   const utils = api.useUtils();
 
   // -------------------------------
-  // API HOOKS (NEVER CONDITIONAL)
+  // API HOOKS (CONDITIONALLY ENABLED BASED ON PERMISSIONS)
   // -------------------------------
   const globalQuery = api.invoice.getAll.useQuery(
     { limit: 200 },
-    { enabled: true }
+    { enabled: CAN_LIST_GLOBAL }
   );
 
   const ownQuery = api.invoice.getMyInvoices.useQuery(
     undefined,
-    { enabled: true }
+    { enabled: CAN_READ_OWN && !CAN_LIST_GLOBAL }
   );
 
   const deleteMutation = api.invoice.deleteInvoice.useMutation({
