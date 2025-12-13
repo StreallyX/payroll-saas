@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useMemo } from "react";
-import { Loader2, FileText, AlertCircle, User, Building2, DollarSign, ArrowLeft, Link as LinkIcon, Copy, CheckCircle } from "lucide-react";
+import { Loader2, FileText, Download, AlertCircle, User, Building2, DollarSign, ArrowLeft, Link as LinkIcon, Copy, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSession } from "next-auth/react";

@@ -25,6 +25,7 @@ export interface MarginCalculationResult {
   calculatedMargin: Decimal
   invoiceAmount: Decimal
   totalWithMargin: Decimal
+  marginPaidBy: string | null
 }
 
 export interface MarginOverrideInput {
@@ -132,6 +133,7 @@ export class MarginService {
       calculatedMargin,
       invoiceAmount: invoiceAmountDecimal,
       totalWithMargin,
+      marginPaidBy: contract.marginPaidBy,
     }
   }
 

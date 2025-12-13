@@ -981,7 +981,7 @@ getById: tenantProcedure
       // 3. Invoice creator
       const isReceiver = invoice.receiverId === ctx.session.user.id;
       const isCreator = invoice.createdBy === ctx.session.user.id;
-      const hasModifyPermission = ctx.hasPermission(P.MODIFY_GLOBAL);
+      const hasModifyPermission = ctx.session.user.permissions?.includes(P.MODIFY_GLOBAL)
 
       if (!isReceiver && !isCreator && !hasModifyPermission) {
         throw new TRPCError({
