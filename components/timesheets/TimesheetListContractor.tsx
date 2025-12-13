@@ -22,6 +22,7 @@ export function TimesheetListContractor() {
       },
       {
         getNextPageParam: (lastPage) => lastPage.nextCursor,
+        refetchInterval: 30000, // Auto-refresh every 30 seconds
       }
     );
 

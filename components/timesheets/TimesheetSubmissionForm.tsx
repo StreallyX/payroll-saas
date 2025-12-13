@@ -728,16 +728,11 @@ export function TimesheetSubmissionFormModal({
             Cancel
           </Button>
           <Button
-            variant="secondary"
             onClick={() => handleSubmit(true)}
             disabled={create.isPending}
           >
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save as Draft
-          </Button>
-          <Button onClick={() => handleSubmit(false)} disabled={create.isPending}>
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Submit for Review
           </Button>
         </DialogFooter>
         </ScrollArea>

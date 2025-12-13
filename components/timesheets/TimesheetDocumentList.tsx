@@ -2,10 +2,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Trash2, Loader2 } from "lucide-react";
+import { FileText, Download, Trash2, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useTimesheetDocuments } from "@/hooks/timesheets/useTimesheetDocuments";
 import { api } from "@/lib/trpc";
+import Link from "next/link";
 
 interface TimesheetDocumentListProps {
   timesheetId: string;
@@ -104,6 +105,16 @@ export function TimesheetDocumentList({
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+            >
+              <Link href={`/timesheets/${timesheetId}/documents/${doc.id}`}>
+                <Eye className="h-4 w-4 mr-2" />
+                View
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"

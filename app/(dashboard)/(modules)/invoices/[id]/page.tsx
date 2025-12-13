@@ -1032,13 +1032,24 @@ export default function InvoiceDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(doc.fileUrl, "_blank")}
-                        >
-                          View
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                          >
+                            <Link href={`/invoices/${invoiceId}/documents/${doc.id}`}>
+                              View
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -39,7 +39,9 @@ function getMainParticipant(contract: any) {
 
 export function TimesheetListAdmin() {
   const utils = api.useUtils();
-  const { data, isLoading } = api.timesheet.getAll.useQuery();
+  const { data, isLoading } = api.timesheet.getAll.useQuery(undefined, {
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+  });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 

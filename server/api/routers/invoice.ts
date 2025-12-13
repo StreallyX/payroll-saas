@@ -948,10 +948,9 @@ getById: tenantProcedure
 
   /**
    * Confirm margin for invoice
-   * Allows admin to review and optionally override margin before proceeding
+   * Allows admin OR invoice receiver to review and optionally override margin before proceeding
    */
   confirmMargin: tenantProcedure
-    .use(hasPermission(P.UPDATE_GLOBAL))
     .input(z.object({
       invoiceId: z.string(),
       marginId: z.string().optional(),
@@ -973,6 +972,22 @@ getById: tenantProcedure
 
       if (!invoice) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
+      }
+
+      // Check if user has permission to confirm margin
+      // Allow if user is:
+      // 1. Invoice receiver (agency receiving the invoice)
+      // 2. User with invoice.modify.global permission
+      // 3. Invoice creator
+      const isReceiver = invoice.receiverId === ctx.session.user.id;
+      const isCreator = invoice.createdBy === ctx.session.user.id;
+      const hasModifyPermission = ctx.hasPermission(P.MODIFY_GLOBAL);
+
+      if (!isReceiver && !isCreator && !hasModifyPermission) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to confirm margin for this invoice",
+        });
       }
 
       // If margin override is requested, apply it

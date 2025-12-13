@@ -155,6 +155,7 @@ export enum Action {
   PAY = "pay",
   REFUND = "refund",
   PROCESS = "process",
+  VIEW_MARGIN = "view_margin",
   
   // Signature
   SIGN = "sign",
@@ -1195,6 +1196,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Rejeter des feuilles de temps",
     "Rejeter des timesheets",
     PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TIMESHEET,
+    Action.VIEW_MARGIN,
+    PermissionScope.GLOBAL,
+    "Voir les marges des feuilles de temps",
+    "Consulter les détails de marge et la répartition complète des montants dans les timesheets",
+    PermissionCategory.FINANCIAL
   ),
 
   // =============================

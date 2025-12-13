@@ -656,16 +656,19 @@ createRange: tenantProcedure
         const rate = new Prisma.Decimal(timesheet.contract?.rate ?? 0);
         const baseAmount = timesheet.baseAmount || new Prisma.Decimal(0);
         const totalExpenses = timesheet.totalExpenses || new Prisma.Decimal(0);
-        const invoiceAmount = baseAmount.add(totalExpenses);
 
-        // Calculate margin using new MarginService
+        // 🔥 FIX: Calculate margin on work amount only (not including expenses)
+        // Margin should be calculated on the work/services, not on expenses
         const MarginService = (await import("@/lib/services/MarginService")).MarginService;
         const marginCalculation = await MarginService.calculateMarginFromContract(
           timesheet.contractId!,
-          parseFloat(invoiceAmount.toString())
+          parseFloat(baseAmount.toString()) // Use baseAmount (work only) for margin calculation
         );
 
-        const totalAmount = marginCalculation?.totalWithMargin || invoiceAmount;
+        // 🔥 FIX: Total = base work amount + margin + expenses
+        const marginAmount = marginCalculation?.marginAmount || new Prisma.Decimal(0);
+        const workWithMargin = baseAmount.add(marginAmount);
+        const totalAmount = workWithMargin.add(totalExpenses);
 
         // Prepare line items from timesheet entries
         // 🔥 FIX: Line items should be per day, NOT per hour
@@ -703,11 +706,13 @@ createRange: tenantProcedure
             senderId: senderId,
             receiverId: receiverId,
             
-            baseAmount: baseAmount,
-            amount: invoiceAmount,
+            // 🔥 FIX: Proper amount structure
+            baseAmount: baseAmount, // Work amount only (without expenses or margin)
+            amount: baseAmount, // Legacy field - same as baseAmount
             marginAmount: marginCalculation?.marginAmount || new Prisma.Decimal(0),
             marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
-            totalAmount: totalAmount,
+            marginPaidBy: marginCalculation?.marginPaidBy || "client",
+            totalAmount: totalAmount, // Total = baseAmount + marginAmount + expenses
             currencyId: timesheet.contract?.currencyId, // 🔥 NEW: Use currencyId
             
             status: "submitted",
@@ -717,7 +722,7 @@ createRange: tenantProcedure
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
 
             description: `Invoice for timesheet ${timesheet.startDate.toISOString().slice(0, 10)} to ${timesheet.endDate.toISOString().slice(0, 10)}`,
-            notes: input.notes || `Auto-generated from timesheet. Total hours: ${timesheet.totalHours}`,
+            notes: input.notes || `Auto-generated from timesheet. Total hours: ${timesheet.totalHours}. Base amount: ${baseAmount}, Margin: ${marginAmount}, Expenses: ${totalExpenses}, Total: ${totalAmount}`,
 
             lineItems: {
               create: lineItems,

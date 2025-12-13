@@ -187,6 +187,7 @@ export default function TimesheetDetailPage() {
   const canReject = hasPermission("timesheet.reject.global");
   const canSubmit = hasPermission("timesheet.submit.own");
   const canModify = hasPermission("timesheet.modify.global");
+  const canViewMargin = hasPermission("timesheet.view_margin.global");
 
   const currentState = data.workflowState || data.status;
   const isOwner = data.submittedBy === data.submitter?.id;
@@ -268,9 +269,18 @@ export default function TimesheetDetailPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Contract</p>
-                  <p className="font-medium mt-1">
-                    {data.contract?.title || data.contract?.contractReference || "N/A"}
-                  </p>
+                  {data.contract?.id ? (
+                    <Link 
+                      href={`/contracts/${data.contract.id}`}
+                      className="font-medium mt-1 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer block"
+                    >
+                      {data.contract?.title || data.contract?.contractReference || "Contract"}
+                    </Link>
+                  ) : (
+                    <p className="font-medium mt-1">
+                      {data.contract?.title || data.contract?.contractReference || "N/A"}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     ${data.contract?.rate?.toString() || "0"} / {data.contract?.rateType || "day"}
                   </p>
@@ -447,40 +457,65 @@ export default function TimesheetDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Work Amount ({hoursTotal.toFixed(1)}h):</span>
-                  <span className="font-medium">
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    }).format(workAmount)}
-                  </span>
-                </div>
-                {/* MARGIN HIDDEN: Margin not shown to contractors per requirements */}
-                {expensesAmount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Expenses:</span>
-                    <span className="font-medium">
+              {canViewMargin ? (
+                // Full breakdown for users with margin permission
+                <>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Work Amount ({hoursTotal.toFixed(1)}h):</span>
+                      <span className="font-medium">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                        }).format(workAmount)}
+                      </span>
+                    </div>
+                    {marginAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Margin:</span>
+                        <span className="font-medium">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format(marginAmount)}
+                        </span>
+                      </div>
+                    )}
+                    {expensesAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Expenses:</span>
+                        <span className="font-medium">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format(expensesAmount)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
+                    <span className="text-lg font-semibold">Total Amount:</span>
+                    <span className="text-2xl font-bold text-green-600">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
                         currency: "USD",
-                      }).format(expensesAmount)}
+                      }).format(totalAmount)}
                     </span>
                   </div>
-                )}
-              </div>
-              <Separator />
-              <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
-                <span className="text-lg font-semibold">Total Amount:</span>
-                <span className="text-2xl font-bold text-green-600">
-                  {/* 🔥 FIX: Use totalAmount directly (already includes work + margin + expenses) */}
-                  {new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(totalAmount)}
-                </span>
-              </div>
+                </>
+              ) : (
+                // Simplified view for users without margin permission
+                <div className="flex justify-between items-center p-4 bg-primary/5 rounded-lg">
+                  <span className="text-lg font-semibold">Total Amount:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    }).format(totalAmount)}
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
 

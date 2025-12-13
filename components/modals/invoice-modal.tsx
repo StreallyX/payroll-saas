@@ -77,8 +77,8 @@ export function InvoiceModal({
       setForm({
         invoiceNumber: invoice.invoiceNumber ?? "",
         contractId: invoice.contractId ?? "",
-        senderId: invoice.senderId ?? "",
-        receiverId: invoice.receiverId ?? "",
+        senderId: invoice.senderId ?? invoice.sender?.id ?? "",
+        receiverId: invoice.receiverId ?? invoice.receiver?.id ?? "",
         currency: invoice.currency ?? "USD",
         description: invoice.description ?? "",
         notes: invoice.notes ?? "",
