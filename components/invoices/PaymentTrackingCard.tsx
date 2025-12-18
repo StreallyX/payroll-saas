@@ -4,8 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle, Clock, DollarSign, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useState } from "react";
 
 interface PaymentStatus {
   state: string; // SENT, MARKED_PAID_BY_AGENCY, PAYMENT_RECEIVED, etc.
@@ -13,13 +16,16 @@ interface PaymentStatus {
   paymentReceivedAt?: Date | string;
   paymentReceivedBy?: { name: string; email: string };
   agencyMarkedPaidBy?: { name: string; email: string };
+  amountPaidByAgency?: number | string;
 }
 
 interface PaymentTrackingCardProps {
   paymentStatus: PaymentStatus;
   paymentModel: string; // GROSS, PAYROLL, PAYROLL_WE_PAY, SPLIT
   userRole: string; // agency, admin, etc.
-  onMarkAsPaidByAgency?: () => Promise<void>;
+  invoiceAmount?: number; // Total invoice amount for validation
+  currency?: string; // Currency code (e.g., USD, EUR)
+  onMarkAsPaidByAgency?: (amountPaid: number) => Promise<void>;
   onMarkPaymentReceived?: () => Promise<void>;
   isLoading?: boolean;
 }
@@ -34,19 +40,53 @@ export function PaymentTrackingCard({
   paymentStatus,
   paymentModel,
   userRole,
+  invoiceAmount = 0,
+  currency = "USD",
   onMarkAsPaidByAgency,
   onMarkPaymentReceived,
   isLoading = false,
 }: PaymentTrackingCardProps) {
+  const [amountPaid, setAmountPaid] = useState<string>("");
+  const [amountError, setAmountError] = useState<string>("");
+
   const canMarkPaidByAgency = 
     userRole === "agency" && 
-    paymentStatus.state === "SENT" && 
+    paymentStatus.state === "sent" && 
     onMarkAsPaidByAgency;
 
   const canMarkPaymentReceived = 
     userRole === "admin" && 
-    paymentStatus.state === "MARKED_PAID_BY_AGENCY" && 
+    paymentStatus.state === "marked_paid_by_agency" && 
     onMarkPaymentReceived;
+
+  const handleMarkAsPaid = async () => {
+    // Validate amount
+    const amount = parseFloat(amountPaid);
+    
+    if (!amountPaid || isNaN(amount) || amount <= 0) {
+      setAmountError("Please enter a valid amount greater than 0");
+      return;
+    }
+
+    if (invoiceAmount > 0 && amount > invoiceAmount * 1.1) {
+      setAmountError(`Amount cannot exceed ${formatCurrency(invoiceAmount * 1.1)}`);
+      return;
+    }
+
+    setAmountError("");
+    
+    if (onMarkAsPaidByAgency) {
+      await onMarkAsPaidByAgency(amount);
+      setAmountPaid(""); // Reset after successful submission
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency,
+    }).format(value);
+  };
 
   const getPaymentModelDescription = (model: string) => {
     switch (model) {
@@ -128,6 +168,11 @@ export function PaymentTrackingCard({
                 <p className="text-xs text-muted-foreground">
                   {format(new Date(paymentStatus.agencyMarkedPaidAt), "PPpp")}
                 </p>
+                {paymentStatus.amountPaidByAgency && (
+                  <p className="text-xs font-semibold text-green-700">
+                    Amount Paid: {formatCurrency(Number(paymentStatus.amountPaidByAgency))}
+                  </p>
+                )}
                 {paymentStatus.agencyMarkedPaidBy && (
                   <p className="text-xs text-muted-foreground">
                     By: {paymentStatus.agencyMarkedPaidBy.name}
@@ -191,25 +236,54 @@ export function PaymentTrackingCard({
         {(canMarkPaidByAgency || canMarkPaymentReceived) && (
           <>
             <Separator />
-            <div className="space-y-2">
+            <div className="space-y-3">
               {canMarkPaidByAgency && (
-                <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={onMarkAsPaidByAgency}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Mark as Paid by Agency
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="space-y-2">
+                    <Label htmlFor="amount-paid" className="text-sm font-medium">
+                      Amount Paid {currency && `(${currency})`}
+                    </Label>
+                    <Input
+                      id="amount-paid"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder={invoiceAmount ? `Enter amount (Invoice: ${formatCurrency(invoiceAmount)})` : "Enter amount paid"}
+                      value={amountPaid}
+                      onChange={(e) => {
+                        setAmountPaid(e.target.value);
+                        setAmountError("");
+                      }}
+                      disabled={isLoading}
+                      className={amountError ? "border-red-500" : ""}
+                    />
+                    {amountError && (
+                      <p className="text-xs text-red-600">{amountError}</p>
+                    )}
+                    {invoiceAmount > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Invoice Total: {formatCurrency(invoiceAmount)}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    onClick={handleMarkAsPaid}
+                    disabled={isLoading || !amountPaid}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Mark as Paid
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
 
               {canMarkPaymentReceived && (

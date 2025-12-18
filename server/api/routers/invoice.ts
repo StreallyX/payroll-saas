@@ -1047,6 +1047,7 @@ getById: tenantProcedure
     .use(hasAnyPermission([P.PAY_GLOBAL, "invoice.pay.own"]))
     .input(z.object({
       invoiceId: z.string(),
+      amountPaid: z.number().positive(),
       paymentMethod: z.string().default("bank_transfer"),
       transactionId: z.string().optional(),
       referenceNumber: z.string().optional(),
@@ -1071,12 +1072,26 @@ getById: tenantProcedure
         throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
       }
 
+      // Check if user has permission to mark this invoice as paid
+      const isAdmin = ctx.session.user.permissions.includes(P.PAY_GLOBAL)
+      
+      // If not admin, verify that the user is the receiver of the invoice
+      if (!isAdmin) {
+        if (invoice.receiverId !== ctx.session.user.id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only mark invoices as paid that are addressed to you",
+          })
+        }
+      }
+
       // Update invoice with agency payment tracking
       const updatedInvoice = await ctx.prisma.invoice.update({
         where: { id: input.invoiceId },
         data: {
           agencyMarkedPaidAt: new Date(),
           agencyMarkedPaidBy: ctx.session.user.id,
+          amountPaidByAgency: new Prisma.Decimal(input.amountPaid),
         },
       })
 
@@ -1089,6 +1104,7 @@ getById: tenantProcedure
         tenantId: ctx.tenantId,
         reason: input.notes,
         metadata: {
+          amountPaid: input.amountPaid,
           paymentMethod: input.paymentMethod,
           transactionId: input.transactionId,
           referenceNumber: input.referenceNumber,
@@ -1106,6 +1122,7 @@ getById: tenantProcedure
         tenantId: ctx.tenantId,
         description: "Invoice marked as paid by agency",
         metadata: {
+          amountPaid: input.amountPaid,
           paymentMethod: input.paymentMethod,
           transactionId: input.transactionId,
         },

@@ -231,9 +231,10 @@ export default function InvoiceDetailPage() {
     });
   };
 
-  const handleMarkAsPaidByAgency = async () => {
+  const handleMarkAsPaidByAgency = async (amountPaid: number) => {
     await markAsPaidByAgencyMutation.mutateAsync({ 
       invoiceId,
+      amountPaid,
       paymentMethod: "bank_transfer",
     });
   };
@@ -393,9 +394,12 @@ export default function InvoiceDetailPage() {
             paymentReceivedAt: (data as any).paymentReceivedAt,
             paymentReceivedBy: (data as any).paymentReceivedBy,
             agencyMarkedPaidBy: (data as any).agencyMarkedPaidBy,
+            amountPaidByAgency: (data as any).amountPaidByAgency,
           }}
           paymentModel={(data as any).paymentModel || "GROSS"}
           userRole={session?.user?.roleName || ""}
+          invoiceAmount={Number(data.totalAmount || 0)}
+          currency={data.currencyRelation?.code || "USD"}
           onMarkAsPaidByAgency={handleMarkAsPaidByAgency}
           onMarkPaymentReceived={handleMarkPaymentReceived}
           isLoading={markAsPaidByAgencyMutation.isPending || markPaymentReceivedMutation.isPending}

@@ -44,6 +44,7 @@ export const InvoicePermissions = {
   DELETE_OWN: 'invoice.delete.own',
   VIEW_OWN: 'invoice.view.own',
   CONFIRM_MARGIN_OWN: 'invoice.confirmMargin.own',
+  PAY_OWN: 'invoice.pay.own', // Agency can mark their invoices as paid
   
   LIST_ALL: 'invoice.list.global',
   VIEW_ALL: 'invoice.view.global',
@@ -52,7 +53,7 @@ export const InvoicePermissions = {
   REJECT_ALL: 'invoice.reject.global',
   SEND_ALL: 'invoice.send.global',
   MODIFY_ALL: 'invoice.modify.global', // Admin can modify amounts/margins
-  MARK_PAID_ALL: 'invoice.mark_paid.global',
+  MARK_PAID_ALL: 'invoice.pay.global',
 } as const
 
 /**
@@ -283,7 +284,7 @@ const transitions: TransitionDefinition[] = [
     from: InvoiceState.SENT,
     to: InvoiceState.MARKED_PAID_BY_AGENCY,
     action: WorkflowAction.MARK_PAID_BY_AGENCY,
-    requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
+    requiredPermissions: [InvoicePermissions.PAY_OWN, InvoicePermissions.MARK_PAID_ALL],
   },
   
   // Marked Paid by Agency → Payment Received
@@ -307,7 +308,7 @@ const transitions: TransitionDefinition[] = [
     from: InvoiceState.OVERDUE,
     to: InvoiceState.MARKED_PAID_BY_AGENCY,
     action: WorkflowAction.MARK_PAID_BY_AGENCY,
-    requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
+    requiredPermissions: [InvoicePermissions.PAY_OWN, InvoicePermissions.MARK_PAID_ALL],
   },
   
   // Overdue → Paid (legacy direct path)

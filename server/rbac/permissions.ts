@@ -1010,6 +1010,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Modifier les montants et marges des factures (admin)",
     PermissionCategory.FINANCIAL
   ),
+  createPermission(
+    Resource.INVOICE,
+    Action.PAY,
+    PermissionScope.OWN,
+    "Marquer ses factures comme payées",
+    "Marquer comme payées les factures dont on est le destinataire (agences)",
+    PermissionCategory.FINANCIAL
+  ),
 
   // ================================================================
   // PAYMENTS

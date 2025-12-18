@@ -669,10 +669,11 @@ model Invoice {
   paymentModel PaymentModel? // gross, payroll, payroll_we_pay, split
 
   // 🔥 NEW: Agency payment tracking
-  agencyMarkedPaidAt DateTime? // When agency marked invoice as paid
-  agencyMarkedPaidBy String? // userId who marked as paid
-  paymentReceivedAt  DateTime? // When payment was actually received
-  paymentReceivedBy  String? // userId who confirmed receipt
+  agencyMarkedPaidAt     DateTime? // When agency marked invoice as paid
+  agencyMarkedPaidBy     String? // userId who marked as paid
+  amountPaidByAgency     Decimal?  @db.Decimal(10, 2) // Amount paid by agency/receiver
+  paymentReceivedAt      DateTime? // When payment was actually received
+  paymentReceivedBy      String? // userId who confirmed receipt
 
   // Dates
   issueDate DateTime  @default(now())
