@@ -541,9 +541,9 @@ export default function InvoiceDetailPage() {
                   </div>
 
                   {/* Bank Account Details */}
-                  {data.contract?.bank && (
-                    <div className="mt-4 pt-4 border-t-2 border-green-300">
-                      <h4 className="font-semibold text-sm text-green-900 mb-3">BANK ACCOUNT DETAILS</h4>
+                  <div className="mt-4 pt-4 border-t-2 border-green-300">
+                    <h4 className="font-semibold text-sm text-green-900 mb-3">BANK ACCOUNT DETAILS</h4>
+                    {data.contract?.bank ? (
                       <div className="grid grid-cols-1 gap-3">
                         {data.contract.bank.name && (
                           <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
@@ -605,8 +605,13 @@ export default function InvoiceDetailPage() {
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 mx-auto mb-2" />
+                        <p className="text-sm text-yellow-800 font-medium">No bank account linked</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
