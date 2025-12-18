@@ -368,6 +368,74 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
+      {/* Invoice Status Display - Show validation and payment status */}
+      {(currentState === "approved" || currentState === "sent" || currentState === "marked_paid_by_agency" || currentState === "payment_received") && (
+        <Card className="border-2 border-green-200 bg-green-50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-6">
+              {/* Validation Status */}
+              <div className="flex items-center gap-3 flex-1">
+                <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-green-900">Invoice Validated</h3>
+                  <p className="text-sm text-green-700">
+                    Approved and ready for payment
+                  </p>
+                </div>
+              </div>
+
+              {/* Payment Status */}
+              {currentState === "payment_received" && (
+                <>
+                  <Separator orientation="vertical" className="h-12" />
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center">
+                      <DollarSign className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-green-900">Payment Received</h3>
+                      <p className="text-sm text-green-700">
+                        {(data as any).paymentReceivedAt && 
+                          `Received on ${new Date((data as any).paymentReceivedAt).toLocaleDateString()}`
+                        }
+                        {(data as any).amountReceived && 
+                          ` - ${formatCurrency(Number((data as any).amountReceived))}`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Agency Payment Status */}
+              {(currentState === "marked_paid_by_agency" || currentState === "payment_received") && currentState !== "payment_received" && (
+                <>
+                  <Separator orientation="vertical" className="h-12" />
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center">
+                      <Building2 className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-green-900">Paid by Agency</h3>
+                      <p className="text-sm text-green-700">
+                        {(data as any).agencyMarkedPaidAt && 
+                          `Paid on ${new Date((data as any).agencyMarkedPaidAt).toLocaleDateString()}`
+                        }
+                        {(data as any).amountPaidByAgency && 
+                          ` - ${formatCurrency(Number((data as any).amountPaidByAgency))}`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Margin Confirmation Section - Only show when state is PENDING_MARGIN_CONFIRMATION */}
       {currentState === "pending_margin_confirmation" && (data as any).margin && (
         <MarginConfirmationCard
