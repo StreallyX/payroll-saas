@@ -94,7 +94,7 @@ export function UserSelector({
                 )}
                 {user.role && (
                   <span className="text-xs text-muted-foreground capitalize">
-                    Role: {user.role}
+                    Role: {typeof user.role === 'object' ? user.role.displayName || user.role.name : user.role}
                   </span>
                 )}
               </div>
