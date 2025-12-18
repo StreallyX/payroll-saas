@@ -239,8 +239,11 @@ export default function InvoiceDetailPage() {
     });
   };
 
-  const handleMarkPaymentReceived = async () => {
-    await markPaymentReceivedMutation.mutateAsync({ invoiceId });
+  const handleMarkPaymentReceived = async (amountReceived: number) => {
+    await markPaymentReceivedMutation.mutateAsync({ 
+      invoiceId,
+      amountReceived,
+    });
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -395,6 +398,7 @@ export default function InvoiceDetailPage() {
             paymentReceivedBy: (data as any).paymentReceivedBy,
             agencyMarkedPaidBy: (data as any).agencyMarkedPaidBy,
             amountPaidByAgency: (data as any).amountPaidByAgency,
+            amountReceived: (data as any).amountReceived,
           }}
           paymentModel={(data as any).paymentModel || "GROSS"}
           userRole={session?.user?.roleName || ""}

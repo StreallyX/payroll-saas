@@ -17,6 +17,7 @@ interface PaymentStatus {
   paymentReceivedBy?: { name: string; email: string };
   agencyMarkedPaidBy?: { name: string; email: string };
   amountPaidByAgency?: number | string;
+  amountReceived?: number | string;
 }
 
 interface PaymentTrackingCardProps {
@@ -26,7 +27,7 @@ interface PaymentTrackingCardProps {
   invoiceAmount?: number; // Total invoice amount for validation
   currency?: string; // Currency code (e.g., USD, EUR)
   onMarkAsPaidByAgency?: (amountPaid: number) => Promise<void>;
-  onMarkPaymentReceived?: () => Promise<void>;
+  onMarkPaymentReceived?: (amountReceived: number) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -48,6 +49,10 @@ export function PaymentTrackingCard({
 }: PaymentTrackingCardProps) {
   const [amountPaid, setAmountPaid] = useState<string>("");
   const [amountError, setAmountError] = useState<string>("");
+  const [amountReceived, setAmountReceived] = useState<string>(
+    paymentStatus.amountPaidByAgency ? paymentStatus.amountPaidByAgency.toString() : ""
+  );
+  const [amountReceivedError, setAmountReceivedError] = useState<string>("");
 
   const canMarkPaidByAgency = 
     userRole === "agency" && 
@@ -78,6 +83,28 @@ export function PaymentTrackingCard({
     if (onMarkAsPaidByAgency) {
       await onMarkAsPaidByAgency(amount);
       setAmountPaid(""); // Reset after successful submission
+    }
+  };
+
+  const handleConfirmPaymentReceived = async () => {
+    // Validate amount
+    const amount = parseFloat(amountReceived);
+    
+    if (!amountReceived || isNaN(amount) || amount <= 0) {
+      setAmountReceivedError("Please enter a valid amount greater than 0");
+      return;
+    }
+
+    if (invoiceAmount > 0 && amount > invoiceAmount * 1.2) {
+      setAmountReceivedError(`Amount seems too high. Invoice total: ${formatCurrency(invoiceAmount)}`);
+      return;
+    }
+
+    setAmountReceivedError("");
+    
+    if (onMarkPaymentReceived) {
+      await onMarkPaymentReceived(amount);
+      setAmountReceived(""); // Reset after successful submission
     }
   };
 
@@ -189,13 +216,26 @@ export function PaymentTrackingCard({
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Payment Received</p>
+                <p className="text-sm font-medium">Payment Received & Confirmed</p>
                 <p className="text-xs text-muted-foreground">
                   {format(new Date(paymentStatus.paymentReceivedAt), "PPpp")}
                 </p>
+                {paymentStatus.amountReceived && (
+                  <p className="text-xs font-semibold text-green-700">
+                    Amount Received: {formatCurrency(Number(paymentStatus.amountReceived))}
+                  </p>
+                )}
+                {paymentStatus.amountPaidByAgency && paymentStatus.amountReceived && 
+                 Number(paymentStatus.amountPaidByAgency) !== Number(paymentStatus.amountReceived) && (
+                  <p className="text-xs text-orange-600">
+                    Difference from amount paid: {formatCurrency(
+                      Number(paymentStatus.amountReceived) - Number(paymentStatus.amountPaidByAgency)
+                    )}
+                  </p>
+                )}
                 {paymentStatus.paymentReceivedBy && (
                   <p className="text-xs text-muted-foreground">
-                    By: {paymentStatus.paymentReceivedBy.name}
+                    Confirmed by: {paymentStatus.paymentReceivedBy.name}
                   </p>
                 )}
               </div>
@@ -287,23 +327,78 @@ export function PaymentTrackingCard({
               )}
 
               {canMarkPaymentReceived && (
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  onClick={onMarkPaymentReceived}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Confirm Payment Received
-                    </>
+                <div className="space-y-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="text-sm font-semibold text-green-800">
+                    Confirm Payment Receipt
+                  </h4>
+                  
+                  {paymentStatus.amountPaidByAgency && (
+                    <div className="text-xs space-y-1 p-2 bg-white rounded border">
+                      <p className="text-muted-foreground">
+                        Amount Paid by Agency: <span className="font-semibold text-foreground">
+                          {formatCurrency(Number(paymentStatus.amountPaidByAgency))}
+                        </span>
+                      </p>
+                      <p className="text-muted-foreground text-xs italic">
+                        Confirm the actual amount received below
+                      </p>
+                    </div>
                   )}
-                </Button>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="amount-received" className="text-sm font-medium">
+                      Amount Received {currency && `(${currency})`}
+                    </Label>
+                    <Input
+                      id="amount-received"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Enter actual amount received"
+                      value={amountReceived}
+                      onChange={(e) => {
+                        setAmountReceived(e.target.value);
+                        setAmountReceivedError("");
+                      }}
+                      disabled={isLoading}
+                      className={amountReceivedError ? "border-red-500" : ""}
+                    />
+                    {amountReceivedError && (
+                      <p className="text-xs text-red-600">{amountReceivedError}</p>
+                    )}
+                    {invoiceAmount > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Invoice Total: {formatCurrency(invoiceAmount)}
+                      </p>
+                    )}
+                    {paymentStatus.amountPaidByAgency && amountReceived && 
+                     Number(amountReceived) !== Number(paymentStatus.amountPaidByAgency) && (
+                      <p className="text-xs text-orange-600 font-medium">
+                        ⚠️ Amount differs from agency payment: {formatCurrency(
+                          Number(amountReceived) - Number(paymentStatus.amountPaidByAgency)
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={handleConfirmPaymentReceived}
+                    disabled={isLoading || !amountReceived}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Confirm Payment Received
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </div>
           </>

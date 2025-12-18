@@ -157,6 +157,7 @@ export enum Action {
   PROCESS = "process",
   VIEW_MARGIN = "view_margin",
   CONFIRM_MARGIN = "confirmMargin",
+  CONFIRM = "confirm",
   
   // Signature
   SIGN = "sign",
@@ -1016,6 +1017,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.OWN,
     "Marquer ses factures comme payées",
     "Marquer comme payées les factures dont on est le destinataire (agences)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.CONFIRM,
+    PermissionScope.GLOBAL,
+    "Confirmer la réception du paiement",
+    "Confirmer que le paiement a été reçu avec le montant exact (admin)",
     PermissionCategory.FINANCIAL
   ),
 

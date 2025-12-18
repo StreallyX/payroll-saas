@@ -54,6 +54,7 @@ export const InvoicePermissions = {
   SEND_ALL: 'invoice.send.global',
   MODIFY_ALL: 'invoice.modify.global', // Admin can modify amounts/margins
   MARK_PAID_ALL: 'invoice.pay.global',
+  CONFIRM_PAYMENT_ALL: 'invoice.confirm.global', // Admin can confirm payment received
 } as const
 
 /**
@@ -292,7 +293,14 @@ const transitions: TransitionDefinition[] = [
     from: InvoiceState.MARKED_PAID_BY_AGENCY,
     to: InvoiceState.PAYMENT_RECEIVED,
     action: WorkflowAction.MARK_PAYMENT_RECEIVED,
-    requiredPermissions: [InvoicePermissions.MARK_PAID_ALL],
+    requiredPermissions: [InvoicePermissions.CONFIRM_PAYMENT_ALL],
+    conditions: [
+      {
+        type: 'field_not_empty',
+        field: 'amountReceived',
+        errorMessage: 'Amount received must be specified',
+      },
+    ],
   },
   
   // Sent → Paid (legacy direct path)

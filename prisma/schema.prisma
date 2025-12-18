@@ -674,6 +674,7 @@ model Invoice {
   amountPaidByAgency     Decimal?  @db.Decimal(10, 2) // Amount paid by agency/receiver
   paymentReceivedAt      DateTime? // When payment was actually received
   paymentReceivedBy      String? // userId who confirmed receipt
+  amountReceived         Decimal?  @db.Decimal(10, 2) // Amount actually received by admin
 
   // Dates
   issueDate DateTime  @default(now())

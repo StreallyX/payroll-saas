@@ -30,6 +30,7 @@ const P = {
   SEND_GLOBAL: "invoice.send.global",
   APPROVE_GLOBAL: "invoice.approve.global",
   PAY_GLOBAL: "invoice.pay.global",
+  CONFIRM_PAYMENT_GLOBAL: "invoice.confirm.global",
   EXPORT_GLOBAL: "invoice.export.global",
   REVIEW_GLOBAL: "invoice.review.global",
   REJECT_GLOBAL: "invoice.reject.global",
@@ -1133,12 +1134,13 @@ getById: tenantProcedure
 
   /**
    * Mark payment as received
-   * Records when admin confirms payment receipt and triggers payment model workflow
+   * Records when admin confirms payment receipt with actual amount received
    */
   markPaymentReceived: tenantProcedure
-    .use(hasPermission(P.PAY_GLOBAL))
+    .use(hasAnyPermission([P.CONFIRM_PAYMENT_GLOBAL, P.PAY_GLOBAL]))
     .input(z.object({
       invoiceId: z.string(),
+      amountReceived: z.number().positive(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -1156,12 +1158,21 @@ getById: tenantProcedure
         throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
       }
 
+      // Validate that invoice is in the correct state
+      if (invoice.workflowState !== 'marked_paid_by_agency') {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invoice must be in 'marked_paid_by_agency' state to confirm payment receipt",
+        })
+      }
+
       // Update invoice with payment received tracking
       const updatedInvoice = await ctx.prisma.invoice.update({
         where: { id: input.invoiceId },
         data: {
           paymentReceivedAt: new Date(),
           paymentReceivedBy: ctx.session.user.id,
+          amountReceived: new Prisma.Decimal(input.amountReceived),
         },
       })
 
@@ -1173,6 +1184,9 @@ getById: tenantProcedure
         userId: ctx.session.user.id,
         tenantId: ctx.tenantId,
         reason: input.notes,
+        metadata: {
+          amountReceived: input.amountReceived,
+        },
       })
 
       // Execute payment model workflow
@@ -1200,6 +1214,8 @@ getById: tenantProcedure
           tenantId: ctx.tenantId,
           description: "Payment received and workflow initiated",
           metadata: {
+            amountReceived: input.amountReceived,
+            amountPaidByAgency: invoice.amountPaidByAgency?.toString(),
             paymentModel,
             workflowResult,
           },
