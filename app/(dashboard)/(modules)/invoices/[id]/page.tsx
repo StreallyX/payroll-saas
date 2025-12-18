@@ -258,6 +258,38 @@ export default function InvoiceDetailPage() {
     }).format(amount);
   };
 
+  // Format payment terms based on contract.invoiceDueTerm and contract.invoiceDueDays
+  const formatPaymentTerms = () => {
+    const contract = data?.contract;
+    
+    if (!contract) return "Not specified";
+
+    // Priority 1: Check invoiceDueTerm (new field)
+    if (contract.invoiceDueTerm) {
+      const term = contract.invoiceDueTerm;
+      
+      if (term === "upon_receipt") {
+        return "Upon receipt";
+      }
+      
+      // Extract number from terms like "7_days", "30_days", etc.
+      const match = term.match(/^(\d+)_days$/);
+      if (match) {
+        return `${match[1]} days`;
+      }
+      
+      // Fallback: display the term as-is
+      return term.replace(/_/g, " ");
+    }
+
+    // Priority 2: Fallback to invoiceDueDays (legacy field)
+    if (contract.invoiceDueDays !== null && contract.invoiceDueDays !== undefined) {
+      return `${contract.invoiceDueDays} days`;
+    }
+
+    return "Not specified";
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -496,8 +528,8 @@ export default function InvoiceDetailPage() {
                   <p className="font-medium">{new Date(data.issueDate).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Due Date</Label>
-                  <p className="font-medium text-red-600">{new Date(data.dueDate).toLocaleDateString()}</p>
+                  <Label className="text-xs text-muted-foreground">Payment Terms</Label>
+                  <p className="font-medium text-blue-600">{formatPaymentTerms()}</p>
                 </div>
               </div>
             </div>
@@ -870,7 +902,7 @@ export default function InvoiceDetailPage() {
             <div className="mt-8 p-4 border-t-2 border-muted">
               <p className="text-sm text-muted-foreground text-center">
                 Please make payment to the account details shown above. 
-                Payment is due by {new Date(data.dueDate).toLocaleDateString()}.
+                Payment terms: {formatPaymentTerms()}.
               </p>
             </div>
           </CardContent>
@@ -992,9 +1024,9 @@ export default function InvoiceDetailPage() {
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Due Date</Label>
-                    <p className="font-medium">
-                      {new Date(data.dueDate).toLocaleDateString()}
+                    <Label className="text-xs text-muted-foreground">Payment Terms</Label>
+                    <p className="font-medium text-blue-600">
+                      {formatPaymentTerms()}
                     </p>
                   </div>
                   <div>

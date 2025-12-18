@@ -94,7 +94,11 @@ export const invoiceRouter = createTRPCRouter({
             },
           },
           contract: {
-            include: {
+            select: {
+              id: true,
+              contractReference: true,
+              invoiceDueTerm: true,
+              invoiceDueDays: true,
               participants: {
                 include: {
                   user: true,
@@ -145,7 +149,11 @@ export const invoiceRouter = createTRPCRouter({
             },
           },
           contract: {
-            include: {
+            select: {
+              id: true,
+              contractReference: true,
+              invoiceDueTerm: true,
+              invoiceDueDays: true,
               participants: {
                 include: {
                   user: true,
@@ -244,7 +252,11 @@ getById: tenantProcedure
         margin: isAdmin,
 
         contract: {
-          include: {
+          select: {
+            id: true,
+            contractReference: true,
+            invoiceDueTerm: true,
+            invoiceDueDays: true,
             participants: {
               include: {
                 user: {
