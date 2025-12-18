@@ -605,7 +605,7 @@ export default function InvoiceDetailPage() {
                             tenantCompany.city,
                             tenantCompany.state,
                             tenantCompany.postCode,
-                            tenantCompany.country,
+                            tenantCompany.country?.name,
                           ].filter(Boolean).join(", ")}
                         </p>
                       </div>
@@ -615,65 +615,65 @@ export default function InvoiceDetailPage() {
                   {/* Bank Account Details */}
                   <div className="mt-4 pt-4 border-t-2 border-green-300">
                     <h4 className="font-semibold text-sm text-green-900 mb-3">BANK ACCOUNT DETAILS</h4>
-                    {data.contract?.bank ? (
+                    {tenantCompany?.bank ? (
                       <div className="grid grid-cols-1 gap-3">
-                        {data.contract.bank.name && (
+                        {tenantCompany.bank.name && (
                           <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
                             <div>
                               <Label className="text-xs text-muted-foreground">Bank Name</Label>
-                              <p className="font-medium">{data.contract.bank.name}</p>
+                              <p className="font-medium">{tenantCompany.bank.name}</p>
                             </div>
                           </div>
                         )}
-                        {data.contract.bank.accountNumber && (
+                        {tenantCompany.bank.accountNumber && (
                           <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
                             <div className="flex-1">
                               <Label className="text-xs text-muted-foreground">Account Number</Label>
-                              <p className="font-mono text-sm font-bold">{data.contract.bank.accountNumber}</p>
+                              <p className="font-mono text-sm font-bold">{tenantCompany.bank.accountNumber}</p>
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => copyToClipboard(data.contract!.bank!.accountNumber!, "Account number")}
+                              onClick={() => copyToClipboard(tenantCompany!.bank!.accountNumber!, "Account number")}
                             >
                               <Copy className="h-3 w-3" />
                             </Button>
                           </div>
                         )}
-                        {data.contract.bank.iban && (
+                        {tenantCompany.bank.iban && (
                           <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
                             <div className="flex-1">
                               <Label className="text-xs text-muted-foreground">IBAN</Label>
-                              <p className="font-mono text-sm font-bold">{data.contract.bank.iban}</p>
+                              <p className="font-mono text-sm font-bold">{tenantCompany.bank.iban}</p>
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => copyToClipboard(data.contract!.bank!.iban!, "IBAN")}
+                              onClick={() => copyToClipboard(tenantCompany!.bank!.iban!, "IBAN")}
                             >
                               <Copy className="h-3 w-3" />
                             </Button>
                           </div>
                         )}
-                        {data.contract.bank.swiftCode && (
+                        {tenantCompany.bank.swiftCode && (
                           <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
                             <div className="flex-1">
                               <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
-                              <p className="font-mono text-sm font-bold">{data.contract.bank.swiftCode}</p>
+                              <p className="font-mono text-sm font-bold">{tenantCompany.bank.swiftCode}</p>
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => copyToClipboard(data.contract!.bank!.swiftCode!, "SWIFT code")}
+                              onClick={() => copyToClipboard(tenantCompany!.bank!.swiftCode!, "SWIFT code")}
                             >
                               <Copy className="h-3 w-3" />
                             </Button>
                           </div>
                         )}
-                        {data.contract.bank.address && (
+                        {tenantCompany.bank.address && (
                           <div className="p-3 bg-white rounded-lg border border-green-200">
                             <Label className="text-xs text-muted-foreground">Bank Address</Label>
-                            <p className="text-sm mt-1">{data.contract.bank.address}</p>
+                            <p className="text-sm mt-1">{tenantCompany.bank.address}</p>
                           </div>
                         )}
                       </div>

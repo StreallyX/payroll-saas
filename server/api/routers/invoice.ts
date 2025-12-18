@@ -256,16 +256,8 @@ getById: tenantProcedure
                   },
                 },
                 company: {
-                  select: {
-                    id: true,
-                    name: true,
-                    contactEmail: true,
-                    contactPhone: true,
-                    address1: true,
-                    address2: true,
-                    city: true,
-                    state: true,
-                    postCode: true,
+                  include: {
+                    bank: true,
                     country: true,
                   },
                 },
