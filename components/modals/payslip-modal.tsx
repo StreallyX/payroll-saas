@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -52,14 +53,34 @@ export function PayslipModal({
   onSuccess,
 }: PayslipModalProps) {
   const utils = api.useContext();
+  const { data: session } = useSession();
+
+  // CHECK PERMISSIONS
+  const permissions = session?.user?.permissions ?? [];
+  const CAN_LIST_GLOBAL = permissions.includes("contract.list.global");
+  const CAN_READ_OWN = permissions.includes("contract.read.own");
 
   // --------------------------
   // LOAD USERS (CONTRACTORS)
   // --------------------------
   const { data: users } = api.user.getAll.useQuery(); 
-  // 👆 NOTE : Je t’explique plus bas comment ajouter cette route
+  // 👆 NOTE : Je t'explique plus bas comment ajouter cette route
 
-  const { data: contracts } = api.contract.getAll.useQuery();
+  // LOAD CONTRACTS - Use conditional queries based on permissions
+  const globalQuery = api.contract.getAll.useQuery(undefined, {
+    enabled: CAN_LIST_GLOBAL,
+  });
+
+  const ownQuery = api.contract.getMyContracts.useQuery(undefined, {
+    enabled: CAN_READ_OWN && !CAN_LIST_GLOBAL,
+  });
+
+  // MERGE CONTRACT RESULTS
+  const contracts = useMemo(() => {
+    if (CAN_LIST_GLOBAL) return globalQuery.data ?? [];
+    if (CAN_READ_OWN) return ownQuery.data ?? [];
+    return [];
+  }, [CAN_LIST_GLOBAL, CAN_READ_OWN, globalQuery.data, ownQuery.data]);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -223,7 +244,7 @@ export function PayslipModal({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Aucun</SelectItem>
-                {contracts?.map((c) => (
+                {contracts.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.title || c.contractReference || c.id}
                   </SelectItem>
