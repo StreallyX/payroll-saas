@@ -43,6 +43,7 @@ export const InvoicePermissions = {
   UPDATE_OWN: 'invoice.update.own',
   DELETE_OWN: 'invoice.delete.own',
   VIEW_OWN: 'invoice.view.own',
+  CONFIRM_MARGIN_OWN: 'invoice.confirmMargin.own',
   
   LIST_ALL: 'invoice.list.global',
   VIEW_ALL: 'invoice.view.global',
@@ -174,7 +175,7 @@ const transitions: TransitionDefinition[] = [
     from: InvoiceState.PENDING_MARGIN_CONFIRMATION,
     to: InvoiceState.UNDER_REVIEW,
     action: WorkflowAction.CONFIRM_MARGIN,
-    requiredPermissions: [InvoicePermissions.MODIFY_ALL],
+    requiredPermissions: [InvoicePermissions.CONFIRM_MARGIN_OWN, InvoicePermissions.MODIFY_ALL],
   },
   
   // Submitted → Under Review (direct path for manual invoices)

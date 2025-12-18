@@ -156,6 +156,7 @@ export enum Action {
   REFUND = "refund",
   PROCESS = "process",
   VIEW_MARGIN = "view_margin",
+  CONFIRM_MARGIN = "confirmMargin",
   
   // Signature
   SIGN = "sign",
@@ -975,6 +976,38 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.GLOBAL,
     "Exporter des factures",
     "Exporter les données de factures",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.CONFIRM_MARGIN,
+    PermissionScope.OWN,
+    "Confirmer la marge de ses factures",
+    "Confirmer et valider la marge sur ses propres factures (agences)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.REVIEW,
+    PermissionScope.GLOBAL,
+    "Réviser les factures",
+    "Réviser et mettre en révision les factures",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.REJECT,
+    PermissionScope.GLOBAL,
+    "Rejeter les factures",
+    "Rejeter des factures avec raison",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.VALIDATE,
+    PermissionScope.GLOBAL,
+    "Modifier les montants et marges",
+    "Modifier les montants et marges des factures (admin)",
     PermissionCategory.FINANCIAL
   ),
 

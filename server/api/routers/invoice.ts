@@ -21,6 +21,7 @@ const P = {
   READ_OWN: "invoice.read.own",
   CREATE_OWN: "invoice.create.own",
   UPDATE_OWN: "invoice.update.own",
+  CONFIRM_MARGIN_OWN: "invoice.confirmMargin.own",
 
   LIST_GLOBAL: "invoice.list.global",
   CREATE_GLOBAL: "invoice.create.global",
@@ -951,6 +952,7 @@ getById: tenantProcedure
    * Allows admin OR invoice receiver to review and optionally override margin before proceeding
    */
   confirmMargin: tenantProcedure
+    .use(hasAnyPermission([P.CONFIRM_MARGIN_OWN, P.MODIFY_GLOBAL]))
     .input(z.object({
       invoiceId: z.string(),
       marginId: z.string().optional(),
@@ -974,11 +976,8 @@ getById: tenantProcedure
         throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
       }
 
-      // Check if user has permission to confirm margin
-      // Allow if user is:
-      // 1. Invoice receiver (agency receiving the invoice)
-      // 2. User with invoice.modify.global permission
-      // 3. Invoice creator
+      // Extra security: Ensure user is either admin, receiver, or creator
+      // This is in addition to the permission check for defense in depth
       const isReceiver = invoice.receiverId === ctx.session.user.id;
       const isCreator = invoice.createdBy === ctx.session.user.id;
       const hasModifyPermission = ctx.session.user.permissions?.includes(P.MODIFY_GLOBAL)
