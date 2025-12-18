@@ -215,9 +215,13 @@ createRange: tenantProcedure
       });
     }
 
-    // Dates
+    // 🔥 FIX: Parse and normalize dates to UTC midnight to avoid timezone issues
     const start = new Date(input.startDate);
     const end = new Date(input.endDate);
+    
+    // Normalize to UTC midnight to ensure consistent date handling
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(0, 0, 0, 0);
 
     if (start > end) {
       throw new TRPCError({
@@ -279,19 +283,22 @@ createRange: tenantProcedure
       },
     });
 
-    // 4️⃣ Generate daily entries
+    // 🔥 FIX: Generate daily entries with proper date handling
+    // Create a new Date object for each entry to avoid reference issues
+    // Use UTC date manipulation to avoid DST and timezone issues
     const entries = [];
-    let cursor = new Date(start);
+    const cursor = new Date(start);
 
     while (cursor <= end) {
       entries.push({
         timesheetId: ts.id,
-        date: cursor,
+        date: new Date(cursor), // 🔥 FIX: Create a NEW Date object for each entry
         hours: new Prisma.Decimal(hoursPerDay),
         amount: null,
       });
 
-      cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+      // 🔥 FIX: Use UTC date manipulation to avoid DST issues
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 
     await ctx.prisma.timesheetEntry.createMany({ data: entries });
