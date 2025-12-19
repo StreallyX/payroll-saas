@@ -489,7 +489,7 @@ export default function InvoiceDetailPage() {
       )}
 
       {/* Payment Tracking Section - Show when invoice has been sent */}
-      {(currentState === "sent" || currentState === "marked_paid_by_agency" || currentState === "payment_received") && (
+      {(currentState === "sent" || currentState === "overdue" || currentState === "marked_paid_by_agency" || currentState === "payment_received") && (
         <PaymentTrackingCard
           paymentStatus={{
             state: currentState,
@@ -572,7 +572,45 @@ export default function InvoiceDetailPage() {
                   <p className="font-bold text-lg">{data.receiver?.name || invoiceRecipient}</p>
                   {data.receiver?.email && <p className="text-sm">{data.receiver.email}</p>}
                   {data.receiver?.phone && <p className="text-sm">{data.receiver.phone}</p>}
-                  {(agencyParticipant?.company || clientParticipant?.company) && (
+                  {(data.receiver as any)?.role && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Role: {((data.receiver as any).role.displayName || (data.receiver as any).role.name)}
+                    </p>
+                  )}
+                  
+                  {/* Receiver's Company Information */}
+                  {(data.receiver as any)?.companies && (data.receiver as any).companies.length > 0 && (
+                    <div className="mt-3 pt-3 border-t space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">Company Information</p>
+                      {(data.receiver as any).companies.map((userCompany: any) => (
+                        <div key={userCompany.company.id} className="text-sm text-muted-foreground">
+                          <p className="font-medium text-foreground">{userCompany.company.name}</p>
+                          {userCompany.company.contactEmail && (
+                            <p className="text-xs">{userCompany.company.contactEmail}</p>
+                          )}
+                          {userCompany.company.contactPhone && (
+                            <p className="text-xs">{userCompany.company.contactPhone}</p>
+                          )}
+                          {userCompany.company.address1 && (
+                            <p className="text-xs mt-1">
+                              {[
+                                userCompany.company.address1,
+                                userCompany.company.address2,
+                                userCompany.company.city,
+                                userCompany.company.state,
+                                userCompany.company.postCode,
+                                userCompany.company.country?.name,
+                              ].filter(Boolean).join(", ")}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Fallback to contract participant company info if receiver has no direct company */}
+                  {(!(data.receiver as any)?.companies || (data.receiver as any).companies.length === 0) && 
+                   (agencyParticipant?.company || clientParticipant?.company) && (
                     <div className="mt-2 text-sm text-muted-foreground">
                       {agencyParticipant?.company && (
                         <>
@@ -955,7 +993,7 @@ export default function InvoiceDetailPage() {
                   Person or entity receiving this invoice
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Name</Label>
@@ -965,7 +1003,61 @@ export default function InvoiceDetailPage() {
                     <Label className="text-xs text-muted-foreground">Email</Label>
                     <p className="font-medium">{(data as any).receiver?.email || "N/A"}</p>
                   </div>
+                  {(data.receiver as any)?.phone && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Phone</Label>
+                      <p className="font-medium">{(data.receiver as any).phone}</p>
+                    </div>
+                  )}
+                  {(data.receiver as any)?.role && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Role</Label>
+                      <p className="font-medium">{((data.receiver as any).role.displayName || (data.receiver as any).role.name)}</p>
+                    </div>
+                  )}
                 </div>
+
+                {/* Receiver's Company Information */}
+                {(data.receiver as any)?.companies && (data.receiver as any).companies.length > 0 && (
+                  <div className="pt-4 border-t space-y-3">
+                    <Label className="text-sm font-semibold">Company Information</Label>
+                    {(data.receiver as any).companies.map((userCompany: any) => (
+                      <div key={userCompany.company.id} className="bg-muted/30 p-4 rounded-lg space-y-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Company Name</Label>
+                          <p className="font-medium">{userCompany.company.name}</p>
+                        </div>
+                        {userCompany.company.contactEmail && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Company Email</Label>
+                            <p className="text-sm">{userCompany.company.contactEmail}</p>
+                          </div>
+                        )}
+                        {userCompany.company.contactPhone && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Company Phone</Label>
+                            <p className="text-sm">{userCompany.company.contactPhone}</p>
+                          </div>
+                        )}
+                        {userCompany.company.address1 && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Address</Label>
+                            <p className="text-sm">
+                              {[
+                                userCompany.company.address1,
+                                userCompany.company.address2,
+                                userCompany.company.city,
+                                userCompany.company.state,
+                                userCompany.company.postCode,
+                                userCompany.company.country?.name,
+                              ].filter(Boolean).join(", ")}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

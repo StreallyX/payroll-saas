@@ -55,12 +55,12 @@ export function PaymentTrackingCard({
   const [amountReceivedError, setAmountReceivedError] = useState<string>("");
 
   const canMarkPaidByAgency = 
-    userRole === "agency" && 
-    paymentStatus.state === "sent" && 
+    userRole === "AGENCY" && 
+    (paymentStatus.state === "sent" || paymentStatus.state === "overdue") && 
     onMarkAsPaidByAgency;
 
   const canMarkPaymentReceived = 
-    userRole === "admin" && 
+    userRole === "ADMIN" && 
     paymentStatus.state === "marked_paid_by_agency" && 
     onMarkPaymentReceived;
 

@@ -235,6 +235,23 @@ getById: tenantProcedure
             name: true,
             email: true,
             phone: true,
+            role: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+              },
+            },
+            companies: {
+              include: {
+                company: {
+                  include: {
+                    bank: true,
+                    country: true,
+                  },
+                },
+              },
+            },
           },
         },
 
