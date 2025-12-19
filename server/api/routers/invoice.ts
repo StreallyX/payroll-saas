@@ -242,7 +242,7 @@ getById: tenantProcedure
                 displayName: true,
               },
             },
-            companies: {
+            companyUsers: {
               include: {
                 company: {
                   include: {

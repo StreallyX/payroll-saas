@@ -579,10 +579,10 @@ export default function InvoiceDetailPage() {
                   )}
                   
                   {/* Receiver's Company Information */}
-                  {(data.receiver as any)?.companies && (data.receiver as any).companies.length > 0 && (
+                  {(data.receiver as any)?.companies && (data.receiver as any).companyUsers.length > 0 && (
                     <div className="mt-3 pt-3 border-t space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground">Company Information</p>
-                      {(data.receiver as any).companies.map((userCompany: any) => (
+                      {(data.receiver as any).companyUsers.map((userCompany: any) => (
                         <div key={userCompany.company.id} className="text-sm text-muted-foreground">
                           <p className="font-medium text-foreground">{userCompany.company.name}</p>
                           {userCompany.company.contactEmail && (
@@ -609,7 +609,7 @@ export default function InvoiceDetailPage() {
                   )}
                   
                   {/* Fallback to contract participant company info if receiver has no direct company */}
-                  {(!(data.receiver as any)?.companies || (data.receiver as any).companies.length === 0) && 
+                  {(!(data.receiver as any)?.companies || (data.receiver as any).companyUsers.length === 0) && 
                    (agencyParticipant?.company || clientParticipant?.company) && (
                     <div className="mt-2 text-sm text-muted-foreground">
                       {agencyParticipant?.company && (
@@ -1018,10 +1018,10 @@ export default function InvoiceDetailPage() {
                 </div>
 
                 {/* Receiver's Company Information */}
-                {(data.receiver as any)?.companies && (data.receiver as any).companies.length > 0 && (
+                {(data.receiver as any)?.companies && (data.receiver as any).companyUsers.length > 0 && (
                   <div className="pt-4 border-t space-y-3">
                     <Label className="text-sm font-semibold">Company Information</Label>
-                    {(data.receiver as any).companies.map((userCompany: any) => (
+                    {(data.receiver as any).companyUsers.map((userCompany: any) => (
                       <div key={userCompany.company.id} className="bg-muted/30 p-4 rounded-lg space-y-2">
                         <div>
                           <Label className="text-xs text-muted-foreground">Company Name</Label>
