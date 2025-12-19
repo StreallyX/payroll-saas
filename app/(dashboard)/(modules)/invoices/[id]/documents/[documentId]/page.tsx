@@ -108,7 +108,7 @@ export default function InvoiceDocumentViewerPage() {
               <h1 className="text-2xl font-bold truncate">{document.fileName}</h1>
               <p className="text-sm text-muted-foreground mt-2">
                 {(document.fileSize / 1024).toFixed(1)} KB • 
-                Uploaded on {new Date(document.uploadedAt || document.createdAt).toLocaleDateString()}
+                Uploaded on {new Date(document.uploadedAt).toLocaleDateString()}
               </p>
               {document.description && (
                 <p className="text-sm text-muted-foreground mt-1">

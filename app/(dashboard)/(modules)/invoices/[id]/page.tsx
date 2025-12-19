@@ -1141,20 +1141,22 @@ export default function InvoiceDetailPage() {
                               {doc.fileName || `Document ${index + 1}`}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {doc.fileType} • {(doc.fileSize / 1024).toFixed(1)} KB
+                              {doc.mimeType || 'Unknown type'} • {(doc.fileSize / 1024).toFixed(1)} KB
                             </p>
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                          >
-                            <Link href={`/invoices/${invoiceId}/documents/${doc.id}`}>
-                              View
-                            </Link>
-                          </Button>
+                          {doc.id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                            >
+                              <Link href={`/invoices/${invoiceId}/documents/${doc.id}`}>
+                                View
+                              </Link>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
