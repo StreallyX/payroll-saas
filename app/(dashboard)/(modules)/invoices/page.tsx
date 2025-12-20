@@ -36,6 +36,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog";
 import { InvoiceModal } from "@/components/modals/invoice-modal";
+import { PendingActions } from "@/components/invoices/PendingActions";
 
 import { 
   Eye, 
@@ -75,6 +76,7 @@ function InvoicesPageContent() {
   // -------------------------------
   // UI STATE
   // -------------------------------
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [workflowFilter, setWorkflowFilter] = useState<string>("all");
@@ -115,6 +117,9 @@ function InvoicesPageContent() {
     },
     onError: () => toast.error("Failed to delete invoice"),
   });
+
+  // Fetch pending actions for the badge count
+  const pendingActionsQuery = api.invoice.getPendingActions.useQuery();
 
   // -------------------------------
   // MERGE ROWS INDEPENDENT OF HOOK ORDER
@@ -367,60 +372,72 @@ function InvoicesPageContent() {
             )}
           </PageHeader>
 
-          {/* TABS FOR WORKFLOW STATES */}
-          {(CAN_APPROVE || CAN_REVIEW) && (
-            <Tabs defaultValue="all" className="w-full" onValueChange={(v) => setWorkflowFilter(v === "all" ? "all" : v)}>
-              <TabsList>
-                <TabsTrigger value="all">
-                  All Invoices ({rows.length})
-                </TabsTrigger>
-                <TabsTrigger value="for_approval">
-                  <AlertCircle className="mr-2 h-4 w-4" />
-                  Pending Approval ({pendingApprovalCount})
-                </TabsTrigger>
-                <TabsTrigger value="approved">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Approved ({approvedCount})
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+          {/* TABS FOR WORKFLOW STATES AND PENDING ACTIONS */}
+          <Tabs defaultValue="all" className="w-full" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="all">
+                All Invoices ({rows.length})
+              </TabsTrigger>
+              <TabsTrigger value="pending_actions">
+                <Clock className="mr-2 h-4 w-4" />
+                Pending Actions ({pendingActionsQuery.data?.totalCount || 0})
+              </TabsTrigger>
+              {(CAN_APPROVE || CAN_REVIEW) && (
+                <>
+                  <TabsTrigger value="for_approval">
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Pending Approval ({pendingApprovalCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="approved">
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Approved ({approvedCount})
+                  </TabsTrigger>
+                </>
+              )}
+            </TabsList>
 
-          {/* SEARCH & FILTERS */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex gap-4">
-                <div className="flex-1 flex items-center gap-2">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search invoices..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="submitted">Submitted</SelectItem>
-                    <SelectItem value="under_review">Under Review</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="marked_paid_by_agency">Paid by Agency</SelectItem>
-                    <SelectItem value="payment_received">Payment Received</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="changes_requested">Changes Requested</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+            {/* PENDING ACTIONS TAB */}
+            <TabsContent value="pending_actions" className="mt-6">
+              <PendingActions />
+            </TabsContent>
+
+            {/* ALL OTHER TABS - INVOICE LIST */}
+            <TabsContent value="all" className="mt-6 space-y-6">
+              {/* SEARCH & FILTERS */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex gap-4">
+                    <div className="flex-1 flex items-center gap-2">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search invoices..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="under_review">Under Review</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="marked_paid_by_agency">Paid by Agency</SelectItem>
+                        <SelectItem value="payment_received">Payment Received</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="changes_requested">Changes Requested</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
 
           {/* TABLE */}
           {filtered.length === 0 ? (
@@ -628,6 +645,390 @@ function InvoicesPageContent() {
               </CardContent>
             </Card>
           )}
+            </TabsContent>
+
+            {/* FOR_APPROVAL TAB */}
+            {(CAN_APPROVE || CAN_REVIEW) && (
+              <TabsContent value="for_approval" className="mt-6 space-y-6">
+                {/* SEARCH & FILTERS */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex gap-4">
+                      <div className="flex-1 flex items-center gap-2">
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search invoices..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[220px]">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="submitted">Submitted</SelectItem>
+                          <SelectItem value="under_review">Under Review</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                          <SelectItem value="sent">Sent</SelectItem>
+                          <SelectItem value="marked_paid_by_agency">Paid by Agency</SelectItem>
+                          <SelectItem value="payment_received">Payment Received</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                          <SelectItem value="changes_requested">Changes Requested</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* TABLE - Filtered by for_approval */}
+                {filtered.filter((inv: any) => inv.workflowState === "for_approval").length === 0 ? (
+                  <EmptyState
+                    icon={Plus}
+                    title="No invoices pending approval"
+                    description="All invoices have been processed."
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="p-0">
+                      <TooltipProvider>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <SortableHeader field="invoiceNumber">Invoice #</SortableHeader>
+                              <SortableHeader field="contract">Contract</SortableHeader>
+                              <SortableHeader field="issueDate">Period</SortableHeader>
+                              <SortableHeader field="totalAmount">Amount</SortableHeader>
+                              <SortableHeader field="status">Status</SortableHeader>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+
+                          <TableBody>
+                            {filtered.filter((inv: any) => inv.workflowState === "for_approval").map((inv: any) => {
+                              const canEdit =
+                                CAN_UPDATE_ALL ||
+                                (CAN_UPDATE_OWN && inv.createdBy === session?.user?.id);
+                              
+                              const canReviewInvoice = 
+                                (CAN_REVIEW || CAN_APPROVE) && 
+                                (inv.workflowState === "for_approval" || inv.workflowState === "under_review");
+                              
+                              const senderName = inv.sender?.name || "N/A";
+                              const receiverName = inv.receiver?.name || "N/A";
+                              const issueDateFormatted = format(new Date(inv.issueDate), "MMM dd, yyyy");
+                              const dueDateFormatted = format(new Date(inv.dueDate), "MMM dd, yyyy");
+                              const isOverdue = new Date(inv.dueDate) < new Date() && 
+                                               inv.workflowState !== "payment_received" && 
+                                               inv.workflowState !== "marked_paid_by_agency" &&
+                                               inv.workflowState !== "paid";
+
+                              return (
+                                <TableRow 
+                                  key={inv.id} 
+                                  className="hover:bg-muted/50 transition-colors"
+                                >
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="h-4 w-4 text-muted-foreground" />
+                                      <span className="font-mono text-sm">
+                                        {inv.invoiceNumber || `INV-${inv.id.slice(0, 8)}`}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {inv.contract?.id ? (
+                                      <Link 
+                                        href={`/contracts/simple/${inv.contract.id}`}
+                                        className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                      >
+                                        <span className="truncate max-w-[180px]">
+                                          {inv.contract.contractReference}
+                                        </span>
+                                        <ExternalLink className="h-3 w-3" />
+                                      </Link>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span>{issueDateFormatted}</span>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-1.5 font-semibold">
+                                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                      <span>{Number(inv.totalAmount).toFixed(2)}</span>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <StatusBadge status={inv.status} workflowState={inv.workflowState} />
+                                  </TableCell>
+
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Link href={`/invoices/${inv.id}`}>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-accent"
+                                            >
+                                              <Eye className="h-4 w-4" />
+                                            </Button>
+                                          </Link>
+                                        </TooltipTrigger>
+                                        <TooltipContent>View details</TooltipContent>
+                                      </Tooltip>
+
+                                      {canEdit && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-accent"
+                                              onClick={() => setEditingInvoice(inv)}
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Edit invoice</TooltipContent>
+                                        </Tooltip>
+                                      )}
+
+                                      {CAN_DELETE && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                                              onClick={() => setDeleteId(inv.id)}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Delete invoice</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TooltipProvider>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            )}
+
+            {/* APPROVED TAB */}
+            {(CAN_APPROVE || CAN_REVIEW) && (
+              <TabsContent value="approved" className="mt-6 space-y-6">
+                {/* SEARCH & FILTERS */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex gap-4">
+                      <div className="flex-1 flex items-center gap-2">
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search invoices..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[220px]">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="submitted">Submitted</SelectItem>
+                          <SelectItem value="under_review">Under Review</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                          <SelectItem value="sent">Sent</SelectItem>
+                          <SelectItem value="marked_paid_by_agency">Paid by Agency</SelectItem>
+                          <SelectItem value="payment_received">Payment Received</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                          <SelectItem value="changes_requested">Changes Requested</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* TABLE - Filtered by approved */}
+                {filtered.filter((inv: any) => inv.workflowState === "approved").length === 0 ? (
+                  <EmptyState
+                    icon={Plus}
+                    title="No approved invoices"
+                    description="Invoices will appear here once approved."
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="p-0">
+                      <TooltipProvider>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <SortableHeader field="invoiceNumber">Invoice #</SortableHeader>
+                              <SortableHeader field="contract">Contract</SortableHeader>
+                              <SortableHeader field="issueDate">Period</SortableHeader>
+                              <SortableHeader field="totalAmount">Amount</SortableHeader>
+                              <SortableHeader field="status">Status</SortableHeader>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+
+                          <TableBody>
+                            {filtered.filter((inv: any) => inv.workflowState === "approved").map((inv: any) => {
+                              const canEdit =
+                                CAN_UPDATE_ALL ||
+                                (CAN_UPDATE_OWN && inv.createdBy === session?.user?.id);
+                              
+                              const canReviewInvoice = 
+                                (CAN_REVIEW || CAN_APPROVE) && 
+                                (inv.workflowState === "for_approval" || inv.workflowState === "under_review");
+                              
+                              const senderName = inv.sender?.name || "N/A";
+                              const receiverName = inv.receiver?.name || "N/A";
+                              const issueDateFormatted = format(new Date(inv.issueDate), "MMM dd, yyyy");
+                              const dueDateFormatted = format(new Date(inv.dueDate), "MMM dd, yyyy");
+                              const isOverdue = new Date(inv.dueDate) < new Date() && 
+                                               inv.workflowState !== "payment_received" && 
+                                               inv.workflowState !== "marked_paid_by_agency" &&
+                                               inv.workflowState !== "paid";
+
+                              return (
+                                <TableRow 
+                                  key={inv.id} 
+                                  className="hover:bg-muted/50 transition-colors"
+                                >
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="h-4 w-4 text-muted-foreground" />
+                                      <span className="font-mono text-sm">
+                                        {inv.invoiceNumber || `INV-${inv.id.slice(0, 8)}`}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {inv.contract?.id ? (
+                                      <Link 
+                                        href={`/contracts/simple/${inv.contract.id}`}
+                                        className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                      >
+                                        <span className="truncate max-w-[180px]">
+                                          {inv.contract.contractReference}
+                                        </span>
+                                        <ExternalLink className="h-3 w-3" />
+                                      </Link>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span>{issueDateFormatted}</span>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-1.5 font-semibold">
+                                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                      <span>{Number(inv.totalAmount).toFixed(2)}</span>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <StatusBadge status={inv.status} workflowState={inv.workflowState} />
+                                  </TableCell>
+
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Link href={`/invoices/${inv.id}`}>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-accent"
+                                            >
+                                              <Eye className="h-4 w-4" />
+                                            </Button>
+                                          </Link>
+                                        </TooltipTrigger>
+                                        <TooltipContent>View details</TooltipContent>
+                                      </Tooltip>
+
+                                      {canEdit && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-accent"
+                                              onClick={() => setEditingInvoice(inv)}
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Edit invoice</TooltipContent>
+                                        </Tooltip>
+                                      )}
+
+                                      {CAN_DELETE && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                                              onClick={() => setDeleteId(inv.id)}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Delete invoice</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TooltipProvider>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            )}
+          </Tabs>
         </>
       )}
 

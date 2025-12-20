@@ -1479,4 +1479,206 @@ getById: tenantProcedure
       return MarginService.getMarginHistory(input.invoiceId)
     }),
 
+  /**
+   * Get pending actions for current user
+   * Returns invoices that require user action based on their role and permissions
+   */
+  getPendingActions: tenantProcedure
+    .use(hasAnyPermission([P.LIST_GLOBAL, P.READ_OWN]))
+    .query(async ({ ctx }) => {
+      const user = ctx.session.user;
+      const tenantId = ctx.tenantId;
+      const permissions = user.permissions || [];
+
+      // Check user capabilities
+      const isAdmin = permissions.includes(P.LIST_GLOBAL);
+      const canReview = permissions.includes(P.REVIEW_GLOBAL);
+      const canApprove = permissions.includes(P.APPROVE_GLOBAL);
+      const canConfirmPayment = permissions.includes(P.CONFIRM_PAYMENT_GLOBAL);
+      const canConfirmMargin = permissions.includes(P.CONFIRM_MARGIN_OWN);
+      const canPay = permissions.includes(P.PAY_GLOBAL) || permissions.includes("invoice.pay.own");
+
+      const pendingActions: any[] = [];
+
+      // ===== ADMIN ACTIONS =====
+      if (isAdmin) {
+        // 1. Invoices pending review (submitted or pending_margin_confirmation)
+        if (canReview) {
+          const reviewInvoices = await ctx.prisma.invoice.findMany({
+            where: {
+              tenantId,
+              workflowState: {
+                in: ["submitted", "under_review"],
+              },
+            },
+            include: {
+              sender: { select: { id: true, name: true, email: true } },
+              receiver: { select: { id: true, name: true, email: true } },
+              contract: { select: { id: true, contractReference: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          });
+
+          for (const invoice of reviewInvoices) {
+            pendingActions.push({
+              id: `review-${invoice.id}`,
+              type: "review_invoice",
+              priority: "high",
+              invoice,
+              actionLabel: "Review Invoice",
+              actionDescription: "Invoice requires review and approval",
+            });
+          }
+        }
+
+        // 2. Invoices pending approval (submitted state)
+        if (canApprove) {
+          const approvalInvoices = await ctx.prisma.invoice.findMany({
+            where: {
+              tenantId,
+              workflowState: "submitted",
+            },
+            include: {
+              sender: { select: { id: true, name: true, email: true } },
+              receiver: { select: { id: true, name: true, email: true } },
+              contract: { select: { id: true, contractReference: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          });
+
+          for (const invoice of approvalInvoices) {
+            pendingActions.push({
+              id: `approve-${invoice.id}`,
+              type: "approve_invoice",
+              priority: "high",
+              invoice,
+              actionLabel: "Approve Invoice",
+              actionDescription: "Invoice awaiting approval",
+            });
+          }
+        }
+
+        // 3. Invoices marked as paid by agency - need payment confirmation
+        if (canConfirmPayment) {
+          const paymentConfirmInvoices = await ctx.prisma.invoice.findMany({
+            where: {
+              tenantId,
+              workflowState: "marked_paid_by_agency",
+            },
+            include: {
+              sender: { select: { id: true, name: true, email: true } },
+              receiver: { select: { id: true, name: true, email: true } },
+              contract: { select: { id: true, contractReference: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          });
+
+          for (const invoice of paymentConfirmInvoices) {
+            pendingActions.push({
+              id: `confirm-payment-${invoice.id}`,
+              type: "confirm_payment",
+              priority: "high",
+              invoice,
+              actionLabel: "Confirm Payment",
+              actionDescription: "Agency marked invoice as paid - confirm payment received",
+            });
+          }
+        }
+      }
+
+      // ===== AGENCY/RECEIVER ACTIONS =====
+      if (!isAdmin || canConfirmMargin || canPay) {
+        // 4. Invoices pending margin confirmation (where user is receiver)
+        if (canConfirmMargin) {
+          const marginConfirmInvoices = await ctx.prisma.invoice.findMany({
+            where: {
+              tenantId,
+              workflowState: "pending_margin_confirmation",
+              receiverId: user.id,
+            },
+            include: {
+              sender: { select: { id: true, name: true, email: true } },
+              receiver: { select: { id: true, name: true, email: true } },
+              contract: { select: { id: true, contractReference: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          });
+
+          for (const invoice of marginConfirmInvoices) {
+            pendingActions.push({
+              id: `confirm-margin-${invoice.id}`,
+              type: "confirm_margin",
+              priority: "high",
+              invoice,
+              actionLabel: "Confirm Margin",
+              actionDescription: "Confirm margin and amounts on this invoice",
+            });
+          }
+        }
+
+        // 5. Invoices sent/overdue - need to mark as paid (where user is receiver)
+        if (canPay) {
+          const payInvoices = await ctx.prisma.invoice.findMany({
+            where: {
+              tenantId,
+              workflowState: {
+                in: ["sent", "overdue"],
+              },
+              receiverId: user.id,
+            },
+            include: {
+              sender: { select: { id: true, name: true, email: true } },
+              receiver: { select: { id: true, name: true, email: true } },
+              contract: { select: { id: true, contractReference: true } },
+            },
+            orderBy: [
+              { workflowState: "desc" }, // overdue first
+              { dueDate: "asc" },
+            ],
+          });
+
+          for (const invoice of payInvoices) {
+            const isOverdue = invoice.workflowState === "overdue";
+            pendingActions.push({
+              id: `mark-paid-${invoice.id}`,
+              type: "mark_as_paid",
+              priority: isOverdue ? "urgent" : "medium",
+              invoice,
+              actionLabel: "Mark as Paid",
+              actionDescription: isOverdue
+                ? "⚠️ OVERDUE - Mark this invoice as paid"
+                : "Mark this invoice as paid",
+            });
+          }
+        }
+      }
+
+      // Remove duplicates (in case user has multiple overlapping permissions)
+      const uniqueActions = Array.from(
+        new Map(pendingActions.map((action) => [action.id, action])).values()
+      );
+
+      // Group by action type
+      const groupedActions = uniqueActions.reduce((acc: any, action: any) => {
+        const type = action.type;
+        if (!acc[type]) {
+          acc[type] = {
+            type,
+            label: action.actionLabel,
+            count: 0,
+            actions: [],
+          };
+        }
+        acc[type].count++;
+        acc[type].actions.push(action);
+        return acc;
+      }, {});
+
+      return {
+        totalCount: uniqueActions.length,
+        groups: Object.values(groupedActions),
+        allActions: uniqueActions,
+      };
+    }),
+
 })
