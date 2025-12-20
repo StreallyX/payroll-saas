@@ -91,10 +91,11 @@ export const timesheetRouter = createTRPCRouter({
   // 2️⃣ GET BY ID (OWN OR GLOBAL)
   // ------------------------------------------------------
   getById: tenantProcedure
-    .use(hasAnyPermission([P.READ_OWN, P.LIST_ALL]))
+    .use(hasAnyPermission([P.READ_OWN, P.LIST_ALL, P.REVIEW_ALL]))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const isAdmin = ctx.session.user.permissions.includes(P.LIST_ALL)
+      const hasGlobalAccess = ctx.session.user.permissions.includes(P.LIST_ALL) || 
+                              ctx.session.user.permissions.includes(P.REVIEW_ALL)
       
       const ts = await ctx.prisma.timesheet.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
@@ -107,9 +108,9 @@ export const timesheetRouter = createTRPCRouter({
               rate: true,
               rateType: true,
               currency: true,
-              margin: isAdmin, // Only include for admins
-              marginType: isAdmin,
-              marginPaidBy: isAdmin,
+              margin: hasGlobalAccess, // Only include for admins/reviewers
+              marginType: hasGlobalAccess,
+              marginPaidBy: hasGlobalAccess,
               participants: { 
                 include: { 
                   user: true,
@@ -126,10 +127,13 @@ export const timesheetRouter = createTRPCRouter({
 
       if (!ts) throw new TRPCError({ code: "NOT_FOUND" })
 
-      if (!isAdmin && ts.submittedBy !== ctx.session.user.id)
-        throw new TRPCError({ code: "FORBIDDEN" })
+      // Allow access if user has global permissions OR is the creator
+      const isCreator = ts.submittedBy === ctx.session.user.id
+      if (!hasGlobalAccess && !isCreator) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only view your own timesheets" })
+      }
 
-      return sanitizeTimesheetForContractor(ts, isAdmin)
+      return sanitizeTimesheetForContractor(ts, hasGlobalAccess)
     }),
 
   // ------------------------------------------------------
@@ -138,7 +142,8 @@ export const timesheetRouter = createTRPCRouter({
   getMyTimesheets: tenantProcedure
     .use(hasPermission(P.READ_OWN))
     .query(async ({ ctx }) => {
-      const isAdmin = ctx.session.user.permissions.includes(P.LIST_ALL)
+      const hasGlobalAccess = ctx.session.user.permissions.includes(P.LIST_ALL) || 
+                              ctx.session.user.permissions.includes(P.REVIEW_ALL)
       
       const timesheets = await ctx.prisma.timesheet.findMany({
         where: {
@@ -153,9 +158,9 @@ export const timesheetRouter = createTRPCRouter({
               rate: true,
               rateType: true,
               currency: true,
-              margin: isAdmin, // Only include for admins
-              marginType: isAdmin,
-              marginPaidBy: isAdmin,
+              margin: hasGlobalAccess, // Only include for admins/reviewers
+              marginType: hasGlobalAccess,
+              marginPaidBy: hasGlobalAccess,
               participants: { 
                 include: { 
                   user: true,
@@ -169,7 +174,7 @@ export const timesheetRouter = createTRPCRouter({
         orderBy: { createdAt: "desc" },
       })
       
-      return timesheets.map(ts => sanitizeTimesheetForContractor(ts, isAdmin))
+      return timesheets.map(ts => sanitizeTimesheetForContractor(ts, hasGlobalAccess))
     }),
 
  // ------------------------------------------------------
