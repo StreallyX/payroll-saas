@@ -24,7 +24,7 @@ const P = {
   REVIEW_ALL: "timesheet.review.global",
   APPROVE: "timesheet.approve.global",
   REJECT: "timesheet.reject.global",
-  MODIFY_ALL: "timesheet.modify.global",
+  MODIFY_ALL: "timesheet.update.global", // Using UPDATE action for global modifications
 }
 
 // ------------------------------------------------------

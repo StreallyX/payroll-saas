@@ -25,6 +25,7 @@ import {
   Receipt
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { WorkflowStatusBadge } from "@/components/workflow";
 import { TimesheetDetailedTimeline } from "@/components/timesheets/TimesheetDetailedTimeline";
@@ -47,6 +48,7 @@ export default function TimesheetDetailPage() {
   const router = useRouter();
   const timesheetId = params.id as string;
 
+  const { data: session } = useSession();
   const { hasPermission } = usePermissions();
   
   // 2-step confirmation states
@@ -186,11 +188,11 @@ export default function TimesheetDetailPage() {
   const canApprove = hasPermission("timesheet.approve.global");
   const canReject = hasPermission("timesheet.reject.global");
   const canSubmit = hasPermission("timesheet.submit.own");
-  const canModify = hasPermission("timesheet.modify.global");
+  const canModify = hasPermission("timesheet.update.global");
   const canViewMargin = hasPermission("timesheet.view_margin.global");
 
   const currentState = data.workflowState || data.status;
-  const isOwner = data.submittedBy === data.submitter?.id;
+  const isOwner = session?.user?.id === data.submittedBy;
   const isDraft = currentState === "draft";
   const canUploadFiles = isDraft && (isOwner || canModify);
 

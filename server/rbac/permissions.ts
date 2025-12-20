@@ -1233,6 +1233,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.TIMESHEET,
+    Action.REVIEW,
+    PermissionScope.GLOBAL,
+    "Réviser les feuilles de temps",
+    "Marquer les timesheets comme en cours de révision",
+    PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TIMESHEET,
     Action.APPROVE,
     PermissionScope.GLOBAL,
     "Approuver toutes les feuilles de temps",
@@ -1245,6 +1253,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.GLOBAL,
     "Rejeter des feuilles de temps",
     "Rejeter des timesheets",
+    PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TIMESHEET,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier toutes les feuilles de temps",
+    "Modifier n'importe quelle timesheet (y compris les montants)",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
