@@ -250,6 +250,18 @@ function InvoicesPageContent() {
         icon: FileText,
         className: "bg-gray-100 text-gray-700 hover:bg-gray-100"
       },
+      submitted: { 
+        label: "Submitted", 
+        variant: "outline", 
+        icon: FileText,
+        className: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50"
+      },
+      pending_margin_confirmation: { 
+        label: "Pending Margin Confirmation", 
+        variant: "outline", 
+        icon: Clock,
+        className: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50"
+      },
       for_approval: { 
         label: "Pending Approval", 
         variant: "outline", 
@@ -274,35 +286,23 @@ function InvoicesPageContent() {
         icon: AlertCircle,
         className: "bg-red-50 text-red-700 border-red-200 hover:bg-red-50"
       },
-      SENT: { 
-        label: "Sent", 
-        variant: "outline", 
-        icon: CheckCircle2,
-        className: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50"
-      },
-      MARKED_PAID_BY_AGENCY: { 
-        label: "Paid by Agency", 
-        variant: "default", 
-        icon: DollarSign,
-        className: "bg-indigo-100 text-indigo-700 hover:bg-indigo-100"
-      },
-      PAYMENT_RECEIVED: { 
-        label: "Payment Received", 
-        variant: "default", 
-        icon: CheckCircle2,
-        className: "bg-green-100 text-green-700 hover:bg-green-100"
-      },
-      submitted: { 
-        label: "Submitted", 
-        variant: "outline", 
-        icon: FileText,
-        className: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50"
-      },
       sent: { 
         label: "Sent", 
         variant: "outline", 
         icon: CheckCircle2,
         className: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50"
+      },
+      marked_paid_by_agency: { 
+        label: "Paid by Agency", 
+        variant: "default", 
+        icon: DollarSign,
+        className: "bg-indigo-100 text-indigo-700 hover:bg-indigo-100"
+      },
+      payment_received: { 
+        label: "Payment Received", 
+        variant: "default", 
+        icon: CheckCircle2,
+        className: "bg-green-100 text-green-700 hover:bg-green-100"
       },
       paid: { 
         label: "Paid", 
@@ -315,6 +315,18 @@ function InvoicesPageContent() {
         variant: "destructive", 
         icon: AlertCircle,
         className: "bg-red-50 text-red-700 border-red-200 hover:bg-red-50"
+      },
+      cancelled: { 
+        label: "Cancelled", 
+        variant: "secondary", 
+        icon: AlertCircle,
+        className: "bg-gray-100 text-gray-700 hover:bg-gray-100"
+      },
+      changes_requested: { 
+        label: "Changes Requested", 
+        variant: "outline", 
+        icon: AlertCircle,
+        className: "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50"
       },
     };
     
@@ -387,16 +399,23 @@ function InvoicesPageContent() {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[220px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="under_review">Under Review</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
                     <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="marked_paid_by_agency">Paid by Agency</SelectItem>
+                    <SelectItem value="payment_received">Payment Received</SelectItem>
                     <SelectItem value="paid">Paid</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="changes_requested">Changes Requested</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -448,8 +467,9 @@ function InvoicesPageContent() {
                         
                         // Check if overdue
                         const isOverdue = new Date(inv.dueDate) < new Date() && 
-                                         inv.workflowState !== "PAYMENT_RECEIVED" && 
-                                         inv.workflowState !== "MARKED_PAID_BY_AGENCY";
+                                         inv.workflowState !== "payment_received" && 
+                                         inv.workflowState !== "marked_paid_by_agency" &&
+                                         inv.workflowState !== "paid";
 
                         return (
                           <TableRow 
