@@ -286,16 +286,23 @@ createRange: tenantProcedure
     // 🔥 FIX: Generate daily entries with proper date handling
     // Create a new Date object for each entry to avoid reference issues
     // Use UTC date manipulation to avoid DST and timezone issues
+    // 🔥 FIX: Exclude weekends (Saturday=6, Sunday=0) from entries
     const entries = [];
     const cursor = new Date(start);
 
     while (cursor <= end) {
-      entries.push({
-        timesheetId: ts.id,
-        date: new Date(cursor), // 🔥 FIX: Create a NEW Date object for each entry
-        hours: new Prisma.Decimal(hoursPerDay),
-        amount: null,
-      });
+      const dayOfWeek = cursor.getUTCDay();
+      
+      // Only create entries for weekdays (Monday=1 to Friday=5)
+      // Exclude Sunday=0 and Saturday=6
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        entries.push({
+          timesheetId: ts.id,
+          date: new Date(cursor), // 🔥 FIX: Create a NEW Date object for each entry
+          hours: new Prisma.Decimal(hoursPerDay),
+          amount: null,
+        });
+      }
 
       // 🔥 FIX: Use UTC date manipulation to avoid DST issues
       cursor.setUTCDate(cursor.getUTCDate() + 1);
