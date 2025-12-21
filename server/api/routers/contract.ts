@@ -101,6 +101,7 @@ const baseContractSchema = z.object({
   marginPaidBy: z.enum(["client", "contractor"]).optional().nullable(),
 
   salaryType: z.string().optional().nullable(),
+  paymentModel: z.enum(["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"]).optional().nullable(),
   invoiceDueDays: z.number().optional().nullable(),
 
   contractReference: z.string().optional().nullable(),
@@ -302,6 +303,18 @@ export const contractRouter = createTRPCRouter({
       const { participants, ...raw } = input
       const data = clean(raw)
 
+      // 🔥 Sync salaryType and paymentModel: If one is provided, ensure both are set
+      if (data.salaryType && !data.paymentModel) {
+        // If salaryType is provided but paymentModel is not, set paymentModel to match
+        const salaryTypeUpper = String(data.salaryType).toUpperCase()
+        if (["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"].includes(salaryTypeUpper)) {
+          data.paymentModel = salaryTypeUpper as any
+        }
+      } else if (data.paymentModel && !data.salaryType) {
+        // If paymentModel is provided but salaryType is not, set salaryType to match
+        data.salaryType = data.paymentModel
+      }
+
       const created = await ctx.prisma.$transaction(async (tx) => {
         const base = await tx.contract.create({
           data: {
@@ -402,10 +415,23 @@ export const contractRouter = createTRPCRouter({
         }
       }
 
+      // 🔥 Sync salaryType and paymentModel: If one is being updated, ensure both are synced
+      const cleanedUpdates = clean(updates)
+      if (cleanedUpdates.salaryType && !cleanedUpdates.paymentModel) {
+        // If salaryType is being updated but paymentModel is not, sync paymentModel
+        const salaryTypeUpper = String(cleanedUpdates.salaryType).toUpperCase()
+        if (["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"].includes(salaryTypeUpper)) {
+          cleanedUpdates.paymentModel = salaryTypeUpper as any
+        }
+      } else if (cleanedUpdates.paymentModel && !cleanedUpdates.salaryType) {
+        // If paymentModel is being updated but salaryType is not, sync salaryType
+        cleanedUpdates.salaryType = cleanedUpdates.paymentModel
+      }
+
       const updated = await ctx.prisma.$transaction(async (tx) => {
         const base = await tx.contract.update({
           where: { id },
-          data: clean(updates),
+          data: cleanedUpdates,
         })
 
         if (participants) {
