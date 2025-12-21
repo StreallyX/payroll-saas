@@ -1019,6 +1019,13 @@ enum MarginType {
   CUSTOM
 }
 
+enum BankAccountUsage {
+  SALARY
+  GROSS
+  EXPENSES
+  OTHER
+}
+
 model Payment {
   id       String @id @default(cuid())
   tenantId String
@@ -1485,20 +1492,40 @@ model Country {
 model Bank {
   id            String  @id @default(cuid())
   tenantId      String
-  name          String
-  accountNumber String?
-  swiftCode     String?
-  iban          String?
-  address       String?
-
-  // 🔥 NEW: Support for user-owned bank accounts (contractors)
-  userId        String? // null for company banks, set for user/contractor banks
-  accountHolder String? // Account holder name (for user banks)
-  routingNumber String? // For user banks
-  branchCode    String? // For user banks
-  country       String? // For user banks
-  currency      String? // For user banks
   
+  // Account identification
+  accountName   String? // Account name/label (optional)
+  accountNumber String? // IBAN or local account number (optional)
+  accountHolder String? // Account holder name (optional)
+  
+  // Bank information
+  bankName      String? // Bank name (optional)
+  swiftCode     String? // SWIFT/BIC code (optional)
+  intermediarySwiftCode String? // Intermediary SWIFT code (optional)
+  routingNumber String? // Routing number (optional)
+  sortCode      String? // Sort code (optional)
+  branchCode    String? // Branch code (optional)
+  iban          String? // IBAN (optional)
+  
+  // Bank address
+  bankAddress   String? // Bank address (optional)
+  bankCity      String? // Bank city (optional)
+  country       String? // Country (optional)
+  state         String? // State/County (optional)
+  postCode      String? // Post code/ZIP code (optional)
+  
+  // Account details
+  currency      String? // Account currency (optional)
+  usage         BankAccountUsage? // Account usage/purpose (optional)
+  
+  // Legacy fields (deprecated, use bankName and accountName instead)
+  name          String? // Legacy: Bank name (optional, deprecated)
+  address       String? // Legacy: Bank address (optional, deprecated)
+  
+  // User association
+  userId        String? // null for company banks, set for user/contractor banks
+  
+  // Flags
   isPrimary     Boolean  @default(false) // For user banks
   isActive      Boolean  @default(true)
 
@@ -1517,6 +1544,7 @@ model Bank {
   @@index([userId]) // For user bank queries
   @@index([createdBy])
   @@index([isPrimary]) // For finding primary user banks
+  @@index([usage]) // For finding banks by usage
   @@map("banks")
 }
 

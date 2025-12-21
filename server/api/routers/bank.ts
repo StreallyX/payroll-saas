@@ -84,17 +84,64 @@ export const bankRouter = createTRPCRouter({
 
 
   // -------------------------------------------------------
+  // GET MY BANK ACCOUNTS — User's own bank accounts
+  // -------------------------------------------------------
+  getMyBankAccounts: tenantProcedure
+    .use(hasPermission(P.LIST_OWN))
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId!
+      const userId = ctx.session.user.id
+
+      return ctx.prisma.bank.findMany({
+        where: {
+          tenantId,
+          userId, // User's own bank accounts
+        },
+        orderBy: [
+          { isPrimary: "desc" }, // Primary accounts first
+          { createdAt: "desc" },
+        ],
+      })
+    }),
+
+  // -------------------------------------------------------
   // CREATE BANK — GLOBAL or OWN
   // -------------------------------------------------------
   create: tenantProcedure
     .use(hasAnyPermission([P.CREATE_GLOBAL, P.CREATE_OWN]))
     .input(
       z.object({
-        name: z.string().min(1),
+        // Account identification
+        accountName: z.string().optional(),
         accountNumber: z.string().optional(),
+        accountHolder: z.string().optional(),
+        
+        // Bank information
+        bankName: z.string().optional(),
         swiftCode: z.string().optional(),
+        intermediarySwiftCode: z.string().optional(),
+        routingNumber: z.string().optional(),
+        sortCode: z.string().optional(),
+        branchCode: z.string().optional(),
         iban: z.string().optional(),
+        
+        // Bank address
+        bankAddress: z.string().optional(),
+        bankCity: z.string().optional(),
+        country: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+        
+        // Account details
+        currency: z.string().optional(),
+        usage: z.enum(["SALARY", "GROSS", "EXPENSES", "OTHER"]).optional(),
+        
+        // Legacy fields (deprecated)
+        name: z.string().optional(),
         address: z.string().optional(),
+        
+        // Flags
+        isPrimary: z.boolean().default(false),
         status: z.enum(["active", "inactive"]).default("active"),
       })
     )
@@ -107,6 +154,7 @@ export const bankRouter = createTRPCRouter({
           ...input,
           tenantId,
           createdBy: user.id,
+          userId: user.id, // Associate with user
         },
       })
 
@@ -118,7 +166,7 @@ export const bankRouter = createTRPCRouter({
         action: AuditAction.CREATE,
         entityType: AuditEntityType.BANK,
         entityId: bank.id,
-        entityName: bank.name,
+        entityName: bank.accountName || bank.bankName || bank.name || "Bank Account",
       })
 
       return bank
@@ -133,11 +181,38 @@ export const bankRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
-        name: z.string().optional(),
+        
+        // Account identification
+        accountName: z.string().optional(),
         accountNumber: z.string().optional(),
+        accountHolder: z.string().optional(),
+        
+        // Bank information
+        bankName: z.string().optional(),
         swiftCode: z.string().optional(),
+        intermediarySwiftCode: z.string().optional(),
+        routingNumber: z.string().optional(),
+        sortCode: z.string().optional(),
+        branchCode: z.string().optional(),
         iban: z.string().optional(),
+        
+        // Bank address
+        bankAddress: z.string().optional(),
+        bankCity: z.string().optional(),
+        country: z.string().optional(),
+        state: z.string().optional(),
+        postCode: z.string().optional(),
+        
+        // Account details
+        currency: z.string().optional(),
+        usage: z.enum(["SALARY", "GROSS", "EXPENSES", "OTHER"]).optional(),
+        
+        // Legacy fields (deprecated)
+        name: z.string().optional(),
         address: z.string().optional(),
+        
+        // Flags
+        isPrimary: z.boolean().optional(),
         status: z.enum(["active", "inactive"]).optional(),
       })
     )
@@ -155,7 +230,7 @@ export const bankRouter = createTRPCRouter({
       const canGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
       const canOwn = user.permissions.includes(P.UPDATE_OWN)
 
-      if (!canGlobal && !(canOwn && existing.createdBy === user.id)) {
+      if (!canGlobal && !(canOwn && (existing.userId === user.id || existing.createdBy === user.id))) {
         throw new TRPCError({ code: "UNAUTHORIZED" })
       }
 
@@ -172,7 +247,7 @@ export const bankRouter = createTRPCRouter({
         action: AuditAction.UPDATE,
         entityType: AuditEntityType.BANK,
         entityId: bank.id,
-        entityName: bank.name,
+        entityName: bank.accountName || bank.bankName || bank.name || "Bank Account",
       })
 
       return bank
@@ -198,7 +273,7 @@ export const bankRouter = createTRPCRouter({
       const canGlobal = user.permissions.includes(P.DELETE_GLOBAL)
       const canOwn = user.permissions.includes(P.DELETE_OWN)
 
-      if (!canGlobal && !(canOwn && existing.createdBy === user.id)) {
+      if (!canGlobal && !(canOwn && (existing.userId === user.id || existing.createdBy === user.id))) {
         throw new TRPCError({ code: "UNAUTHORIZED" })
       }
 
@@ -214,7 +289,7 @@ export const bankRouter = createTRPCRouter({
         action: AuditAction.DELETE,
         entityType: AuditEntityType.BANK,
         entityId: input.id,
-        entityName: existing.name,
+        entityName: existing.accountName || existing.bankName || existing.name || "Bank Account",
       })
 
       return { success: true }

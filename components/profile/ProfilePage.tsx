@@ -24,7 +24,7 @@ import { DocumentSection } from "./sections/DocumentSection";
 const MENU = [
   { key: "user", label: "Personal Info", icon: User },
   { key: "company", label: "Company", icon: Building2 },
-  { key: "bank", label: "Bank Details", icon: Landmark },
+  { key: "bank", label: "Bank Accounts", icon: Landmark },
   { key: "security", label: "Security", icon: Shield },
   { key: "documents", label: "Documents", icon: FileText },
 ];
@@ -102,7 +102,7 @@ export default function ProfilePage() {
 
   // CHOOSE SECTION
   const renderSection = () => {
-    if (!userForm || !companyForm || !bankForm)
+    if (!userForm || !companyForm)
       return (
         <div className="flex items-center justify-center py-10 text-muted-foreground">
           Loading profile…
@@ -138,18 +138,7 @@ export default function ProfilePage() {
         );
 
       case "bank":
-        return (
-          <BankSection
-            form={bankForm}
-            setForm={setBankForm}
-            isEditing={isEditingBank}
-            setIsEditing={setIsEditingBank}
-            onSave={handleSaveBank}
-            onCancel={handleCancelBank}
-            saving={savingBank}
-            hasBank={!!bank}
-          />
-        );
+        return <BankSection />;
 
       case "security":
         return (
@@ -171,7 +160,7 @@ export default function ProfilePage() {
     <RouteGuard permission="user.read.own">
       <PageHeader
         title="My Profile"
-        description="Manage your personal data, company, bank and security"
+        description="Manage your personal data, company, bank accounts and security"
       />
 
       <div className="flex gap-8 mt-6">
