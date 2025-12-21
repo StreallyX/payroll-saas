@@ -13,11 +13,51 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { LogIn, Mail, Lock } from "lucide-react"
 
+// Test accounts for development
+const TEST_ACCOUNTS = [
+  {
+    role: "SuperAdmin",
+    email: "superadmin@platform.com",
+    password: "SuperAdmin123!",
+    color: "bg-red-600 hover:bg-red-700",
+    icon: "👑",
+  },
+  {
+    role: "Admin",
+    email: "admin@demo.com",
+    password: "password123",
+    color: "bg-purple-600 hover:bg-purple-700",
+    icon: "🔧",
+  },
+  {
+    role: "Agency",
+    email: "agency@demo.com",
+    password: "password123",
+    color: "bg-blue-600 hover:bg-blue-700",
+    icon: "🏢",
+  },
+  {
+    role: "Payroll",
+    email: "payroll@demo.com",
+    password: "password123",
+    color: "bg-green-600 hover:bg-green-700",
+    icon: "💰",
+  },
+  {
+    role: "Contractor",
+    email: "contractor@demo.com",
+    password: "password123",
+    color: "bg-orange-600 hover:bg-orange-700",
+    icon: "👤",
+  },
+]
+
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [quickLoginLoading, setQuickLoginLoading] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
@@ -47,6 +87,30 @@ export default function LoginPage() {
       setError("An error occurred during login")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleQuickLogin = async (account: typeof TEST_ACCOUNTS[0]) => {
+    setError("")
+    setQuickLoginLoading(account.email)
+
+    try {
+      const result = await signIn("credentials", {
+        email: account.email,
+        password: account.password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError(`Failed to login as ${account.role}`)
+      } else {
+        // Redirect based on role will be handled by middleware
+        router.push("/")
+      }
+    } catch (err) {
+      setError("An error occurred during quick login")
+    } finally {
+      setQuickLoginLoading(null)
     }
   }
 
@@ -138,19 +202,41 @@ export default function LoginPage() {
           </form>
         </Card>
 
-        {/* Demo Credentials */}
-        {mounted && (
+        {/* Quick Login Buttons (Development Only) */}
+        {mounted && process.env.NODE_ENV === "development" && (
           <Card className="mt-4">
             <CardContent className="pt-4">
-              <h3 className="font-medium text-gray-900 mb-2">Demo Credentials</h3>
-              <div className="space-y-1 text-sm text-gray-600">
-                <p className="text-red-600 font-semibold">
-                  <strong>SuperAdmin:</strong> superadmin@platform.com / SuperAdmin123!
-                </p>
-                <p><strong>Admin:</strong> admin@demo.com / password123</p>
-                <p><strong>Agency:</strong> agency@demo.com / password123</p>
-                <p><strong>Payroll:</strong> payroll@demo.com / password123</p>
-                <p><strong>Contractor:</strong> contractor@demo.com / password123</p>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-gray-900">Quick Login</h3>
+                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                  Dev Only
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                One-click login for testing different user roles
+              </p>
+              <div className="space-y-2">
+                {TEST_ACCOUNTS.map((account) => (
+                  <Button
+                    key={account.email}
+                    onClick={() => handleQuickLogin(account)}
+                    disabled={quickLoginLoading !== null}
+                    className={`w-full ${account.color} text-white transition-colors`}
+                    type="button"
+                  >
+                    {quickLoginLoading === account.email ? (
+                      <>
+                        <LoadingSpinner size="sm" className="mr-2" />
+                        Logging in...
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-2">{account.icon}</span>
+                        Login as {account.role}
+                      </>
+                    )}
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>
