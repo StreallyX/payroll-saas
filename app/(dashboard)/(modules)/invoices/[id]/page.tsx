@@ -160,28 +160,27 @@ export default function InvoiceDetailPage() {
     ? contractorName 
     : (data?.marginPaidBy === "agency" ? agencyName : clientName);
 
-  // Calculate totals from line items
+  // Calculate totals from line items and expenses
   const lineItemsTotals = useMemo(() => {
-    if (!data?.lineItems) return { subtotal: 0, expenses: 0, workTotal: 0 };
+    if (!data) return { subtotal: 0, expenses: 0, workTotal: 0 };
     
-    let workTotal = 0;
+    // 🔥 FIX: Use baseAmount for work total (already calculated on backend)
+    const workTotal = Number(data.baseAmount || data.amount || 0);
+    
+    // 🔥 FIX: Get expenses from timesheet.expenses (Expense model)
     let expenses = 0;
-    
-    data.lineItems.forEach((item: any) => {
-      const amount = Number(item.amount || 0);
-      if (item.description?.toLowerCase().includes('expense')) {
-        expenses += amount;
-      } else {
-        workTotal += amount;
-      }
-    });
+    if (data.timesheet?.expenses) {
+      expenses = data.timesheet.expenses.reduce((sum: number, expense: any) => {
+        return sum + Number(expense.amount || 0);
+      }, 0);
+    }
     
     return {
       subtotal: workTotal + expenses,
       expenses,
       workTotal,
     };
-  }, [data?.lineItems]);
+  }, [data]);
 
   // Handle workflow actions
   const handleWorkflowAction = async (action: string, reason?: string) => {
@@ -799,16 +798,14 @@ export default function InvoiceDetailPage() {
                   </thead>
                   <tbody className="divide-y">
                     {data.lineItems && data.lineItems.length > 0 ? (
-                      data.lineItems
-                        .filter((item: any) => !item.description?.toLowerCase().includes('expense'))
-                        .map((item: any, index: number) => (
-                          <tr key={item.id} className="hover:bg-muted/20">
-                            <td className="p-3 text-sm">{item.description}</td>
-                            <td className="p-3 text-sm text-right">{Number(item.quantity)}</td>
-                            <td className="p-3 text-sm text-right">{formatCurrency(Number(item.unitPrice))}</td>
-                            <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(item.amount))}</td>
-                          </tr>
-                        ))
+                      data.lineItems.map((item: any, index: number) => (
+                        <tr key={item.id} className="hover:bg-muted/20">
+                          <td className="p-3 text-sm">{item.description}</td>
+                          <td className="p-3 text-sm text-right">{Number(item.quantity)}</td>
+                          <td className="p-3 text-sm text-right">{formatCurrency(Number(item.unitPrice))}</td>
+                          <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(item.amount))}</td>
+                        </tr>
+                      ))
                     ) : (
                       <tr>
                         <td colSpan={4} className="p-6 text-center text-muted-foreground">
@@ -832,7 +829,7 @@ export default function InvoiceDetailPage() {
             </div>
 
             {/* EXPENSES SECTION */}
-            {lineItemsTotals.expenses > 0 && (
+            {lineItemsTotals.expenses > 0 && data.timesheet?.expenses && data.timesheet.expenses.length > 0 && (
               <>
                 <Separator className="my-6" />
                 <div>
@@ -842,18 +839,25 @@ export default function InvoiceDetailPage() {
                       <thead className="bg-muted">
                         <tr>
                           <th className="text-left p-3 font-semibold text-sm">Description</th>
+                          <th className="text-left p-3 font-semibold text-sm">Category</th>
+                          <th className="text-left p-3 font-semibold text-sm">Date</th>
                           <th className="text-right p-3 font-semibold text-sm w-32">Amount</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {data.lineItems
-                          ?.filter((item: any) => item.description?.toLowerCase().includes('expense'))
-                          .map((item: any) => (
-                            <tr key={item.id} className="hover:bg-muted/20">
-                              <td className="p-3 text-sm">{item.description}</td>
-                              <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(item.amount))}</td>
-                            </tr>
-                          ))}
+                        {data.timesheet.expenses.map((expense: any) => (
+                          <tr key={expense.id} className="hover:bg-muted/20">
+                            <td className="p-3 text-sm">
+                              <div className="font-medium">{expense.title}</div>
+                              {expense.description && (
+                                <div className="text-xs text-muted-foreground">{expense.description}</div>
+                              )}
+                            </td>
+                            <td className="p-3 text-sm capitalize">{expense.category}</td>
+                            <td className="p-3 text-sm">{new Date(expense.expenseDate).toLocaleDateString()}</td>
+                            <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(expense.amount))}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>

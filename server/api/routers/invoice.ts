@@ -268,6 +268,13 @@ getById: tenantProcedure
         // 🔥 Only admin sees margin
         margin: isAdmin,
 
+        // 🔥 NEW: Include timesheet with expenses
+        timesheet: {
+          include: {
+            expenses: true,
+          },
+        },
+
         contract: {
           select: {
             id: true,
@@ -1301,15 +1308,16 @@ getById: tenantProcedure
       const rate = new Prisma.Decimal(timesheet.contract?.rate ?? 0)
       const baseAmount = timesheet.baseAmount || new Prisma.Decimal(0)
       const totalExpenses = timesheet.totalExpenses || new Prisma.Decimal(0)
-      const invoiceAmount = baseAmount.add(totalExpenses)
 
-      // Calculate margin
+      // 🔥 FIX: Calculate margin ONLY on baseAmount (work), not on expenses
       const marginCalculation = await MarginService.calculateMarginFromContract(
         timesheet.contractId!,
-        parseFloat(invoiceAmount.toString())
+        parseFloat(baseAmount.toString())
       )
 
-      const totalAmount = marginCalculation?.totalWithMargin || invoiceAmount
+      // 🔥 FIX: Total = baseAmount + margin + expenses
+      const marginAmount = new Prisma.Decimal(marginCalculation?.marginAmount || 0)
+      const totalAmount = baseAmount.add(marginAmount).add(totalExpenses)
 
       // Prepare line items from timesheet entries
       // 🔥 FIX: Line items should be per day, NOT per hour
@@ -1347,10 +1355,10 @@ getById: tenantProcedure
           receiverId: input.receiverId,
           
           baseAmount: baseAmount,
-          amount: invoiceAmount,
+          amount: baseAmount, // 🔥 FIX: amount should be baseAmount only (work)
           marginAmount: marginCalculation?.marginAmount || new Prisma.Decimal(0),
           marginPercentage: marginCalculation?.marginPercentage || new Prisma.Decimal(0),
-          totalAmount: totalAmount,
+          totalAmount: totalAmount, // 🔥 FIX: totalAmount = baseAmount + margin + expenses
           currencyId: timesheet.contract?.currencyId,
           
           status: "submitted",
