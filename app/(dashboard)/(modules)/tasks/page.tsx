@@ -17,6 +17,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { api } from "@/lib/trpc"
 import { format } from "date-fns"
+import { usePermissions } from "@/hooks/use-permissions"
+import {
+  Resource,
+  Action,
+  PermissionScope,
+  buildPermissionKey,
+} from "@/server/rbac/permissions"
 
 export default function AdminTasksPage() {
   const [activeTab, setActiveTab] = useState("pending")
@@ -24,11 +31,46 @@ export default function AdminTasksPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
 
-  // Fetch tasks
-  const { data: tasks, isLoading, refetch } = api.task.getAll.useQuery()
+  // Check permissions
+  const { hasPermission, isSuperAdmin } = usePermissions()
+  const VIEW_ALL = buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.GLOBAL)
+  const VIEW_OWN = buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN)
+  const CREATE = buildPermissionKey(Resource.TASK, Action.CREATE, PermissionScope.GLOBAL)
+  const DELETE = buildPermissionKey(Resource.TASK, Action.DELETE, PermissionScope.GLOBAL)
+
+  // Determine which queries to use based on permissions
+  const hasGlobalView = isSuperAdmin || hasPermission(VIEW_ALL)
+  const hasOwnView = hasPermission(VIEW_OWN)
+
+  // Fetch tasks - use getAll for global view, getMyTasks for own view
+  const { data: allTasks, isLoading: isLoadingAll, refetch: refetchAll } = api.task.getAll.useQuery(
+    undefined,
+    { enabled: hasGlobalView }
+  )
+  const { data: myTasks, isLoading: isLoadingMy, refetch: refetchMy } = api.task.getMyTasks.useQuery(
+    undefined,
+    { enabled: !hasGlobalView && hasOwnView }
+  )
   
-  // Fetch stats
-  const { data: stats } = api.task.getStats.useQuery()
+  // Fetch stats - use getStats for global view, getMyStats for own view
+  const { data: allStats } = api.task.getStats.useQuery(
+    undefined,
+    { enabled: hasGlobalView }
+  )
+  const { data: myStats } = api.task.getMyStats.useQuery(
+    undefined,
+    { enabled: !hasGlobalView && hasOwnView }
+  )
+
+  // Use the appropriate data based on permissions
+  const tasks = hasGlobalView ? allTasks : myTasks
+  const stats = hasGlobalView ? allStats : myStats
+  const isLoading = hasGlobalView ? isLoadingAll : isLoadingMy
+  const refetch = hasGlobalView ? refetchAll : refetchMy
+
+  // Permission checks for actions
+  const canCreate = isSuperAdmin || hasPermission(CREATE)
+  const canDelete = isSuperAdmin || hasPermission(DELETE)
 
   // Toggle completion mutation
   const toggleMutation = api.task.toggleComplete.useMutation({
@@ -88,15 +130,17 @@ export default function AdminTasksPage() {
         title="Mes Tâches" 
         description="Gérez vos tâches assignées et suivez la progression"
       >
-        <Button
-          onClick={() => {
-            setEditingTask(null)
-            setModalOpen(true)
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New Tâche
-        </Button>
+        {canCreate && (
+          <Button
+            onClick={() => {
+              setEditingTask(null)
+              setModalOpen(true)
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Tâche
+          </Button>
+        )}
       </PageHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -130,11 +174,11 @@ export default function AdminTasksPage() {
                   icon={CheckCircle}
                   title={`Aucune tâche ${activeTab === "pending" ? "en attente" : "terminée"}`}
                   description={activeTab === "pending" ? "Créez votre première tâche pour commencer" : "Aucune tâche terminée pour le moment"}
-                  actionLabel={activeTab === "pending" ? "New Tâche" : undefined}
-                  onAction={() => {
+                  actionLabel={canCreate && activeTab === "pending" ? "New Tâche" : undefined}
+                  onAction={canCreate ? () => {
                     setEditingTask(null)
                     setModalOpen(true)
-                  }}
+                  } : undefined}
                 />
               ) : (
                 filteredTasks.map((task) => (
@@ -169,13 +213,15 @@ export default function AdminTasksPage() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setDeleteId(task.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </Button>
+                              {canDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDeleteId(task.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -217,15 +263,17 @@ export default function AdminTasksPage() {
       />
 
       {/* Task Modal */}
-      <TaskModal
-        open={modalOpen}
-        onOpenChange={(open) => {
-          setModalOpen(open)
-          if (!open) setEditingTask(null)
-        }}
-        task={editingTask}
-        onSuccess={() => refetch()}
-      />
+      {canCreate && (
+        <TaskModal
+          open={modalOpen}
+          onOpenChange={(open) => {
+            setModalOpen(open)
+            if (!open) setEditingTask(null)
+          }}
+          task={editingTask}
+          onSuccess={() => refetch()}
+        />
+      )}
     </div>
   )
 }

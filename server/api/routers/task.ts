@@ -265,4 +265,47 @@ export const taskRouter = createTRPCRouter({
 
       return { total, pending, completed, overdue };
     }),
+
+  // -------------------------------------------------------
+  // MY STATS (for users with VIEW_OWN permission)
+  // -------------------------------------------------------
+  getMyStats: tenantProcedure
+    .use(hasPermission(VIEW_OWN))
+    .query(async ({ ctx }) => {
+      const userId = ctx.session!.user.id;
+
+      const total = await ctx.prisma.task.count({
+        where: { 
+          tenantId: ctx.tenantId,
+          assignedTo: userId,
+        },
+      });
+
+      const pending = await ctx.prisma.task.count({
+        where: { 
+          tenantId: ctx.tenantId,
+          assignedTo: userId,
+          status: "pending",
+        },
+      });
+
+      const completed = await ctx.prisma.task.count({
+        where: { 
+          tenantId: ctx.tenantId,
+          assignedTo: userId,
+          status: "completed",
+        },
+      });
+
+      const overdue = await ctx.prisma.task.count({
+        where: {
+          tenantId: ctx.tenantId,
+          assignedTo: userId,
+          status: "pending",
+          dueDate: { lt: new Date() },
+        },
+      });
+
+      return { total, pending, completed, overdue };
+    }),
 });
