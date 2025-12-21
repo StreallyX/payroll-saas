@@ -8,7 +8,8 @@
 
 import { Decimal } from '@prisma/client/runtime/library'
 import { prisma } from '@/lib/db'
-import { MarginType, PaymentModel } from '@prisma/client'
+import { MarginType } from '@prisma/client'
+import { PaymentModel } from '@/lib/constants/payment-models'
 
 export interface MarginCalculationInput {
   invoiceAmount: number

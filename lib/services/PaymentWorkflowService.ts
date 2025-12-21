@@ -10,7 +10,7 @@
 
 import { Decimal } from '@prisma/client/runtime/library'
 import { prisma } from '@/lib/db'
-import { PaymentModel } from '@prisma/client'
+import { PaymentModel } from '@/lib/constants/payment-models'
 import { createAuditLog } from '@/lib/audit'
 import { AuditAction, AuditEntityType } from '@/lib/types'
 

@@ -2,18 +2,12 @@
  * MarginCalculationService
  * 
  * Handles margin calculations based on contract settings
- * Supports multiple payment modes: gross, payroll, payroll_we_pay, split
+ * Supports multiple payment models: GROSS, PAYROLL, PAYROLL_WE_PAY, SPLIT
  */
 
 import { Decimal } from '@prisma/client/runtime/library'
 import { prisma } from '@/lib/db'
-
-export enum PaymentMode {
-  GROSS = 'gross',
-  PAYROLL = 'payroll',
-  PAYROLL_WE_PAY = 'payroll_we_pay',
-  SPLIT = 'split',
-}
+import { PaymentModel } from '@/lib/constants/payment-models'
 
 export enum MarginPaidBy {
   CLIENT = 'client',
@@ -26,7 +20,7 @@ export interface MarginCalculationInput {
   marginPercentage?: number
   marginAmount?: number
   marginPaidBy: MarginPaidBy
-  paymentMode?: PaymentMode
+  paymentModel?: PaymentModel
 }
 
 export interface MarginCalculationResult {
@@ -50,7 +44,7 @@ export class MarginCalculationService {
   static calculateMargin(
     input: MarginCalculationInput
   ): MarginCalculationResult {
-    const { baseAmount, marginPaidBy, paymentMode = PaymentMode.GROSS } = input
+    const { baseAmount, marginPaidBy, paymentModel = PaymentModel.GROSS } = input
 
     // Determine margin amount
     let marginAmount: number
@@ -122,9 +116,9 @@ export class MarginCalculationService {
         throw new Error(`Unknown marginPaidBy: ${marginPaidBy}`)
     }
 
-    // Adjust based on payment mode
-    if (paymentMode === PaymentMode.PAYROLL || paymentMode === PaymentMode.PAYROLL_WE_PAY) {
-      // For payroll modes, additional calculations might be needed
+    // Adjust based on payment model
+    if (paymentModel === PaymentModel.PAYROLL || paymentModel === PaymentModel.PAYROLL_WE_PAY) {
+      // For payroll models, additional calculations might be needed
       // (e.g., tax withholding, employer contributions)
       // This can be extended based on specific requirements
     }
@@ -167,13 +161,13 @@ export class MarginCalculationService {
       ? parseFloat(contract.margin.toString())
       : undefined
     const marginPaidBy = (contract.marginPaidBy as MarginPaidBy) || MarginPaidBy.CLIENT
-    const paymentMode = contract.payrollModes?.[0] as PaymentMode | undefined
+    const paymentModel = contract.payrollModes?.[0] as PaymentModel | undefined
 
     return this.calculateMargin({
       baseAmount,
       marginPercentage,
       marginPaidBy,
-      paymentMode,
+      paymentModel,
     })
   }
 
