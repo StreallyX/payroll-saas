@@ -98,6 +98,7 @@ export const invoiceRouter = createTRPCRouter({
               id: true,
               contractReference: true,
               invoiceDueTerm: true,
+              paymentModel: true, // 🔥 REFACTOR: Include payment model from contract
               invoiceDueDays: true,
               participants: {
                 include: {
@@ -152,6 +153,7 @@ export const invoiceRouter = createTRPCRouter({
             select: {
               id: true,
               contractReference: true,
+              paymentModel: true, // 🔥 REFACTOR: Include payment model from contract
               invoiceDueTerm: true,
               invoiceDueDays: true,
               participants: {
@@ -295,6 +297,7 @@ getById: tenantProcedure
           select: {
             id: true,
             contractReference: true,
+            paymentModel: true, // 🔥 REFACTOR: Include payment model from contract
             invoiceDueTerm: true,
             invoiceDueDays: true,
             participants: {
@@ -1233,8 +1236,8 @@ getById: tenantProcedure
         },
       })
 
-      // Execute payment model workflow
-      const paymentModel = invoice.paymentModel || invoice.contract?.paymentModel
+      // 🔥 REFACTOR: Execute payment model workflow using contract's paymentModel (single source of truth)
+      const paymentModel = invoice.contract?.paymentModel
       if (paymentModel) {
         const workflowResult = await PaymentWorkflowService.executePaymentWorkflow({
           invoiceId: input.invoiceId,
@@ -1538,7 +1541,7 @@ getById: tenantProcedure
             include: {
               sender: { select: { id: true, name: true, email: true } },
               receiver: { select: { id: true, name: true, email: true } },
-              contract: { select: { id: true, contractReference: true } },
+              contract: { select: { id: true, contractReference: true, paymentModel: true } }, // 🔥 REFACTOR: Include paymentModel
             },
             orderBy: { createdAt: "asc" },
           });
@@ -1565,7 +1568,7 @@ getById: tenantProcedure
             include: {
               sender: { select: { id: true, name: true, email: true } },
               receiver: { select: { id: true, name: true, email: true } },
-              contract: { select: { id: true, contractReference: true } },
+              contract: { select: { id: true, contractReference: true, paymentModel: true } }, // 🔥 REFACTOR: Include paymentModel
             },
             orderBy: { createdAt: "asc" },
           });
@@ -1592,7 +1595,7 @@ getById: tenantProcedure
             include: {
               sender: { select: { id: true, name: true, email: true } },
               receiver: { select: { id: true, name: true, email: true } },
-              contract: { select: { id: true, contractReference: true } },
+              contract: { select: { id: true, contractReference: true, paymentModel: true } }, // 🔥 REFACTOR: Include paymentModel
             },
             orderBy: { createdAt: "asc" },
           });
@@ -1623,7 +1626,7 @@ getById: tenantProcedure
             include: {
               sender: { select: { id: true, name: true, email: true } },
               receiver: { select: { id: true, name: true, email: true } },
-              contract: { select: { id: true, contractReference: true } },
+              contract: { select: { id: true, contractReference: true, paymentModel: true } }, // 🔥 REFACTOR: Include paymentModel
             },
             orderBy: { createdAt: "asc" },
           });
@@ -1653,7 +1656,7 @@ getById: tenantProcedure
             include: {
               sender: { select: { id: true, name: true, email: true } },
               receiver: { select: { id: true, name: true, email: true } },
-              contract: { select: { id: true, contractReference: true } },
+              contract: { select: { id: true, contractReference: true, paymentModel: true } }, // 🔥 REFACTOR: Include paymentModel
             },
             orderBy: [
               { workflowState: "desc" }, // overdue first

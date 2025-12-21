@@ -466,7 +466,8 @@ export class PaymentWorkflowService {
       throw new Error('Invoice not found')
     }
 
-    const paymentModel = invoice.contract?.paymentModel || invoice.paymentModel
+    // 🔥 REFACTOR: Use contract's paymentModel as single source of truth
+    const paymentModel = invoice.contract?.paymentModel
 
     return {
       invoiceId: invoice.id,
