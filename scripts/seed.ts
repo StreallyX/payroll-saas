@@ -131,6 +131,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
 
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.BANK, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.UPDATE, PermissionScope.OWN),
   ],
 
   PAYROLL: [
@@ -175,6 +180,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.ROLE, Action.DELETE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN),
 
     // CONTRACTS (own)
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
