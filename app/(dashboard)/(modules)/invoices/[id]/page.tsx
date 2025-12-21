@@ -494,8 +494,8 @@ export default function InvoiceDetailPage() {
             state: currentState,
             agencyMarkedPaidAt: (data as any).agencyMarkedPaidAt,
             paymentReceivedAt: (data as any).paymentReceivedAt,
-            paymentReceivedBy: (data as any).paymentReceivedBy,
-            agencyMarkedPaidBy: (data as any).agencyMarkedPaidBy,
+            paymentReceivedBy: (data as any).paymentReceivedByUser,
+            agencyMarkedPaidBy: (data as any).agencyMarkedPaidByUser,
             amountPaidByAgency: (data as any).amountPaidByAgency,
             amountReceived: (data as any).amountReceived,
           }}

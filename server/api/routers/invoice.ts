@@ -275,6 +275,22 @@ getById: tenantProcedure
           },
         },
 
+        // 🔥 NEW: Include payment tracking users
+        agencyMarkedPaidByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        paymentReceivedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
         contract: {
           select: {
             id: true,
