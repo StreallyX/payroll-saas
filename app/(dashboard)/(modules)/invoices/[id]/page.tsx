@@ -3,30 +3,31 @@
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useMemo } from "react";
-import { Loader2, FileText, Download, AlertCircle, User, Building2, DollarSign, ArrowLeft, Link as LinkIcon, Copy, CheckCircle } from "lucide-react";
+import { Loader2, FileText, DollarSign, AlertCircle, User, Building2, LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSession } from "next-auth/react";
-import {
-  WorkflowStatusBadge,
-  WorkflowActionButtons,
-  MarginCalculationDisplay,
-} from "@/components/workflow";
+import { MarginCalculationDisplay } from "@/components/workflow";
 import { MarginConfirmationCard } from "@/components/invoices/MarginConfirmationCard";
 import { PaymentTrackingCard } from "@/components/invoices/PaymentTrackingCard";
-import { SelfInvoiceDialog } from "@/components/invoices/SelfInvoiceDialog";
-import { PayrollWorkflowDialog } from "@/components/invoices/PayrollWorkflowDialog";
-import { PayrollWePayDialog } from "@/components/invoices/PayrollWePayDialog";
-import { SplitPaymentDialog } from "@/components/invoices/SplitPaymentDialog";
-import { TimesheetFileViewer } from "@/components/timesheets/TimesheetFileViewer";
 import Link from "next/link";
+import {
+  InvoiceHeader,
+  InvoiceStatusDisplay,
+  InvoiceCalculation,
+  InvoiceLineItems,
+  InvoiceExpenses,
+  InvoiceDocuments,
+  InvoiceActions,
+  InvoiceWorkflowActions,
+  InvoiceMetadata,
+} from "@/components/invoices/detail";
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -35,8 +36,6 @@ export default function InvoiceDetailPage() {
 
   const { hasPermission } = usePermissions();
   const { data: session } = useSession();
-  const [adminModifiedAmount, setAdminModifiedAmount] = useState<string>("");
-  const [isModifyingAmount, setIsModifyingAmount] = useState(false);
   const [showFullInvoice, setShowFullInvoice] = useState(true);
 
   const utils = api.useUtils();
@@ -92,17 +91,7 @@ export default function InvoiceDetailPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const modifyAmountMutation = api.invoice.modifyInvoiceAmounts.useMutation({
-    onSuccess: () => {
-      toast.success("Amount updated");
-      utils.invoice.getById.invalidate({ id: invoiceId });
-      setIsModifyingAmount(false);
-      setAdminModifiedAmount("");
-    },
-    onError: (err: any) => toast.error(err.message),
-  });
-
-  // New payment workflow mutations
+  // Payment workflow mutations
   const confirmMarginMutation = api.invoice.confirmMargin.useMutation({
     onSuccess: () => {
       toast.success("Margin confirmed successfully! Invoice status updated.");
@@ -168,10 +157,8 @@ export default function InvoiceDetailPage() {
   const lineItemsTotals = useMemo(() => {
     if (!data) return { subtotal: 0, expenses: 0, workTotal: 0 };
     
-    // 🔥 FIX: Use baseAmount for work total (already calculated on backend)
     const workTotal = Number(data.baseAmount || data.amount || 0);
     
-    // 🔥 FIX: Get expenses from timesheet.expenses (Expense model)
     let expenses = 0;
     if (data.timesheet?.expenses) {
       expenses = data.timesheet.expenses.reduce((sum: number, expense: any) => {
@@ -209,21 +196,7 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const handleModifyAmount = () => {
-    const amount = parseFloat(adminModifiedAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    modifyAmountMutation.mutate({
-      id: invoiceId,
-      amount: amount,
-      adminModificationNote: "Amount modified by admin",
-    });
-  };
-
-  // New payment workflow handlers
+  // Payment workflow handlers
   const handleConfirmMargin = async (overrideAmount?: number, notes?: string) => {
     const marginId = (data as any).margin?.id;
     await confirmMarginMutation.mutateAsync({
@@ -267,7 +240,6 @@ export default function InvoiceDetailPage() {
     
     if (!contract) return "Not specified";
 
-    // Priority 1: Check invoiceDueTerm (new field)
     if (contract.invoiceDueTerm) {
       const term = contract.invoiceDueTerm;
       
@@ -275,17 +247,14 @@ export default function InvoiceDetailPage() {
         return "Upon receipt";
       }
       
-      // Extract number from terms like "7_days", "30_days", etc.
       const match = term.match(/^(\d+)_days$/);
       if (match) {
         return `${match[1]} days`;
       }
       
-      // Fallback: display the term as-is
       return term.replace(/_/g, " ");
     }
 
-    // Priority 2: Fallback to invoiceDueDays (legacy field)
     if (contract.invoiceDueDays !== null && contract.invoiceDueDays !== undefined) {
       return `${contract.invoiceDueDays} days`;
     }
@@ -324,18 +293,13 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const canModify = hasPermission("invoice.modify.global");
-  const canReview = hasPermission("invoice.review.global");
-  const canApprove = hasPermission("invoice.approve.global");
-  const canReject = hasPermission("invoice.reject.global");
-  const canSend = hasPermission("invoice.send.global");
   const canViewContract = hasPermission("contract.read.own") || hasPermission("contract.read.global");
+  const currentState = data.workflowState || data.status;
 
   // Determine available actions based on state and permissions
   const availableActions = [];
-  const currentState = data.workflowState || data.status;
 
-  if (currentState === "submitted" && canReview) {
+  if (currentState === "submitted" && hasPermission("invoice.review.global")) {
     availableActions.push({
       action: "review",
       label: "Mark as Under Review",
@@ -343,7 +307,7 @@ export default function InvoiceDetailPage() {
     });
   }
 
-  if ((currentState === "submitted" || currentState === "under_review") && canApprove) {
+  if ((currentState === "submitted" || currentState === "under_review") && hasPermission("invoice.approve.global")) {
     availableActions.push({
       action: "approve",
       label: "Approve Invoice",
@@ -357,7 +321,7 @@ export default function InvoiceDetailPage() {
     });
   }
 
-  if ((currentState === "submitted" || currentState === "under_review") && canReject) {
+  if ((currentState === "submitted" || currentState === "under_review") && hasPermission("invoice.reject.global")) {
     availableActions.push({
       action: "reject",
       label: "Reject Invoice",
@@ -366,7 +330,7 @@ export default function InvoiceDetailPage() {
     });
   }
 
-  if (currentState === "approved" && canSend) {
+  if (currentState === "approved" && hasPermission("invoice.send.global")) {
     availableActions.push({
       action: "send",
       label: "Send Invoice",
@@ -377,101 +341,25 @@ export default function InvoiceDetailPage() {
   return (
     <div className="container mx-auto max-w-7xl p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/invoices">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Invoices
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <FileText className="h-8 w-8" />
-              Invoice {data.invoiceNumber || `#${data.id.slice(0, 8)}`}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Professional invoice with complete details
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <WorkflowStatusBadge status={currentState} />
-          <Button variant="outline" size="sm" onClick={() => setShowFullInvoice(!showFullInvoice)}>
-            {showFullInvoice ? "Show Tabs View" : "Show Invoice View"}
-          </Button>
-        </div>
-      </div>
+      <InvoiceHeader
+        invoiceNumber={data.invoiceNumber}
+        invoiceId={invoiceId}
+        workflowState={currentState}
+        showFullInvoice={showFullInvoice}
+        onToggleView={() => setShowFullInvoice(!showFullInvoice)}
+      />
 
-      {/* Invoice Status Display - Show validation and payment status */}
-      {(currentState === "approved" || currentState === "sent" || currentState === "marked_paid_by_agency" || currentState === "payment_received") && (
-        <Card className="border-2 border-green-200 bg-green-50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-6">
-              {/* Validation Status */}
-              <div className="flex items-center gap-3 flex-1">
-                <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center">
-                  <CheckCircle className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-green-900">Invoice Validated</h3>
-                  <p className="text-sm text-green-700">
-                    Approved and ready for payment
-                  </p>
-                </div>
-              </div>
+      {/* Invoice Status Display */}
+      <InvoiceStatusDisplay
+        currentState={currentState}
+        paymentReceivedAt={(data as any).paymentReceivedAt}
+        amountReceived={(data as any).amountReceived}
+        agencyMarkedPaidAt={(data as any).agencyMarkedPaidAt}
+        amountPaidByAgency={(data as any).amountPaidByAgency}
+        formatCurrency={formatCurrency}
+      />
 
-              {/* Payment Status */}
-              {currentState === "payment_received" && (
-                <>
-                  <Separator orientation="vertical" className="h-12" />
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center">
-                      <DollarSign className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-green-900">Payment Received</h3>
-                      <p className="text-sm text-green-700">
-                        {(data as any).paymentReceivedAt && 
-                          `Received on ${new Date((data as any).paymentReceivedAt).toLocaleDateString()}`
-                        }
-                        {(data as any).amountReceived && 
-                          ` - ${formatCurrency(Number((data as any).amountReceived))}`
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Agency Payment Status */}
-              {(currentState === "marked_paid_by_agency" || currentState === "payment_received") && currentState !== "payment_received" && (
-                <>
-                  <Separator orientation="vertical" className="h-12" />
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-green-900">Paid by Agency</h3>
-                      <p className="text-sm text-green-700">
-                        {(data as any).agencyMarkedPaidAt && 
-                          `Paid on ${new Date((data as any).agencyMarkedPaidAt).toLocaleDateString()}`
-                        }
-                        {(data as any).amountPaidByAgency && 
-                          ` - ${formatCurrency(Number((data as any).amountPaidByAgency))}`
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Margin Confirmation Section - Only show when state is PENDING_MARGIN_CONFIRMATION */}
+      {/* Margin Confirmation Section */}
       {currentState === "pending_margin_confirmation" && (data as any).margin && (
         <MarginConfirmationCard
           marginDetails={{
@@ -491,7 +379,7 @@ export default function InvoiceDetailPage() {
         />
       )}
 
-      {/* Payment Tracking Section - Show when invoice has been sent */}
+      {/* Payment Tracking Section */}
       {(currentState === "sent" || currentState === "overdue" || currentState === "marked_paid_by_agency" || currentState === "payment_received") && (
         <PaymentTrackingCard
           paymentStatus={{
@@ -503,7 +391,7 @@ export default function InvoiceDetailPage() {
             amountPaidByAgency: (data as any).amountPaidByAgency,
             amountReceived: (data as any).amountReceived,
           }}
-          paymentModel={data.contract?.paymentModel || "GROSS"}
+          paymentModel={data.contract?.salaryType || "GROSS"}
           userRole={session?.user?.roleName || ""}
           invoiceAmount={Number(data.totalAmount || 0)}
           currency={data.currencyRelation?.code || "USD"}
@@ -513,524 +401,64 @@ export default function InvoiceDetailPage() {
         />
       )}
 
-      {/* Post-Payment Workflow Actions - Show when payment is received */}
-      {currentState === "payment_received" && data.contract?.paymentModel && hasPermission("invoice.pay.global") && (
-        <Card className="border-2 border-purple-200 bg-purple-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-900">
-              <DollarSign className="h-5 w-5" />
-              Post-Payment Workflow Actions
-            </CardTitle>
-            <CardDescription>
-              Process payment based on the payment model: {data.contract?.paymentModel}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-white rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h4 className="font-semibold mb-1">
-                    {data.contract?.paymentModel === "GROSS" && "Create Self-Invoice"}
-                    {data.contract?.paymentModel === "PAYROLL" && "Process External Payroll"}
-                    {data.contract?.paymentModel === "PAYROLL_WE_PAY" && "Process Internal Payroll"}
-                    {data.contract?.paymentModel === "SPLIT" && "Configure Split Payment"}
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {data.contract?.paymentModel === "GROSS" && 
-                      "Generate a self-invoice for payment processing. The contractor will handle their own taxes."}
-                    {data.contract?.paymentModel === "PAYROLL" && 
-                      "Create self-billing invoice and send to external payroll provider for processing."}
-                    {data.contract?.paymentModel === "PAYROLL_WE_PAY" && 
-                      "Process payment internally with tax withholdings and NET salary calculation."}
-                    {data.contract?.paymentModel === "SPLIT" && 
-                      "Allocate payment across multiple bank accounts with percentage or fixed amounts."}
-                  </p>
-                </div>
-                <div className="ml-4">
-                  {data.contract?.paymentModel === "GROSS" && (
-                    <SelfInvoiceDialog 
-                      invoiceId={invoiceId}
-                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
-                    />
-                  )}
-                  {data.contract?.paymentModel === "PAYROLL" && (
-                    <PayrollWorkflowDialog 
-                      invoiceId={invoiceId}
-                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
-                    />
-                  )}
-                  {data.contract?.paymentModel === "PAYROLL_WE_PAY" && (
-                    <PayrollWePayDialog 
-                      invoiceId={invoiceId}
-                      invoiceAmount={Number(data.totalAmount || 0)}
-                      currency={data.currencyRelation?.code || "USD"}
-                      contractorName={contractorName}
-                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
-                    />
-                  )}
-                  {data.contract?.paymentModel === "SPLIT" && (
-                    <SplitPaymentDialog 
-                      invoiceId={invoiceId}
-                      invoiceAmount={Number(data.totalAmount || 0)}
-                      currency={data.currencyRelation?.code || "USD"}
-                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Information based on payment model */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <h5 className="font-semibold text-blue-900 text-sm mb-2">Next Steps:</h5>
-              <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                {data.contract?.paymentModel === "GROSS" && (
-                  <>
-                    <li>Review self-invoice preview with all details</li>
-                    <li>Create invoice as new Invoice record</li>
-                    <li>Process payment to contractor</li>
-                    <li>Contractor handles tax obligations</li>
-                  </>
-                )}
-                {data.contract?.paymentModel === "PAYROLL" && (
-                  <>
-                    <li>Self-billing invoice created automatically</li>
-                    <li>Payroll task assigned to payroll team</li>
-                    <li>Export to external payroll provider</li>
-                    <li>Track completion status</li>
-                  </>
-                )}
-                {data.contract?.paymentModel === "PAYROLL_WE_PAY" && (
-                  <>
-                    <li>Review contractor and bank details</li>
-                    <li>Optionally create fee invoice</li>
-                    <li>Task created for payroll team</li>
-                    <li>Process NET salary with tax withholdings</li>
-                  </>
-                )}
-                {data.contract?.paymentModel === "SPLIT" && (
-                  <>
-                    <li>Select contractor's bank accounts</li>
-                    <li>Allocate amounts or percentages</li>
-                    <li>Validate total equals invoice amount</li>
-                    <li>Process split payments</li>
-                  </>
-                )}
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Post-Payment Workflow Actions */}
+      <InvoiceWorkflowActions
+        currentState={currentState}
+        salaryType={data.contract?.salaryType}
+        invoiceId={invoiceId}
+        totalAmount={Number(data.totalAmount || 0)}
+        currency={data.currencyRelation?.code || "USD"}
+        contractorName={contractorName}
+        hasPermission={hasPermission("invoice.pay.global")}
+        onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
+      />
 
       {/* PROFESSIONAL INVOICE LAYOUT */}
       {showFullInvoice ? (
         <Card className="border-2">
           <CardContent className="p-8 space-y-8">
-            {/* Invoice Header */}
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-4xl font-bold mb-2">INVOICE</h2>
-                <p className="text-lg text-muted-foreground">
-                  {data.invoiceNumber || `INV-${data.id.slice(0, 8)}`}
-                </p>
-              </div>
-              <div className="text-right space-y-1">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Issue Date</Label>
-                  <p className="font-medium">{new Date(data.issueDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Payment Terms</Label>
-                  <p className="font-medium text-blue-600">{formatPaymentTerms()}</p>
-                </div>
-              </div>
-            </div>
-
-            <Separator className="my-6" />
-
-            {/* From / To Section */}
-            <div className="grid grid-cols-2 gap-8">
-              {/* From (Sender) */}
-              <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-3">FROM</h3>
-                <div className="space-y-1">
-                  <p className="font-bold text-lg">{data.sender?.name || "N/A"}</p>
-                  {data.sender?.email && <p className="text-sm">{data.sender.email}</p>}
-                  {data.sender?.phone && <p className="text-sm">{data.sender.phone}</p>}
-                  {contractorParticipant?.company && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      <p>{contractorParticipant.company.name}</p>
-                      {contractorParticipant.company.address1 && (
-                        <p>{contractorParticipant.company.address1}</p>
-                      )}
-                      {contractorParticipant.company.city && (
-                        <p>
-                          {[
-                            contractorParticipant.company.city,
-                            contractorParticipant.company.state,
-                            contractorParticipant.company.postCode,
-                          ].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* To (Receiver - Payment Destination) */}
-              <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-3">BILL TO</h3>
-                <div className="space-y-1">
-                  <p className="font-bold text-lg">{data.receiver?.name || invoiceRecipient}</p>
-                  {data.receiver?.email && <p className="text-sm">{data.receiver.email}</p>}
-                  {data.receiver?.phone && <p className="text-sm">{data.receiver.phone}</p>}
-                  {(data.receiver as any)?.role && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Role: {((data.receiver as any).role.displayName || (data.receiver as any).role.name)}
-                    </p>
-                  )}
-                  
-                  {/* Receiver's Company Information */}
-                  {(data.receiver as any)?.companies && (data.receiver as any).companyUsers.length > 0 && (
-                    <div className="mt-3 pt-3 border-t space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground">Company Information</p>
-                      {(data.receiver as any).companyUsers.map((userCompany: any) => (
-                        <div key={userCompany.company.id} className="text-sm text-muted-foreground">
-                          <p className="font-medium text-foreground">{userCompany.company.name}</p>
-                          {userCompany.company.contactEmail && (
-                            <p className="text-xs">{userCompany.company.contactEmail}</p>
-                          )}
-                          {userCompany.company.contactPhone && (
-                            <p className="text-xs">{userCompany.company.contactPhone}</p>
-                          )}
-                          {userCompany.company.address1 && (
-                            <p className="text-xs mt-1">
-                              {[
-                                userCompany.company.address1,
-                                userCompany.company.address2,
-                                userCompany.company.city,
-                                userCompany.company.state,
-                                userCompany.company.postCode,
-                                userCompany.company.country?.name,
-                              ].filter(Boolean).join(", ")}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Fallback to contract participant company info if receiver has no direct company */}
-                  {(!(data.receiver as any)?.companies || (data.receiver as any).companyUsers.length === 0) && 
-                   (agencyParticipant?.company || clientParticipant?.company) && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {agencyParticipant?.company && (
-                        <>
-                          <p>{agencyParticipant.company.name}</p>
-                          {agencyParticipant.company.contactEmail && (
-                            <p>{agencyParticipant.company.contactEmail}</p>
-                          )}
-                        </>
-                      )}
-                      {!agencyParticipant?.company && clientParticipant?.company && (
-                        <>
-                          <p>{clientParticipant.company.name}</p>
-                          {clientParticipant.company.address1 && (
-                            <p>{clientParticipant.company.address1}</p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Destination - Tenant Company Information */}
-            {tenantCompany && (
-              <>
-                <Separator className="my-6" />
-                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-green-700" />
-                    <h3 className="text-lg font-bold text-green-900">PAYMENT DESTINATION</h3>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground font-semibold">Company Name</Label>
-                      <p className="font-bold text-lg">{tenantCompany.name}</p>
-                    </div>
-                    
-                    {tenantCompany.contactEmail && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Email</Label>
-                          <p className="text-sm">{tenantCompany.contactEmail}</p>
-                        </div>
-                        {tenantCompany.contactPhone && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Phone</Label>
-                            <p className="text-sm">{tenantCompany.contactPhone}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {tenantCompany.address1 && (
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Address</Label>
-                        <p className="text-sm">
-                          {[
-                            tenantCompany.address1,
-                            tenantCompany.address2,
-                            tenantCompany.city,
-                            tenantCompany.state,
-                            tenantCompany.postCode,
-                            tenantCompany.country?.name,
-                          ].filter(Boolean).join(", ")}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bank Account Details */}
-                  <div className="mt-4 pt-4 border-t-2 border-green-300">
-                    <h4 className="font-semibold text-sm text-green-900 mb-3">BANK ACCOUNT DETAILS</h4>
-                    {tenantCompany?.bank ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {tenantCompany.bank.name && (
-                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                            <div>
-                              <Label className="text-xs text-muted-foreground">Bank Name</Label>
-                              <p className="font-medium">{tenantCompany.bank.name}</p>
-                            </div>
-                          </div>
-                        )}
-                        {tenantCompany.bank.accountNumber && (
-                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                            <div className="flex-1">
-                              <Label className="text-xs text-muted-foreground">Account Number</Label>
-                              <p className="font-mono text-sm font-bold">{tenantCompany.bank.accountNumber}</p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(tenantCompany!.bank!.accountNumber!, "Account number")}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                        {tenantCompany.bank.iban && (
-                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                            <div className="flex-1">
-                              <Label className="text-xs text-muted-foreground">IBAN</Label>
-                              <p className="font-mono text-sm font-bold">{tenantCompany.bank.iban}</p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(tenantCompany!.bank!.iban!, "IBAN")}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                        {tenantCompany.bank.swiftCode && (
-                          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                            <div className="flex-1">
-                              <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
-                              <p className="font-mono text-sm font-bold">{tenantCompany.bank.swiftCode}</p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(tenantCompany!.bank!.swiftCode!, "SWIFT code")}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                        {tenantCompany.bank.address && (
-                          <div className="p-3 bg-white rounded-lg border border-green-200">
-                            <Label className="text-xs text-muted-foreground">Bank Address</Label>
-                            <p className="text-sm mt-1">{tenantCompany.bank.address}</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                        <AlertCircle className="h-5 w-5 text-yellow-600 mx-auto mb-2" />
-                        <p className="text-sm text-yellow-800 font-medium">No bank account linked</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-
-            <Separator className="my-6" />
-
-            {/* Contract Reference */}
-            {data.contract && (
-              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Related Contract</Label>
-                  <p className="font-medium">{data.contract.contractReference || `Contract #${data.contractId?.slice(0, 8)}`}</p>
-                </div>
-                {canViewContract && data.contractId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    asChild
-                  >
-                    <Link href={`/contracts/${data.contractId}`}>
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                      View Contract
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            )}
-
-            <Separator className="my-6" />
+            {/* Invoice Metadata - From/To/Payment Destination */}
+            <InvoiceMetadata
+              sender={data.sender}
+              receiver={data.receiver}
+              invoiceRecipient={invoiceRecipient}
+              tenantCompany={tenantCompany}
+              contractReference={data.contract?.contractReference}
+              contractId={data.contractId}
+              canViewContract={canViewContract}
+              invoiceNumber={data.invoiceNumber}
+              invoiceId={invoiceId}
+              issueDate={data.issueDate}
+              paymentTerms={formatPaymentTerms()}
+              contractorCompany={contractorParticipant?.company}
+              agencyCompany={agencyParticipant?.company}
+              clientCompany={clientParticipant?.company}
+              copyToClipboard={copyToClipboard}
+            />
 
             {/* LINE ITEMS TABLE */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">SERVICES / LINE ITEMS</h3>
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left p-3 font-semibold text-sm">Description</th>
-                      <th className="text-right p-3 font-semibold text-sm w-24">Qty</th>
-                      <th className="text-right p-3 font-semibold text-sm w-32">Unit Price</th>
-                      <th className="text-right p-3 font-semibold text-sm w-32">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {data.lineItems && data.lineItems.length > 0 ? (
-                      data.lineItems.map((item: any, index: number) => (
-                        <tr key={item.id} className="hover:bg-muted/20">
-                          <td className="p-3 text-sm">{item.description}</td>
-                          <td className="p-3 text-sm text-right">{Number(item.quantity)}</td>
-                          <td className="p-3 text-sm text-right">{formatCurrency(Number(item.unitPrice))}</td>
-                          <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(item.amount))}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="p-6 text-center text-muted-foreground">
-                          No line items available
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Work Subtotal */}
-              {data.lineItems && data.lineItems.length > 0 && (
-                <div className="flex justify-end mt-3">
-                  <div className="w-64 flex justify-between items-center px-4 py-2 bg-muted/30 rounded">
-                    <span className="text-sm font-medium">Work Subtotal:</span>
-                    <span className="font-semibold">{formatCurrency(lineItemsTotals.workTotal)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            <InvoiceLineItems
+              lineItems={data.lineItems || []}
+              workTotal={lineItemsTotals.workTotal}
+              formatCurrency={formatCurrency}
+            />
 
             {/* EXPENSES SECTION */}
-            {lineItemsTotals.expenses > 0 && data.timesheet?.expenses && data.timesheet.expenses.length > 0 && (
-              <>
-                <Separator className="my-6" />
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">EXPENSES</h3>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="text-left p-3 font-semibold text-sm">Description</th>
-                          <th className="text-left p-3 font-semibold text-sm">Category</th>
-                          <th className="text-left p-3 font-semibold text-sm">Date</th>
-                          <th className="text-right p-3 font-semibold text-sm w-32">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {data.timesheet.expenses.map((expense: any) => (
-                          <tr key={expense.id} className="hover:bg-muted/20">
-                            <td className="p-3 text-sm">
-                              <div className="font-medium">{expense.title}</div>
-                              {expense.description && (
-                                <div className="text-xs text-muted-foreground">{expense.description}</div>
-                              )}
-                            </td>
-                            <td className="p-3 text-sm capitalize">{expense.category}</td>
-                            <td className="p-3 text-sm">{new Date(expense.expenseDate).toLocaleDateString()}</td>
-                            <td className="p-3 text-sm text-right font-medium">{formatCurrency(Number(expense.amount))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  {/* Expenses Total */}
-                  <div className="flex justify-end mt-3">
-                    <div className="w-64 flex justify-between items-center px-4 py-2 bg-muted/30 rounded">
-                      <span className="text-sm font-medium">Total Expenses:</span>
-                      <span className="font-semibold">{formatCurrency(lineItemsTotals.expenses)}</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+            <InvoiceExpenses
+              expenses={data.timesheet?.expenses || []}
+              totalExpenses={lineItemsTotals.expenses}
+              formatCurrency={formatCurrency}
+            />
 
             <Separator className="my-6" />
 
             {/* MARGINS & TOTALS */}
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <div className="w-96 space-y-3">
-                  {/* Base Amount (Subtotal) */}
-                  <div className="flex justify-between items-center px-4 py-2">
-                    <span className="text-sm">Subtotal (Base Amount):</span>
-                    <span className="font-medium">{formatCurrency(Number(data.baseAmount || data.amount || 0))}</span>
-                  </div>
-                  
-                  {/* Margin Calculation */}
-                  {marginBreakdown && marginBreakdown.marginAmount > 0 && (
-                    <>
-                      <Separator />
-                      <div className="px-4 py-3 bg-blue-50 rounded-lg space-y-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          <DollarSign className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-semibold text-blue-900">Margin Calculation</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Margin ({marginBreakdown.marginPercentage}%):
-                          </span>
-                          <span className="font-medium text-blue-700">
-                            {formatCurrency(marginBreakdown.marginAmount)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Paid by: {marginBreakdown.marginPaidBy}
-                        </div>
-                      </div>
-                      <Separator />
-                    </>
-                  )}
-                  
-                  {/* Total Amount */}
-                  <div className="flex justify-between items-center px-4 py-4 bg-green-600 text-white rounded-lg">
-                    <span className="text-lg font-bold">TOTAL AMOUNT DUE:</span>
-                    <span className="text-2xl font-bold">{formatCurrency(Number(data.totalAmount || 0))}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <InvoiceCalculation
+              baseAmount={Number(data.baseAmount || data.amount || 0)}
+              marginBreakdown={marginBreakdown}
+              totalAmount={Number(data.totalAmount || 0)}
+              formatCurrency={formatCurrency}
+            />
 
             {/* Description & Notes */}
             {(data.description || data.notes) && (
@@ -1063,7 +491,7 @@ export default function InvoiceDetailPage() {
           </CardContent>
         </Card>
       ) : (
-        /* TABS VIEW (Original) */
+        /* TABS VIEW */
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details">Details</TabsTrigger>
@@ -1089,11 +517,11 @@ export default function InvoiceDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Name</Label>
-                    <p className="font-medium">{(data as any).sender?.name || "N/A"}</p>
+                    <p className="font-medium">{data.sender?.name || "N/A"}</p>
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Email</Label>
-                    <p className="font-medium">{(data as any).sender?.email || "N/A"}</p>
+                    <p className="font-medium">{data.sender?.email || "N/A"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1114,71 +542,17 @@ export default function InvoiceDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Name</Label>
-                    <p className="font-medium">{(data as any).receiver?.name || invoiceRecipient}</p>
+                    <p className="font-medium">{data.receiver?.name || invoiceRecipient}</p>
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Email</Label>
-                    <p className="font-medium">{(data as any).receiver?.email || "N/A"}</p>
+                    <p className="font-medium">{data.receiver?.email || "N/A"}</p>
                   </div>
-                  {(data.receiver as any)?.phone && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Phone</Label>
-                      <p className="font-medium">{(data.receiver as any).phone}</p>
-                    </div>
-                  )}
-                  {(data.receiver as any)?.role && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Role</Label>
-                      <p className="font-medium">{((data.receiver as any).role.displayName || (data.receiver as any).role.name)}</p>
-                    </div>
-                  )}
                 </div>
-
-                {/* Receiver's Company Information */}
-                {(data.receiver as any)?.companies && (data.receiver as any).companyUsers.length > 0 && (
-                  <div className="pt-4 border-t space-y-3">
-                    <Label className="text-sm font-semibold">Company Information</Label>
-                    {(data.receiver as any).companyUsers.map((userCompany: any) => (
-                      <div key={userCompany.company.id} className="bg-muted/30 p-4 rounded-lg space-y-2">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Company Name</Label>
-                          <p className="font-medium">{userCompany.company.name}</p>
-                        </div>
-                        {userCompany.company.contactEmail && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Company Email</Label>
-                            <p className="text-sm">{userCompany.company.contactEmail}</p>
-                          </div>
-                        )}
-                        {userCompany.company.contactPhone && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Company Phone</Label>
-                            <p className="text-sm">{userCompany.company.contactPhone}</p>
-                          </div>
-                        )}
-                        {userCompany.company.address1 && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Address</Label>
-                            <p className="text-sm">
-                              {[
-                                userCompany.company.address1,
-                                userCompany.company.address2,
-                                userCompany.company.city,
-                                userCompany.company.state,
-                                userCompany.company.postCode,
-                                userCompany.company.country?.name,
-                              ].filter(Boolean).join(", ")}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </CardContent>
             </Card>
 
-            {/* Contract Reference with Link */}
+            {/* Contract Reference */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Contract Details</CardTitle>
@@ -1335,99 +709,26 @@ export default function InvoiceDetailPage() {
 
           {/* DOCUMENTS TAB */}
           <TabsContent value="documents" className="space-y-4 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Attached Documents</CardTitle>
-                <CardDescription>
-                  Files and receipts attached to this invoice
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(data as any).documents && (data as any).documents.length > 0 ? (
-                  <div className="space-y-3">
-                    {(data as any).documents.map((doc: any, index: number) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <FileText className="h-6 w-6 text-blue-600" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold">
-                              {doc.fileName || `Document ${index + 1}`}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {doc.mimeType || 'Unknown type'} • {(doc.fileSize / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {doc.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              asChild
-                            >
-                              <Link href={`/invoices/${invoiceId}/documents/${doc.id}`}>
-                                View
-                              </Link>
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(doc.fileUrl, "_blank")}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium text-muted-foreground">No documents attached</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <InvoiceDocuments
+              documents={(data as any).documents || []}
+              invoiceId={invoiceId}
+            />
           </TabsContent>
         </Tabs>
       )}
 
       {/* WORKFLOW ACTIONS */}
-      {availableActions.length > 0 && (
-        <Card>
-          <CardContent className="flex justify-between items-center py-4">
-            <Button variant="outline" asChild>
-              <Link href="/invoices">Close</Link>
-            </Button>
-            <WorkflowActionButtons
-              actions={availableActions}
-              onAction={handleWorkflowAction}
-              isLoading={
-                reviewMutation.isPending ||
-                approveMutation.isPending ||
-                rejectMutation.isPending ||
-                requestChangesMutation.isPending ||
-                sendMutation.isPending
-              }
-              className="flex gap-2"
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {availableActions.length === 0 && (
-        <Card>
-          <CardContent className="flex justify-end py-4">
-            <Button variant="outline" asChild>
-              <Link href="/invoices">Close</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <InvoiceActions
+        actions={availableActions}
+        onAction={handleWorkflowAction}
+        isLoading={
+          reviewMutation.isPending ||
+          approveMutation.isPending ||
+          rejectMutation.isPending ||
+          requestChangesMutation.isPending ||
+          sendMutation.isPending
+        }
+      />
     </div>
   );
 }

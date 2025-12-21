@@ -297,7 +297,7 @@ getById: tenantProcedure
           select: {
             id: true,
             contractReference: true,
-            paymentModel: true, // 🔥 REFACTOR: Include payment model from contract
+            salaryType: true, // 🔥 REFACTOR: Use salaryType as source of truth
             invoiceDueTerm: true,
             invoiceDueDays: true,
             participants: {
