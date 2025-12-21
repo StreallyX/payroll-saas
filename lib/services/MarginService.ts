@@ -192,7 +192,17 @@ export class MarginService {
   ) {
     const margin = await prisma.margin.findUnique({
       where: { id: marginId },
-      include: { invoice: true },
+      include: { 
+        invoice: {
+          include: {
+            timesheet: {
+              include: {
+                expenses: true, // 🔥 FIX: Include expenses for calculation
+              },
+            },
+          },
+        },
+      },
     })
 
     if (!margin) {
@@ -240,9 +250,19 @@ export class MarginService {
       },
     })
 
-    // Update invoice total amount with new margin
+    // 🔥 FIX: Calculate total expenses from timesheet
+    let totalExpenses = new Decimal(0)
+    if (margin.invoice.timesheet?.expenses) {
+      totalExpenses = margin.invoice.timesheet.expenses.reduce(
+        (sum, expense) => sum.add(new Decimal(expense.amount)),
+        new Decimal(0)
+      )
+    }
+
+    // 🔥 FIX: Update invoice total amount with new margin AND expenses
     if (updateData.marginAmount) {
-      const newTotal = invoiceAmount.add(updateData.marginAmount)
+      // totalAmount = baseAmount + overriddenMargin + expenses
+      const newTotal = invoiceAmount.add(updateData.marginAmount).add(totalExpenses)
       await prisma.invoice.update({
         where: { id: margin.invoiceId },
         data: {

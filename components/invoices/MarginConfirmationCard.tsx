@@ -22,10 +22,19 @@ interface MarginDetails {
   contractId?: string;
 }
 
+interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  description?: string;
+}
+
 interface MarginConfirmationCardProps {
   marginDetails: MarginDetails;
   baseAmount: number;
   currency: string;
+  expenses?: Expense[]; // 🔥 NEW: Include expenses in calculation
   onConfirmMargin: (overrideAmount?: number, notes?: string) => Promise<void>;
   isLoading?: boolean;
 }
@@ -40,6 +49,7 @@ export function MarginConfirmationCard({
   marginDetails,
   baseAmount,
   currency,
+  expenses = [], // 🔥 NEW: Default to empty array
   onConfirmMargin,
   isLoading = false,
 }: MarginConfirmationCardProps) {
@@ -47,8 +57,13 @@ export function MarginConfirmationCard({
   const [overrideAmount, setOverrideAmount] = useState<string>("");
   const [notes, setNotes] = useState("");
 
+  // 🔥 FIX: Calculate total expenses
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+
   const calculatedAmount = marginDetails.calculatedMargin || marginDetails.marginAmount || 0;
-  const totalWithMargin = baseAmount + calculatedAmount;
+  
+  // 🔥 FIX: Total = baseAmount + margin + expenses
+  const totalWithMargin = baseAmount + calculatedAmount + totalExpenses;
 
   const handleConfirm = async () => {
     if (isOverriding) {
@@ -116,10 +131,20 @@ export function MarginConfirmationCard({
             </span>
           </div>
 
+          {/* 🔥 NEW: Show expenses if present */}
+          {totalExpenses > 0 && (
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Expenses</span>
+              <span className="font-medium text-amber-600">
+                {formatCurrency(totalExpenses)}
+              </span>
+            </div>
+          )}
+
           <Separator />
 
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold">Total with Margin</span>
+            <span className="text-sm font-semibold">Total Amount</span>
             <span className="text-lg font-bold text-green-600">
               {formatCurrency(totalWithMargin)}
             </span>

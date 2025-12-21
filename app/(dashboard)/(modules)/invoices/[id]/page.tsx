@@ -374,6 +374,13 @@ export default function InvoiceDetailPage() {
           }}
           baseAmount={Number((data as any).baseAmount || data.amount || 0)}
           currency={data.contract?.currency?.code || "USD"}
+          expenses={data?.timesheet?.expenses?.map((exp: any) => ({
+            id: exp.id,
+            title: exp.title,
+            amount: Number(exp.amount || 0),
+            category: exp.category,
+            description: exp.description,
+          })) || []} // 🔥 FIX: Include expenses in margin confirmation
           onConfirmMargin={handleConfirmMargin}
           isLoading={confirmMarginMutation.isPending}
         />
