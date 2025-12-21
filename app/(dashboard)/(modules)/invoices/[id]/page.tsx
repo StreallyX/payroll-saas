@@ -1189,7 +1189,11 @@ export default function InvoiceDetailPage() {
           {/* CALCULATION TAB */}
           <TabsContent value="calculation" className="space-y-4 mt-6">
             {marginBreakdown && (
-              <MarginCalculationDisplay breakdown={marginBreakdown} showDetails={true} />
+              <MarginCalculationDisplay 
+                breakdown={marginBreakdown} 
+                expenses={data?.timesheet?.expenses || []}
+                showDetails={true} 
+              />
             )}
 
             <Card>
