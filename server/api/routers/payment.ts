@@ -653,12 +653,15 @@ Please ensure the contractor receives payment according to their contract terms 
             await ctx.prisma.remittance.create({
               data: {
                 tenantId: ctx.tenantId,
-                userId: timesheet.submittedBy,
+                invoiceId: payment.invoiceId,
                 contractId: contract.id,
                 amount: timesheet.totalAmount ?? new Prisma.Decimal(0),
                 currency: payment.currency,
-                status: "pending",
-                workflowState: "pending",
+                paymentType: "SENT",
+                recipientType: "PAYROLL",
+                recipientId: timesheet.submittedBy,
+                senderId: ctx.session.user.id,
+                status: "PENDING",
                 description: `Remittance to payroll provider for ${timesheet.submittedBy}`,
                 notes: `Payment confirmed. Remittance to external payroll provider. Payment ID: ${payment.id}`,
               },

@@ -13,8 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, FileText, CheckCircle, Building2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2, FileText, CheckCircle, Building2, User, CreditCard, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface SelfInvoiceDialogProps {
   invoiceId: string;
@@ -24,21 +27,32 @@ interface SelfInvoiceDialogProps {
 export function SelfInvoiceDialog({ invoiceId, onSuccess }: SelfInvoiceDialogProps) {
   const [open, setOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showBankAccounts, setShowBankAccounts] = useState(false);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
 
   const utils = api.useUtils();
 
   // Get preview data
   const { data: preview, isLoading: loadingPreview } = api.invoice.generateSelfInvoicePreview.useQuery(
     { invoiceId },
-    { enabled: open && showPreview }
+    { 
+      enabled: open && showPreview,
+    }
   );
+
+  // Auto-select primary bank account when preview loads
+  if (preview?.selectedBankAccount && !selectedBankAccountId) {
+    setSelectedBankAccountId(preview.selectedBankAccount.id);
+  }
 
   // Create self-invoice mutation
   const createMutation = api.invoice.createSelfInvoice.useMutation({
     onSuccess: () => {
-      toast.success("Self-invoice created successfully!");
+      toast.success("Self-invoice created and confirmed successfully!");
       setOpen(false);
       setShowPreview(false);
+      setShowBankAccounts(false);
+      setSelectedBankAccountId(null);
       utils.invoice.getById.invalidate({ id: invoiceId });
       onSuccess?.();
     },
@@ -52,7 +66,10 @@ export function SelfInvoiceDialog({ invoiceId, onSuccess }: SelfInvoiceDialogPro
   };
 
   const handleCreate = () => {
-    createMutation.mutate({ invoiceId });
+    createMutation.mutate({ 
+      invoiceId,
+      selectedBankAccountId: selectedBankAccountId || undefined,
+    });
   };
 
   const formatCurrency = (amount: number, currency: string) => {
@@ -121,12 +138,158 @@ export function SelfInvoiceDialog({ invoiceId, onSuccess }: SelfInvoiceDialogPro
               <div>
                 <h3 className="text-2xl font-bold">SELF-INVOICE</h3>
                 <p className="text-muted-foreground">{preview.invoiceNumber}</p>
+                <Badge variant="outline" className="mt-2">Auto-Confirmed</Badge>
               </div>
               <div className="text-right">
                 <Label className="text-xs text-muted-foreground">Issue Date</Label>
                 <p className="font-medium">{new Date(preview.issueDate).toLocaleDateString()}</p>
               </div>
             </div>
+
+            <Separator />
+
+            {/* Contractor Information (Prominent) */}
+            {preview.contractor && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-900">Contractor Details</h4>
+                  </div>
+                  <Link 
+                    href={`/users/${preview.contractor.id}`} 
+                    target="_blank"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    View Profile
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-blue-900">{preview.contractor.name}</p>
+                      <p className="text-sm text-blue-700">{preview.contractor.email}</p>
+                    </div>
+                    <Badge 
+                      variant={preview.contractor.onboardingStatus === 'completed' ? 'default' : 'secondary'}
+                    >
+                      {preview.contractor.onboardingStatus || 'pending'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bank Account Selection */}
+            {preview.selectedBankAccount && (
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-green-600" />
+                    <h4 className="font-semibold">Payment Destination</h4>
+                  </div>
+                  {preview.bankAccounts && preview.bankAccounts.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBankAccounts(!showBankAccounts)}
+                    >
+                      {showBankAccounts ? (
+                        <>
+                          Hide Accounts <ChevronUp className="ml-1 h-4 w-4" />
+                        </>
+                      ) : (
+                        <>
+                          See All Accounts ({preview.bankAccounts.length}) <ChevronDown className="ml-1 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {!showBankAccounts ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="font-medium text-green-900">
+                          {preview.selectedBankAccount.accountName || preview.selectedBankAccount.bankName}
+                        </p>
+                        <p className="text-sm text-green-700">
+                          {preview.selectedBankAccount.bankName} - {preview.selectedBankAccount.accountNumber}
+                        </p>
+                        <p className="text-xs text-green-600">
+                          {preview.selectedBankAccount.currency}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {preview.selectedBankAccount.isPrimary && (
+                          <Badge variant="default" className="bg-green-600">Primary</Badge>
+                        )}
+                        {preview.selectedBankAccount.usage && (
+                          <Badge variant="outline" className="text-xs">
+                            {preview.selectedBankAccount.usage}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <RadioGroup 
+                    value={selectedBankAccountId || preview.selectedBankAccount.id} 
+                    onValueChange={setSelectedBankAccountId}
+                    className="space-y-2"
+                  >
+                    {preview.bankAccounts.map((bank: any) => (
+                      <div
+                        key={bank.id}
+                        className={`border rounded-lg p-3 cursor-pointer hover:bg-muted/50 ${
+                          selectedBankAccountId === bank.id || (!selectedBankAccountId && preview.selectedBankAccount && bank.id === preview.selectedBankAccount.id)
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-gray-200'
+                        }`}
+                        onClick={() => setSelectedBankAccountId(bank.id)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value={bank.id} id={bank.id} />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <p className="font-medium">
+                                  {bank.accountName || bank.bankName}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {bank.bankName} - {bank.accountNumber}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {bank.currency}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                {bank.isPrimary && (
+                                  <Badge variant="default" className="text-xs">Primary</Badge>
+                                )}
+                                {bank.usage && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {bank.usage}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+
+                {preview.bankAccounts && preview.bankAccounts.length === 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                    ⚠️ No bank accounts found for this contractor. Payment may need to be processed manually.
+                  </div>
+                )}
+              </div>
+            )}
 
             <Separator />
 
@@ -181,39 +344,74 @@ export function SelfInvoiceDialog({ invoiceId, onSuccess }: SelfInvoiceDialogPro
               </div>
             </div>
 
+            {/* Expenses (if any) */}
+            {preview.expenses && preview.expenses.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-semibold mb-3 block">Expenses</Label>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left p-3 text-sm font-semibold">Title</th>
+                          <th className="text-left p-3 text-sm font-semibold">Category</th>
+                          <th className="text-right p-3 text-sm font-semibold">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {preview.expenses.map((expense: any) => (
+                          <tr key={expense.id}>
+                            <td className="p-3 text-sm">{expense.title}</td>
+                            <td className="p-3 text-sm">
+                              <Badge variant="outline" className="text-xs">{expense.category}</Badge>
+                            </td>
+                            <td className="p-3 text-sm text-right font-medium text-green-600">
+                              {formatCurrency(Number(expense.amount), preview.currency)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Totals */}
             <div className="space-y-3">
               <div className="flex justify-end">
                 <div className="w-80 space-y-2">
                   <div className="flex justify-between items-center px-4 py-2">
-                    <span className="text-sm">Subtotal:</span>
+                    <span className="text-sm">Base Amount:</span>
                     <span className="font-medium">
                       {formatCurrency(Number(preview.subtotal), preview.currency)}
                     </span>
                   </div>
 
-                  {Number(preview.marginAmount) > 0 && (
-                    <>
-                      <Separator />
-                      <div className="px-4 py-3 bg-blue-50 rounded-lg">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm text-muted-foreground">
-                            Margin ({Number(preview.marginPercentage)}%):
-                          </span>
-                          <span className="font-medium text-blue-700">
-                            {formatCurrency(Number(preview.marginAmount), preview.currency)}
-                          </span>
-                        </div>
-                      </div>
-                      <Separator />
-                    </>
+                  {preview.expensesTotal && Number(preview.expensesTotal) > 0 && (
+                    <div className="flex justify-between items-center px-4 py-2">
+                      <span className="text-sm">Expenses:</span>
+                      <span className="font-medium text-green-600">
+                        {formatCurrency(Number(preview.expensesTotal), preview.currency)}
+                      </span>
+                    </div>
                   )}
 
+                  <Separator />
+
                   <div className="flex justify-between items-center px-4 py-4 bg-green-600 text-white rounded-lg">
-                    <span className="font-bold">TOTAL:</span>
+                    <div>
+                      <span className="font-bold block">TOTAL TO PAY:</span>
+                      <span className="text-xs opacity-90">(without margin)</span>
+                    </div>
                     <span className="text-xl font-bold">
                       {formatCurrency(Number(preview.totalAmount), preview.currency)}
                     </span>
+                  </div>
+
+                  <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                    💡 This amount excludes margin and represents the contractor's payment.
                   </div>
                 </div>
               </div>

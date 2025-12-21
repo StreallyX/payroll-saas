@@ -28,6 +28,7 @@ import {
   InvoiceWorkflowActions,
   InvoiceMetadata,
 } from "@/components/invoices/detail";
+import { PaymentModel } from "@/lib/constants/payment-models";
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -398,7 +399,7 @@ export default function InvoiceDetailPage() {
             amountPaidByAgency: (data as any).amountPaidByAgency,
             amountReceived: (data as any).amountReceived,
           }}
-          paymentModel={data.contract?.salaryType || "GROSS"}
+          paymentModel={data.contract?.salaryType || PaymentModel.GROSS}
           userRole={session?.user?.roleName || ""}
           invoiceAmount={Number(data.totalAmount || 0)}
           currency={data.currencyRelation?.code || "USD"}
@@ -417,6 +418,7 @@ export default function InvoiceDetailPage() {
         currency={data.currencyRelation?.code || "USD"}
         contractorName={contractorName}
         hasPermission={hasPermission("invoice.pay.global")}
+        childInvoices={data.childInvoices}
         onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
       />
 

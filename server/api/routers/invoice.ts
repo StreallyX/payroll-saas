@@ -15,7 +15,9 @@ import { StateTransitionService } from "@/lib/services/StateTransitionService"
 import { MarginCalculationService, MarginPaidBy } from "@/lib/services/MarginCalculationService"
 import { MarginService } from "@/lib/services/MarginService"
 import { PaymentWorkflowService } from "@/lib/services/PaymentWorkflowService"
+import { RemittanceService } from "@/lib/services/RemittanceService"
 import { WorkflowEntityType, WorkflowAction } from "@/lib/workflows"
+import { PaymentModel } from "@/lib/constants/payment-models"
 
 const P = {
   READ_OWN: "invoice.read.own",
@@ -274,6 +276,18 @@ getById: tenantProcedure
         timesheet: {
           include: {
             expenses: true,
+          },
+        },
+
+        // 🔥 NEW: Include child invoices (generated invoices like self-invoices)
+        childInvoices: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            workflowState: true,
+            totalAmount: true,
+            createdAt: true,
           },
         },
 
@@ -1198,6 +1212,11 @@ getById: tenantProcedure
         },
         include: {
           contract: true,
+          currencyRelation: {
+            select: {
+              code: true,
+            },
+          },
         },
       })
 
@@ -1222,6 +1241,23 @@ getById: tenantProcedure
           amountReceived: new Prisma.Decimal(input.amountReceived),
         },
       })
+
+      // 🔥 Create remittance for payment received by admin
+      try {
+        await RemittanceService.createPaymentReceivedRemittance({
+          tenantId: ctx.tenantId,
+          invoiceId: input.invoiceId,
+          contractId: invoice.contract?.id,
+          amount: input.amountReceived,
+          currency: invoice.currencyRelation?.code || "USD",
+          adminUserId: ctx.session.user.id, // Admin receiving payment
+          agencyUserId: invoice.agencyMarkedPaidBy || invoice.senderId || ctx.session.user.id, // Agency who sent payment
+          description: `Payment received for invoice ${invoice.invoiceNumber || input.invoiceId}`,
+        });
+      } catch (error) {
+        console.error("Error creating remittance:", error);
+        // Don't fail the entire operation if remittance creation fails
+      }
 
       // Transition to payment received state
       await StateTransitionService.executeTransition({
@@ -1736,6 +1772,11 @@ getById: tenantProcedure
           },
           currencyRelation: true,
           margin: true,
+          timesheet: {
+            include: {
+              expenses: true,
+            },
+          },
         },
       });
 
@@ -1750,10 +1791,51 @@ getById: tenantProcedure
       const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
       const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
 
+      // Get contractor's user details and bank accounts
+      let contractorUser = null;
+      let contractorBankAccounts: any[] = [];
+      let primaryBankAccount: any = null;
+
+      if (contractor?.userId) {
+        contractorUser = await ctx.prisma.user.findUnique({
+          where: { id: contractor.userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            onboardingStatus: true,
+          },
+        });
+
+        // Fetch contractor's bank accounts
+        contractorBankAccounts = await ctx.prisma.bank.findMany({
+          where: {
+            userId: contractor.userId,
+            isActive: true,
+          },
+          orderBy: {
+            isPrimary: 'desc',
+          },
+        });
+
+        // Auto-select primary bank account
+        primaryBankAccount = contractorBankAccounts.find((bank) => bank.isPrimary) || contractorBankAccounts[0];
+      }
+
       // Get tenant info
       const tenant = await ctx.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
       });
+
+      // Calculate expenses total
+      const expensesTotal = invoice.timesheet?.expenses?.reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0
+      ) || 0;
+
+      // 🔥 Calculate amount WITHOUT margin (baseAmount + expenses only)
+      const baseAmountValue = Number(invoice.baseAmount || invoice.amount);
+      const totalAmountWithoutMargin = baseAmountValue + expensesTotal;
 
       // Calculate self-invoice details (we invoice ourselves)
       const selfInvoiceData = {
@@ -1765,6 +1847,30 @@ getById: tenantProcedure
           name: contractor?.user?.name || contractor?.company?.name || "Contractor",
           email: contractor?.user?.email || contractor?.company?.contactEmail || "",
         },
+        contractor: contractorUser ? {
+          id: contractorUser.id,
+          name: contractorUser.name,
+          email: contractorUser.email,
+          onboardingStatus: contractorUser.onboardingStatus || "pending",
+        } : null,
+        bankAccounts: contractorBankAccounts.map((bank) => ({
+          id: bank.id,
+          accountName: bank.accountName,
+          bankName: bank.bankName,
+          accountNumber: bank.accountNumber,
+          currency: bank.currency,
+          usage: bank.usage,
+          isPrimary: bank.isPrimary,
+        })),
+        selectedBankAccount: primaryBankAccount ? {
+          id: primaryBankAccount.id,
+          accountName: primaryBankAccount.accountName,
+          bankName: primaryBankAccount.bankName,
+          accountNumber: primaryBankAccount.accountNumber,
+          currency: primaryBankAccount.currency,
+          usage: primaryBankAccount.usage,
+          isPrimary: primaryBankAccount.isPrimary,
+        } : null,
         invoiceNumber: `SELF-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
         lineItems: invoice.lineItems.map((item) => ({
           description: item.description,
@@ -1772,10 +1878,15 @@ getById: tenantProcedure
           unitPrice: item.unitPrice,
           amount: item.amount,
         })),
-        subtotal: invoice.baseAmount || invoice.amount,
-        marginAmount: invoice.marginAmount || 0,
-        marginPercentage: invoice.marginPercentage || 0,
-        totalAmount: invoice.totalAmount,
+        expenses: invoice.timesheet?.expenses?.map((expense) => ({
+          id: expense.id,
+          title: expense.title,
+          amount: expense.amount,
+          category: expense.category,
+        })) || [],
+        subtotal: baseAmountValue,
+        expensesTotal,
+        totalAmount: totalAmountWithoutMargin, // 🔥 WITHOUT margin
         currency: invoice.currencyRelation?.code || "USD",
         issueDate: new Date(),
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
@@ -1791,7 +1902,10 @@ getById: tenantProcedure
    */
   createSelfInvoice: tenantProcedure
     .use(hasPermission(P.CREATE_GLOBAL))
-    .input(z.object({ invoiceId: z.string() }))
+    .input(z.object({ 
+      invoiceId: z.string(),
+      selectedBankAccountId: z.string().optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
@@ -1810,6 +1924,11 @@ getById: tenantProcedure
             },
           },
           currencyRelation: true,
+          timesheet: {
+            include: {
+              expenses: true,
+            },
+          },
         },
       });
 
@@ -1824,7 +1943,46 @@ getById: tenantProcedure
       const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
       const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
 
-      // Create self-invoice
+      if (!contractor?.userId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Contractor not found for this invoice",
+        });
+      }
+
+      // Fetch contractor's bank accounts
+      const contractorBankAccounts = await ctx.prisma.bank.findMany({
+        where: {
+          userId: contractor.userId,
+          isActive: true,
+        },
+        orderBy: {
+          isPrimary: 'desc',
+        },
+      });
+
+      // Determine which bank account to use
+      let selectedBankAccount = null;
+      if (input.selectedBankAccountId) {
+        selectedBankAccount = contractorBankAccounts.find(
+          (bank) => bank.id === input.selectedBankAccountId
+        );
+      } else {
+        // Auto-select primary or first available
+        selectedBankAccount = contractorBankAccounts.find((bank) => bank.isPrimary) || contractorBankAccounts[0];
+      }
+
+      // Calculate expenses total
+      const expensesTotal = invoice.timesheet?.expenses?.reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0
+      ) || 0;
+
+      // 🔥 Calculate amount WITHOUT margin (baseAmount + expenses only)
+      const baseAmountValue = Number(invoice.baseAmount || invoice.amount);
+      const totalAmountWithoutMargin = baseAmountValue + expensesTotal;
+
+      // Create self-invoice with auto-confirmation
       const selfInvoice = await ctx.prisma.invoice.create({
         data: {
           tenantId: ctx.tenantId,
@@ -1832,19 +1990,21 @@ getById: tenantProcedure
           contractId: invoice.contractId,
           invoiceNumber: `SELF-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
           senderId: tenantParticipant?.userId || userId,
-          receiverId: contractor?.userId,
-          status: "draft",
-          workflowState: "draft",
-          amount: invoice.baseAmount || invoice.amount,
-          totalAmount: invoice.totalAmount,
+          receiverId: contractor.userId,
+          status: "confirmed", // 🔥 Auto-confirmed
+          workflowState: "confirmed", // 🔥 Auto-confirmed
+          amount: baseAmountValue,
+          totalAmount: totalAmountWithoutMargin, // 🔥 WITHOUT margin
           currencyId: invoice.currencyId,
-          marginAmount: invoice.marginAmount,
-          marginPercentage: invoice.marginPercentage,
-          baseAmount: invoice.baseAmount,
+          marginAmount: 0, // 🔥 NO margin for self-invoice
+          marginPercentage: 0, // 🔥 NO margin for self-invoice
+          baseAmount: baseAmountValue,
           issueDate: new Date(),
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           description: `Self-invoice for payment processing`,
-          notes: `Generated from invoice ${invoice.invoiceNumber || invoice.id}`,
+          notes: selectedBankAccount 
+            ? `Generated from invoice ${invoice.invoiceNumber || invoice.id}. Payment to: ${selectedBankAccount.bankName} - ${selectedBankAccount.accountNumber} (${selectedBankAccount.accountName || 'Account'})`
+            : `Generated from invoice ${invoice.invoiceNumber || invoice.id}`,
           createdBy: userId,
           lineItems: {
             create: invoice.lineItems.map((item) => ({
@@ -1857,8 +2017,32 @@ getById: tenantProcedure
         },
         include: {
           lineItems: true,
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       });
+
+      // 🔥 Create remittance for payment sent to contractor
+      try {
+        await RemittanceService.createPaymentSentToContractorRemittance({
+          tenantId: ctx.tenantId,
+          invoiceId: selfInvoice.id,
+          contractId: invoice.contractId || undefined,
+          amount: totalAmountWithoutMargin,
+          currency: invoice.currencyRelation?.code || "USD",
+          adminUserId: userId,
+          contractorUserId: contractor.userId,
+          description: `Payment to contractor for self-invoice ${selfInvoice.invoiceNumber}`,
+        });
+      } catch (error) {
+        console.error("Error creating remittance:", error);
+        // Don't fail the entire operation if remittance creation fails
+      }
 
       // Create audit log
       await createAuditLog({
@@ -1870,10 +2054,15 @@ getById: tenantProcedure
         entityId: selfInvoice.id,
         entityName: `Self-Invoice ${selfInvoice.invoiceNumber}`,
         tenantId: ctx.tenantId,
-        description: `Self-invoice created for GROSS payment workflow`,
+        description: `Self-invoice created and auto-confirmed for GROSS payment workflow`,
         metadata: {
           parentInvoiceId: invoice.id,
           parentInvoiceNumber: invoice.invoiceNumber,
+          totalAmount: totalAmountWithoutMargin,
+          expensesTotal,
+          baseAmount: baseAmountValue,
+          bankAccountId: selectedBankAccount?.id,
+          bankAccountName: selectedBankAccount?.accountName,
         },
       });
 
@@ -2249,7 +2438,7 @@ ${input.notes || ""}
               notes: split.notes || `Account: ${bankAccount.accountNumber}`,
               createdBy: userId,
               metadata: {
-                paymentModel: "SPLIT",
+                paymentModel: PaymentModel.SPLIT,
                 splitIndex: index + 1,
                 totalSplits: input.splits.length,
                 bankAccountId: bankAccount.id,

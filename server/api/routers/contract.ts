@@ -8,6 +8,7 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PaymentModel } from "@/lib/constants/payment-models"
 
 // =======================================================
 // PERMISSIONS MAP
@@ -101,7 +102,7 @@ const baseContractSchema = z.object({
   marginPaidBy: z.enum(["client", "contractor"]).optional().nullable(),
 
   salaryType: z.string().optional().nullable(),
-  paymentModel: z.enum(["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"]).optional().nullable(),
+  paymentModel: z.nativeEnum(PaymentModel).optional().nullable(),
   invoiceDueDays: z.number().optional().nullable(),
 
   contractReference: z.string().optional().nullable(),
@@ -307,8 +308,8 @@ export const contractRouter = createTRPCRouter({
       if (data.salaryType && !data.paymentModel) {
         // If salaryType is provided but paymentModel is not, set paymentModel to match
         const salaryTypeUpper = String(data.salaryType).toUpperCase()
-        if (["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"].includes(salaryTypeUpper)) {
-          data.paymentModel = salaryTypeUpper as any
+        if (Object.values(PaymentModel).includes(salaryTypeUpper as PaymentModel)) {
+          data.paymentModel = salaryTypeUpper as PaymentModel
         }
       } else if (data.paymentModel && !data.salaryType) {
         // If paymentModel is provided but salaryType is not, set salaryType to match
@@ -420,8 +421,8 @@ export const contractRouter = createTRPCRouter({
       if (cleanedUpdates.salaryType && !cleanedUpdates.paymentModel) {
         // If salaryType is being updated but paymentModel is not, sync paymentModel
         const salaryTypeUpper = String(cleanedUpdates.salaryType).toUpperCase()
-        if (["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"].includes(salaryTypeUpper)) {
-          cleanedUpdates.paymentModel = salaryTypeUpper as any
+        if (Object.values(PaymentModel).includes(salaryTypeUpper as PaymentModel)) {
+          cleanedUpdates.paymentModel = salaryTypeUpper as PaymentModel
         }
       } else if (cleanedUpdates.paymentModel && !cleanedUpdates.salaryType) {
         // If paymentModel is being updated but salaryType is not, sync salaryType

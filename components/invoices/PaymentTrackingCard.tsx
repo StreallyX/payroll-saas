@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle, Clock, DollarSign, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
+import { PaymentModel, getPaymentModelLabel, getPaymentModelDescription } from "@/lib/constants/payment-models";
 
 interface PaymentStatus {
   state: string; // SENT, MARKED_PAID_BY_AGENCY, PAYMENT_RECEIVED, etc.
@@ -22,7 +23,7 @@ interface PaymentStatus {
 
 interface PaymentTrackingCardProps {
   paymentStatus: PaymentStatus;
-  paymentModel: string; // GROSS, PAYROLL, PAYROLL_WE_PAY, SPLIT
+  paymentModel: string | PaymentModel; // Payment model enum value
   userRole: string; // agency, admin, etc.
   invoiceAmount?: number; // Total invoice amount for validation
   currency?: string; // Currency code (e.g., USD, EUR)
@@ -115,20 +116,8 @@ export function PaymentTrackingCard({
     }).format(value);
   };
 
-  const getPaymentModelDescription = (model: string) => {
-    switch (model) {
-      case "GROSS":
-        return "Contractor receives full amount and handles their own taxes";
-      case "PAYROLL":
-        return "Agency handles payroll and taxes";
-      case "PAYROLL_WE_PAY":
-        return "We handle payroll processing";
-      case "SPLIT":
-        return "Payment distributed to multiple parties";
-      default:
-        return model;
-    }
-  };
+  // Use the centralized utility function for payment model descriptions
+  const paymentModelDesc = getPaymentModelDescription(paymentModel as PaymentModel);
 
   const getStateColor = (state: string) => {
     switch (state) {
@@ -174,7 +163,7 @@ export function PaymentTrackingCard({
           </div>
 
           <p className="text-xs text-muted-foreground italic">
-            {getPaymentModelDescription(paymentModel)}
+            {paymentModelDesc}
           </p>
         </div>
 
