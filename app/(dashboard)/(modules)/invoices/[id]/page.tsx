@@ -21,6 +21,10 @@ import {
 } from "@/components/workflow";
 import { MarginConfirmationCard } from "@/components/invoices/MarginConfirmationCard";
 import { PaymentTrackingCard } from "@/components/invoices/PaymentTrackingCard";
+import { SelfInvoiceDialog } from "@/components/invoices/SelfInvoiceDialog";
+import { PayrollWorkflowDialog } from "@/components/invoices/PayrollWorkflowDialog";
+import { PayrollWePayDialog } from "@/components/invoices/PayrollWePayDialog";
+import { SplitPaymentDialog } from "@/components/invoices/SplitPaymentDialog";
 import { TimesheetFileViewer } from "@/components/timesheets/TimesheetFileViewer";
 import Link from "next/link";
 
@@ -507,6 +511,115 @@ export default function InvoiceDetailPage() {
           onMarkPaymentReceived={handleMarkPaymentReceived}
           isLoading={markAsPaidByAgencyMutation.isPending || markPaymentReceivedMutation.isPending}
         />
+      )}
+
+      {/* Post-Payment Workflow Actions - Show when payment is received */}
+      {currentState === "payment_received" && (data as any).paymentModel && hasPermission("invoice.pay.global") && (
+        <Card className="border-2 border-purple-200 bg-purple-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-900">
+              <DollarSign className="h-5 w-5" />
+              Post-Payment Workflow Actions
+            </CardTitle>
+            <CardDescription>
+              Process payment based on the payment model: {(data as any).paymentModel}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-white rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="font-semibold mb-1">
+                    {(data as any).paymentModel === "GROSS" && "Create Self-Invoice"}
+                    {(data as any).paymentModel === "PAYROLL" && "Process External Payroll"}
+                    {(data as any).paymentModel === "PAYROLL_WE_PAY" && "Process Internal Payroll"}
+                    {(data as any).paymentModel === "SPLIT" && "Configure Split Payment"}
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {(data as any).paymentModel === "GROSS" && 
+                      "Generate a self-invoice for payment processing. The contractor will handle their own taxes."}
+                    {(data as any).paymentModel === "PAYROLL" && 
+                      "Create self-billing invoice and send to external payroll provider for processing."}
+                    {(data as any).paymentModel === "PAYROLL_WE_PAY" && 
+                      "Process payment internally with tax withholdings and NET salary calculation."}
+                    {(data as any).paymentModel === "SPLIT" && 
+                      "Allocate payment across multiple bank accounts with percentage or fixed amounts."}
+                  </p>
+                </div>
+                <div className="ml-4">
+                  {(data as any).paymentModel === "GROSS" && (
+                    <SelfInvoiceDialog 
+                      invoiceId={invoiceId}
+                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
+                    />
+                  )}
+                  {(data as any).paymentModel === "PAYROLL" && (
+                    <PayrollWorkflowDialog 
+                      invoiceId={invoiceId}
+                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
+                    />
+                  )}
+                  {(data as any).paymentModel === "PAYROLL_WE_PAY" && (
+                    <PayrollWePayDialog 
+                      invoiceId={invoiceId}
+                      invoiceAmount={Number(data.totalAmount || 0)}
+                      currency={data.currencyRelation?.code || "USD"}
+                      contractorName={contractorName}
+                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
+                    />
+                  )}
+                  {(data as any).paymentModel === "SPLIT" && (
+                    <SplitPaymentDialog 
+                      invoiceId={invoiceId}
+                      invoiceAmount={Number(data.totalAmount || 0)}
+                      currency={data.currencyRelation?.code || "USD"}
+                      onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Information based on payment model */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <h5 className="font-semibold text-blue-900 text-sm mb-2">Next Steps:</h5>
+              <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                {(data as any).paymentModel === "GROSS" && (
+                  <>
+                    <li>Review self-invoice preview with all details</li>
+                    <li>Create invoice as new Invoice record</li>
+                    <li>Process payment to contractor</li>
+                    <li>Contractor handles tax obligations</li>
+                  </>
+                )}
+                {(data as any).paymentModel === "PAYROLL" && (
+                  <>
+                    <li>Self-billing invoice created automatically</li>
+                    <li>Payroll task assigned to payroll team</li>
+                    <li>Export to external payroll provider</li>
+                    <li>Track completion status</li>
+                  </>
+                )}
+                {(data as any).paymentModel === "PAYROLL_WE_PAY" && (
+                  <>
+                    <li>Review contractor and bank details</li>
+                    <li>Optionally create fee invoice</li>
+                    <li>Task created for payroll team</li>
+                    <li>Process NET salary with tax withholdings</li>
+                  </>
+                )}
+                {(data as any).paymentModel === "SPLIT" && (
+                  <>
+                    <li>Select contractor's bank accounts</li>
+                    <li>Allocate amounts or percentages</li>
+                    <li>Validate total equals invoice amount</li>
+                    <li>Process split payments</li>
+                  </>
+                )}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* PROFESSIONAL INVOICE LAYOUT */}
@@ -1191,7 +1304,10 @@ export default function InvoiceDetailPage() {
             {marginBreakdown && (
               <MarginCalculationDisplay 
                 breakdown={marginBreakdown} 
-                expenses={data?.timesheet?.expenses || []}
+                expenses={data?.timesheet?.expenses?.map((exp: any) => ({
+                  ...exp,
+                  amount: Number(exp.amount),
+                })) || []}
                 showDetails={true} 
               />
             )}

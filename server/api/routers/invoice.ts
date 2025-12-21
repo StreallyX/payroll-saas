@@ -1705,4 +1705,679 @@ getById: tenantProcedure
       };
     }),
 
+  // ---------------------------------------------------------
+  // POST-PAYMENT WORKFLOW ACTIONS
+  // ---------------------------------------------------------
+
+  /**
+   * Generate self-invoice preview (GROSS workflow)
+   * Shows what the self-invoice will look like before creation
+   */
+  generateSelfInvoicePreview: tenantProcedure
+    .use(hasPermission(P.PAY_GLOBAL))
+    .input(z.object({ invoiceId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          lineItems: true,
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+          currencyRelation: true,
+          margin: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      // Get contractor (sender) and tenant info
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+
+      // Get tenant info
+      const tenant = await ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+      });
+
+      // Calculate self-invoice details (we invoice ourselves)
+      const selfInvoiceData = {
+        from: {
+          name: tenantParticipant?.company?.name || tenant?.name || "Organization",
+          email: tenantParticipant?.company?.contactEmail || "",
+        },
+        to: {
+          name: contractor?.user?.name || contractor?.company?.name || "Contractor",
+          email: contractor?.user?.email || contractor?.company?.contactEmail || "",
+        },
+        invoiceNumber: `SELF-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
+        lineItems: invoice.lineItems.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          amount: item.amount,
+        })),
+        subtotal: invoice.baseAmount || invoice.amount,
+        marginAmount: invoice.marginAmount || 0,
+        marginPercentage: invoice.marginPercentage || 0,
+        totalAmount: invoice.totalAmount,
+        currency: invoice.currencyRelation?.code || "USD",
+        issueDate: new Date(),
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        notes: `Self-invoice for payment processing. Original invoice: ${invoice.invoiceNumber || invoice.id}`,
+      };
+
+      return selfInvoiceData;
+    }),
+
+  /**
+   * Create self-invoice (GROSS workflow)
+   * Actually creates the self-invoice as a new Invoice record
+   */
+  createSelfInvoice: tenantProcedure
+    .use(hasPermission(P.CREATE_GLOBAL))
+    .input(z.object({ invoiceId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          lineItems: true,
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+          currencyRelation: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      // Get participants
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+
+      // Create self-invoice
+      const selfInvoice = await ctx.prisma.invoice.create({
+        data: {
+          tenantId: ctx.tenantId,
+          parentInvoiceId: invoice.id,
+          contractId: invoice.contractId,
+          invoiceNumber: `SELF-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
+          senderId: tenantParticipant?.userId || userId,
+          receiverId: contractor?.userId,
+          status: "draft",
+          workflowState: "draft",
+          amount: invoice.baseAmount || invoice.amount,
+          totalAmount: invoice.totalAmount,
+          currencyId: invoice.currencyId,
+          marginAmount: invoice.marginAmount,
+          marginPercentage: invoice.marginPercentage,
+          baseAmount: invoice.baseAmount,
+          issueDate: new Date(),
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          description: `Self-invoice for payment processing`,
+          notes: `Generated from invoice ${invoice.invoiceNumber || invoice.id}`,
+          createdBy: userId,
+          lineItems: {
+            create: invoice.lineItems.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+            })),
+          },
+        },
+        include: {
+          lineItems: true,
+        },
+      });
+
+      // Create audit log
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name || "System",
+        userRole: ctx.session.user.roleName || "admin",
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: selfInvoice.id,
+        entityName: `Self-Invoice ${selfInvoice.invoiceNumber}`,
+        tenantId: ctx.tenantId,
+        description: `Self-invoice created for GROSS payment workflow`,
+        metadata: {
+          parentInvoiceId: invoice.id,
+          parentInvoiceNumber: invoice.invoiceNumber,
+        },
+      });
+
+      return selfInvoice;
+    }),
+
+  /**
+   * Create self-billing invoice (PAYROLL workflow)
+   * System creates invoice on behalf of contractor
+   */
+  createSelfBillingInvoice: tenantProcedure
+    .use(hasPermission(P.CREATE_GLOBAL))
+    .input(z.object({ invoiceId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          lineItems: true,
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+          currencyRelation: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+
+      // Create self-billing invoice
+      const selfBillingInvoice = await ctx.prisma.invoice.create({
+        data: {
+          tenantId: ctx.tenantId,
+          parentInvoiceId: invoice.id,
+          contractId: invoice.contractId,
+          invoiceNumber: `SB-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
+          senderId: contractor?.userId,
+          receiverId: tenantParticipant?.userId || userId,
+          status: "approved",
+          workflowState: "approved",
+          amount: invoice.baseAmount || invoice.amount,
+          totalAmount: invoice.totalAmount,
+          currencyId: invoice.currencyId,
+          baseAmount: invoice.baseAmount,
+          issueDate: new Date(),
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          description: `Self-billing invoice for payroll processing`,
+          notes: `Auto-generated from invoice ${invoice.invoiceNumber || invoice.id}`,
+          createdBy: userId,
+          lineItems: {
+            create: invoice.lineItems.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+            })),
+          },
+        },
+        include: {
+          lineItems: true,
+        },
+      });
+
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name || "System",
+        userRole: ctx.session.user.roleName || "admin",
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: selfBillingInvoice.id,
+        entityName: `Self-Billing Invoice ${selfBillingInvoice.invoiceNumber}`,
+        tenantId: ctx.tenantId,
+        description: `Self-billing invoice created for PAYROLL workflow`,
+        metadata: {
+          parentInvoiceId: invoice.id,
+        },
+      });
+
+      return selfBillingInvoice;
+    }),
+
+  /**
+   * Create payroll task (PAYROLL and PAYROLL_WE_PAY workflows)
+   */
+  createPayrollTask: tenantProcedure
+    .use(hasPermission(P.PAY_GLOBAL))
+    .input(
+      z.object({
+        invoiceId: z.string(),
+        payrollUserId: z.string().optional(), // Who to assign the task to
+        feeAmount: z.number().optional(), // For PAYROLL_WE_PAY
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+          currencyRelation: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const contractorName = contractor?.user?.name || contractor?.company?.name || "Contractor";
+      
+      // Get contractor bank details (from user profile or company)
+      const contractorBankInfo = contractor?.user?.profileData as any;
+
+      // Determine assignee - default to first payroll user if not specified
+      let assigneeId = input.payrollUserId;
+      if (!assigneeId) {
+        const payrollUser = await ctx.prisma.user.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            role: {
+              name: { contains: "payroll", mode: "insensitive" },
+            },
+            isActive: true,
+          },
+        });
+        assigneeId = payrollUser?.id || userId;
+      }
+
+      // Create task description with all relevant info
+      const taskDescription = `
+Payment received for ${contractorName}.
+
+**Action Required:** 
+Please complete legal/payroll processing and transfer NET salary to contractor.
+
+**Contractor Information:**
+- Name: ${contractorName}
+- Email: ${contractor?.user?.email || contractor?.company?.contactEmail || "N/A"}
+- Contract: ${invoice.contract?.contractReference || "N/A"}
+
+**Payment Details:**
+- Amount: ${invoice.totalAmount} ${invoice.currencyRelation?.code || "USD"}
+- Invoice: ${invoice.invoiceNumber || invoice.id}
+${input.feeAmount ? `- Payroll Fee: ${input.feeAmount} ${invoice.currencyRelation?.code || "USD"}` : ""}
+
+**Bank Details:**
+${contractorBankInfo?.bankName ? `- Bank: ${contractorBankInfo.bankName}` : "- Bank: To be provided"}
+${contractorBankInfo?.accountNumber ? `- Account: ${contractorBankInfo.accountNumber}` : ""}
+
+${input.notes || ""}
+      `.trim();
+
+      // Ensure assigneeId is set
+      if (!assigneeId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No payroll user found. Please assign a payroll user first.",
+        });
+      }
+
+      const task = await ctx.prisma.task.create({
+        data: {
+          tenantId: ctx.tenantId,
+          title: `Process Payroll Payment - ${contractorName}`,
+          description: taskDescription,
+          assignedTo: assigneeId,
+          assignedBy: userId,
+          priority: "high",
+          status: "pending",
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        },
+      });
+
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name || "System",
+        userRole: ctx.session.user.roleName || "admin",
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.TASK as any,
+        entityId: task.id,
+        entityName: task.title,
+        tenantId: ctx.tenantId,
+        description: `Payroll task created for invoice ${invoice.invoiceNumber || invoice.id}`,
+        metadata: {
+          invoiceId: invoice.id,
+          contractorId: contractor?.userId,
+        },
+      });
+
+      return task;
+    }),
+
+  /**
+   * Get contractor bank accounts (for SPLIT workflow)
+   */
+  getContractorBankAccounts: tenantProcedure
+    .use(hasAnyPermission([P.PAY_GLOBAL, P.READ_OWN]))
+    .input(z.object({ invoiceId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: {
+                    include: {
+                      bankAccounts: {
+                        where: { isActive: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const bankAccounts = contractor?.user?.bankAccounts || [];
+
+      return {
+        contractorName: contractor?.user?.name || "N/A",
+        bankAccounts: bankAccounts.map((account) => ({
+          id: account.id,
+          bankName: account.bankName,
+          accountNumber: account.accountNumber,
+          accountHolder: account.accountHolder,
+          isPrimary: account.isPrimary,
+          currency: account.currency,
+          country: account.country,
+        })),
+      };
+    }),
+
+  /**
+   * Process split payment (SPLIT workflow)
+   */
+  processSplitPayment: tenantProcedure
+    .use(hasPermission(P.PAY_GLOBAL))
+    .input(
+      z.object({
+        invoiceId: z.string(),
+        splits: z.array(
+          z.object({
+            bankAccountId: z.string(),
+            amount: z.number().optional(),
+            percentage: z.number().optional(),
+            notes: z.string().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: {
+                    include: {
+                      bankAccounts: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          currencyRelation: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      const totalAmount = Number(invoice.totalAmount);
+
+      // Validate splits
+      let totalSplitAmount = 0;
+      let totalPercentage = 0;
+
+      for (const split of input.splits) {
+        if (split.amount) {
+          totalSplitAmount += split.amount;
+        } else if (split.percentage) {
+          totalPercentage += split.percentage;
+          totalSplitAmount += (totalAmount * split.percentage) / 100;
+        }
+      }
+
+      if (Math.abs(totalSplitAmount - totalAmount) > 0.01) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Split amounts must equal invoice total. Expected: ${totalAmount}, Got: ${totalSplitAmount}`,
+        });
+      }
+
+      // Create payment records for each split
+      const payments = await Promise.all(
+        input.splits.map(async (split, index) => {
+          const bankAccount = await ctx.prisma.userBankAccount.findUnique({
+            where: { id: split.bankAccountId },
+          });
+
+          if (!bankAccount) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Bank account ${split.bankAccountId} not found`,
+            });
+          }
+
+          const splitAmount = split.amount || (totalAmount * (split.percentage || 0)) / 100;
+
+          return ctx.prisma.payment.create({
+            data: {
+              tenantId: ctx.tenantId,
+              invoiceId: invoice.id,
+              amount: splitAmount,
+              currency: invoice.currencyRelation?.code || "USD",
+              status: "pending",
+              paymentMethod: "bank_transfer",
+              scheduledDate: new Date(),
+              description: `Split payment ${index + 1}/${input.splits.length} to ${bankAccount.bankName}`,
+              notes: split.notes || `Account: ${bankAccount.accountNumber}`,
+              createdBy: userId,
+              metadata: {
+                paymentModel: "SPLIT",
+                splitIndex: index + 1,
+                totalSplits: input.splits.length,
+                bankAccountId: bankAccount.id,
+                bankName: bankAccount.bankName,
+                accountNumber: bankAccount.accountNumber,
+              },
+            },
+          });
+        })
+      );
+
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name || "System",
+        userRole: ctx.session.user.roleName || "admin",
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.PAYMENT,
+        entityId: payments[0].id,
+        entityName: `Split Payment for ${invoice.invoiceNumber || invoice.id}`,
+        tenantId: ctx.tenantId,
+        description: `Split payment processed: ${payments.length} splits`,
+        metadata: {
+          invoiceId: invoice.id,
+          splitCount: payments.length,
+          paymentIds: payments.map((p) => p.id),
+        },
+      });
+
+      return {
+        success: true,
+        payments: payments.map((p) => ({
+          id: p.id,
+          amount: p.amount,
+          description: p.description,
+          status: p.status,
+        })),
+      };
+    }),
+
+  /**
+   * Create payroll fee invoice (PAYROLL_WE_PAY workflow)
+   */
+  createPayrollFeeInvoice: tenantProcedure
+    .use(hasPermission(P.CREATE_GLOBAL))
+    .input(
+      z.object({
+        invoiceId: z.string(),
+        feeAmount: z.number(),
+        feeDescription: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: {
+          contract: {
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                  company: true,
+                },
+              },
+            },
+          },
+          currencyRelation: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        });
+      }
+
+      const client = invoice.contract?.participants?.find((p) => p.role === "client");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+
+      // Create fee invoice
+      const feeInvoice = await ctx.prisma.invoice.create({
+        data: {
+          tenantId: ctx.tenantId,
+          parentInvoiceId: invoice.id,
+          contractId: invoice.contractId,
+          invoiceNumber: `FEE-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
+          senderId: tenantParticipant?.userId || userId,
+          receiverId: client?.userId,
+          status: "draft",
+          workflowState: "draft",
+          amount: input.feeAmount,
+          totalAmount: input.feeAmount,
+          currencyId: invoice.currencyId,
+          baseAmount: input.feeAmount,
+          issueDate: new Date(),
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          description: input.feeDescription || `Payroll processing fee`,
+          notes: `Fee for payroll processing of invoice ${invoice.invoiceNumber || invoice.id}`,
+          createdBy: userId,
+          lineItems: {
+            create: [
+              {
+                description: input.feeDescription || "Payroll processing fee",
+                quantity: 1,
+                unitPrice: input.feeAmount,
+                amount: input.feeAmount,
+              },
+            ],
+          },
+        },
+        include: {
+          lineItems: true,
+        },
+      });
+
+      await createAuditLog({
+        userId,
+        userName: ctx.session.user.name || "System",
+        userRole: ctx.session.user.roleName || "admin",
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.INVOICE,
+        entityId: feeInvoice.id,
+        entityName: `Fee Invoice ${feeInvoice.invoiceNumber}`,
+        tenantId: ctx.tenantId,
+        description: `Payroll fee invoice created`,
+        metadata: {
+          parentInvoiceId: invoice.id,
+          feeAmount: input.feeAmount,
+        },
+      });
+
+      return feeInvoice;
+    }),
+
 })
