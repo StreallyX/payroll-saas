@@ -2108,8 +2108,11 @@ ${input.notes || ""}
                 include: {
                   user: {
                     include: {
-                      bankAccounts: {
-                        where: { isActive: true },
+                      banks: {
+                        where: { 
+                          isActive: true,
+                          userId: { not: null }, // Only user banks, not company banks
+                        },
                       },
                     },
                   },
@@ -2128,13 +2131,13 @@ ${input.notes || ""}
       }
 
       const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
-      const bankAccounts = contractor?.user?.bankAccounts || [];
+      const bankAccounts = contractor?.user?.banks || [];
 
       return {
         contractorName: contractor?.user?.name || "N/A",
         bankAccounts: bankAccounts.map((account) => ({
           id: account.id,
-          bankName: account.bankName,
+          bankName: account.name, // Bank.name instead of UserBankAccount.bankName
           accountNumber: account.accountNumber,
           accountHolder: account.accountHolder,
           isPrimary: account.isPrimary,
@@ -2174,7 +2177,7 @@ ${input.notes || ""}
                 include: {
                   user: {
                     include: {
-                      bankAccounts: true,
+                      banks: true,
                     },
                   },
                 },
@@ -2217,7 +2220,7 @@ ${input.notes || ""}
       // Create payment records for each split
       const payments = await Promise.all(
         input.splits.map(async (split, index) => {
-          const bankAccount = await ctx.prisma.userBankAccount.findUnique({
+          const bankAccount = await ctx.prisma.bank.findUnique({
             where: { id: split.bankAccountId },
           });
 
@@ -2239,7 +2242,7 @@ ${input.notes || ""}
               status: "pending",
               paymentMethod: "bank_transfer",
               scheduledDate: new Date(),
-              description: `Split payment ${index + 1}/${input.splits.length} to ${bankAccount.bankName}`,
+              description: `Split payment ${index + 1}/${input.splits.length} to ${bankAccount.name}`,
               notes: split.notes || `Account: ${bankAccount.accountNumber}`,
               createdBy: userId,
               metadata: {
@@ -2247,7 +2250,7 @@ ${input.notes || ""}
                 splitIndex: index + 1,
                 totalSplits: input.splits.length,
                 bankAccountId: bankAccount.id,
-                bankName: bankAccount.bankName,
+                bankName: bankAccount.name,
                 accountNumber: bankAccount.accountNumber,
               },
             },

@@ -220,7 +220,6 @@ model Tenant {
   entityStateHistory   EntityStateHistory[] // 🔥 NEW
   workflowTemplates    WorkflowTemplate[] // 🔥 NEW
   workflowSettings     TenantWorkflowSettings? // 🔥 NEW
-  userBankAccounts     UserBankAccount[] // 🔥 NEW - For contractor bank accounts (SPLIT payments)
 
   @@map("tenants")
 }
@@ -327,7 +326,7 @@ model User {
   marginsOverridden        Margin[]  @relation("MarginOverriddenBy")
   
   // 🔥 NEW: Bank accounts for contractors (for SPLIT payments)
-  bankAccounts UserBankAccount[] @relation("UserBankAccounts")
+  banks Bank[] @relation("UserBanks")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -1492,6 +1491,17 @@ model Bank {
   iban          String?
   address       String?
 
+  // 🔥 NEW: Support for user-owned bank accounts (contractors)
+  userId        String? // null for company banks, set for user/contractor banks
+  accountHolder String? // Account holder name (for user banks)
+  routingNumber String? // For user banks
+  branchCode    String? // For user banks
+  country       String? // For user banks
+  currency      String? // For user banks
+  
+  isPrimary     Boolean  @default(false) // For user banks
+  isActive      Boolean  @default(true)
+
   createdBy String?
 
   status    String   @default("active")
@@ -1499,44 +1509,15 @@ model Bank {
   updatedAt DateTime @updatedAt
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  companies Company[] // 0..n companies using this bank
+  user      User?      @relation("UserBanks", fields: [userId], references: [id], onDelete: Cascade)
+  companies Company[]  // 0..n companies using this bank
   contracts Contract[]
 
   @@index([tenantId])
+  @@index([userId]) // For user bank queries
   @@index([createdBy])
+  @@index([isPrimary]) // For finding primary user banks
   @@map("banks")
-}
-
-// 🔥 NEW: User Bank Accounts for contractors (for SPLIT payment workflows)
-model UserBankAccount {
-  id            String  @id @default(cuid())
-  tenantId      String
-  userId        String
-  bankName      String
-  accountNumber String?
-  accountHolder String?
-  swiftCode     String?
-  iban          String?
-  routingNumber String?
-  branchCode    String?
-  bankAddress   String?
-  country       String?
-  currency      String?
-  
-  isPrimary     Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  
-  createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User   @relation("UserBankAccounts", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([userId])
-  @@index([isPrimary])
-  @@map("user_bank_accounts")
 }
 
 model DocumentType {
