@@ -1903,103 +1903,217 @@ getById: tenantProcedure
       selectedBankAccountId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
+      try {
+        console.log("🔍 [createSelfInvoice] Starting with input:", JSON.stringify(input, null, 2));
+        console.log("🔍 [createSelfInvoice] User ID:", ctx.session.user.id);
+        console.log("🔍 [createSelfInvoice] Tenant ID:", ctx.tenantId);
 
-      const invoice = await ctx.prisma.invoice.findFirst({
-        where: { id: input.invoiceId, tenantId: ctx.tenantId },
-        include: {
-          lineItems: true,
-          contract: {
-            include: {
-              participants: {
-                include: {
-                  user: true,
-                  company: true,
+        const userId = ctx.session.user.id;
+
+        // Step 1: Fetch invoice
+        console.log("🔍 [createSelfInvoice] Step 1: Fetching invoice...");
+        const invoice = await ctx.prisma.invoice.findFirst({
+          where: { id: input.invoiceId, tenantId: ctx.tenantId },
+          include: {
+            lineItems: true,
+            contract: {
+              include: {
+                participants: {
+                  include: {
+                    user: true,
+                    company: true,
+                  },
                 },
               },
             },
-          },
-          currencyRelation: true,
-          timesheet: {
-            include: {
-              expenses: true,
+            currencyRelation: true,
+            timesheet: {
+              include: {
+                expenses: true,
+              },
             },
           },
-        },
-      });
-
-      if (!invoice) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Invoice not found",
         });
-      }
 
-      // Get participants
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
+        if (!invoice) {
+          console.error("❌ [createSelfInvoice] Invoice not found:", input.invoiceId);
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Invoice not found",
+          });
+        }
 
-      // 🔥 FIX: Validate contractor exists (can be user or company)
-      if (!contractor) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Contractor participant not found for this invoice",
+        console.log("✅ [createSelfInvoice] Invoice found:", {
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          contractId: invoice.contractId,
+          baseAmount: invoice.baseAmount?.toString(),
+          amount: invoice.amount?.toString(),
+          totalAmount: invoice.totalAmount?.toString(),
+          currencyId: invoice.currencyId,
+          hasContract: !!invoice.contract,
+          lineItemsCount: invoice.lineItems?.length || 0,
         });
-      }
 
-      // 🔥 FIX: Handle both user-based and company-based contractors
-      if (!contractor.userId && !contractor.companyId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Contractor must be linked to either a user or company",
+        // Step 2: Validate contract exists
+        if (!invoice.contract) {
+          console.error("❌ [createSelfInvoice] No contract linked to invoice");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invoice must be linked to a contract to create self-invoice",
+          });
+        }
+
+        console.log("✅ [createSelfInvoice] Contract found:", {
+          id: invoice.contract.id,
+          participantsCount: invoice.contract.participants?.length || 0,
         });
-      }
 
-      // Determine contractor user ID (for bank accounts and receiverId)
-      const contractorUserId = contractor.userId;
+        // Step 3: Get participants
+        console.log("🔍 [createSelfInvoice] Step 3: Finding participants...");
+        const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
+        const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
-      // Fetch contractor's bank accounts (only if contractor is a user)
-      let contractorBankAccounts: any[] = [];
-      if (contractorUserId) {
-        contractorBankAccounts = await ctx.prisma.bank.findMany({
+        console.log("🔍 [createSelfInvoice] Participants found:", {
+          contractor: contractor ? {
+            id: contractor.id,
+            userId: contractor.userId,
+            companyId: contractor.companyId,
+            role: contractor.role,
+          } : null,
+          tenantParticipant: tenantParticipant ? {
+            id: tenantParticipant.id,
+            userId: tenantParticipant.userId,
+            companyId: tenantParticipant.companyId,
+            role: tenantParticipant.role,
+          } : null,
+        });
+
+        // 🔥 FIX: Validate contractor exists (can be user or company)
+        if (!contractor) {
+          console.error("❌ [createSelfInvoice] Contractor participant not found");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Contractor participant not found for this invoice",
+          });
+        }
+
+        // 🔥 FIX: Handle both user-based and company-based contractors
+        if (!contractor.userId && !contractor.companyId) {
+          console.error("❌ [createSelfInvoice] Contractor has no userId or companyId");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Contractor must be linked to either a user or company",
+          });
+        }
+
+        // Determine contractor user ID (for bank accounts and receiverId)
+        const contractorUserId = contractor.userId;
+        console.log("✅ [createSelfInvoice] Contractor user ID:", contractorUserId);
+
+        // Step 4: Fetch contractor's bank accounts (only if contractor is a user)
+        console.log("🔍 [createSelfInvoice] Step 4: Fetching bank accounts...");
+        let contractorBankAccounts: any[] = [];
+        if (contractorUserId) {
+          contractorBankAccounts = await ctx.prisma.bank.findMany({
+            where: {
+              userId: contractorUserId,
+              isActive: true,
+            },
+            orderBy: {
+              isPrimary: 'desc',
+            },
+          });
+          console.log("✅ [createSelfInvoice] Bank accounts found:", contractorBankAccounts.length);
+        } else {
+          console.log("⚠️  [createSelfInvoice] Skipping bank accounts (company-based contractor)");
+        }
+
+        // Step 5: Determine which bank account to use
+        console.log("🔍 [createSelfInvoice] Step 5: Selecting bank account...");
+        let selectedBankAccount = null;
+        if (input.selectedBankAccountId && contractorBankAccounts.length > 0) {
+          selectedBankAccount = contractorBankAccounts.find(
+            (bank) => bank.id === input.selectedBankAccountId
+          );
+          console.log("✅ [createSelfInvoice] Selected specified bank account:", selectedBankAccount?.id);
+        } else if (contractorBankAccounts.length > 0) {
+          // Auto-select primary or first available
+          selectedBankAccount = contractorBankAccounts.find((bank) => bank.isPrimary) || contractorBankAccounts[0];
+          console.log("✅ [createSelfInvoice] Auto-selected bank account:", selectedBankAccount?.id, "(isPrimary:", selectedBankAccount?.isPrimary, ")");
+        } else {
+          console.log("⚠️  [createSelfInvoice] No bank account available");
+        }
+
+        // Step 6: Calculate amounts
+        console.log("🔍 [createSelfInvoice] Step 6: Calculating amounts...");
+        const expensesTotal = invoice.timesheet?.expenses?.reduce(
+          (sum, expense) => sum + Number(expense.amount),
+          0
+        ) || 0;
+
+        // 🔥 Calculate amount WITHOUT margin (baseAmount + expenses only)
+        const baseAmountValue = Number(invoice.baseAmount || invoice.amount);
+        const totalAmountWithoutMargin = baseAmountValue + expensesTotal;
+
+        console.log("✅ [createSelfInvoice] Amounts calculated:", {
+          baseAmountValue,
+          expensesTotal,
+          totalAmountWithoutMargin,
+        });
+
+        // Step 7: Validate required fields for invoice creation
+        console.log("🔍 [createSelfInvoice] Step 7: Validating required fields...");
+        
+        // Check if self-invoice already exists for this parent invoice
+        const existingSelfInvoice = await ctx.prisma.invoice.findFirst({
           where: {
-            userId: contractorUserId,
-            isActive: true,
-          },
-          orderBy: {
-            isPrimary: 'desc',
+            parentInvoiceId: invoice.id,
+            tenantId: ctx.tenantId,
           },
         });
-      }
 
-      // Determine which bank account to use
-      let selectedBankAccount = null;
-      if (input.selectedBankAccountId && contractorBankAccounts.length > 0) {
-        selectedBankAccount = contractorBankAccounts.find(
-          (bank) => bank.id === input.selectedBankAccountId
-        );
-      } else if (contractorBankAccounts.length > 0) {
-        // Auto-select primary or first available
-        selectedBankAccount = contractorBankAccounts.find((bank) => bank.isPrimary) || contractorBankAccounts[0];
-      }
+        if (existingSelfInvoice) {
+          console.error("❌ [createSelfInvoice] Self-invoice already exists:", existingSelfInvoice.id);
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `A self-invoice already exists for this invoice (ID: ${existingSelfInvoice.id}, Number: ${existingSelfInvoice.invoiceNumber})`,
+          });
+        }
 
-      // Calculate expenses total
-      const expensesTotal = invoice.timesheet?.expenses?.reduce(
-        (sum, expense) => sum + Number(expense.amount),
-        0
-      ) || 0;
+        if (!invoice.lineItems || invoice.lineItems.length === 0) {
+          console.error("❌ [createSelfInvoice] No line items found");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invoice must have at least one line item",
+          });
+        }
 
-      // 🔥 Calculate amount WITHOUT margin (baseAmount + expenses only)
-      const baseAmountValue = Number(invoice.baseAmount || invoice.amount);
-      const totalAmountWithoutMargin = baseAmountValue + expensesTotal;
+        if (isNaN(baseAmountValue) || baseAmountValue <= 0) {
+          console.error("❌ [createSelfInvoice] Invalid base amount:", baseAmountValue);
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invoice must have a valid positive amount",
+          });
+        }
 
-      // Create self-invoice with auto-confirmation
-      const selfInvoice = await ctx.prisma.invoice.create({
-        data: {
+        console.log("✅ [createSelfInvoice] Validation passed");
+
+        // Step 8: Create self-invoice with auto-confirmation
+        console.log("🔍 [createSelfInvoice] Step 8: Creating self-invoice...");
+        
+        // Generate unique invoice number with timestamp to avoid collisions
+        const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+        const baseInvoiceRef = invoice.invoiceNumber || invoice.id.slice(0, 8);
+        const selfInvoiceNumber = `SELF-${baseInvoiceRef}-${timestamp}`;
+        
+        console.log("🔍 [createSelfInvoice] Generated invoice number:", selfInvoiceNumber);
+        
+        const invoiceData = {
           tenantId: ctx.tenantId,
           parentInvoiceId: invoice.id,
           contractId: invoice.contractId,
-          invoiceNumber: `SELF-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
+          invoiceNumber: selfInvoiceNumber,
           senderId: tenantParticipant?.userId || userId,
           receiverId: contractorUserId || undefined, // 🔥 FIX: Handle case where contractor is a company (no userId)
           status: "confirmed", // 🔥 Auto-confirmed
@@ -2027,61 +2141,137 @@ getById: tenantProcedure
               amount: item.amount,
             })),
           },
-        },
-        include: {
-          lineItems: true,
-          receiver: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
+        };
 
-      // 🔥 Create remittance for payment sent to contractor (only if contractor is a user)
-      if (contractorUserId) {
+        console.log("🔍 [createSelfInvoice] Invoice data prepared:", JSON.stringify({
+          ...invoiceData,
+          lineItems: { count: invoice.lineItems.length },
+        }, null, 2));
+
+        let selfInvoice;
         try {
-          await RemittanceService.createPaymentSentToContractorRemittance({
-            tenantId: ctx.tenantId,
-            invoiceId: selfInvoice.id,
-            contractId: invoice.contractId || undefined,
-            amount: totalAmountWithoutMargin,
-            currency: invoice.currencyRelation?.code || "USD",
-            adminUserId: userId,
-            contractorUserId: contractorUserId,
-            description: `Payment to contractor for self-invoice ${selfInvoice.invoiceNumber}`,
+          selfInvoice = await ctx.prisma.invoice.create({
+            data: invoiceData,
+            include: {
+              lineItems: true,
+              receiver: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
           });
-        } catch (error) {
-          console.error("Error creating remittance:", error);
-          // Don't fail the entire operation if remittance creation fails
+        } catch (prismaError: any) {
+          console.error("❌ [createSelfInvoice] Prisma error during invoice creation:", {
+            code: prismaError.code,
+            message: prismaError.message,
+            meta: prismaError.meta,
+          });
+
+          // Handle specific Prisma errors
+          if (prismaError.code === 'P2002') {
+            // Unique constraint violation
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `A self-invoice with number ${selfInvoiceNumber} already exists. Please try again.`,
+            });
+          } else if (prismaError.code === 'P2003') {
+            // Foreign key constraint violation
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid reference to related data (contract, currency, or user). Please verify the invoice data.",
+            });
+          } else if (prismaError.code === 'P2011') {
+            // Null constraint violation
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Missing required field: ${prismaError.meta?.target || 'unknown'}`,
+            });
+          }
+
+          // Re-throw for generic handling
+          throw prismaError;
         }
+
+        console.log("✅ [createSelfInvoice] Self-invoice created:", {
+          id: selfInvoice.id,
+          invoiceNumber: selfInvoice.invoiceNumber,
+          status: selfInvoice.status,
+          workflowState: selfInvoice.workflowState,
+        });
+
+        // Step 9: Create remittance for payment sent to contractor (only if contractor is a user)
+        console.log("🔍 [createSelfInvoice] Step 9: Creating remittance...");
+        if (contractorUserId) {
+          try {
+            await RemittanceService.createPaymentSentToContractorRemittance({
+              tenantId: ctx.tenantId,
+              invoiceId: selfInvoice.id,
+              contractId: invoice.contractId || undefined,
+              amount: totalAmountWithoutMargin,
+              currency: invoice.currencyRelation?.code || "USD",
+              adminUserId: userId,
+              contractorUserId: contractorUserId,
+              description: `Payment to contractor for self-invoice ${selfInvoice.invoiceNumber}`,
+            });
+            console.log("✅ [createSelfInvoice] Remittance created successfully");
+          } catch (error) {
+            console.error("⚠️  [createSelfInvoice] Error creating remittance:", error);
+            // Don't fail the entire operation if remittance creation fails
+          }
+        } else {
+          console.log("⚠️  [createSelfInvoice] Skipping remittance (company-based contractor)");
+        }
+
+        // Step 10: Create audit log
+        console.log("🔍 [createSelfInvoice] Step 10: Creating audit log...");
+        await createAuditLog({
+          userId,
+          userName: ctx.session.user.name || "System",
+          userRole: ctx.session.user.roleName || "admin",
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.INVOICE,
+          entityId: selfInvoice.id,
+          entityName: `Self-Invoice ${selfInvoice.invoiceNumber}`,
+          tenantId: ctx.tenantId,
+          description: `Self-invoice created and auto-confirmed for GROSS payment workflow`,
+          metadata: {
+            parentInvoiceId: invoice.id,
+            parentInvoiceNumber: invoice.invoiceNumber,
+            totalAmount: totalAmountWithoutMargin,
+            expensesTotal,
+            baseAmount: baseAmountValue,
+            bankAccountId: selectedBankAccount?.id,
+            bankAccountName: selectedBankAccount?.accountName,
+          },
+        });
+
+        console.log("✅ [createSelfInvoice] Audit log created");
+        console.log("🎉 [createSelfInvoice] Self-invoice creation completed successfully");
+
+        return selfInvoice;
+      } catch (error: any) {
+        console.error("❌ [createSelfInvoice] Error occurred:", {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          stack: error.stack,
+        });
+
+        // Re-throw TRPCError as-is
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        // Wrap other errors
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to create self-invoice: ${error.message}`,
+          cause: error,
+        });
       }
-
-      // Create audit log
-      await createAuditLog({
-        userId,
-        userName: ctx.session.user.name || "System",
-        userRole: ctx.session.user.roleName || "admin",
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.INVOICE,
-        entityId: selfInvoice.id,
-        entityName: `Self-Invoice ${selfInvoice.invoiceNumber}`,
-        tenantId: ctx.tenantId,
-        description: `Self-invoice created and auto-confirmed for GROSS payment workflow`,
-        metadata: {
-          parentInvoiceId: invoice.id,
-          parentInvoiceNumber: invoice.invoiceNumber,
-          totalAmount: totalAmountWithoutMargin,
-          expensesTotal,
-          baseAmount: baseAmountValue,
-          bankAccountId: selectedBankAccount?.id,
-          bankAccountName: selectedBankAccount?.accountName,
-        },
-      });
-
-      return selfInvoice;
     }),
 
   /**
