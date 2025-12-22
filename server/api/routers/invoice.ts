@@ -80,7 +80,6 @@ export const invoiceRouter = createTRPCRouter({
         where,
         include: { 
           lineItems: true,
-          margin: isGlobal, // Only include margin for admins
           sender: {
             select: {
               id: true,
