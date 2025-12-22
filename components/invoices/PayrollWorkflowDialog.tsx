@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Send, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Send, CheckCircle, AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 
 interface PayrollWorkflowDialogProps {
@@ -96,6 +96,17 @@ export function PayrollWorkflowDialog({ invoiceId, onSuccess }: PayrollWorkflowD
             </p>
             <p className="text-sm text-blue-800">
               The self-billing invoice will be automatically approved and ready for payroll processing.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-2 mb-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+              <h4 className="font-semibold text-blue-900">Payment Destination</h4>
+            </div>
+            <p className="text-sm text-blue-800 pl-6">
+              The self-billing invoice will include the <strong>payroll user's bank account</strong> as the payment destination. 
+              After processing, payment should be made to this account.
             </p>
           </div>
 

@@ -255,6 +255,15 @@ getById: tenantProcedure
                 },
               },
             },
+            // 🔥 FIX: Include receiver's bank accounts for payment destination
+            banks: {
+              where: {
+                isActive: true,
+              },
+              orderBy: {
+                isPrimary: 'desc',
+              },
+            },
           },
         },
 

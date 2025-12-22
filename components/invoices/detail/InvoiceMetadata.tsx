@@ -3,8 +3,22 @@
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Building2, Copy, AlertCircle, LinkIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Copy, AlertCircle, LinkIcon, CreditCard, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+
+interface BankAccount {
+  id: string;
+  accountName?: string | null;
+  bankName?: string | null;
+  accountNumber?: string | null;
+  iban?: string | null;
+  swiftCode?: string | null;
+  currency?: string | null;
+  usage?: string | null;
+  isPrimary?: boolean | null;
+}
 
 interface Company {
   id: string;
@@ -48,6 +62,7 @@ interface Receiver {
   companyUsers?: Array<{
     company: Company;
   }>;
+  banks?: BankAccount[];
 }
 
 interface InvoiceMetadataProps {
@@ -85,6 +100,12 @@ export function InvoiceMetadata({
   clientCompany,
   copyToClipboard,
 }: InvoiceMetadataProps) {
+  const [showAllBankAccounts, setShowAllBankAccounts] = useState(false);
+  
+  // 🔥 FIX: Get receiver's bank accounts (contractor or payroll user)
+  const receiverBankAccounts = receiver?.banks || [];
+  const primaryBankAccount = receiverBankAccounts.find(bank => bank.isPrimary) || receiverBankAccounts[0];
+  
   return (
     <>
       {/* Invoice Header */}
@@ -207,125 +228,251 @@ export function InvoiceMetadata({
         </div>
       </div>
 
-      {/* Payment Destination - Tenant Company Information */}
-      {tenantCompany && (
+      {/* 🔥 FIX: Payment Destination - Receiver's Bank Account (Contractor or Payroll User) */}
+      {receiverBankAccounts.length > 0 && (
         <>
           <Separator className="my-6" />
           <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-green-700" />
-              <h3 className="text-lg font-bold text-green-900">PAYMENT DESTINATION</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-green-700" />
+                <h3 className="text-lg font-bold text-green-900">PAYMENT DESTINATION</h3>
+              </div>
+              {receiverBankAccounts.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllBankAccounts(!showAllBankAccounts)}
+                >
+                  {showAllBankAccounts ? (
+                    <>
+                      <ChevronUp className="mr-1 h-4 w-4" />
+                      Show Primary Only
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="mr-1 h-4 w-4" />
+                      Show All ({receiverBankAccounts.length})
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-            
+
             <div className="space-y-3">
               <div>
-                <Label className="text-xs text-muted-foreground font-semibold">Company Name</Label>
-                <p className="font-bold text-lg">{tenantCompany.name}</p>
+                <Label className="text-xs text-muted-foreground font-semibold">Payment Recipient</Label>
+                <p className="font-bold text-lg">{receiver?.name || invoiceRecipient}</p>
+                {receiver?.email && <p className="text-sm text-muted-foreground">{receiver.email}</p>}
               </div>
-              
-              {tenantCompany.contactEmail && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Email</Label>
-                    <p className="text-sm">{tenantCompany.contactEmail}</p>
-                  </div>
-                  {tenantCompany.contactPhone && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Phone</Label>
-                      <p className="text-sm">{tenantCompany.contactPhone}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {tenantCompany.address1 && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Address</Label>
-                  <p className="text-sm">
-                    {[
-                      tenantCompany.address1,
-                      tenantCompany.address2,
-                      tenantCompany.city,
-                      tenantCompany.state,
-                      tenantCompany.postCode,
-                      tenantCompany.country?.name,
-                    ].filter(Boolean).join(", ")}
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Bank Account Details */}
             <div className="mt-4 pt-4 border-t-2 border-green-300">
               <h4 className="font-semibold text-sm text-green-900 mb-3">BANK ACCOUNT DETAILS</h4>
-              {tenantCompany?.bank ? (
-                <div className="grid grid-cols-1 gap-3">
-                  {tenantCompany.bank.name && (
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Bank Name</Label>
-                        <p className="font-medium">{tenantCompany.bank.name}</p>
+              
+              {!showAllBankAccounts && primaryBankAccount ? (
+                // Show primary bank account only
+                <div className="space-y-3">
+                  <div className="p-4 bg-white rounded-lg border-2 border-green-300 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground font-semibold">
+                          {primaryBankAccount.accountName || primaryBankAccount.bankName || "Bank Account"}
+                        </Label>
+                        {primaryBankAccount.isPrimary && (
+                          <Badge variant="default" className="bg-green-600">Primary</Badge>
+                        )}
                       </div>
+                      {primaryBankAccount.usage && (
+                        <Badge variant="outline" className="text-xs">
+                          {primaryBankAccount.usage}
+                        </Badge>
+                      )}
                     </div>
-                  )}
-                  {tenantCompany.bank.accountNumber && (
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                      <div className="flex-1">
-                        <Label className="text-xs text-muted-foreground">Account Number</Label>
-                        <p className="font-mono text-sm font-bold">{tenantCompany.bank.accountNumber}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(tenantCompany!.bank!.accountNumber!, "Account number")}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                    
+                    <div className="space-y-2">
+                      {primaryBankAccount.bankName && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                          <p className="font-medium">{primaryBankAccount.bankName}</p>
+                        </div>
+                      )}
+                      {primaryBankAccount.accountNumber && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">Account Number</Label>
+                            <p className="font-mono text-sm font-bold">{primaryBankAccount.accountNumber}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(primaryBankAccount.accountNumber!, "Account number")}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {primaryBankAccount.iban && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">IBAN</Label>
+                            <p className="font-mono text-sm font-bold">{primaryBankAccount.iban}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(primaryBankAccount.iban!, "IBAN")}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {primaryBankAccount.swiftCode && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
+                            <p className="font-mono text-sm font-bold">{primaryBankAccount.swiftCode}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(primaryBankAccount.swiftCode!, "SWIFT code")}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {primaryBankAccount.currency && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Currency</Label>
+                          <p className="text-sm">{primaryBankAccount.currency}</p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {tenantCompany.bank.iban && (
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                      <div className="flex-1">
-                        <Label className="text-xs text-muted-foreground">IBAN</Label>
-                        <p className="font-mono text-sm font-bold">{tenantCompany.bank.iban}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(tenantCompany!.bank!.iban!, "IBAN")}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  {tenantCompany.bank.swiftCode && (
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                      <div className="flex-1">
-                        <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
-                        <p className="font-mono text-sm font-bold">{tenantCompany.bank.swiftCode}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(tenantCompany!.bank!.swiftCode!, "SWIFT code")}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  {tenantCompany.bank.address && (
-                    <div className="p-3 bg-white rounded-lg border border-green-200">
-                      <Label className="text-xs text-muted-foreground">Bank Address</Label>
-                      <p className="text-sm mt-1">{tenantCompany.bank.address}</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              ) : (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 mx-auto mb-2" />
-                  <p className="text-sm text-yellow-800 font-medium">No bank account linked</p>
+              ) : showAllBankAccounts ? (
+                // Show all bank accounts
+                <div className="space-y-3">
+                  {receiverBankAccounts.map((bank) => (
+                    <div 
+                      key={bank.id} 
+                      className={`p-4 bg-white rounded-lg border shadow-sm ${
+                        bank.isPrimary ? 'border-2 border-green-300' : 'border-green-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground font-semibold">
+                            {bank.accountName || bank.bankName || "Bank Account"}
+                          </Label>
+                          {bank.isPrimary && (
+                            <Badge variant="default" className="bg-green-600">Primary</Badge>
+                          )}
+                        </div>
+                        {bank.usage && (
+                          <Badge variant="outline" className="text-xs">
+                            {bank.usage}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {bank.bankName && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                            <p className="font-medium">{bank.bankName}</p>
+                          </div>
+                        )}
+                        {bank.accountNumber && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <Label className="text-xs text-muted-foreground">Account Number</Label>
+                              <p className="font-mono text-sm font-bold">{bank.accountNumber}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(bank.accountNumber!, "Account number")}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {bank.iban && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <Label className="text-xs text-muted-foreground">IBAN</Label>
+                              <p className="font-mono text-sm font-bold">{bank.iban}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(bank.iban!, "IBAN")}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {bank.swiftCode && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <Label className="text-xs text-muted-foreground">SWIFT/BIC Code</Label>
+                              <p className="font-mono text-sm font-bold">{bank.swiftCode}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(bank.swiftCode!, "SWIFT code")}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {bank.currency && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Currency</Label>
+                            <p className="text-sm">{bank.currency}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : null}
+            </div>
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800">
+                <AlertCircle className="h-3 w-3 inline mr-1" />
+                Payment should be made to the account shown above. This is the {receiver?.role?.displayName || "recipient"}'s bank account.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+      
+      {/* Show warning if no bank accounts found */}
+      {receiverBankAccounts.length === 0 && receiver && (
+        <>
+          <Separator className="my-6" />
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              <h3 className="text-lg font-bold text-yellow-900">PAYMENT DESTINATION</h3>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground font-semibold">Payment Recipient</Label>
+              <p className="font-bold text-lg">{receiver.name || invoiceRecipient}</p>
+              {receiver.email && <p className="text-sm text-muted-foreground">{receiver.email}</p>}
+            </div>
+            <div className="p-4 bg-white border border-yellow-300 rounded-lg text-center">
+              <AlertCircle className="h-6 w-6 text-yellow-600 mx-auto mb-2" />
+              <p className="text-sm text-yellow-800 font-medium">No bank account on file</p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Please contact the recipient to obtain payment details
+              </p>
             </div>
           </div>
         </>
