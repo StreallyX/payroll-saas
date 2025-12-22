@@ -268,9 +268,6 @@ getById: tenantProcedure
           },
         },
 
-        // 🔥 Only admin sees margin
-        ...(isAdmin ? { margin: true } : {}),
-
         // 🔥 NEW: Include timesheet with expenses
         timesheet: {
           include: {
