@@ -200,7 +200,7 @@ export const invoiceRouter = createTRPCRouter({
           contract: {
             include: {
               participants: {
-                where: { role: "CONTRACTOR" },
+                where: { role: "contractor" },
                 include: { user: { select: { name: true, email: true } } }
               }
             }
@@ -1784,8 +1784,8 @@ getById: tenantProcedure
       }
 
       // Get contractor (sender) and tenant info
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "client");
 
       // Get contractor's user details and bank accounts
       let contractorUser = null;
@@ -1970,9 +1970,15 @@ getById: tenantProcedure
         });
 
         // Step 3: Get participants
+        // 📋 ROLE MAPPING DOCUMENTATION:
+        // Contract participants use LOWERCASE role names (as defined in createMinimalParticipant.ts):
+        // - "contractor" = The worker/freelancer being paid (can be User or Company)
+        // - "client" = The tenant company issuing the invoice (usually a Company)
+        // - "approver" = Admin users who approve contracts
+        // - "tenant" = Alternative tenant representation
         console.log("🔍 [createSelfInvoice] Step 3: Finding participants...");
-        const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
-        const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
+        const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+        const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "client");
 
         console.log("🔍 [createSelfInvoice] Participants found:", {
           contractor: contractor ? {
@@ -2318,8 +2324,8 @@ getById: tenantProcedure
       }
 
       // Get participants
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "client");
 
       // 🔥 FIX: Get tenant info for FROM party
       const tenant = await ctx.prisma.tenant.findUnique({
@@ -2494,7 +2500,7 @@ getById: tenantProcedure
         });
       }
 
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
       const contractorName = contractor?.user?.name || contractor?.company?.name || "Contractor";
       
       // Get contractor bank details (from user profile or company)
@@ -2617,7 +2623,7 @@ ${input.notes || ""}
         });
       }
 
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
       const bankAccounts = contractor?.user?.banks || [];
 
       return {
@@ -2813,7 +2819,7 @@ ${input.notes || ""}
       }
 
       const client = invoice.contract?.participants?.find((p) => p.role === "client");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "client");
 
       // Create fee invoice
       const feeInvoice = await ctx.prisma.invoice.create({
