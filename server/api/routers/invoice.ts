@@ -1939,31 +1939,46 @@ getById: tenantProcedure
       const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
       const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
-      if (!contractor?.userId) {
+      // 🔥 FIX: Validate contractor exists (can be user or company)
+      if (!contractor) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Contractor not found for this invoice",
+          message: "Contractor participant not found for this invoice",
         });
       }
 
-      // Fetch contractor's bank accounts
-      const contractorBankAccounts = await ctx.prisma.bank.findMany({
-        where: {
-          userId: contractor.userId,
-          isActive: true,
-        },
-        orderBy: {
-          isPrimary: 'desc',
-        },
-      });
+      // 🔥 FIX: Handle both user-based and company-based contractors
+      if (!contractor.userId && !contractor.companyId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Contractor must be linked to either a user or company",
+        });
+      }
+
+      // Determine contractor user ID (for bank accounts and receiverId)
+      const contractorUserId = contractor.userId;
+
+      // Fetch contractor's bank accounts (only if contractor is a user)
+      let contractorBankAccounts: any[] = [];
+      if (contractorUserId) {
+        contractorBankAccounts = await ctx.prisma.bank.findMany({
+          where: {
+            userId: contractorUserId,
+            isActive: true,
+          },
+          orderBy: {
+            isPrimary: 'desc',
+          },
+        });
+      }
 
       // Determine which bank account to use
       let selectedBankAccount = null;
-      if (input.selectedBankAccountId) {
+      if (input.selectedBankAccountId && contractorBankAccounts.length > 0) {
         selectedBankAccount = contractorBankAccounts.find(
           (bank) => bank.id === input.selectedBankAccountId
         );
-      } else {
+      } else if (contractorBankAccounts.length > 0) {
         // Auto-select primary or first available
         selectedBankAccount = contractorBankAccounts.find((bank) => bank.isPrimary) || contractorBankAccounts[0];
       }
@@ -1986,7 +2001,7 @@ getById: tenantProcedure
           contractId: invoice.contractId,
           invoiceNumber: `SELF-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
           senderId: tenantParticipant?.userId || userId,
-          receiverId: contractor.userId,
+          receiverId: contractorUserId || undefined, // 🔥 FIX: Handle case where contractor is a company (no userId)
           status: "confirmed", // 🔥 Auto-confirmed
           workflowState: "confirmed", // 🔥 Auto-confirmed
           amount: baseAmountValue,
@@ -2000,7 +2015,9 @@ getById: tenantProcedure
           description: `Self-invoice for payment processing`,
           notes: selectedBankAccount 
             ? `Generated from invoice ${invoice.invoiceNumber || invoice.id}. Payment to: ${selectedBankAccount.bankName} - ${selectedBankAccount.accountNumber} (${selectedBankAccount.accountName || 'Account'})`
-            : `Generated from invoice ${invoice.invoiceNumber || invoice.id}`,
+            : contractorUserId 
+              ? `Generated from invoice ${invoice.invoiceNumber || invoice.id}. No bank account on file.`
+              : `Generated from invoice ${invoice.invoiceNumber || invoice.id}. Payment to company: ${contractor.company?.name || 'Contractor Company'}`,
           createdBy: userId,
           lineItems: {
             create: invoice.lineItems.map((item) => ({
@@ -2023,21 +2040,23 @@ getById: tenantProcedure
         },
       });
 
-      // 🔥 Create remittance for payment sent to contractor
-      try {
-        await RemittanceService.createPaymentSentToContractorRemittance({
-          tenantId: ctx.tenantId,
-          invoiceId: selfInvoice.id,
-          contractId: invoice.contractId || undefined,
-          amount: totalAmountWithoutMargin,
-          currency: invoice.currencyRelation?.code || "USD",
-          adminUserId: userId,
-          contractorUserId: contractor.userId,
-          description: `Payment to contractor for self-invoice ${selfInvoice.invoiceNumber}`,
-        });
-      } catch (error) {
-        console.error("Error creating remittance:", error);
-        // Don't fail the entire operation if remittance creation fails
+      // 🔥 Create remittance for payment sent to contractor (only if contractor is a user)
+      if (contractorUserId) {
+        try {
+          await RemittanceService.createPaymentSentToContractorRemittance({
+            tenantId: ctx.tenantId,
+            invoiceId: selfInvoice.id,
+            contractId: invoice.contractId || undefined,
+            amount: totalAmountWithoutMargin,
+            currency: invoice.currencyRelation?.code || "USD",
+            adminUserId: userId,
+            contractorUserId: contractorUserId,
+            description: `Payment to contractor for self-invoice ${selfInvoice.invoiceNumber}`,
+          });
+        } catch (error) {
+          console.error("Error creating remittance:", error);
+          // Don't fail the entire operation if remittance creation fails
+        }
       }
 
       // Create audit log
@@ -2071,7 +2090,10 @@ getById: tenantProcedure
    */
   createSelfBillingInvoice: tenantProcedure
     .use(hasPermission(P.CREATE_GLOBAL))
-    .input(z.object({ invoiceId: z.string() }))
+    .input(z.object({ 
+      invoiceId: z.string(),
+      selectedBankAccountId: z.string().optional(), // 🔥 NEW: Allow selecting specific bank account
+    }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
@@ -2090,6 +2112,11 @@ getById: tenantProcedure
             },
           },
           currencyRelation: true,
+          timesheet: {
+            include: {
+              expenses: true,
+            },
+          },
         },
       });
 
@@ -2100,28 +2127,88 @@ getById: tenantProcedure
         });
       }
 
+      // Get participants
       const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
       const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
-      // Create self-billing invoice
+      // 🔥 FIX: Get tenant info for FROM party
+      const tenant = await ctx.prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+      });
+
+      // 🔥 FIX: Find payroll user for TO party (receiver)
+      const payrollUser = await ctx.prisma.user.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          role: {
+            name: { contains: "payroll", mode: "insensitive" },
+          },
+          isActive: true,
+        },
+        include: {
+          role: true,
+        },
+      });
+
+      // If no specific payroll user found, fall back to current admin user
+      const receiverUserId = payrollUser?.id || userId;
+
+      // 🔥 FIX: Query for payroll user's bank accounts (consistent with GROSS mode)
+      const payrollBankAccounts = await ctx.prisma.bank.findMany({
+        where: {
+          userId: receiverUserId,
+          isActive: true,
+        },
+        orderBy: {
+          isPrimary: 'desc',
+        },
+      });
+
+      // Determine which bank account to use
+      let selectedBankAccount = null;
+      if (input.selectedBankAccountId && payrollBankAccounts.length > 0) {
+        selectedBankAccount = payrollBankAccounts.find(
+          (bank) => bank.id === input.selectedBankAccountId
+        );
+      } else if (payrollBankAccounts.length > 0) {
+        // Auto-select primary or first available
+        selectedBankAccount = payrollBankAccounts.find((bank) => bank.isPrimary) || payrollBankAccounts[0];
+      }
+
+      // Calculate expenses total
+      const expensesTotal = invoice.timesheet?.expenses?.reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0
+      ) || 0;
+
+      // 🔥 Calculate amount WITHOUT margin (baseAmount + expenses only)
+      const baseAmountValue = Number(invoice.baseAmount || invoice.amount);
+      const totalAmountWithoutMargin = baseAmountValue + expensesTotal;
+
+      // 🔥 FIX: Create self-billing invoice with correct FROM/TO parties
       const selfBillingInvoice = await ctx.prisma.invoice.create({
         data: {
           tenantId: ctx.tenantId,
           parentInvoiceId: invoice.id,
           contractId: invoice.contractId,
           invoiceNumber: `SB-${invoice.invoiceNumber || invoice.id.slice(0, 8)}`,
-          senderId: contractor?.userId,
-          receiverId: tenantParticipant?.userId || userId,
+          senderId: tenantParticipant?.userId || userId, // 🔥 FIX: FROM = Admin/tenant company
+          receiverId: receiverUserId, // 🔥 FIX: TO = Payroll user
           status: "approved",
           workflowState: "approved",
-          amount: invoice.baseAmount || invoice.amount,
-          totalAmount: invoice.totalAmount,
+          amount: baseAmountValue,
+          totalAmount: totalAmountWithoutMargin, // 🔥 WITHOUT margin
           currencyId: invoice.currencyId,
-          baseAmount: invoice.baseAmount,
+          marginAmount: 0, // 🔥 NO margin for self-billing invoice
+          marginPercentage: 0, // 🔥 NO margin for self-billing invoice
+          baseAmount: baseAmountValue,
           issueDate: new Date(),
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           description: `Self-billing invoice for payroll processing`,
-          notes: `Auto-generated from invoice ${invoice.invoiceNumber || invoice.id}`,
+          // 🔥 FIX: Include bank account details in notes if available
+          notes: selectedBankAccount 
+            ? `Auto-generated from invoice ${invoice.invoiceNumber || invoice.id}. Payment destination: ${selectedBankAccount.bankName} - ${selectedBankAccount.accountNumber} (${selectedBankAccount.accountName || 'Payroll Account'})`
+            : `Auto-generated from invoice ${invoice.invoiceNumber || invoice.id}. No bank account on file for payroll user.`,
           createdBy: userId,
           lineItems: {
             create: invoice.lineItems.map((item) => ({
@@ -2134,6 +2221,20 @@ getById: tenantProcedure
         },
         include: {
           lineItems: true,
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       });
 
@@ -2149,6 +2250,14 @@ getById: tenantProcedure
         description: `Self-billing invoice created for PAYROLL workflow`,
         metadata: {
           parentInvoiceId: invoice.id,
+          parentInvoiceNumber: invoice.invoiceNumber,
+          totalAmount: totalAmountWithoutMargin,
+          expensesTotal,
+          baseAmount: baseAmountValue,
+          bankAccountId: selectedBankAccount?.id,
+          bankAccountName: selectedBankAccount?.accountName,
+          payrollUserId: receiverUserId,
+          payrollUserName: payrollUser?.name || ctx.session.user.name,
         },
       });
 
