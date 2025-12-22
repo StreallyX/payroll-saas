@@ -47,10 +47,10 @@ type Props = {
 };
 
 const USAGE_OPTIONS: { value: BankAccountUsage; label: string }[] = [
-  { value: "SALARY", label: "Salary" },
-  { value: "GROSS", label: "Gross" },
-  { value: "EXPENSES", label: "Expenses" },
-  { value: "OTHER", label: "Other" },
+  { value: "salary", label: "Salary" },
+  { value: "gross", label: "Gross" },
+  { value: "expenses", label: "Expenses" },
+  { value: "other", label: "Other" },
 ];
 
 const CURRENCY_OPTIONS = [

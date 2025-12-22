@@ -60,7 +60,7 @@ export async function validatePaymentMethod(
   }
 
   // 4. Vérifier que c'est bien un compte bancaire
-  if (paymentMethod.type !== "BANK_ACCOUNT") {
+  if (paymentMethod.type !== "bank_account") {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: `Seuls les comptes bancaires peuvent être utilisés pour les contrats NORM. Type actuel: ${paymentMethod.type}.`,
@@ -146,7 +146,7 @@ export async function getAvailablePaymentMethodsList(
   const where: any = {
     tenantId,
     userId,
-    type: "BANK_ACCOUNT",
+    type: "bank_account",
   };
 
   if (activeOnly) {

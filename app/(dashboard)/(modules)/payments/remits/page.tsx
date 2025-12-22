@@ -113,7 +113,7 @@ export default function RemittancePage() {
   const handleMarkPaid = (id: string) => {
     updateMutation.mutate({
       id,
-      status: "COMPLETED"
+      status: "completed"
     });
   };
 
@@ -121,7 +121,7 @@ export default function RemittancePage() {
   type Remittance = {
     id: string;
     amount: number;
-    status: "PENDING" | "COMPLETED" | "FAILED";
+    status: "pending" | "completed" | "failed";
     completedAt: string | null;
     user?: {
       name?: string | null;
@@ -348,7 +348,7 @@ export default function RemittancePage() {
           onUpdate={({ status, description, notes }) =>
             updateMutation.mutate({
               id: selectedRemit.id,
-              status: status as "PENDING" | "COMPLETED" | "FAILED",
+              status: status as "pending" | "completed" | "failed",
               description,
               notes
             })

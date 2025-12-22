@@ -1782,7 +1782,7 @@ model Remittance {
   senderId      String // userId who sent payment
 
   // Status
-  status RemittanceStatus @default(PENDING) // PENDING, COMPLETED, FAILED
+  status RemittanceStatus @default(pending) // pending, completed, failed
 
   // Additional context
   contractId  String? // Optional link to contract

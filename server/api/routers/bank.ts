@@ -134,7 +134,7 @@ export const bankRouter = createTRPCRouter({
         
         // Account details
         currency: z.string().optional(),
-        usage: z.enum(["SALARY", "GROSS", "EXPENSES", "OTHER"]).optional(),
+        usage: z.enum(["salary", "gross", "expenses", "other"]).optional(),
         
         // Legacy fields (deprecated)
         name: z.string().optional(),
@@ -205,7 +205,7 @@ export const bankRouter = createTRPCRouter({
         
         // Account details
         currency: z.string().optional(),
-        usage: z.enum(["SALARY", "GROSS", "EXPENSES", "OTHER"]).optional(),
+        usage: z.enum(["salary", "gross", "expenses", "other"]).optional(),
         
         // Legacy fields (deprecated)
         name: z.string().optional(),

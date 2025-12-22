@@ -29,17 +29,17 @@ type Props = {
 };
 
 const USAGE_LABELS: Record<BankAccountUsage, string> = {
-  SALARY: "Salary",
-  GROSS: "Gross",
-  EXPENSES: "Expenses",
-  OTHER: "Other",
+  salary: "Salary",
+  gross: "Gross",
+  expenses: "Expenses",
+  other: "Other",
 };
 
 const USAGE_COLORS: Record<BankAccountUsage, string> = {
-  SALARY: "bg-green-100 text-green-800 border-green-200",
-  GROSS: "bg-blue-100 text-blue-800 border-blue-200",
-  EXPENSES: "bg-orange-100 text-orange-800 border-orange-200",
-  OTHER: "bg-gray-100 text-gray-800 border-gray-200",
+  salary: "bg-green-100 text-green-800 border-green-200",
+  gross: "bg-blue-100 text-blue-800 border-blue-200",
+  expenses: "bg-orange-100 text-orange-800 border-orange-200",
+  other: "bg-gray-100 text-gray-800 border-gray-200",
 };
 
 export function BankAccountCard({ account, onEdit, onDelete }: Props) {

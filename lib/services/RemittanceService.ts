@@ -46,7 +46,7 @@ export class RemittanceService {
           senderId: input.senderId,
           description: input.description,
           notes: input.notes,
-          status: input.status || "PENDING",
+          status: input.status || "pending",
         },
         include: {
           recipient: {
@@ -109,12 +109,12 @@ export class RemittanceService {
       contractId,
       amount,
       currency,
-      paymentType: "RECEIVED",
-      recipientType: "ADMIN",
+      paymentType: "received",
+      recipientType: "admin",
       recipientId: adminUserId,
       senderId: agencyUserId,
       description: description || `Payment received for invoice`,
-      status: "COMPLETED",
+      status: "completed",
     });
   }
 
@@ -147,12 +147,12 @@ export class RemittanceService {
       contractId,
       amount,
       currency,
-      paymentType: "SENT",
-      recipientType: "CONTRACTOR",
+      paymentType: "sent",
+      recipientType: "contractor",
       recipientId: contractorUserId,
       senderId: adminUserId,
       description: description || `Payment sent to contractor`,
-      status: "PENDING",
+      status: "pending",
     });
   }
 
@@ -184,12 +184,12 @@ export class RemittanceService {
       contractId,
       amount,
       currency,
-      paymentType: "SENT",
-      recipientType: "PAYROLL",
+      paymentType: "sent",
+      recipientType: "payroll",
       recipientId: payrollUserId,
       senderId: adminUserId,
       description: description || `Payment sent to payroll partner`,
-      status: "PENDING",
+      status: "pending",
     });
   }
 
@@ -207,7 +207,7 @@ export class RemittanceService {
         updatedAt: new Date(),
       };
 
-      if (status === "COMPLETED") {
+      if (status === "completed") {
         updates.completedAt = new Date();
       }
 

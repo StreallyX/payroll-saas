@@ -194,13 +194,13 @@ export const remittanceRouter = createTRPCRouter({
           contractId: input.contractId || null,
           amount: input.amount,
           currency: input.currency,
-          paymentType: "SENT",
-          recipientType: "CONTRACTOR",
+          paymentType: "sent",
+          recipientType: "contractor",
           recipientId: input.userId,
           senderId: ctx.session.user.id,
           description: input.description || "",
           notes: input.notes || "",
-          status: "PENDING",
+          status: "pending",
         }
       });
 
@@ -215,7 +215,7 @@ export const remittanceRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
-        status: z.enum(["PENDING", "COMPLETED", "FAILED"]),
+        status: z.enum(["pending", "completed", "failed"]),
         description: z.string().optional(),
         notes: z.string().optional(),
       })
@@ -232,7 +232,7 @@ export const remittanceRouter = createTRPCRouter({
 
           // Auto update timestamps based on status
           completedAt:
-            input.status === "COMPLETED" ? now : undefined,
+            input.status === "completed" ? now : undefined,
         },
         include: {
           recipient: {
