@@ -2437,7 +2437,7 @@ ${input.notes || ""}
               notes: split.notes || `Account: ${bankAccount.accountNumber}`,
               createdBy: userId,
               metadata: {
-                paymentModel: PaymentModel.SPLIT,
+                paymentModel: PaymentModel.split,
                 splitIndex: index + 1,
                 totalSplits: input.splits.length,
                 bankAccountId: bankAccount.id,

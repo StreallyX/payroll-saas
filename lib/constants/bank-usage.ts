@@ -5,20 +5,20 @@ import type { BankAccountUsage } from "@prisma/client";
  * Human-readable labels for bank account usage types
  */
 export const BANK_USAGE_LABELS: Record<BankAccountUsage, string> = {
-  SALARY: "Salary",
-  GROSS: "Gross",
-  EXPENSES: "Expenses",
-  OTHER: "Other",
+  salary: "Salary",
+  gross: "Gross",
+  expenses: "Expenses",
+  other: "Other",
 };
 
 /**
  * Descriptions for bank account usage types
  */
 export const BANK_USAGE_DESCRIPTIONS: Record<BankAccountUsage, string> = {
-  SALARY: "For receiving salary payments",
-  GROSS: "For receiving gross amount payments",
-  EXPENSES: "For expense reimbursements",
-  OTHER: "For other payment purposes",
+  salary: "For receiving salary payments",
+  gross: "For receiving gross amount payments",
+  expenses: "For expense reimbursements",
+  other: "For other payment purposes",
 };
 
 /**

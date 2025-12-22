@@ -40,11 +40,11 @@ export interface MarginOverrideInput {
 export class MarginService {
   /**
    * Normalize margin type string to MarginType enum
-   * Handles lowercase strings from legacy data
+   * Handles case-insensitive comparison for flexibility
    */
   static normalizeMarginType(marginType: string | MarginType | null | undefined): MarginType {
     if (!marginType) {
-      return MarginType.VARIABLE
+      return MarginType.variable
     }
 
     // If already an enum value, return it
@@ -52,19 +52,19 @@ export class MarginService {
       return marginType as MarginType
     }
 
-    // Convert lowercase string to uppercase enum
-    const normalized = marginType.toString().toUpperCase()
+    // Convert to lowercase for case-insensitive matching
+    const normalized = marginType.toString().toLowerCase()
     switch (normalized) {
-      case 'FIXED':
-        return MarginType.FIXED
-      case 'VARIABLE':
-      case 'PERCENTAGE': // Handle legacy 'percentage' value
-        return MarginType.VARIABLE
-      case 'CUSTOM':
-        return MarginType.CUSTOM
+      case 'fixed':
+        return MarginType.fixed
+      case 'variable':
+      case 'percentage': // Handle legacy 'percentage' value
+        return MarginType.variable
+      case 'custom':
+        return MarginType.custom
       default:
-        console.warn(`Unknown margin type: ${marginType}, defaulting to VARIABLE`)
-        return MarginType.VARIABLE
+        console.warn(`Unknown margin type: ${marginType}, defaulting to variable`)
+        return MarginType.variable
     }
   }
 
@@ -99,7 +99,7 @@ export class MarginService {
 
     // Calculate based on margin type
     switch (marginType) {
-      case MarginType.FIXED:
+      case MarginType.fixed:
         // Fixed amount margin
         marginAmount = new Decimal(marginValue)
         marginPercentage = invoiceAmountDecimal.gt(0)
@@ -107,13 +107,14 @@ export class MarginService {
           : new Decimal(0)
         break
 
-      case MarginType.VARIABLE:
+      case MarginType.variable:
+      case MarginType.percentage:
         // Percentage-based margin
         marginPercentage = new Decimal(marginValue)
         marginAmount = invoiceAmountDecimal.mul(marginPercentage).div(100)
         break
 
-      case MarginType.CUSTOM:
+      case MarginType.custom:
         // Custom margin (will be manually set)
         marginAmount = new Decimal(0)
         marginPercentage = new Decimal(0)
@@ -230,14 +231,14 @@ export class MarginService {
         : new Decimal(0)
       updateData.marginAmount = newMarginAmount
       updateData.marginPercentage = newMarginPercentage
-      updateData.marginType = 'CUSTOM' as MarginType
+      updateData.marginType = MarginType.custom
     } else if (overrideData.newMarginPercentage !== undefined) {
       // Override with percentage
       newMarginPercentage = new Decimal(overrideData.newMarginPercentage)
       newMarginAmount = invoiceAmount.mul(newMarginPercentage).div(100)
       updateData.marginAmount = newMarginAmount
       updateData.marginPercentage = newMarginPercentage
-      updateData.marginType = 'CUSTOM' as MarginType
+      updateData.marginType = MarginType.custom
     }
 
     // Update margin
@@ -433,9 +434,9 @@ export class MarginService {
   }): { isValid: boolean; errors: string[] } {
     const errors: string[] = []
 
-    if (data.marginType === MarginType.VARIABLE) {
+    if (data.marginType === MarginType.variable || data.marginType === MarginType.percentage) {
       if (!data.marginPercentage) {
-        errors.push('Margin percentage is required for VARIABLE margin type')
+        errors.push('Margin percentage is required for variable/percentage margin type')
       } else {
         const percentage = Number(data.marginPercentage)
         if (percentage < 0 || percentage > 100) {
@@ -444,9 +445,9 @@ export class MarginService {
       }
     }
 
-    if (data.marginType === MarginType.FIXED) {
+    if (data.marginType === MarginType.fixed) {
       if (!data.marginAmount) {
-        errors.push('Margin amount is required for FIXED margin type')
+        errors.push('Margin amount is required for fixed margin type')
       } else {
         const amount = Number(data.marginAmount)
         if (amount < 0) {

@@ -399,7 +399,7 @@ export default function InvoiceDetailPage() {
             amountPaidByAgency: (data as any).amountPaidByAgency,
             amountReceived: (data as any).amountReceived,
           }}
-          paymentModel={data.contract?.salaryType || PaymentModel.GROSS}
+          paymentModel={data.contract?.salaryType || PaymentModel.gross}
           userRole={session?.user?.roleName || ""}
           invoiceAmount={Number(data.totalAmount || 0)}
           currency={data.currencyRelation?.code || "USD"}

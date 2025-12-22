@@ -68,16 +68,16 @@ export class PaymentWorkflowService {
 
     // Route to appropriate workflow handler
     switch (paymentModel) {
-      case PaymentModel.GROSS:
+      case PaymentModel.gross:
         return this.executeGrossPaymentWorkflow(invoice, userId, tenantId, metadata)
 
-      case PaymentModel.PAYROLL:
+      case PaymentModel.payroll:
         return this.executePayrollWorkflow(invoice, userId, tenantId, metadata)
 
-      case PaymentModel.PAYROLL_WE_PAY:
+      case PaymentModel.payroll_we_pay:
         return this.executePayrollWePayWorkflow(invoice, userId, tenantId, metadata)
 
-      case PaymentModel.SPLIT:
+      case PaymentModel.split:
         return this.executeSplitPaymentWorkflow(invoice, userId, tenantId, metadata)
 
       default:
@@ -109,7 +109,7 @@ export class PaymentWorkflowService {
         notes: 'Worker is responsible for tax withholding and reporting',
         createdBy: userId,
         metadata: {
-          paymentModel: PaymentModel.GROSS,
+          paymentModel: PaymentModel.gross,
           workerHandlesTaxes: true,
           ...metadata,
         },
@@ -129,7 +129,7 @@ export class PaymentWorkflowService {
       description: 'Gross payment workflow initiated',
       metadata: {
         invoiceId: invoice.id,
-        paymentModel: PaymentModel.GROSS,
+        paymentModel: PaymentModel.gross,
       },
     })
 
@@ -170,7 +170,7 @@ export class PaymentWorkflowService {
         notes: 'Payment will be processed through external payroll provider',
         createdBy: userId,
         metadata: {
-          paymentModel: PaymentModel.PAYROLL,
+          paymentModel: PaymentModel.payroll,
           payrollProvider: metadata?.payrollProvider || 'external',
           ...metadata,
         },
@@ -193,7 +193,7 @@ export class PaymentWorkflowService {
       description: 'Payroll provider workflow initiated',
       metadata: {
         invoiceId: invoice.id,
-        paymentModel: PaymentModel.PAYROLL,
+        paymentModel: PaymentModel.payroll,
         taskDescription,
       },
     })
@@ -256,7 +256,7 @@ export class PaymentWorkflowService {
         notes: `Gross: ${grossAmount}, Withholding: ${totalWithholding}, Net: ${netAmount}`,
         createdBy: userId,
         metadata: {
-          paymentModel: PaymentModel.PAYROLL_WE_PAY,
+          paymentModel: PaymentModel.payroll_we_pay,
           grossAmount: grossAmount.toString(),
           federalTax: federalTax.toString(),
           stateTax: stateTax.toString(),
@@ -302,7 +302,7 @@ export class PaymentWorkflowService {
       description: 'Internal payroll workflow initiated',
       metadata: {
         invoiceId: invoice.id,
-        paymentModel: PaymentModel.PAYROLL_WE_PAY,
+        paymentModel: PaymentModel.payroll_we_pay,
         grossAmount: grossAmount.toString(),
         netAmount: netAmount.toString(),
         totalWithholding: totalWithholding.toString(),
@@ -390,7 +390,7 @@ export class PaymentWorkflowService {
           notes: `Part of split payment for invoice ${invoice.invoiceNumber || invoice.id}`,
           createdBy: userId,
           metadata: {
-            paymentModel: PaymentModel.SPLIT,
+            paymentModel: PaymentModel.split,
             splitIndex: i + 1,
             totalSplits: splits.length,
             splitPercentage: split.percentage,
@@ -423,7 +423,7 @@ export class PaymentWorkflowService {
       description: 'Split payment workflow initiated',
       metadata: {
         invoiceId: invoice.id,
-        paymentModel: PaymentModel.SPLIT,
+        paymentModel: PaymentModel.split,
         totalAmount: totalAmount.toString(),
         splitCount: splits.length,
         paymentIds,

@@ -44,7 +44,7 @@ export class MarginCalculationService {
   static calculateMargin(
     input: MarginCalculationInput
   ): MarginCalculationResult {
-    const { baseAmount, marginPaidBy, paymentModel = PaymentModel.GROSS } = input
+    const { baseAmount, marginPaidBy, paymentModel = PaymentModel.gross } = input
 
     // Determine margin amount
     let marginAmount: number
@@ -117,7 +117,7 @@ export class MarginCalculationService {
     }
 
     // Adjust based on payment model
-    if (paymentModel === PaymentModel.PAYROLL || paymentModel === PaymentModel.PAYROLL_WE_PAY) {
+    if (paymentModel === PaymentModel.payroll || paymentModel === PaymentModel.payroll_we_pay) {
       // For payroll models, additional calculations might be needed
       // (e.g., tax withholding, employer contributions)
       // This can be extended based on specific requirements

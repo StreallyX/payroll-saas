@@ -504,7 +504,7 @@ export default function InvoiceDetailPage() {
             amountPaidByAgency: (data as any).amountPaidByAgency,
             amountReceived: (data as any).amountReceived,
           }}
-          paymentModel={data.contract?.salaryType || PaymentModel.GROSS}
+          paymentModel={data.contract?.salaryType || PaymentModel.gross}
           userRole={session?.user?.roleName || ""}
           invoiceAmount={Number(data.totalAmount || 0)}
           currency={data.currencyRelation?.code || "USD"}
@@ -531,36 +531,36 @@ export default function InvoiceDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <h4 className="font-semibold mb-1">
-                    {data.contract?.salaryType === PaymentModel.GROSS && "Create Self-Invoice"}
-                    {data.contract?.salaryType === PaymentModel.PAYROLL && "Process External Payroll"}
-                    {data.contract?.salaryType === PaymentModel.PAYROLL_WE_PAY && "Process Internal Payroll"}
-                    {data.contract?.salaryType === PaymentModel.SPLIT && "Configure Split Payment"}
+                    {data.contract?.salaryType === PaymentModel.gross && "Create Self-Invoice"}
+                    {data.contract?.salaryType === PaymentModel.payroll && "Process External Payroll"}
+                    {data.contract?.salaryType === PaymentModel.payroll_we_pay && "Process Internal Payroll"}
+                    {data.contract?.salaryType === PaymentModel.split && "Configure Split Payment"}
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    {data.contract?.salaryType === PaymentModel.GROSS && 
+                    {data.contract?.salaryType === PaymentModel.gross && 
                       "Generate a self-invoice for payment processing. The contractor will handle their own taxes."}
-                    {data.contract?.salaryType === PaymentModel.PAYROLL && 
+                    {data.contract?.salaryType === PaymentModel.payroll && 
                       "Create self-billing invoice and send to external payroll provider for processing."}
-                    {data.contract?.salaryType === PaymentModel.PAYROLL_WE_PAY && 
+                    {data.contract?.salaryType === PaymentModel.payroll_we_pay && 
                       "Process payment internally with tax withholdings and NET salary calculation."}
-                    {data.contract?.salaryType === PaymentModel.SPLIT && 
+                    {data.contract?.salaryType === PaymentModel.split && 
                       "Allocate payment across multiple bank accounts with percentage or fixed amounts."}
                   </p>
                 </div>
                 <div className="ml-4">
-                  {data.contract?.salaryType === PaymentModel.GROSS && (
+                  {data.contract?.salaryType === PaymentModel.gross && (
                     <SelfInvoiceDialog 
                       invoiceId={invoiceId}
                       onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
                     />
                   )}
-                  {data.contract?.salaryType === PaymentModel.PAYROLL && (
+                  {data.contract?.salaryType === PaymentModel.payroll && (
                     <PayrollWorkflowDialog 
                       invoiceId={invoiceId}
                       onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
                     />
                   )}
-                  {data.contract?.salaryType === PaymentModel.PAYROLL_WE_PAY && (
+                  {data.contract?.salaryType === PaymentModel.payroll_we_pay && (
                     <PayrollWePayDialog 
                       invoiceId={invoiceId}
                       invoiceAmount={Number(data.totalAmount || 0)}
@@ -569,7 +569,7 @@ export default function InvoiceDetailPage() {
                       onSuccess={() => utils.invoice.getById.invalidate({ id: invoiceId })}
                     />
                   )}
-                  {data.contract?.salaryType === PaymentModel.SPLIT && (
+                  {data.contract?.salaryType === PaymentModel.split && (
                     <SplitPaymentDialog 
                       invoiceId={invoiceId}
                       invoiceAmount={Number(data.totalAmount || 0)}
@@ -585,7 +585,7 @@ export default function InvoiceDetailPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <h5 className="font-semibold text-blue-900 text-sm mb-2">Next Steps:</h5>
               <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                {data.contract?.salaryType === PaymentModel.GROSS && (
+                {data.contract?.salaryType === PaymentModel.gross && (
                   <>
                     <li>Review self-invoice preview with all details</li>
                     <li>Create invoice as new Invoice record</li>
@@ -593,7 +593,7 @@ export default function InvoiceDetailPage() {
                     <li>Contractor handles tax obligations</li>
                   </>
                 )}
-                {data.contract?.salaryType === PaymentModel.PAYROLL && (
+                {data.contract?.salaryType === PaymentModel.payroll && (
                   <>
                     <li>Self-billing invoice created automatically</li>
                     <li>Payroll task assigned to payroll team</li>
@@ -601,7 +601,7 @@ export default function InvoiceDetailPage() {
                     <li>Track completion status</li>
                   </>
                 )}
-                {data.contract?.salaryType === PaymentModel.PAYROLL_WE_PAY && (
+                {data.contract?.salaryType === PaymentModel.payroll_we_pay && (
                   <>
                     <li>Review contractor and bank details</li>
                     <li>Optionally create fee invoice</li>
@@ -609,7 +609,7 @@ export default function InvoiceDetailPage() {
                     <li>Process NET salary with tax withholdings</li>
                   </>
                 )}
-                {data.contract?.salaryType === PaymentModel.SPLIT && (
+                {data.contract?.salaryType === PaymentModel.split && (
                   <>
                     <li>Select contractor's bank accounts</li>
                     <li>Allocate amounts or percentages</li>

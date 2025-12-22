@@ -998,54 +998,55 @@ model TimesheetDocument {
 // PAYMENT SYSTEM (Avec ownership)
 // ====
 enum PaymentMethodType {
-  BANK_ACCOUNT @map("bank_account")
-  CREDIT_CARD  @map("credit_card")
-  DEBIT_CARD   @map("debit_card")
-  PAYPAL       @map("paypal")
-  STRIPE       @map("stripe")
-  WISE         @map("wise")
-  REVOLUT      @map("revolut")
-  OTHER        @map("other")
+  bank_account
+  credit_card
+  debit_card
+  paypal
+  stripe
+  wise
+  revolut
+  other
 }
 
 enum PaymentModel {
-  GROSS          @map("gross")
-  PAYROLL        @map("payroll")
-  PAYROLL_WE_PAY @map("payroll_we_pay")
-  SPLIT          @map("split")
+  gross
+  payroll
+  payroll_we_pay
+  split
 }
 
 enum MarginType {
-  FIXED    @map("fixed")
-  VARIABLE @map("variable")
-  CUSTOM   @map("custom")
+  fixed
+  variable
+  custom
+  percentage
 }
 
 enum BankAccountUsage {
-  SALARY   @map("salary")
-  GROSS    @map("gross")
-  EXPENSES @map("expenses")
-  OTHER    @map("other")
+  salary
+  gross
+  expenses
+  other
 }
 
 enum PaymentType {
-  RECEIVED @map("received")
-  SENT     @map("sent")
+  received
+  sent
 }
 
 enum RecipientType {
-  ADMIN      @map("admin")
-  CONTRACTOR @map("contractor")
-  PAYROLL    @map("payroll")
-  CLIENT     @map("client")
-  AGENCY     @map("agency")
-  OTHER      @map("other")
+  admin
+  contractor
+  payroll
+  client
+  agency
+  other
 }
 
 enum RemittanceStatus {
-  PENDING   @map("pending")
-  COMPLETED @map("completed")
-  FAILED    @map("failed")
+  pending
+  completed
+  failed
 }
 
 model Payment {

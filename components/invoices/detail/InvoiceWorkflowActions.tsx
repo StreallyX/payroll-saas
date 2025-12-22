@@ -71,10 +71,10 @@ export function InvoiceWorkflowActions({
                 </div>
                 <div>
                   <h4 className="font-semibold text-green-900">
-                    {salaryType === PaymentModel.GROSS && "Self-Invoice Created"}
-                    {salaryType === PaymentModel.PAYROLL && "Payroll Invoice Created"}
-                    {salaryType === PaymentModel.PAYROLL_WE_PAY && "Payroll Processed"}
-                    {salaryType === PaymentModel.SPLIT && "Split Payment Configured"}
+                    {salaryType === PaymentModel.gross && "Self-Invoice Created"}
+                    {salaryType === PaymentModel.payroll && "Payroll Invoice Created"}
+                    {salaryType === PaymentModel.payroll_we_pay && "Payroll Processed"}
+                    {salaryType === PaymentModel.split && "Split Payment Configured"}
                   </h4>
                   <p className="text-sm text-green-700">
                     Invoice {generatedInvoice.invoiceNumber || generatedInvoice.id.slice(0, 8)} has been created successfully.
@@ -97,36 +97,36 @@ export function InvoiceWorkflowActions({
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <h4 className="font-semibold mb-1">
-                  {salaryType === PaymentModel.GROSS && "Create Self-Invoice"}
-                  {salaryType === PaymentModel.PAYROLL && "Process External Payroll"}
-                  {salaryType === PaymentModel.PAYROLL_WE_PAY && "Process Internal Payroll"}
-                  {salaryType === PaymentModel.SPLIT && "Configure Split Payment"}
+                  {salaryType === PaymentModel.gross && "Create Self-Invoice"}
+                  {salaryType === PaymentModel.payroll && "Process External Payroll"}
+                  {salaryType === PaymentModel.payroll_we_pay && "Process Internal Payroll"}
+                  {salaryType === PaymentModel.split && "Configure Split Payment"}
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                  {salaryType === PaymentModel.GROSS && 
+                  {salaryType === PaymentModel.gross && 
                     "Generate a self-invoice for payment processing. The contractor will handle their own taxes."}
-                  {salaryType === PaymentModel.PAYROLL && 
+                  {salaryType === PaymentModel.payroll && 
                     "Create self-billing invoice and send to external payroll provider for processing."}
-                  {salaryType === PaymentModel.PAYROLL_WE_PAY && 
+                  {salaryType === PaymentModel.payroll_we_pay && 
                     "Process payment internally with tax withholdings and NET salary calculation."}
-                  {salaryType === PaymentModel.SPLIT && 
+                  {salaryType === PaymentModel.split && 
                     "Allocate payment across multiple bank accounts with percentage or fixed amounts."}
                 </p>
               </div>
               <div className="ml-4">
-                {salaryType === PaymentModel.GROSS && (
+                {salaryType === PaymentModel.gross && (
                   <SelfInvoiceDialog 
                     invoiceId={invoiceId}
                     onSuccess={onSuccess}
                   />
                 )}
-                {salaryType === PaymentModel.PAYROLL && (
+                {salaryType === PaymentModel.payroll && (
                   <PayrollWorkflowDialog 
                     invoiceId={invoiceId}
                     onSuccess={onSuccess}
                   />
                 )}
-                {salaryType === PaymentModel.PAYROLL_WE_PAY && (
+                {salaryType === PaymentModel.payroll_we_pay && (
                   <PayrollWePayDialog 
                     invoiceId={invoiceId}
                     invoiceAmount={totalAmount}
@@ -135,7 +135,7 @@ export function InvoiceWorkflowActions({
                     onSuccess={onSuccess}
                   />
                 )}
-                {salaryType === PaymentModel.SPLIT && (
+                {salaryType === PaymentModel.split && (
                   <SplitPaymentDialog 
                     invoiceId={invoiceId}
                     invoiceAmount={totalAmount}
@@ -152,7 +152,7 @@ export function InvoiceWorkflowActions({
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <h5 className="font-semibold text-blue-900 text-sm mb-2">Next Steps:</h5>
           <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-            {salaryType === PaymentModel.GROSS && (
+            {salaryType === PaymentModel.gross && (
               <>
                 <li>Review self-invoice preview with all details</li>
                 <li>Create invoice as new Invoice record</li>
@@ -160,7 +160,7 @@ export function InvoiceWorkflowActions({
                 <li>Contractor handles tax obligations</li>
               </>
             )}
-            {salaryType === PaymentModel.PAYROLL && (
+            {salaryType === PaymentModel.payroll && (
               <>
                 <li>Self-billing invoice created automatically</li>
                 <li>Payroll task assigned to payroll team</li>
@@ -168,7 +168,7 @@ export function InvoiceWorkflowActions({
                 <li>Track completion status</li>
               </>
             )}
-            {salaryType === PaymentModel.PAYROLL_WE_PAY && (
+            {salaryType === PaymentModel.payroll_we_pay && (
               <>
                 <li>Review contractor and bank details</li>
                 <li>Optionally create fee invoice</li>
@@ -176,7 +176,7 @@ export function InvoiceWorkflowActions({
                 <li>Process NET salary with tax withholdings</li>
               </>
             )}
-            {salaryType === PaymentModel.SPLIT && (
+            {salaryType === PaymentModel.split && (
               <>
                 <li>Select contractor's bank accounts</li>
                 <li>Allocate amounts or percentages</li>
