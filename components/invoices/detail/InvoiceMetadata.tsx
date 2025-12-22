@@ -102,9 +102,32 @@ export function InvoiceMetadata({
 }: InvoiceMetadataProps) {
   const [showAllBankAccounts, setShowAllBankAccounts] = useState(false);
   
-  // 🔥 FIX: Get receiver's bank accounts (contractor or payroll user)
-  const receiverBankAccounts = receiver?.banks || [];
-  const primaryBankAccount = receiverBankAccounts.find(bank => bank.isPrimary) || receiverBankAccounts[0];
+  // 🔥 FIX: Determine which bank account(s) to display based on receiver role
+  // If receiver is agency or client → show tenant company's bank account
+  // If receiver is contractor or payroll → show receiver's bank accounts
+  const receiverRole = receiver?.role?.name?.toLowerCase();
+  const isAgencyOrClient = receiverRole === 'agency' || receiverRole === 'client';
+  
+  // Get appropriate bank accounts based on receiver role
+  const displayBankAccounts = isAgencyOrClient 
+    ? (tenantCompany?.bank ? [{
+        id: 'tenant-bank',
+        accountName: tenantCompany.name,
+        bankName: tenantCompany.bank.name,
+        accountNumber: tenantCompany.bank.accountNumber,
+        iban: tenantCompany.bank.iban,
+        swiftCode: tenantCompany.bank.swiftCode,
+        currency: null,
+        usage: null,
+        isPrimary: true,
+      }] : [])
+    : (receiver?.banks || []);
+  
+  const primaryBankAccount = displayBankAccounts.find(bank => bank.isPrimary) || displayBankAccounts[0];
+  
+  // Determine payment recipient name
+  const paymentRecipientName = isAgencyOrClient ? tenantCompany?.name : receiver?.name;
+  const paymentRecipientEmail = isAgencyOrClient ? tenantCompany?.contactEmail : receiver?.email;
   
   return (
     <>
@@ -228,8 +251,8 @@ export function InvoiceMetadata({
         </div>
       </div>
 
-      {/* 🔥 FIX: Payment Destination - Receiver's Bank Account (Contractor or Payroll User) */}
-      {receiverBankAccounts.length > 0 && (
+      {/* 🔥 FIX: Payment Destination - Conditional based on receiver role */}
+      {displayBankAccounts.length > 0 && (
         <>
           <Separator className="my-6" />
           <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 space-y-4">
@@ -238,7 +261,7 @@ export function InvoiceMetadata({
                 <CreditCard className="h-5 w-5 text-green-700" />
                 <h3 className="text-lg font-bold text-green-900">PAYMENT DESTINATION</h3>
               </div>
-              {receiverBankAccounts.length > 1 && (
+              {displayBankAccounts.length > 1 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -252,7 +275,7 @@ export function InvoiceMetadata({
                   ) : (
                     <>
                       <ChevronDown className="mr-1 h-4 w-4" />
-                      Show All ({receiverBankAccounts.length})
+                      Show All ({displayBankAccounts.length})
                     </>
                   )}
                 </Button>
@@ -262,8 +285,8 @@ export function InvoiceMetadata({
             <div className="space-y-3">
               <div>
                 <Label className="text-xs text-muted-foreground font-semibold">Payment Recipient</Label>
-                <p className="font-bold text-lg">{receiver?.name || invoiceRecipient}</p>
-                {receiver?.email && <p className="text-sm text-muted-foreground">{receiver.email}</p>}
+                <p className="font-bold text-lg">{paymentRecipientName || invoiceRecipient}</p>
+                {paymentRecipientEmail && <p className="text-sm text-muted-foreground">{paymentRecipientEmail}</p>}
               </div>
             </div>
 
@@ -355,7 +378,7 @@ export function InvoiceMetadata({
               ) : showAllBankAccounts ? (
                 // Show all bank accounts
                 <div className="space-y-3">
-                  {receiverBankAccounts.map((bank) => (
+                  {displayBankAccounts.map((bank) => (
                     <div 
                       key={bank.id} 
                       className={`p-4 bg-white rounded-lg border shadow-sm ${
@@ -446,7 +469,10 @@ export function InvoiceMetadata({
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
                 <AlertCircle className="h-3 w-3 inline mr-1" />
-                Payment should be made to the account shown above. This is the {receiver?.role?.displayName || "recipient"}'s bank account.
+                {isAgencyOrClient 
+                  ? `Payment should be made to the account shown above. This is the tenant company's bank account (${tenantCompany?.name || 'your company'}).`
+                  : `Payment should be made to the account shown above. This is the ${receiver?.role?.displayName || "recipient"}'s bank account.`
+                }
               </p>
             </div>
           </div>
@@ -454,7 +480,7 @@ export function InvoiceMetadata({
       )}
       
       {/* Show warning if no bank accounts found */}
-      {receiverBankAccounts.length === 0 && receiver && (
+      {displayBankAccounts.length === 0 && receiver && (
         <>
           <Separator className="my-6" />
           <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 space-y-3">
@@ -464,14 +490,17 @@ export function InvoiceMetadata({
             </div>
             <div>
               <Label className="text-xs text-muted-foreground font-semibold">Payment Recipient</Label>
-              <p className="font-bold text-lg">{receiver.name || invoiceRecipient}</p>
-              {receiver.email && <p className="text-sm text-muted-foreground">{receiver.email}</p>}
+              <p className="font-bold text-lg">{paymentRecipientName || invoiceRecipient}</p>
+              {paymentRecipientEmail && <p className="text-sm text-muted-foreground">{paymentRecipientEmail}</p>}
             </div>
             <div className="p-4 bg-white border border-yellow-300 rounded-lg text-center">
               <AlertCircle className="h-6 w-6 text-yellow-600 mx-auto mb-2" />
               <p className="text-sm text-yellow-800 font-medium">No bank account on file</p>
               <p className="text-xs text-yellow-700 mt-1">
-                Please contact the recipient to obtain payment details
+                {isAgencyOrClient 
+                  ? "Please configure the tenant company's bank account"
+                  : "Please contact the recipient to obtain payment details"
+                }
               </p>
             </div>
           </div>

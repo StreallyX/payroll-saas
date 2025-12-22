@@ -312,6 +312,19 @@ getById: tenantProcedure
           },
         },
 
+        // 🔥 FIX: Include margin for margin confirmation workflow
+        margin: {
+          include: {
+            overriddenByUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+
         contract: {
           select: {
             id: true,
