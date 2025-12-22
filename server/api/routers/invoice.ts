@@ -268,6 +268,9 @@ getById: tenantProcedure
           },
         },
 
+        // 🔥 Only admin sees margin
+        ...(isAdmin ? { margin: true } : {}),
+
         // 🔥 NEW: Include timesheet with expenses
         timesheet: {
           include: {
@@ -1752,7 +1755,7 @@ getById: tenantProcedure
     .use(hasPermission(P.PAY_GLOBAL))
     .input(z.object({ invoiceId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           lineItems: true,
@@ -1784,8 +1787,8 @@ getById: tenantProcedure
       }
 
       // Get contractor (sender) and tenant info
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
       // Get contractor's user details and bank accounts
       let contractorUser = null;
@@ -1905,7 +1908,7 @@ getById: tenantProcedure
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           lineItems: true,
@@ -1936,8 +1939,8 @@ getById: tenantProcedure
       }
 
       // Get participants
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
       if (!contractor?.userId) {
         throw new TRPCError({
@@ -2075,7 +2078,7 @@ getById: tenantProcedure
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           lineItems: true,
@@ -2100,8 +2103,8 @@ getById: tenantProcedure
         });
       }
 
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
       // Create self-billing invoice
       const selfBillingInvoice = await ctx.prisma.invoice.create({
@@ -2171,7 +2174,7 @@ getById: tenantProcedure
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           contract: {
@@ -2195,7 +2198,7 @@ getById: tenantProcedure
         });
       }
 
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
       const contractorName = contractor?.user?.name || contractor?.company?.name || "Contractor";
       
       // Get contractor bank details (from user profile or company)
@@ -2287,7 +2290,7 @@ ${input.notes || ""}
     .use(hasAnyPermission([P.PAY_GLOBAL, P.READ_OWN]))
     .input(z.object({ invoiceId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           contract: {
@@ -2318,7 +2321,7 @@ ${input.notes || ""}
         });
       }
 
-      const contractor = invoice.contract?.participants?.find((p) => p.role === "contractor");
+      const contractor = invoice.contract?.participants?.find((p) => p.role === "CONTRACTOR");
       const bankAccounts = contractor?.user?.banks || [];
 
       return {
@@ -2356,7 +2359,7 @@ ${input.notes || ""}
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           contract: {
@@ -2489,7 +2492,7 @@ ${input.notes || ""}
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      const invoice = await ctx.prisma.invoice.findUnique({
+      const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
         include: {
           contract: {
@@ -2514,7 +2517,7 @@ ${input.notes || ""}
       }
 
       const client = invoice.contract?.participants?.find((p) => p.role === "client");
-      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "tenant");
+      const tenantParticipant = invoice.contract?.participants?.find((p) => p.role === "CLIENT");
 
       // Create fee invoice
       const feeInvoice = await ctx.prisma.invoice.create({
