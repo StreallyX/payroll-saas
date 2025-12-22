@@ -325,7 +325,7 @@ model User {
   invoicesAgencyMarkedPaid Invoice[] @relation("InvoiceAgencyMarkedPaidBy")
   invoicesPaymentReceived  Invoice[] @relation("InvoicePaymentReceivedBy")
   marginsOverridden        Margin[]  @relation("MarginOverriddenBy")
-  
+
   // 🔥 NEW: Bank accounts for contractors (for SPLIT payments)
   banks Bank[] @relation("UserBanks")
 
@@ -629,7 +629,7 @@ model Invoice {
   contractId    String? // 🔥 Optionnel - une facture peut ne pas être liée à un contrat
   timesheetId   String? @unique
   invoiceNumber String? @unique
-  
+
   // 🔥 NEW: Parent invoice for self-invoices and self-billing invoices
   parentInvoiceId String? // Links to parent invoice for workflow-generated invoices
   parentInvoice   Invoice?  @relation("InvoiceChildren", fields: [parentInvoiceId], references: [id])
@@ -678,12 +678,12 @@ model Invoice {
   paymentModel PaymentModel? // gross, payroll, payroll_we_pay, split
 
   // 🔥 NEW: Agency payment tracking
-  agencyMarkedPaidAt     DateTime? // When agency marked invoice as paid
-  agencyMarkedPaidBy     String? // userId who marked as paid
-  amountPaidByAgency     Decimal?  @db.Decimal(10, 2) // Amount paid by agency/receiver
-  paymentReceivedAt      DateTime? // When payment was actually received
-  paymentReceivedBy      String? // userId who confirmed receipt
-  amountReceived         Decimal?  @db.Decimal(10, 2) // Amount actually received by admin
+  agencyMarkedPaidAt DateTime? // When agency marked invoice as paid
+  agencyMarkedPaidBy String? // userId who marked as paid
+  amountPaidByAgency Decimal?  @db.Decimal(10, 2) // Amount paid by agency/receiver
+  paymentReceivedAt  DateTime? // When payment was actually received
+  paymentReceivedBy  String? // userId who confirmed receipt
+  amountReceived     Decimal?  @db.Decimal(10, 2) // Amount actually received by admin
 
   // Dates
   issueDate DateTime  @default(now())
@@ -998,54 +998,54 @@ model TimesheetDocument {
 // PAYMENT SYSTEM (Avec ownership)
 // ====
 enum PaymentMethodType {
-  BANK_ACCOUNT
-  CREDIT_CARD
-  DEBIT_CARD
-  PAYPAL
-  STRIPE
-  WISE
-  REVOLUT
-  OTHER
+  BANK_ACCOUNT @map("bank_account")
+  CREDIT_CARD  @map("credit_card")
+  DEBIT_CARD   @map("debit_card")
+  PAYPAL       @map("paypal")
+  STRIPE       @map("stripe")
+  WISE         @map("wise")
+  REVOLUT      @map("revolut")
+  OTHER        @map("other")
 }
 
 enum PaymentModel {
-  GROSS
-  PAYROLL
-  PAYROLL_WE_PAY
-  SPLIT
+  GROSS          @map("gross")
+  PAYROLL        @map("payroll")
+  PAYROLL_WE_PAY @map("payroll_we_pay")
+  SPLIT          @map("split")
 }
 
 enum MarginType {
-  FIXED
-  VARIABLE
-  CUSTOM
+  FIXED    @map("fixed")
+  VARIABLE @map("variable")
+  CUSTOM   @map("custom")
 }
 
 enum BankAccountUsage {
-  SALARY
-  GROSS
-  EXPENSES
-  OTHER
+  SALARY   @map("salary")
+  GROSS    @map("gross")
+  EXPENSES @map("expenses")
+  OTHER    @map("other")
 }
 
 enum PaymentType {
-  RECEIVED
-  SENT
+  RECEIVED @map("received")
+  SENT     @map("sent")
 }
 
 enum RecipientType {
-  ADMIN
-  CONTRACTOR
-  PAYROLL
-  CLIENT
-  AGENCY
-  OTHER
+  ADMIN      @map("admin")
+  CONTRACTOR @map("contractor")
+  PAYROLL    @map("payroll")
+  CLIENT     @map("client")
+  AGENCY     @map("agency")
+  OTHER      @map("other")
 }
 
 enum RemittanceStatus {
-  PENDING
-  COMPLETED
-  FAILED
+  PENDING   @map("pending")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
 }
 
 model Payment {
@@ -1512,44 +1512,44 @@ model Country {
 }
 
 model Bank {
-  id            String  @id @default(cuid())
-  tenantId      String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // Account identification
   accountName   String? // Account name/label (optional)
   accountNumber String? // IBAN or local account number (optional)
   accountHolder String? // Account holder name (optional)
-  
+
   // Bank information
-  bankName      String? // Bank name (optional)
-  swiftCode     String? // SWIFT/BIC code (optional)
+  bankName              String? // Bank name (optional)
+  swiftCode             String? // SWIFT/BIC code (optional)
   intermediarySwiftCode String? // Intermediary SWIFT code (optional)
-  routingNumber String? // Routing number (optional)
-  sortCode      String? // Sort code (optional)
-  branchCode    String? // Branch code (optional)
-  iban          String? // IBAN (optional)
-  
+  routingNumber         String? // Routing number (optional)
+  sortCode              String? // Sort code (optional)
+  branchCode            String? // Branch code (optional)
+  iban                  String? // IBAN (optional)
+
   // Bank address
-  bankAddress   String? // Bank address (optional)
-  bankCity      String? // Bank city (optional)
-  country       String? // Country (optional)
-  state         String? // State/County (optional)
-  postCode      String? // Post code/ZIP code (optional)
-  
+  bankAddress String? // Bank address (optional)
+  bankCity    String? // Bank city (optional)
+  country     String? // Country (optional)
+  state       String? // State/County (optional)
+  postCode    String? // Post code/ZIP code (optional)
+
   // Account details
-  currency      String? // Account currency (optional)
-  usage         BankAccountUsage? // Account usage/purpose (optional)
-  
+  currency String? // Account currency (optional)
+  usage    BankAccountUsage? // Account usage/purpose (optional)
+
   // Legacy fields (deprecated, use bankName and accountName instead)
-  name          String? // Legacy: Bank name (optional, deprecated)
-  address       String? // Legacy: Bank address (optional, deprecated)
-  
+  name    String? // Legacy: Bank name (optional, deprecated)
+  address String? // Legacy: Bank address (optional, deprecated)
+
   // User association
-  userId        String? // null for company banks, set for user/contractor banks
-  
+  userId String? // null for company banks, set for user/contractor banks
+
   // Flags
-  isPrimary     Boolean  @default(false) // For user banks
-  isActive      Boolean  @default(true)
+  isPrimary Boolean @default(false) // For user banks
+  isActive  Boolean @default(true)
 
   createdBy String?
 
@@ -1559,7 +1559,7 @@ model Bank {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User?      @relation("UserBanks", fields: [userId], references: [id], onDelete: Cascade)
-  companies Company[]  // 0..n companies using this bank
+  companies Company[] // 0..n companies using this bank
   contracts Contract[]
 
   @@index([tenantId])
@@ -1766,33 +1766,33 @@ model Payslip {
 // REMITTANCES - Payment tracking system
 // ====
 model Remittance {
-  id        String  @id @default(cuid())
-  tenantId  String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // Payment tracking
   invoiceId String? // Link to invoice (optional)
   amount    Decimal @db.Decimal(12, 2)
   currency  String  @default("USD")
-  
+
   // Payment flow
-  paymentType   PaymentType     // RECEIVED or SENT
-  recipientType RecipientType   // ADMIN, CONTRACTOR, PAYROLL, etc.
-  recipientId   String          // userId who received payment
-  senderId      String          // userId who sent payment
-  
+  paymentType   PaymentType // RECEIVED or SENT
+  recipientType RecipientType // ADMIN, CONTRACTOR, PAYROLL, etc.
+  recipientId   String // userId who received payment
+  senderId      String // userId who sent payment
+
   // Status
   status RemittanceStatus @default(PENDING) // PENDING, COMPLETED, FAILED
-  
+
   // Additional context
   contractId  String? // Optional link to contract
   description String? @db.Text
   notes       String? @db.Text
-  
+
   // Dates
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime? // When payment was completed
-  
+
   // Relations
   tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoice      Invoice?             @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -1800,7 +1800,7 @@ model Remittance {
   recipient    User                 @relation("RemittanceRecipient", fields: [recipientId], references: [id])
   sender       User                 @relation("RemittanceSender", fields: [senderId], references: [id])
   stateHistory EntityStateHistory[] @relation("RemittanceStateHistory")
-  
+
   @@index([tenantId])
   @@index([invoiceId])
   @@index([contractId])
