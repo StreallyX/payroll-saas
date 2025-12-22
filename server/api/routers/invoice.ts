@@ -2122,8 +2122,8 @@ getById: tenantProcedure
           invoiceNumber: selfInvoiceNumber,
           senderId: tenantParticipant?.userId || userId,
           receiverId: contractorUserId || undefined, // 🔥 FIX: Handle case where contractor is a company (no userId)
-          status: "confirmed", // 🔥 Auto-confirmed
-          workflowState: "confirmed", // 🔥 Auto-confirmed
+          status: "approved", // 🔥 Auto-confirmed
+          workflowState: "approved", // 🔥 Auto-confirmed
           amount: baseAmountValue,
           totalAmount: totalAmountWithoutMargin, // 🔥 WITHOUT margin
           currencyId: invoice.currencyId,
