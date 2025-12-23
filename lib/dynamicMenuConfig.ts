@@ -4,7 +4,7 @@ import {
   Briefcase, PieChart, CheckSquare, TrendingUp, ClipboardList,
   UserCog, FileType, ListChecks, Layers, Globe, BarChart3, Palette,
   Landmark, Coins, Webhook, Mail, MessageSquare, Activity, 
-  CreditCard, Scale, FileSignature, UserCircle
+  CreditCard, Scale, FileSignature, UserCircle, MessageSquarePlus
 } from "lucide-react"
 
 import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions"
@@ -373,6 +373,37 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: MessageSquare,
         permissions: [
           P(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+    ]
+  },
+
+  // ===========================
+  // FEATURE REQUESTS
+  // ===========================
+  {
+    label: "Feature Requests",
+    href: "/feature-requests/new",
+    icon: MessageSquarePlus,
+    permissions: [
+      P(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
+      P(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    ],
+    submenu: [
+      {
+        label: "Submit Request",
+        href: "/feature-requests/new",
+        icon: MessageSquarePlus,
+        permissions: [
+          P(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
+        ]
+      },
+      {
+        label: "Manage Requests",
+        href: "/feature-requests/manage",
+        icon: ListChecks,
+        permissions: [
+          P(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
     ]

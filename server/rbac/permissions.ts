@@ -103,6 +103,10 @@ export enum Resource {
   SUBSCRIPTION = "subscription",
   TENANT_DETAIL = "tenant_detail",
   SUPERADMIN_USER = "superadmin_user",
+
+  // Feature Request System
+  FEATURE_REQUEST = "feature_request",
+  PLATFORM = "platform",
 }
 
 
@@ -2214,6 +2218,109 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Tenants"),
   createPermission(Resource.TENANT_DETAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant Details"),
   createPermission(Resource.SUPERADMIN_USER, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Superadmin Users"),
+
+  // ================================================================
+  // FEATURE REQUEST PERMISSIONS
+  // ================================================================
+  
+  // Create feature requests (all authenticated users)
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.CREATE,
+    PermissionScope.OWN,
+    "Créer une demande de fonctionnalité",
+    "Soumettre une nouvelle demande de fonctionnalité ou modification",
+    PermissionCategory.CORE
+  ),
+
+  // View own feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir ses propres demandes",
+    "Consulter ses propres demandes de fonctionnalités",
+    PermissionCategory.CORE
+  ),
+
+  // List own feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.LIST,
+    PermissionScope.OWN,
+    "Lister ses demandes",
+    "Voir la liste de ses demandes de fonctionnalités",
+    PermissionCategory.CORE
+  ),
+
+  // View all feature requests (admin)
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir toutes les demandes",
+    "Voir toutes les demandes de fonctionnalités du tenant",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Manage platform features (superadmin/admin with special permission)
+  createPermission(
+    Resource.PLATFORM,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Gérer la plateforme",
+    "Approuver, rejeter et gérer les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Update feature request status
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier les demandes",
+    "Modifier et gérer les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Confirm feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.CONFIRM,
+    PermissionScope.GLOBAL,
+    "Confirmer les demandes",
+    "Confirmer et valider les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Reject feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.REJECT,
+    PermissionScope.GLOBAL,
+    "Rejeter les demandes",
+    "Rejeter les demandes de fonctionnalités avec raison",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Delete feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer les demandes",
+    "Supprimer les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Page access permissions
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.ACCESS,
+    PermissionScope.PAGE,
+    "Accéder aux Feature Requests",
+    "Accéder à la page des demandes de fonctionnalités"
+  ),
 
 ];
 

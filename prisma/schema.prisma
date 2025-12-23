@@ -221,6 +221,7 @@ model Tenant {
   workflowTemplates    WorkflowTemplate[] // 🔥 NEW
   workflowSettings     TenantWorkflowSettings? // 🔥 NEW
   delegatedAccess      DelegatedAccess[] // 🔥 NEW
+  featureRequests      FeatureRequest[] // Feature request system
 
   @@map("tenants")
 }
@@ -334,6 +335,11 @@ model User {
   delegatedAccessGrantedTo  DelegatedAccess[] @relation("DelegatedAccessGrantedTo")
   delegatedAccessGrantedFor DelegatedAccess[] @relation("DelegatedAccessGrantedFor")
   delegatedAccessGrantedBy  DelegatedAccess[] @relation("DelegatedAccessGrantedBy")
+
+  // Feature requests
+  featureRequests          FeatureRequest[] @relation
+  featureRequestsConfirmed FeatureRequest[] @relation("FeatureRequestConfirmedBy")
+  featureRequestsRejected  FeatureRequest[] @relation("FeatureRequestRejectedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -2494,4 +2500,74 @@ model TenantWorkflowConfig {
   updatedAt DateTime @updatedAt
 
   @@map("tenant_workflow_config")
+}
+
+
+
+/// FeatureRequest - Feature modification requests from users
+/// Allows users to submit requests for adding, modifying, or deleting features
+model FeatureRequest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+  userRole    String   // Role name of the requester
+  
+  // Request details
+  pageUrl     String   // URL where the request was made
+  pageName    String   // Human-readable page name
+  actionType  String   // ADD, DELETE, MODIFY
+  title       String   // Brief title of the request
+  description String   @db.Text // Detailed description
+  conditions  String?  @db.Text // Additional conditions or context
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  
+  // Status tracking
+  status            String   @default("SUBMITTED") // SUBMITTED, PENDING, WAITING_FOR_CONFIRMATION, CONFIRMED, REJECTED
+  rejectionReason   String?  @db.Text
+  
+  // Approval tracking
+  confirmedBy       String?
+  confirmedAt       DateTime?
+  rejectedBy        String?
+  rejectedAt        DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  confirmedByUser   User?                      @relation("FeatureRequestConfirmedBy", fields: [confirmedBy], references: [id])
+  rejectedByUser    User?                      @relation("FeatureRequestRejectedBy", fields: [rejectedBy], references: [id])
+  attachments       FeatureRequestAttachment[]
+  
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([actionType])
+  @@index([createdAt])
+  @@map("feature_requests")
+}
+
+/// FeatureRequestAttachment - Files attached to feature requests
+/// Stores screenshots, documents, or other files supporting the request
+model FeatureRequestAttachment {
+  id               String   @id @default(cuid())
+  featureRequestId String
+  
+  // File details
+  fileUrl      String   // S3 cloud storage path
+  fileName     String
+  fileSize     Int
+  fileType     String   // MIME type
+  
+  uploadedAt   DateTime @default(now())
+  
+  // Relations
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  
+  @@index([featureRequestId])
+  @@map("feature_request_attachments")
 }
