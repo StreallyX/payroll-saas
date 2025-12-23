@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,23 +39,38 @@ interface Attachment {
   fileType: string;
 }
 
+// Helper function to convert pathname to user-friendly page name
+function getPageNameFromPath(path: string): string {
+  // Remove leading slash and split by slashes
+  const segments = path.replace(/^\//, '').split('/');
+  
+  // Convert segments to title case and join with " > "
+  const pageName = segments
+    .filter(segment => segment) // Remove empty segments
+    .map(segment => {
+      // Replace hyphens with spaces and convert to title case
+      return segment
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    })
+    .join(' > ');
+  
+  return pageName || 'Dashboard';
+}
+
 export default function NewFeatureRequestPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [currentPageUrl, setCurrentPageUrl] = useState("");
+  const [currentPageName, setCurrentPageName] = useState("");
 
   // Permission check
   const { hasPermission } = usePermissions();
   const CREATE_PERMISSION = buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN);
   const canCreate = hasPermission(CREATE_PERMISSION);
-
-  // Get current page URL on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setCurrentPageUrl(window.location.href);
-    }
-  }, []);
 
   // Form setup
   const form = useForm<FeatureRequestFormData>({
@@ -69,6 +84,35 @@ export default function NewFeatureRequestPage() {
       priority: "MEDIUM",
     },
   });
+
+  // Get current page URL on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Check if there's a "from" query parameter
+      const fromParam = searchParams.get('from');
+      
+      if (fromParam) {
+        // Use the origin page URL from query parameter
+        const fullUrl = `${window.location.origin}${fromParam}`;
+        setCurrentPageUrl(fullUrl);
+        
+        // Generate a friendly page name from the path
+        const pageName = getPageNameFromPath(fromParam);
+        setCurrentPageName(pageName);
+        
+        // Set the form default value for pageName
+        form.setValue('pageName', pageName);
+      } else {
+        // Fall back to current URL if no query parameter
+        setCurrentPageUrl(window.location.href);
+        
+        // Generate page name from current path
+        const pageName = getPageNameFromPath(window.location.pathname);
+        setCurrentPageName(pageName);
+        form.setValue('pageName', pageName);
+      }
+    }
+  }, [searchParams, form]);
 
   // Create mutation
   const createMutation = api.featureRequest.create.useMutation({

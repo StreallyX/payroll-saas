@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ArrowLeft, CheckCircle, XCircle, FileIcon, Calendar, User, MapPin, AlertCircle, Download } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, FileIcon, Calendar, User, MapPin, AlertCircle, Download, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/trpc";
 import { format } from "date-fns";
@@ -56,6 +56,8 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [currentFile, setCurrentFile] = useState<{ url: string; name: string; type: string } | null>(null);
 
   // Permission checks
   const { hasPermission, hasAnyPermission, isSuperAdmin } = usePermissions();
@@ -113,9 +115,54 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
     });
   };
 
-  const handleDownloadAttachment = (fileUrl: string, fileName: string) => {
-    // In production, this would use the file viewing API
-    window.open(`/api/files/view?key=${encodeURIComponent(fileUrl)}`, "_blank");
+  const handleViewFile = async (fileUrl: string, fileName: string, fileType: string) => {
+    try {
+      // Fetch the signed URL from the API
+      const response = await fetch(`/api/files/view?filePath=${encodeURIComponent(fileUrl)}`);
+      const data = await response.json();
+
+      if (data.success && data.url) {
+        // Check if it's an image or PDF (can be viewed inline)
+        const isImage = fileType.startsWith('image/');
+        const isPDF = fileType === 'application/pdf';
+
+        if (isImage || isPDF) {
+          // Open in modal for images, new tab for PDFs
+          if (isImage) {
+            setCurrentFile({ url: data.url, name: fileName, type: fileType });
+            setViewerOpen(true);
+          } else {
+            window.open(data.url, '_blank');
+          }
+        } else {
+          // For other file types, just download them
+          window.open(data.url, '_blank');
+        }
+      } else {
+        toast.error(data.error || "Failed to load file");
+      }
+    } catch (error) {
+      console.error("Error viewing file:", error);
+      toast.error("Failed to load file");
+    }
+  };
+
+  const handleDownloadFile = async (fileUrl: string, fileName: string) => {
+    try {
+      // Fetch the signed URL with download=true parameter
+      const response = await fetch(`/api/files/view?filePath=${encodeURIComponent(fileUrl)}&download=true`);
+      const data = await response.json();
+
+      if (data.success && data.url) {
+        // Open the download URL in a new tab (browser will trigger download)
+        window.open(data.url, '_blank');
+      } else {
+        toast.error(data.error || "Failed to download file");
+      }
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast.error("Failed to download file");
+    }
   };
 
   // Access check
@@ -270,22 +317,33 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
                       key={attachment.id}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <FileIcon className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">{attachment.fileName}</p>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{attachment.fileName}</p>
                           <p className="text-xs text-muted-foreground">
                             {(attachment.fileSize / 1024).toFixed(2)} KB • {attachment.fileType}
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadAttachment(attachment.fileUrl, attachment.fileName)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewFile(attachment.fileUrl, attachment.fileName, attachment.fileType)}
+                          title="View file"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadFile(attachment.fileUrl, attachment.fileName)}
+                          title="Download file"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -439,6 +497,45 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
               disabled={updateStatusMutation.isPending || !rejectionReason.trim()}
             >
               Reject Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="max-w-4xl w-full">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="truncate flex-1">{currentFile?.name}</DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setViewerOpen(false)}
+                className="flex-shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          <div className="relative w-full max-h-[70vh] overflow-auto flex items-center justify-center bg-muted/30 rounded-lg">
+            {currentFile && (
+              <img
+                src={currentFile.url}
+                alt={currentFile.name}
+                className="max-w-full max-h-[70vh] object-contain"
+              />
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => currentFile && handleDownloadFile(currentFile.url, currentFile.name)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
             </Button>
           </DialogFooter>
         </DialogContent>

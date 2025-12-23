@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     // 2. EXTRACT FILE PATH FROM QUERY STRING
     const { searchParams } = new URL(req.url);
     const filePath = searchParams.get("filePath");
+    const download = searchParams.get("download") === "true";
 
     if (!filePath) {
       return NextResponse.json(
@@ -44,24 +45,38 @@ export async function GET(req: NextRequest) {
     const userId = session.user.id;
     const isAdmin = await checkAdminPermissions(userId);
 
-    // Extract the file owner from the path (e.g., uploads/onboarding/{userId}/...)
-    const pathParts = filePath.split("/");
-    const fileOwnerId = extractUserIdFromPath(filePath);
+    // Check if this is a feature request attachment
+    if (filePath.includes("feature-requests")) {
+      // For feature requests, check if user owns the request or is admin
+      const canAccess = isAdmin || await canAccessFeatureRequestFile(userId, filePath);
+      
+      if (!canAccess) {
+        return NextResponse.json(
+          { error: "Forbidden - You don't have permission to access this file" },
+          { status: 403 }
+        );
+      }
+    } else {
+      // Extract the file owner from the path (e.g., uploads/onboarding/{userId}/...)
+      const pathParts = filePath.split("/");
+      const fileOwnerId = extractUserIdFromPath(filePath);
 
-    // Check if user can access this file
-    const canAccess = isAdmin || fileOwnerId === userId;
+      // Check if user can access this file
+      const canAccess = isAdmin || fileOwnerId === userId;
 
-    if (!canAccess) {
-      return NextResponse.json(
-        { error: "Forbidden - You don't have permission to access this file" },
-        { status: 403 }
-      );
+      if (!canAccess) {
+        return NextResponse.json(
+          { error: "Forbidden - You don't have permission to access this file" },
+          { status: 403 }
+        );
+      }
     }
 
     // 4. GENERATE SIGNED URL
     try {
       // Generate a signed URL valid for 1 hour
-      const signedUrl = await getSignedUrlForKey(filePath, 3600, false);
+      // Pass download parameter to control Content-Disposition header
+      const signedUrl = await getSignedUrlForKey(filePath, 3600, download);
 
       return NextResponse.json({
         success: true,
@@ -126,6 +141,9 @@ async function checkAdminPermissions(userId: string): Promise<boolean> {
       "users.read",
       "users.write",
       "global.admin",
+      "feature_request.list.global", // Admin permission to view all feature requests
+      "feature_request.update.global", // Admin permission to update feature requests
+      "platform.update.global", // Platform admin permission
     ];
 
     return permissions.some((p) => adminPermissions.includes(p));
@@ -161,5 +179,34 @@ function extractUserIdFromPath(filePath: string): string | null {
   } catch (error) {
     console.error("Error extracting user ID from path:", error);
     return null;
+  }
+}
+
+/**
+ * Check if user can access a feature request file
+ * Returns true if the user created the feature request that owns this attachment
+ */
+async function canAccessFeatureRequestFile(userId: string, filePath: string): Promise<boolean> {
+  try {
+    // Find the attachment record with this file path
+    const attachment = await prisma.featureRequestAttachment.findFirst({
+      where: {
+        fileUrl: filePath,
+      },
+      include: {
+        featureRequest: true,
+      },
+    });
+
+    if (!attachment) {
+      // If attachment not found, deny access
+      return false;
+    }
+
+    // Check if the user created this feature request
+    return attachment.featureRequest.userId === userId;
+  } catch (error) {
+    console.error("Error checking feature request file access:", error);
+    return false;
   }
 }

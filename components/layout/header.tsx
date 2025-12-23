@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Menu, MessageSquarePlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { usePermissions } from "@/hooks/use-permissions"
@@ -16,6 +16,7 @@ interface HeaderProps {
 export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
   const { data: session } = useSession() || {}
   const router = useRouter()
+  const pathname = usePathname()
   const { hasPermission } = usePermissions()
 
   // Check permission to create feature requests
@@ -23,7 +24,10 @@ export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
   const canCreateRequest = hasPermission(CREATE_PERMISSION)
 
   const handleFeatureRequest = () => {
-    router.push("/feature-requests/new")
+    // Capture current page URL and pass it as a query parameter
+    // Use pathname for a clean URL without query params
+    const fromUrl = pathname || window.location.pathname
+    router.push(`/feature-requests/new?from=${encodeURIComponent(fromUrl)}`)
   }
 
   return (
