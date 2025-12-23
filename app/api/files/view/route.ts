@@ -122,6 +122,7 @@ async function checkAdminPermissions(userId: string): Promise<boolean> {
     const adminPermissions = [
       "onboarding.read",
       "onboarding.write",
+      "onboarding_response.list.global", // Admin permission to view all onboarding responses
       "users.read",
       "users.write",
       "global.admin",
