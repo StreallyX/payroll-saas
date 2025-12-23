@@ -1,3 +1,21 @@
+/**
+ * SERVER-ONLY MODULE
+ * 
+ * This module uses AWS SDK and must ONLY be imported in server-side code:
+ * - API routes (app/api routes)
+ * - Server Actions
+ * - TRPC procedures
+ * - Server Components (with proper "use server" directive)
+ * 
+ * DO NOT import this module in client components or pages marked with "use client".
+ * 
+ * For client-side file operations, use the API routes:
+ * - File viewing: /api/files/view
+ * - File upload: /api/upload
+ * 
+ * This ensures proper separation of concerns and maintains security boundaries.
+ */
+
 import {
   PutObjectCommand,
   GetObjectCommand,

@@ -37,7 +37,6 @@ import { api } from "@/lib/trpc";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { toast } from "sonner";
-import { downloadFile } from "@/lib/s3";
 
 // TRPC TYPES
 type TRPCRouterOutputs = inferRouterOutputs<AppRouter>;
@@ -118,19 +117,40 @@ export default function AllOnboardingsPage() {
       setLoadingFile(filePath);
       toast.info("Generating secure link...");
       
-      const url = await downloadFile(filePath);
+      // Call the API route to get a signed URL
+      const response = await fetch(`/api/files/view?filePath=${encodeURIComponent(filePath)}`);
       
-      // Open in new tab
-      const newWindow = window.open(url, "_blank");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate file URL");
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success || !data.url) {
+        throw new Error("Invalid response from server");
+      }
+      
+      // Open the signed URL in a new window
+      const newWindow = window.open(data.url, "_blank");
       
       if (!newWindow) {
         toast.warning("Please allow pop-ups to view the file");
+        
+        // Fallback: Try to create a download link
+        const link = document.createElement('a');
+        link.href = data.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } else {
         toast.success("File opened in new tab");
       }
     } catch (err: any) {
       console.error("Error viewing file:", err);
-      toast.error("Failed to open file: " + (err.message || "Unknown error"));
+      toast.error(err.message || "Failed to open file");
     } finally {
       setLoadingFile(null);
     }

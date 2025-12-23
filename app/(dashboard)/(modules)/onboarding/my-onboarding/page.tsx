@@ -14,7 +14,6 @@ import { CheckCircle2, Circle, Upload, FileText, AlertCircle, XCircle, Clock, Ey
 import { api } from "@/lib/trpc";
 import { LoadingState } from "@/components/shared/loading-state";
 import { toast } from "sonner";
-import { downloadFile } from "@/lib/s3";
 
 export default function MyOnboardingPage() {
   const { data, isLoading, refetch } = api.onboarding.getMyOnboardingResponses.useQuery();
@@ -166,61 +165,46 @@ export default function MyOnboardingPage() {
   };
 
   const handleViewFile = async (filePath: string) => {
-    console.log("=== HANDLE VIEW FILE START ===");
-    console.log("1. Button clicked!");
-    console.log("2. File path received:", filePath);
-    console.log("3. File path type:", typeof filePath);
-    console.log("4. File path length:", filePath?.length);
-    
     try {
-      console.log("5. Setting loading state...");
       setLoadingFile(filePath);
-      
-      console.log("6. Showing toast notification...");
       toast.info("Generating secure link...");
       
-      console.log("7. Calling downloadFile function...");
-      console.log("   - Input path:", filePath);
+      // Call the API route to get a signed URL
+      const response = await fetch(`/api/files/view?filePath=${encodeURIComponent(filePath)}`);
       
-      const url = await downloadFile(filePath);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate file URL");
+      }
       
-      console.log("8. Signed URL generated successfully!");
-      console.log("   - URL:", url);
-      console.log("   - URL length:", url?.length);
+      const data = await response.json();
       
-      console.log("9. Opening URL in new window...");
-      const newWindow = window.open(url, "_blank");
+      if (!data.success || !data.url) {
+        throw new Error("Invalid response from server");
+      }
       
-      console.log("10. Window.open result:", newWindow);
+      // Open the signed URL in a new window
+      const newWindow = window.open(data.url, "_blank");
       
       if (!newWindow) {
-        console.warn("11. Pop-up blocked!");
         toast.warning("Please allow pop-ups to view the file");
         
         // Fallback: Try to create a download link
-        console.log("12. Creating fallback download link...");
         const link = document.createElement('a');
-        link.href = url;
+        link.href = data.url;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        console.log("13. Fallback link clicked");
       } else {
-        console.log("11. File opened successfully in new tab");
         toast.success("File opened in new tab");
       }
     } catch (err: any) {
-      console.error("=== ERROR IN HANDLE VIEW FILE ===");
-      console.error("Error object:", err);
-      console.error("Error message:", err?.message);
-      console.error("Error stack:", err?.stack);
-      toast.error("Failed to open file: " + (err.message || "Unknown error"));
+      console.error("Error viewing file:", err);
+      toast.error(err.message || "Failed to open file");
     } finally {
-      console.log("14. Clearing loading state...");
       setLoadingFile(null);
-      console.log("=== HANDLE VIEW FILE END ===");
     }
   };
 
