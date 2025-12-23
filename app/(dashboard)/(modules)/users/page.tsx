@@ -25,7 +25,9 @@ import {
   UserCheck,
   UserX,
   UserCircle,
+  Eye,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +44,7 @@ export default function AdminUsersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [userToDelete, setUserToDelete] = useState<any>(null)
+  const router = useRouter()
 
   // Fetch users (OWN subtree or GLOBAL depending on permissions)
   const { data: users = [], isLoading } = api.user.getAll.useQuery()
@@ -203,6 +206,11 @@ export default function AdminUsersPage() {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => router.push(`/users/${user.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+
                         <DropdownMenuItem onClick={() => handleEdit(user)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit User

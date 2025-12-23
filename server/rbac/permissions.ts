@@ -315,6 +315,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.USER,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir les détails des utilisateurs",
+    "Consulter les profils et informations détaillées de tous les utilisateurs",
+    PermissionCategory.ADMINISTRATION
+  ),
+  createPermission(
+    Resource.USER,
     Action.LIST,
     PermissionScope.GLOBAL,
     "Voir tous les utilisateurs",
