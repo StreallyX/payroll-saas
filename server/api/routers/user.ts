@@ -9,6 +9,7 @@ import {
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
+import { emailService } from "@/lib/email/emailService";
 
 // -----------------------------
 // Permissions (tes clés existantes)
@@ -168,6 +169,57 @@ export const userRouter = createTRPCRouter({
           metadata: { createdBy: ctx.session.user.id },
         },
       });
+
+      // 🔥 NEW: Send account creation email with credentials
+      try {
+        const tenant = await ctx.prisma.tenant.findUnique({
+          where: { id: ctx.tenantId! },
+          select: { name: true },
+        });
+
+        // Send email with password
+        await emailService.sendWithTemplate(
+          'account-created',
+          {
+            userName: input.name,
+            userEmail: input.email,
+            password: passwordToUse, // Send plain text password
+            companyName: tenant?.name || 'Your Company',
+            loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
+          },
+          {
+            to: input.email,
+          },
+          'high' // High priority for account creation emails
+        );
+
+        // Log email
+        await ctx.prisma.emailLog.create({
+          data: {
+            tenantId: ctx.tenantId,
+            to: input.email,
+            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+            subject: 'Your Account Has Been Created',
+            template: 'account-created',
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send account creation email:', emailError);
+        // Log failed email
+        await ctx.prisma.emailLog.create({
+          data: {
+            tenantId: ctx.tenantId,
+            to: input.email,
+            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+            subject: 'Your Account Has Been Created',
+            template: 'account-created',
+            status: 'FAILED',
+            error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          },
+        });
+      }
 
       return { success: true, id: newUser.id };
     }),

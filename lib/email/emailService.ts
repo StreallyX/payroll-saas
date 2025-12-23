@@ -520,6 +520,78 @@ class EmailService {
       text: 'Password reset requested. Visit: {{ resetUrl }}',
     });
 
+    // Account created
+    this.registerTemplate({
+      name: 'account-created',
+      subject: 'Your Account Has Been Created - {{ companyName }}',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #3b82f6; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+            .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
+            .credentials { background-color: #ffffff; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6; border-radius: 4px; }
+            .button { display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+            .warning { background-color: #fef3c7; padding: 15px; margin: 20px 0; border-left: 4px solid #f59e0b; border-radius: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Welcome to {{ companyName }}!</h1>
+            </div>
+            <div class="content">
+              <p>Hello {{ userName }},</p>
+              <p>Your account has been successfully created. We're excited to have you on board!</p>
+              
+              <div class="credentials">
+                <h3 style="margin-top: 0;">Your Login Credentials</h3>
+                <p><strong>Email:</strong> {{ userEmail }}</p>
+                <p><strong>Password:</strong> <code style="background-color: #f3f4f6; padding: 2px 6px; border-radius: 3px;">{{ password }}</code></p>
+              </div>
+
+              <div class="warning">
+                <strong>⚠️ Important Security Notice:</strong><br>
+                You will be required to change your password upon first login for security purposes.
+              </div>
+
+              <div style="text-align: center;">
+                <a href="{{ loginUrl }}" class="button">Login to Your Account</a>
+              </div>
+
+              <p style="margin-top: 30px;">If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+            </div>
+            <div class="footer">
+              <p>This email was sent by {{ companyName }}.<br>
+              Please do not reply to this email.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Welcome to {{ companyName }}!
+
+Hello {{ userName }},
+
+Your account has been successfully created.
+
+Your Login Credentials:
+Email: {{ userEmail }}
+Password: {{ password }}
+
+IMPORTANT: You will be required to change your password upon first login for security purposes.
+
+Login URL: {{ loginUrl }}
+
+If you have any questions, please contact our support team.
+
+This email was sent by {{ companyName }}.`,
+    });
+
     // Contractor invitation
     this.registerTemplate({
       name: 'contractor-invitation',
