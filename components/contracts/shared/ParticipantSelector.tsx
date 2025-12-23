@@ -19,22 +19,32 @@ interface ParticipantSelectorProps {
   canModify?: boolean;
 }
 
-export function ParticipantSelector({ contractId, canModify = false }: ParticipantSelectorProps) {
-  const { participants, isLoading, addParticipant, removeParticipant, isAdding, isRemoving } = useParticipants(contractId);
-  
+export function ParticipantSelector({
+  contractId,
+  canModify = false,
+}: ParticipantSelectorProps) {
+  const {
+    participants,
+    isLoading,
+    addParticipant,
+    removeParticipant,
+    isAdding,
+    isRemoving,
+  } = useParticipants(contractId);
+
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [linkUserCompany, setLinkUserCompany] = useState(false);
   const [role, setRole] = useState("additional");
-  
+
   const { company: userCompany } = useUserCompany(selectedUserId);
-  
+
   const handleAddParticipant = () => {
     if (!selectedUserId && !selectedCompanyId) {
-      toast.error("Veuillez sélectionner au moins un utilisateur ou une company");
+      toast.error("Please select at least a user or a company");
       return;
     }
-    
+
     addParticipant(
       {
         contractId,
@@ -44,89 +54,94 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
       },
       {
         onSuccess: () => {
-          toast.success("Participant ajouté avec succès");
+          toast.success("Participant added successfully");
           setSelectedUserId("");
           setSelectedCompanyId("");
           setLinkUserCompany(false);
         },
         onError: (error: any) => {
-          toast.error(error.message || "Échec de l'ajout du participant");
+          toast.error(error.message || "Failed to add participant");
         },
       }
     );
   };
-  
+
   const handleRemoveParticipant = (participantId: string) => {
     removeParticipant(
       { participantId },
       {
         onSuccess: () => {
-          toast.success("Participant supprimé avec succès");
+          toast.success("Participant removed successfully");
         },
         onError: (error: any) => {
-          toast.error(error.message || "Échec de la suppression du participant");
+          toast.error(error.message || "Failed to remove participant");
         },
       }
     );
   };
-  
-  // Si linkUserCompany est activé et qu'une company est trouvée pour l'utilisateur
-  const effectiveCompanyId = linkUserCompany && userCompany?.company ? userCompany.company.id : selectedCompanyId;
-  
+
+  // If linkUserCompany is enabled and a company exists for the user
+  const effectiveCompanyId =
+    linkUserCompany && userCompany?.company
+      ? userCompany.company.id
+      : selectedCompanyId;
+
   return (
     <div className="space-y-4">
-      {/* Formulaire d'ajout */}
+      {/* Add participant form */}
       {canModify && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Ajouter un participant</CardTitle>
+            <CardTitle className="text-lg">Add participant</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="user-select">Utilisateur</Label>
+              <Label htmlFor="user-select">User</Label>
               <UserSelect
                 value={selectedUserId}
                 onChange={setSelectedUserId}
-                placeholder="Sélectionnez un utilisateur"
+                placeholder="Select a user"
               />
             </div>
-            
+
             {selectedUserId && userCompany?.company && (
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="link-company"
                   checked={linkUserCompany}
-                  onCheckedChange={(checked: any) => setLinkUserCompany(checked === true)}
+                  onCheckedChange={(checked: any) =>
+                    setLinkUserCompany(checked === true)
+                  }
                 />
                 <Label
                   htmlFor="link-company"
                   className="text-sm font-normal cursor-pointer"
                 >
-                  Lier aussi la company {userCompany.company.name}
+                  Also link company {userCompany.company.name}
                 </Label>
               </div>
             )}
-            
+
             <div className="space-y-2">
-              <Label htmlFor="company-select">Company (optionnel)</Label>
+              <Label htmlFor="company-select">Company (optional)</Label>
               <CompanySelect
                 value={effectiveCompanyId}
                 onChange={setSelectedCompanyId}
-                placeholder="Sélectionnez une company"
+                placeholder="Select a company"
                 disabled={linkUserCompany && !!userCompany?.company}
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="role-input">Rôle</Label>
+              <Label htmlFor="role-input">Role</Label>
               <Input
                 id="role-input"
                 value={role}
                 onChange={(e: any) => setRole(e.target.value)}
-                placeholder="Ex: additional, observer, etc."
+                placeholder="e.g. additional, observer, etc."
               />
             </div>
-            
+
             <Button
               onClick={handleAddParticipant}
               disabled={isAdding || (!selectedUserId && !selectedCompanyId)}
@@ -135,23 +150,25 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
               {isAdding ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Ajout en cours...
+                  Adding...
                 </>
               ) : (
                 <>
                   <Plus className="mr-2 h-4 w-4" />
-                  Ajouter le participant
+                  Add participant
                 </>
               )}
             </Button>
           </CardContent>
         </Card>
       )}
-      
-      {/* Liste des participants */}
+
+      {/* Participants list */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Participants ({participants.length})</CardTitle>
+          <CardTitle className="text-lg">
+            Participants ({participants.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -160,7 +177,7 @@ export function ParticipantSelector({ contractId, canModify = false }: Participa
             </div>
           ) : participants.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Aucun participant pour ce contrat
+              No participants for this contract
             </p>
           ) : (
             <div className="space-y-3">

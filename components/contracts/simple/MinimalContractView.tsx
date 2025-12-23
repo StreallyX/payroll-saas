@@ -2,21 +2,25 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { 
-  FileText, 
-  Calendar, 
-  User, 
-  Building2, 
-  ArrowLeft, 
-  Send, 
+import {
+  FileText,
+  Calendar,
+  ArrowLeft,
+  Send,
   CheckCircle,
   FileSignature,
   Play,
   Edit,
-  Link as LinkIcon
+  Link as LinkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ContractStatusBadge } from "./ContractStatusBadge";
 import { ContractStatusTimeline } from "./ContractStatusTimeline";
@@ -96,60 +100,90 @@ interface MinimalContractViewProps {
 }
 
 /**
- * Vue détaillée d'un contrat simplifié
- * 
+ * Detailed view of a simplified contract
+ *
  * Sections:
- * - Header (titre, statut, actions)
- * - Informations générales
- * - Document principal
+ * - Header (title, status, actions)
+ * - General information
+ * - Main document
  * - Participants
- * - Timeline du workflow
- * - Contrats liés (MSA parent ou SOWs enfants)
+ * - Workflow timeline
+ * - Related contracts (parent MSA or child SOWs)
  */
-export function MinimalContractView({ contract, permissions, onUpdate }: MinimalContractViewProps) {
-  // Si c'est un contrat NORM, utiliser la vue spécifique
+export function MinimalContractView({
+  contract,
+  permissions,
+  onUpdate,
+}: MinimalContractViewProps) {
+  // If this is a NORM contract, use the dedicated view
   if (contract.type === "norm") {
-    return <NormContractView contract={contract as any} permissions={{ ...permissions, isContractor: permissions.isContractor || false }} onUpdate={onUpdate} />;
+    return (
+      <NormContractView
+        contract={contract as any}
+        permissions={{
+          ...permissions,
+          isContractor: permissions.isContractor || false,
+        }}
+        onUpdate={onUpdate}
+      />
+    );
   }
 
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [showUploadSignedModal, setShowUploadSignedModal] = useState(false);
-  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] =
+    useState(false);
+  const [showUploadSignedModal, setShowUploadSignedModal] =
+    useState(false);
+  const [showModifyModal, setShowModifyModal] =
+    useState(false);
 
-  const { submitForReview, activateContract, isProcessing } = useSimpleContractWorkflow();
+  const {
+    submitForReview,
+    activateContract,
+    isProcessing,
+  } = useSimpleContractWorkflow();
 
   const isMSA = contract.type === "msa";
   const isDraft = contract.status === "draft";
-  const isPendingReview = contract.status === "pending_admin_review";
+  const isPendingReview =
+    contract.status === "pending_admin_review";
   const isCompleted = contract.status === "completed";
   const isActive = contract.status === "active";
 
-  const latestDocument = contract.documents?.find((d) => d.isLatestVersion);
+  const latestDocument = contract.documents?.find(
+    (d) => d.isLatestVersion
+  );
   const childrenCount = contract.children?.length || 0;
 
   /**
-   * Soumet pour review
+   * Submit the contract for admin review
    */
   const handleSubmitForReview = async () => {
-    await submitForReview.mutateAsync({ contractId: contract.id });
+    await submitForReview.mutateAsync({
+      contractId: contract.id,
+    });
     onUpdate?.();
   };
 
   /**
-   * Active le contrat
+   * Activate the contract
    */
   const handleActivate = async () => {
-    await activateContract.mutateAsync({ contractId: contract.id });
+    await activateContract.mutateAsync({
+      contractId: contract.id,
+    });
     onUpdate?.();
   };
 
   /**
-   * Formate la date
+   * Format date
    */
-  const formatDate = (date: Date | string | null | undefined): string => {
+  const formatDate = (
+    date: Date | string | null | undefined
+  ): string => {
     if (!date) return "N/A";
-    const d = typeof date === "string" ? new Date(date) : date;
-    return d.toLocaleDateString("fr-FR", {
+    const d =
+      typeof date === "string" ? new Date(date) : date;
+    return d.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "long",
       year: "numeric",
@@ -161,108 +195,161 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
       {/* Header */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/contracts/simple" className="hover:text-foreground flex items-center gap-1">
+          <Link
+            href="/contracts/simple"
+            className="hover:text-foreground flex items-center gap-1"
+          >
             <ArrowLeft className="h-4 w-4" />
-            Retour aux contrats
+            Back to contracts
           </Link>
         </div>
 
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 flex-1 min-w-0">
-            <FileText className={`h-8 w-8 mt-1 flex-shrink-0 ${isMSA ? "text-primary" : "text-blue-600"}`} />
+            <FileText
+              className={`h-8 w-8 mt-1 flex-shrink-0 ${
+                isMSA ? "text-primary" : "text-blue-600"
+              }`}
+            />
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold truncate">{contract.title || "Sans titre"}</h1>
+              <h1 className="text-2xl font-bold truncate">
+                {contract.title || "Untitled"}
+              </h1>
               <div className="flex items-center gap-2 mt-2">
-                <ContractStatusBadge status={contract.status as any} />
+                <ContractStatusBadge
+                  status={contract.status as any}
+                />
                 <span className="text-sm text-muted-foreground">
-                  {isMSA ? "Master Service Agreement" : "Statement of Work"}
+                  {isMSA
+                    ? "Master Service Agreement"
+                    : "Statement of Work"}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Actions principales */}
+          {/* Primary actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {permissions.canUpdate && (
-              <Button variant="outline" onClick={() => setShowModifyModal(true)}>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setShowModifyModal(true)
+                }
+              >
                 <Edit className="mr-2 h-4 w-4" />
-                Modifier
+                Edit
               </Button>
             )}
+
             {isDraft && permissions.canUpdate && (
-              <Button onClick={handleSubmitForReview} disabled={isProcessing}>
+              <Button
+                onClick={handleSubmitForReview}
+                disabled={isProcessing}
+              >
                 <Send className="mr-2 h-4 w-4" />
-                Soumettre pour validation
+                Submit for review
               </Button>
             )}
-            {isPendingReview && permissions.canApprove && (
-              <Button onClick={() => setShowReviewModal(true)}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Valider
-              </Button>
-            )}
-            {(isCompleted || isActive) && permissions.canUpdate && (
-              <Button variant="outline" onClick={() => setShowUploadSignedModal(true)}>
-                <FileSignature className="mr-2 h-4 w-4" />
-                Upload version signée
-              </Button>
-            )}
-            {isCompleted && permissions.canApprove && (
-              <Button onClick={handleActivate} disabled={isProcessing} className="bg-green-600 hover:bg-green-700">
-                <Play className="mr-2 h-4 w-4" />
-                Activer
-              </Button>
-            )}
+
+            {isPendingReview &&
+              permissions.canApprove && (
+                <Button
+                  onClick={() =>
+                    setShowReviewModal(true)
+                  }
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Approve
+                </Button>
+              )}
+
+            {(isCompleted || isActive) &&
+              permissions.canUpdate && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setShowUploadSignedModal(true)
+                  }
+                >
+                  <FileSignature className="mr-2 h-4 w-4" />
+                  Upload signed version
+                </Button>
+              )}
+
+            {isCompleted &&
+              permissions.canApprove && (
+                <Button
+                  onClick={handleActivate}
+                  disabled={isProcessing}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Activate
+                </Button>
+              )}
           </div>
         </div>
       </div>
 
       <Separator />
 
-      {/* Grid principal */}
+      {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Colonne principale */}
+        {/* Main column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Informations générales */}
+          {/* General information */}
           <Card>
             <CardHeader>
-              <CardTitle>Informations générales</CardTitle>
+              <CardTitle>General information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    Date de création
+                    Creation date
                   </p>
-                  <p className="font-medium mt-1">{formatDate(contract.createdAt)}</p>
+                  <p className="font-medium mt-1">
+                    {formatDate(contract.createdAt)}
+                  </p>
                 </div>
+
                 {contract.signedAt && (
                   <div>
                     <p className="text-sm text-muted-foreground flex items-center gap-2">
                       <FileSignature className="h-4 w-4" />
-                      Date de signature
+                      Signature date
                     </p>
-                    <p className="font-medium mt-1">{formatDate(contract.signedAt)}</p>
+                    <p className="font-medium mt-1">
+                      {formatDate(contract.signedAt)}
+                    </p>
                   </div>
                 )}
               </div>
 
               {contract.description && (
                 <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Description</p>
-                  <p className="mt-2 text-sm whitespace-pre-wrap">{contract.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Description
+                  </p>
+                  <p className="mt-2 text-sm whitespace-pre-wrap">
+                    {contract.description}
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Document principal */}
+          {/* Main document */}
           {latestDocument && (
             <ContractDocumentViewer
               document={latestDocument}
               onDownload={() => {
-                console.log("Download document:", latestDocument.id);
+                console.log(
+                  "Download document:",
+                  latestDocument.id
+                );
               }}
             />
           )}
@@ -270,25 +357,28 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
           {/* Participants */}
           <ParticipantSelector
             contractId={contract.id}
-            canModify={permissions.canUpdate && !isActive}
+            canModify={
+              permissions.canUpdate && !isActive
+            }
           />
 
-          {/* Documents partagés */}
+          {/* Shared documents */}
           <Card>
             <CardHeader>
-              <CardTitle>Documents partagés</CardTitle>
+              <CardTitle>Shared documents</CardTitle>
               <CardDescription>
-                Documents additionnels liés à ce contrat
+                Additional documents linked to this
+                contract
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Liste des documents */}
               <DocumentList
                 contractId={contract.id}
-                canDelete={permissions.canUpdate && !isActive}
+                canDelete={
+                  permissions.canUpdate && !isActive
+                }
               />
 
-              {/* Upload de documents (si le contrat n'est pas actif) */}
               {!isActive && permissions.canUpdate && (
                 <div className="border-t pt-4">
                   <DocumentUploader
@@ -300,28 +390,28 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
 
               {isActive && (
                 <div className="text-sm text-muted-foreground text-center py-4 border-t">
-                  Ce contrat est actif. Vous ne pouvez plus ajouter de documents.
+                  This contract is active. You can no
+                  longer add documents.
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Colonne latérale */}
+        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Timeline */}
           <ContractStatusTimeline
             currentStatus={contract.status as any}
             statusHistory={contract.statusHistory}
           />
 
-          {/* MSA parent (si SOW) */}
+          {/* Parent MSA (for SOW) */}
           {!isMSA && contract.parent && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <LinkIcon className="h-4 w-4" />
-                  MSA Parent
+                  Parent MSA
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -329,18 +419,25 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
                   href={`/contracts/simple/${contract.parent.id}`}
                   className="block p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                 >
-                  <p className="font-medium">{contract.parent.title || "Sans titre"}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Voir le MSA →</p>
+                  <p className="font-medium">
+                    {contract.parent.title ||
+                      "Untitled"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    View MSA →
+                  </p>
                 </Link>
               </CardContent>
             </Card>
           )}
 
-          {/* SOWs enfants (si MSA) */}
+          {/* Child SOWs (for MSA) */}
           {isMSA && childrenCount > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">SOWs liés ({childrenCount})</CardTitle>
+                <CardTitle className="text-base">
+                  Linked SOWs ({childrenCount})
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -350,9 +447,13 @@ export function MinimalContractView({ contract, permissions, onUpdate }: Minimal
                       href={`/contracts/simple/${child.id}`}
                       className="block p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                     >
-                      <p className="font-medium text-sm truncate">{child.title || "Sans titre"}</p>
+                      <p className="font-medium text-sm truncate">
+                        {child.title || "Untitled"}
+                      </p>
                       <div className="mt-1">
-                        <ContractStatusBadge status={child.status as any} />
+                        <ContractStatusBadge
+                          status={child.status as any}
+                        />
                       </div>
                     </Link>
                   ))}

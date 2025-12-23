@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DollarSign, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc";
@@ -17,27 +23,25 @@ interface CurrencySelectProps {
 }
 
 /**
- * Composant de sélection de devise depuis la table Currency
- * 
- * Utilise l'API tRPC pour récupérer la liste des devises actives
- * Affiche le code et le symbole de la devise (ex: "USD ($)")
+ * Currency selection component backed by the Currency table
+ *
+ * Uses the tRPC API to fetch the list of active currencies
+ * Displays the currency code and symbol (e.g. "USD ($)")
  */
 export function CurrencySelect({
   value,
   onChange,
-  label = "Devise",
+  label = "Currency",
   required = false,
   disabled = false,
-  placeholder = "Sélectionner une devise...",
+  placeholder = "Select a currency...",
   className,
 }: CurrencySelectProps) {
-  // Récupérer la liste des devises actives
-  const { data: currencies, isLoading } = api.currency.getAll.useQuery(
-    undefined,
-    {
+  // Fetch the list of active currencies
+  const { data: currencies, isLoading } =
+    api.currency.getAll.useQuery(undefined, {
       enabled: !disabled,
-    }
-  );
+    });
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -48,29 +52,39 @@ export function CurrencySelect({
           {required && " *"}
         </Label>
       )}
-      <Select value={value} onValueChange={onChange} disabled={disabled || isLoading}>
+
+      <Select
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled || isLoading}
+      >
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
+
         <SelectContent>
           {isLoading ? (
             <SelectItem value="loading" disabled>
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Chargement...
+              Loading...
             </SelectItem>
           ) : !currencies || currencies.length === 0 ? (
             <SelectItem value="empty" disabled>
-              Aucune devise disponible
+              No currencies available
             </SelectItem>
           ) : (
             currencies.map((currency: any) => (
               <SelectItem key={currency.id} value={currency.id}>
                 {currency.code}
                 {currency.symbol && (
-                  <span className="text-muted-foreground ml-1">({currency.symbol})</span>
+                  <span className="text-muted-foreground ml-1">
+                    ({currency.symbol})
+                  </span>
                 )}
                 {currency.name && (
-                  <span className="text-xs text-muted-foreground ml-2">- {currency.name}</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    – {currency.name}
+                  </span>
                 )}
               </SelectItem>
             ))

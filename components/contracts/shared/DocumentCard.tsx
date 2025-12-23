@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Trash2, User } from "lucide-react";
 import { CategoryBadge } from "./CategoryBadge";
 import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 
 interface DocumentCardProps {
   document: {
@@ -32,6 +32,9 @@ interface DocumentCardProps {
   canDelete?: boolean;
 }
 
+/**
+ * Formats a file size in a human-readable way
+ */
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -40,12 +43,21 @@ function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
-export function DocumentCard({ document, onDownload, onDelete, isDeleting, canDelete }: DocumentCardProps) {
+/**
+ * Displays a document card with metadata and actions
+ */
+export function DocumentCard({
+  document,
+  onDownload,
+  onDelete,
+  isDeleting,
+  canDelete,
+}: DocumentCardProps) {
   const uploaderName = document.uploadedBy.name || document.uploadedBy.email;
   const fileSize = formatFileSize(document.document.fileSize);
   const uploadDate = formatDistanceToNow(new Date(document.createdAt), {
     addSuffix: true,
-    locale: fr,
+    locale: enUS,
   });
 
   return (
@@ -54,10 +66,14 @@ export function DocumentCard({ document, onDownload, onDelete, isDeleting, canDe
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium">{document.document.fileName}</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {document.document.fileName}
+            </CardTitle>
           </div>
+
           <div className="flex items-center gap-2">
             <CategoryBadge category={document.category} />
+
             {onDownload && (
               <Button
                 variant="ghost"
@@ -68,6 +84,7 @@ export function DocumentCard({ document, onDownload, onDelete, isDeleting, canDe
                 <Download className="h-4 w-4" />
               </Button>
             )}
+
             {canDelete && onDelete && (
               <Button
                 variant="ghost"
@@ -82,13 +99,18 @@ export function DocumentCard({ document, onDownload, onDelete, isDeleting, canDe
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="pt-0 space-y-2">
-        <p className="text-sm text-muted-foreground">{document.description}</p>
+        <p className="text-sm text-muted-foreground">
+          {document.description}
+        </p>
+
         {document.notes && (
           <p className="text-xs text-muted-foreground italic">
             <span className="font-medium">Note:</span> {document.notes}
           </p>
         )}
+
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <User className="h-3 w-3" />

@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { User, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc";
@@ -18,22 +24,22 @@ interface UserSelectProps {
 }
 
 /**
- * Composant de sélection d'utilisateur avec filtrage par rôle
- * 
- * Utilise l'API tRPC pour récupérer la liste des utilisateurs
- * Supporte le filtrage par rôle (contractor, payroll, admin)
+ * User selection component with role-based filtering
+ *
+ * Uses the tRPC API to fetch the list of users
+ * Supports role filtering (contractor, payroll, admin, agency)
  */
 export function UserSelect({
   value,
   onChange,
-  label = "Utilisateur",
+  label = "User",
   required = false,
   disabled = false,
-  placeholder = "Sélectionner un utilisateur...",
+  placeholder = "Select a user...",
   roleFilter,
   className,
 }: UserSelectProps) {
-  // Récupérer la liste des utilisateurs
+  // Fetch the list of users
   const { data: allUsers = [], isLoading } = api.user.getAll.useQuery(
     undefined,
     {
@@ -41,16 +47,16 @@ export function UserSelect({
     }
   );
 
-  // Filtrer par rôle si nécessaire
+  // Filter by role if needed
   const users = roleFilter
     ? allUsers.filter((u: any) => {
-        // Extraire le rôle réel (string)
+        // Extract the actual role (string)
         const role =
           typeof u.role === "string"
             ? u.role
-            : u.role?.name ?? "";  // si c'est un objet { name: "Agency" }
+            : u.role?.name ?? ""; // if role is an object { name: "Agency" }
 
-        // Comparaison insensible à la casse
+        // Case-insensitive comparison
         return role.toLowerCase() === roleFilter.toLowerCase();
       })
     : allUsers;
@@ -64,7 +70,11 @@ export function UserSelect({
           {required && " *"}
         </Label>
       )}
-      <Select value={value} onValueChange={onChange} disabled={disabled || isLoading}>
+      <Select
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled || isLoading}
+      >
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
@@ -72,18 +82,20 @@ export function UserSelect({
           {isLoading ? (
             <SelectItem value="loading" disabled>
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Chargement...
+              Loading...
             </SelectItem>
           ) : users.length === 0 ? (
             <SelectItem value="empty" disabled>
-              Aucun utilisateur disponible
+              No users available
             </SelectItem>
           ) : (
             users.map((user: any) => (
               <SelectItem key={user.id} value={user.id}>
                 {user.name || user.email}
                 {user.email && user.name && (
-                  <span className="text-xs text-muted-foreground ml-2">({user.email})</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({user.email})
+                  </span>
                 )}
               </SelectItem>
             ))

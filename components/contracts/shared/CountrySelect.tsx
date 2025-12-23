@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Globe, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc";
@@ -17,26 +23,24 @@ interface CountrySelectProps {
 }
 
 /**
- * Composant de sélection de pays depuis la table Country
- * 
- * Utilise l'API tRPC pour récupérer la liste des pays
+ * Country selection component backed by the Country table
+ *
+ * Uses the tRPC API to fetch the list of countries
  */
 export function CountrySelect({
   value,
   onChange,
-  label = "Pays",
+  label = "Country",
   required = false,
   disabled = false,
-  placeholder = "Sélectionner un pays...",
+  placeholder = "Select a country...",
   className,
 }: CountrySelectProps) {
-  // Récupérer la liste des pays
-  const { data: countries, isLoading } = api.country.getAll.useQuery(
-    undefined,
-    {
+  // Fetch the list of countries
+  const { data: countries, isLoading } =
+    api.country.getAll.useQuery(undefined, {
       enabled: !disabled,
-    }
-  );
+    });
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -47,26 +51,34 @@ export function CountrySelect({
           {required && " *"}
         </Label>
       )}
-      <Select value={value} onValueChange={onChange} disabled={disabled || isLoading}>
+
+      <Select
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled || isLoading}
+      >
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
+
         <SelectContent>
           {isLoading ? (
             <SelectItem value="loading" disabled>
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Chargement...
+              Loading...
             </SelectItem>
           ) : !countries || countries.length === 0 ? (
             <SelectItem value="empty" disabled>
-              Aucun pays disponible
+              No countries available
             </SelectItem>
           ) : (
             countries.map((country: any) => (
               <SelectItem key={country.id} value={country.id}>
                 {country.name}
                 {country.code && (
-                  <span className="text-xs text-muted-foreground ml-2">({country.code})</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({country.code})
+                  </span>
                 )}
               </SelectItem>
             ))

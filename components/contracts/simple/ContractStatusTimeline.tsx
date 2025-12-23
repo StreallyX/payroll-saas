@@ -2,7 +2,13 @@
 
 import { Check, Circle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ContractStatus } from "./ContractStatusBadge";
 
 interface TimelineStep {
@@ -23,13 +29,13 @@ interface ContractStatusTimelineProps {
 }
 
 /**
- * Timeline verticale du workflow de contrat simplifié
- * 
- * Étapes:
- * 1. draft (Brouillon)
- * 2. pending_admin_review (En attente de validation)
- * 3. completed (Complété)
- * 4. active (Actif)
+ * Vertical timeline for the simplified contract workflow
+ *
+ * Steps:
+ * 1. draft
+ * 2. pending_admin_review
+ * 3. completed
+ * 4. active
  */
 export function ContractStatusTimeline({
   currentStatus,
@@ -39,31 +45,38 @@ export function ContractStatusTimeline({
   const steps: TimelineStep[] = [
     {
       status: "draft",
-      label: "Brouillon",
-      description: "Contrat créé et en cours de préparation",
+      label: "Draft",
+      description: "Contract created and being prepared",
     },
     {
       status: "pending_admin_review",
-      label: "En attente de validation",
-      description: "Soumis pour validation administrateur",
+      label: "Pending admin review",
+      description: "Submitted for administrator validation",
     },
     {
       status: "completed",
-      label: "Complété",
-      description: "Validé et prêt pour activation",
+      label: "Completed",
+      description: "Validated and ready for activation",
     },
     {
       status: "active",
-      label: "Actif",
-      description: "Contrat activé et en cours d'exécution",
+      label: "Active",
+      description: "Contract is active and being executed",
     },
   ];
 
   /**
-   * Détermine l'état d'une étape par rapport au statut actuel
+   * Determine the state of a step relative to the current status
    */
-  const getStepState = (step: TimelineStep): "completed" | "current" | "upcoming" => {
-    const statusOrder = ["draft", "pending_admin_review", "completed", "active"];
+  const getStepState = (
+    step: TimelineStep
+  ): "completed" | "current" | "upcoming" => {
+    const statusOrder = [
+      "draft",
+      "pending_admin_review",
+      "completed",
+      "active",
+    ];
     const currentIndex = statusOrder.indexOf(currentStatus);
     const stepIndex = statusOrder.indexOf(step.status);
 
@@ -73,17 +86,20 @@ export function ContractStatusTimeline({
   };
 
   /**
-   * Trouve la date d'une transition de statut
+   * Find the date of a status transition
    */
   const getStepDate = (status: ContractStatus): string | null => {
-    const historyItem = statusHistory.find((h) => h.toStatus === status);
+    const historyItem = statusHistory.find(
+      (h) => h.toStatus === status
+    );
     if (!historyItem) return null;
 
-    const date = typeof historyItem.createdAt === "string" 
-      ? new Date(historyItem.createdAt) 
-      : historyItem.createdAt;
+    const date =
+      typeof historyItem.createdAt === "string"
+        ? new Date(historyItem.createdAt)
+        : historyItem.createdAt;
 
-    return date.toLocaleDateString("fr-FR", {
+    return date.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -95,11 +111,12 @@ export function ContractStatusTimeline({
   return (
     <Card className={cn("", className)}>
       <CardHeader>
-        <CardTitle>Progression du contrat</CardTitle>
+        <CardTitle>Contract progress</CardTitle>
         <CardDescription>
-          Suivi des étapes du workflow simplifié
+          Tracking the steps of the simplified workflow
         </CardDescription>
       </CardHeader>
+
       <CardContent>
         <div className="relative space-y-6">
           {steps.map((step, index) => {
@@ -108,24 +125,32 @@ export function ContractStatusTimeline({
             const isLast = index === steps.length - 1;
 
             return (
-              <div key={step.status} className="relative flex gap-4">
-                {/* Ligne verticale */}
+              <div
+                key={step.status}
+                className="relative flex gap-4"
+              >
+                {/* Vertical line */}
                 {!isLast && (
                   <div
                     className={cn(
                       "absolute left-4 top-8 h-full w-0.5 -translate-x-1/2",
-                      state === "completed" ? "bg-primary" : "bg-muted"
+                      state === "completed"
+                        ? "bg-primary"
+                        : "bg-muted"
                     )}
                   />
                 )}
 
-                {/* Icône */}
+                {/* Icon */}
                 <div
                   className={cn(
                     "relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2",
-                    state === "completed" && "border-primary bg-primary text-primary-foreground",
-                    state === "current" && "border-primary bg-background text-primary",
-                    state === "upcoming" && "border-muted bg-background text-muted-foreground"
+                    state === "completed" &&
+                      "border-primary bg-primary text-primary-foreground",
+                    state === "current" &&
+                      "border-primary bg-background text-primary",
+                    state === "upcoming" &&
+                      "border-muted bg-background text-muted-foreground"
                   )}
                 >
                   {state === "completed" ? (
@@ -137,25 +162,29 @@ export function ContractStatusTimeline({
                   )}
                 </div>
 
-                {/* Contenu */}
+                {/* Content */}
                 <div className="flex-1 pb-6">
                   <div className="flex items-center justify-between gap-2">
                     <h4
                       className={cn(
                         "font-medium",
-                        state === "upcoming" && "text-muted-foreground"
+                        state === "upcoming" &&
+                          "text-muted-foreground"
                       )}
                     >
                       {step.label}
                     </h4>
+
                     {stepDate && (
-                      <span className="text-xs text-muted-foreground">{stepDate}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {stepDate}
+                      </span>
                     )}
                   </div>
+
                   <p
                     className={cn(
-                      "text-sm mt-1",
-                      state === "upcoming" ? "text-muted-foreground" : "text-muted-foreground"
+                      "text-sm mt-1 text-muted-foreground"
                     )}
                   >
                     {step.description}
@@ -166,19 +195,24 @@ export function ContractStatusTimeline({
           })}
         </div>
 
-        {/* Statuts spéciaux */}
-        {["cancelled", "paused", "terminated"].includes(currentStatus) && (
+        {/* Special statuses */}
+        {["cancelled", "paused", "terminated"].includes(
+          currentStatus
+        ) && (
           <div className="mt-6 pt-6 border-t">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-200">
               <X className="h-5 w-5 text-red-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-red-900">
-                  {currentStatus === "cancelled" && "Contrat annulé"}
-                  {currentStatus === "paused" && "Contrat en pause"}
-                  {currentStatus === "terminated" && "Contrat terminé"}
+                  {currentStatus === "cancelled" &&
+                    "Contract cancelled"}
+                  {currentStatus === "paused" &&
+                    "Contract paused"}
+                  {currentStatus === "terminated" &&
+                    "Contract terminated"}
                 </p>
                 <p className="text-xs text-red-700 mt-1">
-                  Le workflow normal a été interrompu
+                  The normal workflow has been interrupted
                 </p>
               </div>
             </div>

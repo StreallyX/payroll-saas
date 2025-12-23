@@ -13,7 +13,9 @@ interface DocumentListProps {
 }
 
 export function DocumentList({ contractId, canDelete = false }: DocumentListProps) {
-  const { documents, isLoading, deleteDocument, isDeleting } = useContractDocuments(contractId);
+  const { documents, isLoading, deleteDocument, isDeleting } =
+    useContractDocuments(contractId);
+
   const utils = api.useUtils();
 
   const handleDownload = async (documentId: string, fileName: string) => {
@@ -24,7 +26,7 @@ export function DocumentList({ contractId, canDelete = false }: DocumentListProp
       });
 
       if (!res?.url) {
-        toast.error("Impossible d'obtenir l'URL du document");
+        toast.error("Unable to retrieve the document URL");
         return;
       }
 
@@ -35,36 +37,38 @@ export function DocumentList({ contractId, canDelete = false }: DocumentListProp
       link.rel = "noopener";
       link.click();
 
-      toast.success("Téléchargement lancé");
+      toast.success("Download started");
     } catch (err) {
-      toast.error("Erreur lors du téléchargement");
+      toast.error("Error while downloading the document");
     }
   };
 
-
   const handleDelete = (documentId: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce document ?")) {
+    if (!confirm("Are you sure you want to delete this document?")) {
       return;
     }
-    
+
     deleteDocument(
       { documentId },
       {
         onSuccess: () => {
-          toast.success("Document supprimé avec succès");
+          toast.success("Document deleted successfully");
         },
         onError: (error: any) => {
-          toast.error(error.message || "Échec de la suppression du document");
+          toast.error(error.message || "Failed to delete the document");
         },
       }
     );
   };
-  
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Documents partagés ({documents.length})</CardTitle>
+        <CardTitle className="text-lg">
+          Shared documents ({documents.length})
+        </CardTitle>
       </CardHeader>
+
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -72,7 +76,7 @@ export function DocumentList({ contractId, canDelete = false }: DocumentListProp
           </div>
         ) : documents.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Aucun document partagé pour ce contrat
+            No shared documents for this contract
           </p>
         ) : (
           <div className="space-y-3">
@@ -80,8 +84,15 @@ export function DocumentList({ contractId, canDelete = false }: DocumentListProp
               <DocumentCard
                 key={document.id}
                 document={document}
-                onDownload={() => handleDownload(document.document.id, document.document.fileName)}
-                onDelete={canDelete ? () => handleDelete(document.id) : undefined}
+                onDownload={() =>
+                  handleDownload(
+                    document.document.id,
+                    document.document.fileName
+                  )
+                }
+                onDelete={
+                  canDelete ? () => handleDelete(document.id) : undefined
+                }
                 isDeleting={isDeleting}
                 canDelete={canDelete}
               />

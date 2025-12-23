@@ -1,8 +1,14 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Calendar } from "lucide-react";
+  import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CycleSelectProps {
@@ -16,25 +22,25 @@ interface CycleSelectProps {
 }
 
 const CYCLES = [
-  { value: "hourly", label: "Horaire" },
-  { value: "daily", label: "Journalier" },
-  { value: "weekly", label: "Hebdomadaire" },
-  { value: "monthly", label: "Mensuel" },
-  { value: "yearly", label: "Annuel" },
+  { value: "hourly", label: "Hourly" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
 ];
 
 /**
- * Composant de sélection de cycle de paiement
- * 
- * Options: daily, weekly, monthly, yearly, hourly
+ * Payment cycle selection component
+ *
+ * Options: hourly, daily, weekly, monthly, yearly
  */
 export function CycleSelect({
   value,
   onChange,
-  label = "Cycle de paiement",
+  label = "Payment cycle",
   required = false,
   disabled = false,
-  placeholder = "Sélectionner un cycle...",
+  placeholder = "Select a cycle...",
   className,
 }: CycleSelectProps) {
   return (
@@ -46,10 +52,12 @@ export function CycleSelect({
           {required && " *"}
         </Label>
       )}
+
       <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
+
         <SelectContent>
           {CYCLES.map((cycle) => (
             <SelectItem key={cycle.value} value={cycle.value}>
