@@ -103,6 +103,7 @@ export const onboardingRouter = createTRPCRouter({
 
   // -------------------------------------------------------
   // USER — SUBMIT RESPONSE
+  // - Supports resubmission after rejection
   // -------------------------------------------------------
   submitResponse: tenantProcedure
     .use(
@@ -127,8 +128,9 @@ export const onboardingRouter = createTRPCRouter({
         },
       })
 
+      // Update if exists (supports resubmission after rejection)
       if (existing) {
-        return ctx.prisma.onboardingResponse.update({
+        const updated = await ctx.prisma.onboardingResponse.update({
           where: {
             userId_questionId: {
               userId,
@@ -139,12 +141,30 @@ export const onboardingRouter = createTRPCRouter({
             responseText: input.responseText,
             responseFilePath: input.responseFilePath,
             submittedAt: new Date(),
-            status: "pending",
+            status: "pending", // Reset to pending on resubmission
+            adminNotes: null, // Clear previous rejection notes
+            reviewedAt: null,
+            reviewedBy: null,
           },
         })
+        
+        await createAuditLog({
+          tenantId: ctx.tenantId!,
+          userId: ctx.session!.user.id,
+          userName: ctx.session!.user.name ?? "Unknown",
+          userRole: ctx.session!.user.roleName,
+          action: AuditAction.UPDATE,
+          entityType: AuditEntityType.ONBOARDING_RESPONSE,
+          entityId: updated.id,
+          description: `Resubmitted onboarding response`,
+          metadata: { questionId: input.questionId },
+        })
+        
+        return updated
       }
 
-      return ctx.prisma.onboardingResponse.create({
+      // Create new response
+      const created = await ctx.prisma.onboardingResponse.create({
         data: {
           userId,
           tenantId: ctx.tenantId,
@@ -155,6 +175,20 @@ export const onboardingRouter = createTRPCRouter({
           status: "pending",
         },
       })
+      
+      await createAuditLog({
+        tenantId: ctx.tenantId!,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.CREATE,
+        entityType: AuditEntityType.ONBOARDING_RESPONSE,
+        entityId: created.id,
+        description: `Submitted onboarding response`,
+        metadata: { questionId: input.questionId },
+      })
+      
+      return created
     }),
 
 
@@ -167,22 +201,58 @@ export const onboardingRouter = createTRPCRouter({
         buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.REVIEW, PermissionScope.GLOBAL)
       )
     )
-    .input(z.object({ responseId: z.string() }))
+    .input(z.object({ 
+      responseId: z.string(),
+      comment: z.string().optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.onboardingResponse.update({
+      const updated = await ctx.prisma.onboardingResponse.update({
         where: { id: input.responseId },
         data: {
           status: "approved",
+          adminNotes: input.comment,
           reviewedAt: new Date(),
           reviewedBy: ctx.session!.user.id,
         },
         include: { user: true, question: true },
       })
+      
+      // Check if all responses are approved to update onboarding status
+      const allResponses = await ctx.prisma.onboardingResponse.findMany({
+        where: { userId: updated.userId },
+        include: { question: true },
+      })
+      
+      const allApproved = allResponses.every(r => r.status === "approved")
+      
+      if (allApproved) {
+        await ctx.prisma.user.update({
+          where: { id: updated.userId },
+          data: { onboardingStatus: "completed" },
+        })
+      }
+      
+      await createAuditLog({
+        tenantId: ctx.tenantId!,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.ONBOARDING_RESPONSE,
+        entityId: updated.id,
+        description: `Approved onboarding response for ${updated.user.name}`,
+        metadata: { 
+          questionId: updated.questionId,
+          allCompleted: allApproved 
+        },
+      })
+      
+      return updated
     }),
 
 
   // -------------------------------------------------------
-  // ADMIN — REJECT RESPONSE
+  // ADMIN — REJECT RESPONSE (with comment for user to fix)
   // -------------------------------------------------------
   rejectResponse: tenantProcedure
     .use(
@@ -192,10 +262,10 @@ export const onboardingRouter = createTRPCRouter({
     )
     .input(z.object({
       responseId: z.string(),
-      adminNotes: z.string().min(1),
+      adminNotes: z.string().min(1, "Rejection reason is required"),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.onboardingResponse.update({
+      const updated = await ctx.prisma.onboardingResponse.update({
         where: { id: input.responseId },
         data: {
           status: "rejected",
@@ -205,6 +275,29 @@ export const onboardingRouter = createTRPCRouter({
         },
         include: { user: true, question: true },
       })
+      
+      // Update user onboarding status to in_progress if rejected
+      await ctx.prisma.user.update({
+        where: { id: updated.userId },
+        data: { onboardingStatus: "in_progress" },
+      })
+      
+      await createAuditLog({
+        tenantId: ctx.tenantId!,
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.ONBOARDING_RESPONSE,
+        entityId: updated.id,
+        description: `Rejected onboarding response for ${updated.user.name}`,
+        metadata: { 
+          questionId: updated.questionId,
+          reason: input.adminNotes 
+        },
+      })
+      
+      return updated
     }),
 
 

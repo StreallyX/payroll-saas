@@ -26,11 +26,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file type (PDF only for contracts)
+    // Get upload type (contracts, onboarding, etc.)
+    const uploadType = formData.get("type") as string || "contracts";
+    
+    // Validate file type based on upload type
     const fileType = file.type;
-    if (fileType !== "application/pdf") {
+    const allowedTypes = uploadType === "onboarding" 
+      ? ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/gif", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+      : ["application/pdf"];
+    
+    if (!allowedTypes.includes(fileType)) {
       return NextResponse.json(
-        { error: "Seuls les fichiers PDF sont autorisés" },
+        { error: `Type de fichier non autorisé. Types acceptés: ${allowedTypes.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: "Le fichier est trop volumineux (max 10MB)" },
         { status: 400 }
       );
     }
@@ -41,7 +57,7 @@ export async function POST(req: NextRequest) {
     // Generate S3 key with timestamp and original filename
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const s3Key = `uploads/contracts/${timestamp}-${sanitizedFileName}`;
+    const s3Key = `uploads/${uploadType}/${timestamp}-${sanitizedFileName}`;
 
     // Upload to S3
     const cloud_storage_path = await uploadFile(buffer, s3Key);

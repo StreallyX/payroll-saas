@@ -1712,6 +1712,10 @@ model OnboardingQuestion {
   questionType         String
   isRequired           Boolean  @default(true)
   order                Int
+  
+  // 🔥 NEW: Country-specific optionality
+  optionalForCountries String[] @default([]) // Array of country IDs where this question is optional
+  
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
