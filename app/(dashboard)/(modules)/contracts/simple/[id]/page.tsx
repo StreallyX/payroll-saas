@@ -11,24 +11,24 @@ import { useSession } from "next-auth/react";
 
 
 /**
- * Page de détails d'un contrat simplifié
+ * Simplified contract details page
  * 
  * URL: /contracts/simple/[id]
  * 
- * Affiche:
- * - Toutes les informations du contrat
- * - Le document PDF
- * - Les participants
- * - La timeline du workflow
- * - Les contrats liés (parent ou enfants)
- * - Les actions disponibles selon le statut
+ * Displays:
+ * - All contract information
+ * - PDF document
+ * - Participants
+ * - Workflow timeline
+ * - Related contracts (parent or children)
+ * - Available actions based on status
  */
 export default function SimpleContractDetailPage() {
   const params = useParams();
   const router = useRouter();
   const contractId = params.id as string;
 
-  // Query du contrat
+  // Query contract
   const { data: contract, isLoading, error, refetch } = api.simpleContract.getSimpleContractById.useQuery(
     { id: contractId },
     {
@@ -37,22 +37,22 @@ export default function SimpleContractDetailPage() {
     }
   );
 
-  // Récupère la session
+  // Get session
   const { data: session } = useSession();
   const user = session?.user;
 
-  // Récupère les permissions du user
+  // Get user permissions
   const userPermissions: string[] = user?.permissions || [];
   const userId = user?.id;
 
-  // Détermine si le user est creator ou participant actif
+  // Determine if user is creator or active participant
   const isCreator = contract?.createdBy === userId;
 
   const isParticipant = contract?.participants?.some(
     (p) => p.user?.id === userId
   );
 
-  // Permissions OWN
+  // OWN permissions
   const canUpdateOwn =
     userPermissions.includes("contract.update.own") &&
     (isCreator || isParticipant);
@@ -66,7 +66,7 @@ export default function SimpleContractDetailPage() {
   const canDeleteGlobal =
     userPermissions.includes("contract.delete.global");
 
-  // Final: permissions envoyées au composant
+  // Final: permissions sent to component
   const permissions = {
     canUpdate: canUpdateOwn || canUpdateGlobal,
     canApprove: canApproveGlobal,
@@ -79,7 +79,7 @@ export default function SimpleContractDetailPage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">Chargement du contrat...</p>
+          <p className="text-muted-foreground">Loading contract...</p>
         </div>
       </div>
     );
@@ -93,16 +93,16 @@ export default function SimpleContractDetailPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="space-y-4">
             <p>
-              {error?.message || "Contrat introuvable"}
+              {error?.message || "Contract not found"}
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" asChild>
                 <Link href="/contracts/simple">
-                  Retour à la liste
+                  Back to list
                 </Link>
               </Button>
               <Button variant="outline" size="sm" onClick={() => refetch()}>
-                Réessayer
+                Retry
               </Button>
             </div>
           </AlertDescription>

@@ -1,12 +1,12 @@
 /**
- * Router tRPC pour le système simplifié de contrats MSA/SOW
+ * tRPC Router for simplified MSA/SOW contract system
  * 
- * Ce router implémente un workflow simplifié de création et gestion de contrats :
- * - Création MSA/SOW avec upload PDF en une seule étape
+ * This router implements a simplified contract creation and management workflow:
+ * - MSA/SOW creation with PDF upload in a single step
  * - Workflow: draft → pending_admin_review → completed → active
- * - Gestion minimale des participants (auto-création)
- * - Upload de versions signées
- * - Listing avec filtres optimisés
+ * - Minimal participant management (auto-creation)
+ * - Signed version upload
+ * - Optimized listing with filters
  * 
  * @author Payroll SaaS Team
  * @date 2024-11-28
@@ -137,7 +137,7 @@ export const simpleContractRouter = createTRPCRouter({
             workflowStatus: "draft",
             createdBy: ctx.session!.user.id,
             assignedTo: ctx.session!.user.id,
-            description: `MSA créé automatiquement depuis ${fileName}`,
+            description: `MSA automatically created from ${fileName}`,
             startDate: new Date(),
           },
         });
@@ -304,7 +304,7 @@ export const simpleContractRouter = createTRPCRouter({
           currencyId: parentMSA.currencyId,
           contractCountryId: parentMSA.contractCountryId,
 
-          description: `SOW créé automatiquement depuis ${fileName}, lié au MSA "${parentMSA.title}"`,
+          description: `SOW automatically created from ${fileName}, linked to MSA "${parentMSA.title}"`,
           startDate: new Date(),
         },
       });
@@ -460,7 +460,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!isCreator && !isParticipant) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas accès à ce contrat",
+            message: "You don't have access to this contract",
           });
         }
       }
@@ -479,7 +479,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (!isDraft(contract)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Seuls les contrats en draft peuvent être soumis pour review",
+          message: "Only draft contracts can be submitted for review",
         });
       }
 
@@ -606,7 +606,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (contract.status !== "pending_admin_review") {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Seuls les contrats en review peuvent être approuvés",
+            message: "Only contracts under review can be approved",
           });
         }
 
@@ -643,9 +643,9 @@ export const simpleContractRouter = createTRPCRouter({
               contractId: contract.id,
               recipientId: contract.createdBy,                     // ✔ correct
               type: "approved",                                    // ✔ correct
-              title: "Contrat approuvé",                           // ✔ correct
-              message: `Votre contrat "${contract.title}" a été approuvé par l'admin`,
-              // sentAt est automatique
+              title: "Contract approved",                           // ✔ correct
+              message: `Your contract "${contract.title}" has been approved by the admin`,
+              // sentAt is automatic
             },
           });
         }
@@ -732,7 +732,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (contract.status !== "pending_admin_review") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Seuls les contrats en review peuvent être rejetés",
+          message: "Only contracts under review can be rejected",
         });
       }
 
@@ -757,8 +757,8 @@ export const simpleContractRouter = createTRPCRouter({
             contractId: contract.id,
             recipientId: contract.createdBy,
             type: "rejected",
-            title: "Contrat rejeté",
-            message: `Votre contrat "${contract.title}" a été rejeté: ${reason}`,
+            title: "Contract rejected",
+            message: `Your contract "${contract.title}" has been rejected: ${reason}`,
           },
         });
       }

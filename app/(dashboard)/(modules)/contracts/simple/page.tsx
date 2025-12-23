@@ -16,23 +16,23 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useSession } from "next-auth/react";
 
 /**
- * Page de liste des contrats simplifiés (MSA/SOW/NORM)
+ * Simplified contracts list page (MSA/SOW/NORM)
  * 
- * Fonctionnalités:
- * - Liste paginée des contrats
- * - Filtres (type, statut, recherche)
- * - Création de MSA
- * - Création de SOW
- * - Création de NORM
+ * Features:
+ * - Paginated contract list
+ * - Filters (type, status, search)
+ * - MSA creation
+ * - SOW creation
+ * - NORM creation
  */
 export default function SimpleContractsPage() {
-  // États des filtres
+  // Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "msa" | "sow" | "norm">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "pending_admin_review" | "completed" | "active">("all");
   const [page, setPage] = useState(1);
 
-  // États des modals
+  // Modal states
   const [showCreateMSA, setShowCreateMSA] = useState(false);
   const [showCreateSOW, setShowCreateSOW] = useState(false);
   const [showCreateNorm, setShowCreateNorm] = useState(false);
@@ -43,16 +43,16 @@ export default function SimpleContractsPage() {
 
   const userPermissions: string[] = user?.permissions || [];
 
-  // Vérifier si user a droit de créer un MSA, un SOW, ou un NORM
+  // Check if user has permission to create MSA, SOW, or NORM
   const canCreateMSA = userPermissions.includes("contract_msa.create.global");
   const canCreateSOW = userPermissions.includes("contract_sow.create.global");
   const canCreateNorm = userPermissions.includes("contract.create.global");
 
 
-  // Debounce de la recherche
+  // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 500);
 
-  // Query des contrats
+  // Query contracts
   const { data, isLoading, refetch } = api.simpleContract.listSimpleContracts.useQuery({
     type: typeFilter,
     status: statusFilter,
@@ -65,7 +65,7 @@ export default function SimpleContractsPage() {
   const pagination = data?.pagination;
 
   /**
-   * Change la page
+   * Change page
    */
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -77,44 +77,44 @@ export default function SimpleContractsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Contrats simplifiés</h1>
+          <h1 className="text-3xl font-bold">Simplified Contracts</h1>
           <p className="text-muted-foreground mt-1">
-            Gérez vos MSA, SOW et NORM de manière simplifiée
+            Manage your MSA, SOW and NORM in a simplified way
           </p>
         </div>
         <div className="flex items-center gap-2">
           {canCreateMSA && (
             <Button onClick={() => setShowCreateMSA(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Créer un MSA
+              Create MSA
             </Button>
           )}
 
           {canCreateSOW && (
             <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Créer un SOW
+              Create SOW
             </Button>
           )}
 
           {canCreateNorm && (
             <Button variant="outline" onClick={() => setShowCreateNorm(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Créer un NORM
+              Create NORM
             </Button>
           )}
         </div>
       </div>
 
-      {/* Filtres */}
+      {/* Filters */}
       <Card className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Recherche */}
+          {/* Search */}
           <div className="md:col-span-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un contrat..."
+                placeholder="Search for a contract..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -122,7 +122,7 @@ export default function SimpleContractsPage() {
             </div>
           </div>
 
-          {/* Filtre par type */}
+          {/* Filter by type */}
           <Select value={typeFilter} onValueChange={(value: any) => {
             setTypeFilter(value);
             setPage(1);
@@ -131,14 +131,14 @@ export default function SimpleContractsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les types</SelectItem>
-              <SelectItem value="msa">MSA uniquement</SelectItem>
-              <SelectItem value="sow">SOW uniquement</SelectItem>
-              <SelectItem value="norm">NORM uniquement</SelectItem>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="msa">MSA only</SelectItem>
+              <SelectItem value="sow">SOW only</SelectItem>
+              <SelectItem value="norm">NORM only</SelectItem>
             </SelectContent>
           </Select>
 
-          {/* Filtre par statut */}
+          {/* Filter by status */}
           <Select value={statusFilter} onValueChange={(value: any) => {
             setStatusFilter(value);
             setPage(1);
@@ -147,17 +147,17 @@ export default function SimpleContractsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="draft">Brouillon</SelectItem>
-              <SelectItem value="pending_admin_review">En attente de validation</SelectItem>
-              <SelectItem value="completed">Complété</SelectItem>
-              <SelectItem value="active">Actif</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="pending_admin_review">Pending validation</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </Card>
 
-      {/* Liste des contrats */}
+      {/* Contract list */}
       {isLoading ? (
         // Skeleton loading
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -176,30 +176,30 @@ export default function SimpleContractsPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
               <Filter className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Aucun contrat trouvé</h3>
+            <h3 className="text-lg font-semibold mb-2">No contracts found</h3>
             <p className="text-muted-foreground mb-4">
               {debouncedSearch || typeFilter !== "all" || statusFilter !== "all"
-                ? "Essayez de modifier vos filtres de recherche"
-                : "Commencez par créer votre premier MSA, SOW ou NORM"}
+                ? "Try modifying your search filters"
+                : "Start by creating your first MSA, SOW or NORM"}
             </p>
             {!debouncedSearch && typeFilter === "all" && statusFilter === "all" && (
               <div className="flex items-center justify-center gap-2">
                 {canCreateMSA && (
                   <Button onClick={() => setShowCreateMSA(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Créer un MSA
+                    Create MSA
                   </Button>
                 )}
                 {canCreateSOW && (
                   <Button variant="outline" onClick={() => setShowCreateSOW(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Créer un SOW
+                    Create SOW
                   </Button>
                 )}
                 {canCreateNorm && (
                   <Button variant="outline" onClick={() => setShowCreateNorm(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Créer un NORM
+                    Create NORM
                   </Button>
                 )}
               </div>
@@ -207,7 +207,7 @@ export default function SimpleContractsPage() {
           </div>
         </Card>
       ) : (
-        // Liste des contrats
+        // Contract list
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {contracts.map((contract) => (
@@ -223,7 +223,7 @@ export default function SimpleContractsPage() {
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between border-t pt-4">
               <p className="text-sm text-muted-foreground">
-                Page {pagination.page} sur {pagination.totalPages} • {pagination.total} contrat{pagination.total > 1 ? "s" : ""} au total
+                Page {pagination.page} of {pagination.totalPages} • {pagination.total} contract{pagination.total > 1 ? "s" : ""} total
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -232,7 +232,7 @@ export default function SimpleContractsPage() {
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1}
                 >
-                  Précédent
+                  Previous
                 </Button>
                 <Button
                   variant="outline"
@@ -240,7 +240,7 @@ export default function SimpleContractsPage() {
                   onClick={() => handlePageChange(page + 1)}
                   disabled={!pagination.hasMore}
                 >
-                  Suivant
+                  Next
                 </Button>
               </div>
             </div>

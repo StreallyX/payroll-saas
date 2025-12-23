@@ -14,7 +14,7 @@ import { PaymentModel } from "@/lib/constants/payment-models"
 // PERMISSIONS MAP
 // =======================================================
 const P = {
-  // SOW (contrats opérationnels)
+  // SOW (operational contracts)
   CONTRACT: {
     LIST_GLOBAL:   "contract.list.global",
     READ_OWN:      "contract.read.own",
@@ -29,7 +29,7 @@ const P = {
     EXPORT_GLOBAL: "contract.export.global",
     PARTICIPANT_GLOBAL: "contract_participant.manage.global",
   },
-  // MSA (cadres)
+  // MSA (framework agreements)
   MSA: {
     LIST_GLOBAL:   "contract_msa.list.global",
     CREATE_GLOBAL: "contract_msa.create.global",
@@ -631,7 +631,7 @@ export const contractRouter = createTRPCRouter({
       return updated
     }),
 
-  // 2) SIGN (OWN) → le signataire signe son propre contrat
+  // 2) SIGN (OWN) → the signer signs their own contract
   signOwn: tenantProcedure
     .use(hasPermission(P.CONTRACT.SIGN_OWN))
     .input(z.object({ id: z.string(), signatureUrl: z.string().url().optional() }))
@@ -641,7 +641,7 @@ export const contractRouter = createTRPCRouter({
 
       const updated = await ctx.prisma.contract.update({
         where: { id: input.id },
-        data: { signedAt: new Date() }, // simple marqueur; ta vraie logique de signature peut être plus fine
+        data: { signedAt: new Date() }, // simple marker; your actual signature logic can be more sophisticated
       })
 
       await createAuditLog({
@@ -658,7 +658,7 @@ export const contractRouter = createTRPCRouter({
       return updated
     }),
 
-  // 3) APPROVE (GLOBAL) → active le contrat
+  // 3) APPROVE (GLOBAL) → activates the contract
   approve: tenantProcedure
     .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
     .input(idSchema)
