@@ -173,7 +173,7 @@ export function InvoiceDetailModal({
                     <p className="font-medium text-lg">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: data.currency || "USD",
+                        currency: data.contract?.currency?.code || "USD",
                       }).format(Number(data.totalAmount))}
                     </p>
                   </div>
@@ -203,7 +203,7 @@ export function InvoiceDetailModal({
                         <p className="font-medium">
                           {new Intl.NumberFormat("en-US", {
                             style: "currency",
-                            currency: data.currency || "USD",
+                            currency: data.contract?.currency?.code || "USD",
                           }).format(Number(item.amount))}
                         </p>
                       </div>

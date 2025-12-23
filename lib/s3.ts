@@ -1,3 +1,21 @@
+/**
+ * SERVER-ONLY MODULE
+ * 
+ * This module uses AWS SDK and must ONLY be imported in server-side code:
+ * - API routes (app/api routes)
+ * - Server Actions
+ * - TRPC procedures
+ * - Server Components (with proper "use server" directive)
+ * 
+ * DO NOT import this module in client components or pages marked with "use client".
+ * 
+ * For client-side file operations, use the API routes:
+ * - File viewing: /api/files/view
+ * - File upload: /api/upload
+ * 
+ * This ensures proper separation of concerns and maintains security boundaries.
+ */
+
 import {
   PutObjectCommand,
   GetObjectCommand,
@@ -58,20 +76,111 @@ export async function uploadFile(
 }
 
 /**
+ * Detect content type from file extension
+ */
+function getContentTypeFromKey(key: string): string {
+  const ext = key.split('.').pop()?.toLowerCase() || '';
+  
+  const contentTypes: Record<string, string> = {
+    // Images
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    
+    // Documents
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    
+    // Text
+    'txt': 'text/plain',
+    'csv': 'text/csv',
+    
+    // Archives
+    'zip': 'application/zip',
+    'rar': 'application/x-rar-compressed',
+  };
+  
+  return contentTypes[ext] || 'application/octet-stream';
+}
+
+/**
+ * Determine if file should be displayed inline or downloaded
+ */
+function shouldDisplayInline(contentType: string): boolean {
+  const inlineTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'application/pdf',
+    'text/plain',
+  ];
+  
+  return inlineTypes.includes(contentType);
+}
+
+/**
  * Generate a signed URL to download or view a file.
  */
 export async function downloadFile(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  console.log("=== DOWNLOAD FILE (S3) START ===");
+  console.log("1. Input key:", key);
+  console.log("2. Bucket name:", bucketName);
+  console.log("3. Folder prefix:", folderPrefix);
+  
+  // Check if key needs the folderPrefix added
+  const finalKey = buildKey(key);
+  console.log("4. Final key after buildKey:", finalKey);
+  
+  const contentType = getContentTypeFromKey(finalKey);
+  console.log("5. Detected content type:", contentType);
+  
+  const inline = shouldDisplayInline(contentType);
+  console.log("6. Display inline:", inline);
+  
+  const fileName = finalKey.split('/').pop() || 'download';
+  console.log("7. File name:", fileName);
+  
   const command = new GetObjectCommand({
     Bucket: bucketName,
-    Key: key,
-    ResponseContentDisposition: "inline",       // 🔥 IMPORTANT
-    ResponseContentType: "application/pdf",     // 🔥 Évite les téléchargements
+    Key: finalKey,
+    ResponseContentDisposition: inline 
+      ? "inline" 
+      : `attachment; filename="${fileName}"`,
+    ResponseContentType: contentType,
+  });
+  
+  console.log("8. Command created:", {
+    Bucket: bucketName,
+    Key: finalKey,
+    ContentType: contentType,
+    Disposition: inline ? "inline" : `attachment; filename="${fileName}"`
   });
 
-  return getSignedUrl(s3Client, command, { expiresIn });
+  console.log("9. Generating signed URL...");
+  try {
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
+    console.log("10. Signed URL generated successfully");
+    console.log("11. URL preview:", signedUrl.substring(0, 100) + "...");
+    console.log("=== DOWNLOAD FILE (S3) END ===");
+    return signedUrl;
+  } catch (error) {
+    console.error("=== ERROR IN DOWNLOAD FILE (S3) ===");
+    console.error("Error:", error);
+    throw error;
+  }
 }
 
 /**
@@ -137,13 +246,17 @@ export async function getSignedUrlForKey(
   expiresIn = 3600,
   download = false
 ): Promise<string> {
+  const contentType = getContentTypeFromKey(key);
+  const inline = shouldDisplayInline(contentType);
+  const fileName = key.split('/').pop() || 'download';
+  
   const command = new GetObjectCommand({
     Bucket: bucketName,
     Key: key,
     ResponseContentDisposition: download
-      ? `attachment; filename="${key.split('/').pop()}"`
-      : "inline",
-    ResponseContentType: "application/pdf",
+      ? `attachment; filename="${fileName}"`
+      : (inline ? "inline" : `attachment; filename="${fileName}"`),
+    ResponseContentType: contentType,
   });
 
   return getSignedUrl(s3Client, command, { expiresIn });

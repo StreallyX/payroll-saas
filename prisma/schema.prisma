@@ -27,68 +27,66 @@ datasource db {
 /// Table Role - Rôles dynamiques avec hiérarchie
 /// Exemples: SUPER_ADMIN, ADMIN, CONTRACTOR, CLIENT, AGENCY_OWNER, PAYROLL_PARTNER, ACCOUNTANT
 model Role {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   tenantId    String
   name        String
   displayName String
-  description String?  @db.Text
+  description String? @db.Text
 
-  level       Int      @default(0)
+  level Int @default(0)
 
-  homePath    String   @default("/dashboard")
-  color       String?  @default("#3b82f6")
-  icon        String?  @default("user")
+  homePath String  @default("/dashboard")
+  color    String? @default("#3b82f6")
+  icon     String? @default("user")
 
-  isActive    Boolean  @default(true)
-  isSystem    Boolean  @default(false)
+  isActive Boolean @default(true)
+  isSystem Boolean @default(false)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // 🔥 NOUVEAU : l'utilisateur qui a créé ce rôle (pour OWN scopes)
-  createdBy   String?
-  creator     User?    @relation("RoleCreatedBy", fields: [createdBy], references: [id])
+  createdBy String?
+  creator   User?   @relation("RoleCreatedBy", fields: [createdBy], references: [id])
 
   // Relations
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users User[] @relation("RoleUsers")
+  users           User[]           @relation("RoleUsers")
   rolePermissions RolePermission[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
   @@index([isActive])
   @@index([level])
-  @@index([createdBy])     // 🔥 important pour role.own lookups
-
+  @@index([createdBy]) // 🔥 important pour role.own lookups
   @@map("roles")
 }
 
-
 /// Table Permission - Permissions granulaires avec resource + action
 model Permission {
-  id          String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Structure resource.action
-  resource    String   // Ex: "contract", "invoice", "user", "payment"
-  action      String   // Ex: "create", "read", "update", "delete", "approve", "export"
-  
+  resource String // Ex: "contract", "invoice", "user", "payment"
+  action   String // Ex: "create", "read", "update", "delete", "approve", "export"
+
   // Clé unique combinée (ex: "contract.create")
-  key         String   @unique
-  
+  key String @unique
+
   // Métadonnées
-  displayName String   // Ex: "Créer un contrat"
-  description String?  @db.Text
-  category    String?  // Ex: "Gestion", "Finance", "Administration"
-  
+  displayName String // Ex: "Créer un contrat"
+  description String? @db.Text
+  category    String? // Ex: "Gestion", "Finance", "Administration"
+
   // Scope pour permissions contextuelles
-  scope       String   @default("global") // "global", "own", "team", "tenant"
-  
+  scope String @default("global") // "global", "own", "team", "tenant"
+
   // Status
-  isActive    Boolean  @default(true)
-  isSystem    Boolean  @default(false)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive Boolean @default(true)
+  isSystem Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   rolePermissions RolePermission[]
@@ -105,11 +103,11 @@ model Permission {
 model RolePermission {
   roleId       String
   permissionId String
-  
+
   // Conditions additionnelles (optionnel)
-  conditions   Json? // Ex: { "maxAmount": 10000, "requiresApproval": true }
-  
-  createdAt    DateTime @default(now())
+  conditions Json? // Ex: { "maxAmount": 10000, "requiresApproval": true }
+
+  createdAt DateTime @default(now())
 
   // Relations
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -128,43 +126,43 @@ model Tenant {
   id      String  @id @default(cuid())
   name    String
   logoUrl String?
-  
+
   // Branding
-  primaryColor        String?  @default("#3b82f6")
-  accentColor         String?  @default("#10b981")
-  backgroundColor     String?  @default("#f8fafc")
-  sidebarBgColor      String?  @default("#ffff")
-  sidebarTextColor    String?  @default("#111827")
-  headerBgColor       String?  @default("#ffff")
-  headerTextColor     String?  @default("#111827")
-  customFont          String?  @default("Inter")
-  
+  primaryColor     String? @default("#3b82f6")
+  accentColor      String? @default("#10b981")
+  backgroundColor  String? @default("#f8fafc")
+  sidebarBgColor   String? @default("#ffff")
+  sidebarTextColor String? @default("#111827")
+  headerBgColor    String? @default("#ffff")
+  headerTextColor  String? @default("#111827")
+  customFont       String? @default("Inter")
+
   // Domain & Email
-  customEmailDomain     String?
-  emailDomainVerified   Boolean  @default(false)
-  subdomain             String?  @unique
-  customDomain          String?  @unique
-  customDomainVerified  Boolean  @default(false)
-  sslCertificateStatus  String?  // pending, active, expired, failed
-  sslCertificateExpiry  DateTime?
-  
+  customEmailDomain    String?
+  emailDomainVerified  Boolean   @default(false)
+  subdomain            String?   @unique
+  customDomain         String?   @unique
+  customDomainVerified Boolean   @default(false)
+  sslCertificateStatus String? // pending, active, expired, failed
+  sslCertificateExpiry DateTime?
+
   // Subscription
-  subscriptionPlan      String   @default("free") // free, starter, professional, enterprise
-  subscriptionStatus    String   @default("active") // active, trial, suspended, cancelled
-  subscriptionStartDate DateTime @default(now())
+  subscriptionPlan      String    @default("free") // free, starter, professional, enterprise
+  subscriptionStatus    String    @default("active") // active, trial, suspended, cancelled
+  subscriptionStartDate DateTime  @default(now())
   subscriptionEndDate   DateTime?
-  
+
   // Usage & Limits
-  currentStorageUsed    BigInt   @default(0)
-  usageMetrics          Json?    // { apiCalls: 0, emailsSent: 0, invoicesCreated: 0 }
-  
+  currentStorageUsed BigInt @default(0)
+  usageMetrics       Json? // { apiCalls: 0, emailsSent: 0, invoicesCreated: 0 }
+
   // Localization
   timezone        String @default("UTC")
   defaultLanguage String @default("en")
   defaultCurrency String @default("USD")
   dateFormat      String @default("MM/DD/YYYY")
   timeFormat      String @default("12h")
-  
+
   // White-label
   loginPageConfig      Json?
   navigationConfig     Json?
@@ -172,153 +170,176 @@ model Tenant {
   termsVersion         String? @default("1.0")
   privacyPolicy        String? @db.Text
   privacyPolicyVersion String? @default("1.0")
-  
+
   // Onboarding
   onboardingCompleted Boolean @default(false)
   onboardingStep      Int     @default(1)
   onboardingData      Json?
-  
+
   // Status
   isActive Boolean @default(true)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  roles                    Role[]
-  users                    User[]
-  companies                Company[]
-  contracts                Contract[]
-  invoices                 Invoice[]
-  banks                    Bank[]
-  documentTypes            DocumentType[]
-  leads                    Lead[]
-  tasks                    Task[]
-  onboardingTemplates      OnboardingTemplate[]
-  payslips                 Payslip[]
-  auditLogs                AuditLog[]
-  webhookSubscriptions     WebhookSubscription[]
-  payments                 Payment[]
-  paymentMethods           PaymentMethod[]
-  expenses                 Expense[]
-  timesheets               Timesheet[]
-  approvalWorkflows        ApprovalWorkflow[]
-  documents                Document[]
-  tags                     Tag[]
-  tagAssignments           TagAssignment[]
-  customFields             CustomField[]
-  customFieldValues        CustomFieldValue[]
-  userActivities           UserActivity[]
-  apiKeys                  ApiKey[]
-  remittances              Remittance[]
-  referrals                Referral[]
-  featureFlags             TenantFeatureFlag[]
-  quotas                   TenantQuota?
-  emailTemplates           EmailTemplate[]
-  pdfTemplates             PDFTemplate[]
-  securitySettings         TenantSecuritySettings?
-  dataExports              DataExport[]
-  onboardingResponses      OnboardingResponse[]
-  entityStateHistory       EntityStateHistory[]   // 🔥 NEW
-  workflowTemplates        WorkflowTemplate[]     // 🔥 NEW
-  workflowSettings         TenantWorkflowSettings? // 🔥 NEW
+  roles                Role[]
+  users                User[]
+  companies            Company[]
+  contracts            Contract[]
+  invoices             Invoice[]
+  banks                Bank[]
+  documentTypes        DocumentType[]
+  leads                Lead[]
+  tasks                Task[]
+  onboardingTemplates  OnboardingTemplate[]
+  payslips             Payslip[]
+  auditLogs            AuditLog[]
+  webhookSubscriptions WebhookSubscription[]
+  payments             Payment[]
+  paymentMethods       PaymentMethod[]
+  expenses             Expense[]
+  timesheets           Timesheet[]
+  approvalWorkflows    ApprovalWorkflow[]
+  documents            Document[]
+  tags                 Tag[]
+  tagAssignments       TagAssignment[]
+  customFields         CustomField[]
+  customFieldValues    CustomFieldValue[]
+  userActivities       UserActivity[]
+  apiKeys              ApiKey[]
+  remittances          Remittance[]
+  referrals            Referral[]
+  featureFlags         TenantFeatureFlag[]
+  quotas               TenantQuota?
+  emailTemplates       EmailTemplate[]
+  pdfTemplates         PDFTemplate[]
+  securitySettings     TenantSecuritySettings?
+  dataExports          DataExport[]
+  onboardingResponses  OnboardingResponse[]
+  entityStateHistory   EntityStateHistory[] // 🔥 NEW
+  workflowTemplates    WorkflowTemplate[] // 🔥 NEW
+  workflowSettings     TenantWorkflowSettings? // 🔥 NEW
+  delegatedAccess      DelegatedAccess[] // 🔥 NEW
+  featureRequests      FeatureRequest[] // Feature request system
 
   @@map("tenants")
 }
 
 model User {
-  id                 String   @id @default(cuid())
+  id                 String  @id @default(cuid())
   tenantId           String
   email              String
   passwordHash       String
-  mustChangePassword Boolean  @default(true)
-  
-  roleId             String
+  mustChangePassword Boolean @default(true)
 
-  name               String?
-  profilePictureUrl  String?
-  phone              String?
-  alternatePhone     String?
-  dateOfBirth        DateTime?
-  timezone           String?  @default("UTC")
-  language           String?  @default("en")
+  roleId String
+
+  name              String?
+  profilePictureUrl String?
+  phone             String?
+  alternatePhone    String?
+  dateOfBirth       DateTime?
+  timezone          String?   @default("UTC")
+  language          String?   @default("en")
 
   // 🔥 Ownership (comme Deel)
-  createdBy          String?   // userId
-  createdUsers       User[]     @relation("UserCreatedUsers")
-  createdByUser      User?      @relation("UserCreatedUsers", fields: [createdBy], references: [id])
+  createdBy     String? // userId
+  createdUsers  User[]  @relation("UserCreatedUsers")
+  createdByUser User?   @relation("UserCreatedUsers", fields: [createdBy], references: [id])
 
-  profileData        Json?
+  profileData Json?
 
-  officeBuilding     String?
-  address1           String?
-  address2           String?
-  city               String?
-  countryId          String?
-  state              String?
-  postCode           String?
+  officeBuilding String?
+  address1       String?
+  address2       String?
+  city           String?
+  countryId      String?
+  state          String?
+  postCode       String?
 
-  companyName        String?
-  vatNumber          String?
-  website            String?
+  companyName String?
+  vatNumber   String?
+  website     String?
 
-  invoicingContactName      String?
-  invoicingContactPhone     String?
-  invoicingContactEmail     String?
-  alternateInvoicingEmail   String?
+  invoicingContactName    String?
+  invoicingContactPhone   String?
+  invoicingContactEmail   String?
+  alternateInvoicingEmail String?
 
-  onboardingTemplateId      String?
-  onboardingStatus          String?  @default("pending")
+  onboardingTemplateId String?
+  onboardingStatus     String? @default("pending")
 
-  emailVerified      Boolean   @default(false)
-  lastLoginAt        DateTime?
-  twoFactorEnabled   Boolean   @default(false)
-  twoFactorSecret    String?
-  lastActivityAt     DateTime?
+  emailVerified    Boolean   @default(false)
+  lastLoginAt      DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  lastActivityAt   DateTime?
 
-  preferences        Json?
+  preferences Json?
 
-  isActive           Boolean  @default(true)
-  status             String   @default("active")
+  isActive Boolean @default(true)
+  status   String  @default("active")
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role Role @relation("RoleUsers", fields: [roleId], references: [id])
+  role               Role                @relation("RoleUsers", fields: [roleId], references: [id])
   country            Country?            @relation(fields: [countryId], references: [id])
   onboardingTemplate OnboardingTemplate? @relation(fields: [onboardingTemplateId], references: [id])
-  rolesCreated Role[] @relation("RoleCreatedBy")
+  rolesCreated       Role[]              @relation("RoleCreatedBy")
 
   contractParticipants ContractParticipant[]
-  contractDocuments    ContractDocument[]  @relation("ContractDocumentsUploaded")
+  contractDocuments    ContractDocument[]    @relation("ContractDocumentsUploaded")
   companyUsers         CompanyUser[]
 
-  accounts              Account[]
-  sessions              Session[]
-  passwordResetTokens   PasswordResetToken[]
+  accounts            Account[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
 
-  auditLogs            AuditLog[]
-  activities           UserActivity[]
+  auditLogs  AuditLog[]
+  activities UserActivity[]
 
-  tasksAssignedTo      Task[]           @relation("TasksAssignedTo")
-  tasksAssignedBy      Task[]           @relation("TasksAssignedBy")
+  tasksAssignedTo Task[] @relation("TasksAssignedTo")
+  tasksAssignedBy Task[] @relation("TasksAssignedBy")
 
   notificationPreferences NotificationPreference[]
 
-  apiKeysCreated       ApiKey[]         @relation("ApiKeyCreatedBy")
-  apiKeysRevoked       ApiKey[]         @relation("ApiKeyRevokedBy")
+  apiKeysCreated ApiKey[] @relation("ApiKeyCreatedBy")
+  apiKeysRevoked ApiKey[] @relation("ApiKeyRevokedBy")
 
-  customFieldValues    CustomFieldValue[]
+  customFieldValues CustomFieldValue[]
 
-  payslips             Payslip[]
-  onboardingResponses  OnboardingResponse[]
-  expenses             Expense[]
-  timesheets           Timesheet[]
-  remittances          Remittance[]
-  referralsMade        Referral[]       @relation("ReferralsMade")
-  referralsReceived    Referral[]       @relation("ReferralsReceived")
+  payslips            Payslip[]
+  onboardingResponses OnboardingResponse[]
+  expenses            Expense[]
+  timesheets          Timesheet[]
+  remittancesReceived Remittance[]         @relation("RemittanceRecipient")
+  remittancesSent     Remittance[]         @relation("RemittanceSender")
+  referralsMade       Referral[]           @relation("ReferralsMade")
+  referralsReceived   Referral[]           @relation("ReferralsReceived")
+
+  // 🔥 NEW: Invoice relations
+  invoicesSent             Invoice[] @relation("InvoiceSender")
+  invoicesReceived         Invoice[] @relation("InvoiceReceiver")
+  invoicesAgencyMarkedPaid Invoice[] @relation("InvoiceAgencyMarkedPaidBy")
+  invoicesPaymentReceived  Invoice[] @relation("InvoicePaymentReceivedBy")
+  marginsOverridden        Margin[]  @relation("MarginOverriddenBy")
+
+  // 🔥 NEW: Bank accounts for contractors (for SPLIT payments)
+  banks Bank[] @relation("UserBanks")
+
+  // 🔥 NEW: Delegated access relations
+  delegatedAccessGrantedTo  DelegatedAccess[] @relation("DelegatedAccessGrantedTo")
+  delegatedAccessGrantedFor DelegatedAccess[] @relation("DelegatedAccessGrantedFor")
+  delegatedAccessGrantedBy  DelegatedAccess[] @relation("DelegatedAccessGrantedBy")
+
+  // Feature requests
+  featureRequests          FeatureRequest[] @relation
+  featureRequestsConfirmed FeatureRequest[] @relation("FeatureRequestConfirmedBy")
+  featureRequestsRejected  FeatureRequest[] @relation("FeatureRequestRejectedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -328,28 +349,54 @@ model User {
   @@index([lastLoginAt])
   @@index([createdBy])
   @@index([status])
-
   @@map("users")
 }
 
-model Company {
-  id           String  @id @default(cuid())
-  tenantId     String
-  name         String
-  
-  // Ownership
-  ownerType    String  @default("tenant")
-  ownerId      String?
-  createdBy    String?
+// ====
+// DELEGATED ACCESS
+// ====
+/// Allows users with "own" scope to be granted access to specific other users
+/// Admins can grant users with limited permissions access to see specific users
+model DelegatedAccess {
+  id               String   @id @default(cuid())
+  tenantId         String
+  grantedToUserId  String   // User who receives access
+  grantedForUserId String   // User they can access
+  grantedBy        String   // Admin who granted access
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime? // Optional expiration
 
-  bankId       String?
-  bank         Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grantedToUser    User     @relation("DelegatedAccessGrantedTo", fields: [grantedToUserId], references: [id], onDelete: Cascade)
+  grantedForUser   User     @relation("DelegatedAccessGrantedFor", fields: [grantedForUserId], references: [id], onDelete: Cascade)
+  grantedByUser    User     @relation("DelegatedAccessGrantedBy", fields: [grantedBy], references: [id], onDelete: Cascade)
+
+  @@unique([grantedToUserId, grantedForUserId])
+  @@index([tenantId])
+  @@index([grantedToUserId])
+  @@index([grantedForUserId])
+  @@index([grantedBy])
+  @@map("delegated_access")
+}
+
+model Company {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+
+  // Ownership
+  ownerType String  @default("tenant")
+  ownerId   String?
+  createdBy String?
+
+  bankId String?
+  bank   Bank?   @relation(fields: [bankId], references: [id], onDelete: SetNull)
 
   // Contacts
   contactPerson String?
   contactEmail  String?
   contactPhone  String?
-  
+
   // Address
   officeBuilding String?
   address1       String?
@@ -358,32 +405,30 @@ model Company {
   countryId      String?
   state          String?
   postCode       String?
-  
+
   // Invoicing
-  invoicingContactName     String?
-  invoicingContactPhone    String?
-  invoicingContactEmail    String?
-  alternateInvoicingEmail  String?
-  vatNumber                String?
-  website                  String?
-  
-  status    String @default("active")
-  
+  invoicingContactName    String?
+  invoicingContactPhone   String?
+  invoicingContactEmail   String?
+  alternateInvoicingEmail String?
+  vatNumber               String?
+  website                 String?
+
+  status String @default("active")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  country      Country? @relation(fields: [countryId], references: [id])
-  companyUsers CompanyUser[]
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  country              Country?              @relation(fields: [countryId], references: [id])
+  companyUsers         CompanyUser[]
   contractParticipants ContractParticipant[]
-
 
   @@index([tenantId])
   @@index([createdBy])
-  @@index([bankId])     // 👈 recommandé
+  @@index([bankId]) // 👈 recommandé
   @@map("companies")
 }
-
 
 // 🔥 NEW: Table de jonction pour lier Users et Companies (pour les clients internes)
 model CompanyUser {
@@ -411,11 +456,11 @@ model Contract {
   tenantId String
 
   // 🔥 NEW — MSA / SOW system
-  type      String   @default("sow")   // "msa" | "sow"
-  parentId  String?                    // null si MSA, sinon id du parent MSA
+  type     String  @default("sow") // "msa" | "sow"
+  parentId String? // null si MSA, sinon id du parent MSA
 
-  parent    Contract?   @relation("ContractParent", fields: [parentId], references: [id])
-  children  Contract[]  @relation("ContractParent")
+  parent   Contract?  @relation("ContractParent", fields: [parentId], references: [id])
+  children Contract[] @relation("ContractParent")
 
   createdBy  String?
   assignedTo String?
@@ -425,37 +470,40 @@ model Contract {
   description String? @db.Text
   notes       String? @db.Text
 
-  workflowStatus     String    @default("draft")
-  terminationReason  String?   @db.Text
-  terminatedAt       DateTime?
-  terminatedBy       String?
+  workflowStatus    String    @default("draft")
+  terminationReason String?   @db.Text
+  terminatedAt      DateTime?
+  terminatedBy      String?
 
   rate           Decimal? @db.Decimal(10, 2)
   rateType       String?
   currencyId     String?
   rateCycle      String?
   margin         Decimal? @db.Decimal(10, 2)
-  marginType     String?
+  marginType     String? // Note: Can be migrated to MarginType enum in future
   marginPaidBy   String?
   salaryType     String?
   bankId         String?
   invoiceDueDays Int?
   invoiceDueTerm String?
-  
+
+  // 🔥 NEW: Payment Model (default for this contract)
+  paymentModel PaymentModel? // gross, payroll, payroll_we_pay, split
+
   // ============================
   // NORM Contract Fields
   // ============================
-  payrollUserId      String?     // Pour Payroll et Payroll We Pay
-  contractorSignedAt DateTime?   // Date de signature du contractor
-  userBankIds        String[]    @default([]) // Pour Split mode (plusieurs UserBanks/PaymentMethods)
+  payrollUserId      String? // Pour Payroll et Payroll We Pay
+  contractorSignedAt DateTime? // Date de signature du contractor
+  userBankIds        String[]  @default([]) // Pour Split mode (plusieurs UserBanks/PaymentMethods)
 
-  contractReference  String?   @unique
-  contractCountryId  String?
-  contractVatRate    Decimal?  @db.Decimal(5, 2)
+  contractReference String?  @unique
+  contractCountryId String?
+  contractVatRate   Decimal? @db.Decimal(5, 2)
 
-  startDate  DateTime?
-  endDate    DateTime?
-  signedAt   DateTime?
+  startDate DateTime?
+  endDate   DateTime?
+  signedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -463,38 +511,39 @@ model Contract {
   // ============================
   // MSA: Financial settings
   // ============================
-  feePayer                String?
-  payrollModes            String[]       @default([])
-  extraFees               String[]       @default([])
+  feePayer     String?
+  payrollModes String[] @default([])
+  extraFees    String[] @default([])
 
-  requireDeposit          Boolean?       @default(false)
-  proofOfPayment          Boolean?       @default(false)
-  selfBilling             Boolean?       @default(false)
+  requireDeposit Boolean? @default(false)
+  proofOfPayment Boolean? @default(false)
+  selfBilling    Boolean? @default(false)
 
-  timesheetPolicy         String?
+  timesheetPolicy String?
 
   // ============================
   // MSA: Client portal permissions
   // ============================
-  portalCanViewWorkers        Boolean?   @default(true)
-  portalCanUploadSelfBill     Boolean?   @default(true)
-  portalCanUploadPaymentProof Boolean?   @default(true)
+  portalCanViewWorkers        Boolean? @default(true)
+  portalCanUploadSelfBill     Boolean? @default(true)
+  portalCanUploadPaymentProof Boolean? @default(true)
 
-  tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  currency         Currency? @relation(fields: [currencyId], references: [id])
-  bank             Bank?     @relation(fields: [bankId], references: [id])
-  contractCountry  Country?  @relation(fields: [contractCountryId], references: [id])
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currency        Currency? @relation(fields: [currencyId], references: [id])
+  bank            Bank?     @relation(fields: [bankId], references: [id])
+  contractCountry Country?  @relation(fields: [contractCountryId], references: [id])
 
-  participants     ContractParticipant[]
-  documents        ContractDocument[]
+  participants ContractParticipant[]
+  documents    ContractDocument[]
 
-  invoices         Invoice[]
-  payslips         Payslip[]
-  statusHistory    ContractStatusHistory[]
-  notifications    ContractNotification[]
-  expenses         Expense[]
-  timesheets       Timesheet[]
-  remittances      Remittance[]
+  invoices      Invoice[]
+  payslips      Payslip[]
+  statusHistory ContractStatusHistory[]
+  notifications ContractNotification[]
+  expenses      Expense[]
+  timesheets    Timesheet[]
+  remittances   Remittance[]
+  margins       Margin[] // 🔥 NEW: Margins for this contract
 
   @@index([tenantId])
   @@index([createdBy])
@@ -507,16 +556,16 @@ model Contract {
 }
 
 model ContractParticipant {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   contractId String
   userId     String?
   companyId  String?
 
   // Type de participant
-  role       String
+  role String
 
   // Approbation
-  approved   Boolean   @default(false)
+  approved Boolean @default(false)
 
   // Signature
   requiresSignature Boolean   @default(false)
@@ -524,15 +573,15 @@ model ContractParticipant {
   signatureUrl      String?
 
   // Status
-  isActive   Boolean  @default(true)
-  isPrimary  Boolean  @default(false)
+  isActive  Boolean @default(true)
+  isPrimary Boolean @default(false)
 
   // Dates
-  joinedAt   DateTime @default(now())
-  leftAt     DateTime?
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
@@ -541,51 +590,47 @@ model ContractParticipant {
 
   // UNIQUE — final, le seul valable
   @@unique([contractId, role, userId, companyId])
-
   @@index([contractId])
   @@index([userId])
   @@index([companyId])
   @@index([role])
-
   @@map("contract_participants")
 }
 
 /// Table ContractDocument - Documents partagés entre participants
 /// Permet aux participants d'uploader et partager des documents (factures, pièces d'identité, signatures, etc.)
 model ContractDocument {
-  id          String   @id @default(cuid())
-  contractId  String
-  
+  id         String @id @default(cuid())
+  contractId String
+
   uploadedByUserId String
   documentId       String
-  
-  description String   // Texte libre décrivant le document
-  category    String   // "Contract", "Invoice", "ID Document", "Signature", "Other"
-  notes       String?  @db.Text // Instructions optionnelles (ex: "please sign and return the attached")
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  description String // Texte libre décrivant le document
+  category    String // "Contract", "Invoice", "ID Document", "Signature", "Other"
+  notes       String? @db.Text // Instructions optionnelles (ex: "please sign and return the attached")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
   contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   uploadedBy User     @relation("ContractDocumentsUploaded", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  
+
   @@index([contractId])
   @@index([uploadedByUserId])
   @@index([documentId])
   @@index([category])
-  
   @@map("contract_documents")
 }
-
 
 model ContractStatusHistory {
   id         String   @id @default(cuid())
   contractId String
   fromStatus String?
   toStatus   String
-  changedBy  String   // userId
+  changedBy  String // userId
   changedAt  DateTime @default(now())
   reason     String?  @db.Text
   metadata   Json?
@@ -600,8 +645,8 @@ model ContractStatusHistory {
 model ContractNotification {
   id          String    @id @default(cuid())
   contractId  String
-  recipientId String    // userId
-  type        String    // "signature_request", "renewal_reminder", "termination_notice", "status_change"
+  recipientId String // userId
+  type        String // "signature_request", "renewal_reminder", "termination_notice", "status_change"
   title       String
   message     String    @db.Text
   sentAt      DateTime  @default(now())
@@ -618,19 +663,28 @@ model ContractNotification {
 // INVOICE (Avec ownership)
 // ====
 model Invoice {
-  id            String   @id @default(cuid())
+  id            String  @id @default(cuid())
   tenantId      String
-  contractId    String?  // 🔥 Optionnel - une facture peut ne pas être liée à un contrat
-  timesheetId   String?  @unique
-  invoiceNumber String?  @unique
-  
+  contractId    String? // 🔥 Optionnel - une facture peut ne pas être liée à un contrat
+  timesheetId   String? @unique
+  invoiceNumber String? @unique
+
+  // 🔥 NEW: Parent invoice for self-invoices and self-billing invoices
+  parentInvoiceId String? // Links to parent invoice for workflow-generated invoices
+  parentInvoice   Invoice?  @relation("InvoiceChildren", fields: [parentInvoiceId], references: [id])
+  childInvoices   Invoice[] @relation("InvoiceChildren")
+
   // Ownership
-  createdBy     String?  // userId qui a créé
-  
+  createdBy String? // userId qui a créé
+
+  // 🔥 NEW: Sender and Receiver
+  senderId   String? // userId - the sender of the invoice
+  receiverId String? // userId - the receiver of the invoice
+
   // Status & Workflow
-  status        String   @default("draft") // draft, submitted, under_review, approved, rejected, sent, paid, overdue, cancelled
-  workflowState String   @default("draft") // 🔥 NEW - Formal workflow state
-  
+  status        String @default("draft") // draft, submitted, under_review, approved, rejected, sent, paid, overdue, cancelled
+  workflowState String @default("draft") // 🔥 NEW - Formal workflow state
+
   // Workflow actions
   approvalWorkflowId String? // 🔥 NEW
   approvedBy         String? // 🔥 NEW - userId
@@ -639,56 +693,81 @@ model Invoice {
   rejectedAt         DateTime? // 🔥 NEW
   reviewedBy         String? // 🔥 NEW
   reviewedAt         DateTime? // 🔥 NEW
-  rejectionReason    String? @db.Text // 🔥 NEW
-  changesRequested   String? @db.Text // 🔥 NEW
-  
+  rejectionReason    String?   @db.Text // 🔥 NEW
+  changesRequested   String?   @db.Text // 🔥 NEW
+
   // Financial
-  amount        Decimal  @db.Decimal(10, 2)
-  currency      String   @default("USD")
-  taxAmount     Decimal  @default(0) @db.Decimal(10, 2)
-  totalAmount   Decimal  @default(0) @db.Decimal(10, 2)
-  
+  amount      Decimal @db.Decimal(10, 2)
+  currencyId  String? // 🔥 NEW: Foreign key to Currency table
+  taxAmount   Decimal @default(0) @db.Decimal(10, 2)
+  totalAmount Decimal @default(0) @db.Decimal(10, 2)
+
   // Margin calculations
-  marginAmount       Decimal? @db.Decimal(10, 2) // 🔥 NEW
-  marginPercentage   Decimal? @db.Decimal(5, 2)  // 🔥 NEW
-  marginPaidBy       String?  // 🔥 NEW - client, agency, contractor
-  baseAmount         Decimal? @db.Decimal(10, 2) // 🔥 NEW - amount before margin
-  
+  marginAmount     Decimal? @db.Decimal(10, 2) // 🔥 NEW
+  marginPercentage Decimal? @db.Decimal(5, 2) // 🔥 NEW
+  marginPaidBy     String? // 🔥 NEW - client, agency, contractor
+  baseAmount       Decimal? @db.Decimal(10, 2) // 🔥 NEW - amount before margin
+
   // Admin modifications
   adminModifiedAmount   Decimal? @db.Decimal(10, 2) // 🔥 NEW
-  adminModificationNote String?  @db.Text            // 🔥 NEW
-  modifiedBy            String?                      // 🔥 NEW - userId
-  
+  adminModificationNote String?  @db.Text // 🔥 NEW
+  modifiedBy            String? // 🔥 NEW - userId
+
+  // 🔥 NEW: Payment Model (from contract)
+  paymentModel PaymentModel? // gross, payroll, payroll_we_pay, split
+
+  // 🔥 NEW: Agency payment tracking
+  agencyMarkedPaidAt DateTime? // When agency marked invoice as paid
+  agencyMarkedPaidBy String? // userId who marked as paid
+  amountPaidByAgency Decimal?  @db.Decimal(10, 2) // Amount paid by agency/receiver
+  paymentReceivedAt  DateTime? // When payment was actually received
+  paymentReceivedBy  String? // userId who confirmed receipt
+  amountReceived     Decimal?  @db.Decimal(10, 2) // Amount actually received by admin
+
   // Dates
-  issueDate     DateTime @default(now())
-  dueDate       DateTime @default(now())
-  paidDate      DateTime?
-  sentDate      DateTime?
-  
+  issueDate DateTime  @default(now())
+  dueDate   DateTime  @default(now())
+  paidDate  DateTime?
+  sentDate  DateTime?
+
   // Details
-  description   String?  @db.Text
-  notes         String?  @db.Text
-  
+  description String? @db.Text
+  notes       String? @db.Text
+
   // Legacy
-  invoiceRef    String?
-  paidAt        DateTime?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  invoiceRef String?
+  paidAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contract     Contract?           @relation(fields: [contractId], references: [id])
-  timesheet    Timesheet?          @relation("InvoiceTimesheet", fields: [timesheetId], references: [id]) // 🔥 NEW
-  lineItems    InvoiceLineItem[]
-  payments     Payment[]
-  timesheets   Timesheet[]         @relation("TimesheetInvoices") // Legacy relation (renamed to avoid conflict)
-  stateHistory EntityStateHistory[] @relation("InvoiceStateHistory") // 🔥 NEW
+  tenant                 Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract               Contract?            @relation(fields: [contractId], references: [id])
+  timesheet              Timesheet?           @relation("InvoiceTimesheet", fields: [timesheetId], references: [id]) // 🔥 NEW
+  currencyRelation       Currency?            @relation("InvoiceCurrency", fields: [currencyId], references: [id]) // 🔥 NEW
+  sender                 User?                @relation("InvoiceSender", fields: [senderId], references: [id]) // 🔥 NEW
+  receiver               User?                @relation("InvoiceReceiver", fields: [receiverId], references: [id]) // 🔥 NEW
+  agencyMarkedPaidByUser User?                @relation("InvoiceAgencyMarkedPaidBy", fields: [agencyMarkedPaidBy], references: [id]) // 🔥 NEW
+  paymentReceivedByUser  User?                @relation("InvoicePaymentReceivedBy", fields: [paymentReceivedBy], references: [id]) // 🔥 NEW
+  margin                 Margin? // 🔥 NEW - 1-to-1 relation
+  lineItems              InvoiceLineItem[]
+  documents              InvoiceDocument[]    @relation("InvoiceDocuments") // 🔥 NEW - Invoice documents
+  payments               Payment[]
+  timesheets             Timesheet[]          @relation("TimesheetInvoices") // Legacy relation (renamed to avoid conflict)
+  stateHistory           EntityStateHistory[] @relation("InvoiceStateHistory") // 🔥 NEW
+  remittances            Remittance[] // 🔥 NEW - Payment tracking
 
   @@index([tenantId])
   @@index([contractId])
   @@index([timesheetId]) // 🔥 NEW
+  @@index([currencyId]) // 🔥 NEW
   @@index([createdBy])
+  @@index([senderId]) // 🔥 NEW
+  @@index([receiverId]) // 🔥 NEW
+  @@index([agencyMarkedPaidBy]) // 🔥 NEW
+  @@index([paymentReceivedBy]) // 🔥 NEW
+  @@index([parentInvoiceId]) // 🔥 NEW - For workflow-generated invoices
   @@index([status])
   @@index([workflowState]) // 🔥 NEW
   @@map("invoices")
@@ -708,59 +787,122 @@ model InvoiceLineItem {
   @@map("invoice_line_items")
 }
 
+// 🔥 NEW: Invoice Document Model for storing documents attached to invoices
+model InvoiceDocument {
+  id        String @id @default(cuid())
+  invoiceId String
+
+  fileName String
+  fileUrl  String
+  fileSize Int
+  mimeType String?
+
+  description String? @db.Text
+  category    String  @default("invoice") // invoice, receipt, other
+
+  uploadedAt DateTime @default(now())
+
+  invoice Invoice @relation("InvoiceDocuments", fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_documents")
+}
+
 // ====
-// EXPENSE MANAGEMENT (Avec ownership)
+// MARGIN MANAGEMENT
 // ====
-model Expense {
-  id         String   @id @default(cuid())
-  tenantId   String
-  
-  // 🔥 Ownership - qui a soumis la dépense (un User)
-  submittedBy String  // userId
-  
-  // 🔥 Context - contrat lié (optionnel)
-  contractId  String?
-  
-  // Details
-  title         String
-  description   String?  @db.Text
-  amount        Decimal  @db.Decimal(10, 2)
-  currency      String
-  category      String   // travel, meals, equipment, software, etc.
-  
-  // 🔥 Receipt (optionnel)
-  receiptUrl      String?
-  receiptFileName String?
-  
-  // Dates
-  expenseDate DateTime
-  submittedAt DateTime @default(now())
-  
-  // 🔥 Approval (optionnel)
-  status             String    @default("draft") // draft, submitted, approved, rejected, paid
-  approvalWorkflowId String?
-  approvedBy         String?   // userId (optionnel)
-  approvedAt         DateTime?
-  rejectionReason    String?   @db.Text
-  paidAt             DateTime?
-  
-  // Additional
-  notes    String? @db.Text
-  metadata Json?
-  
+model Margin {
+  id         String @id @default(cuid())
+  invoiceId  String @unique
+  contractId String
+
+  // Margin configuration
+  marginType       MarginType
+  marginPercentage Decimal?   @db.Decimal(5, 2) // For percentage-based margins
+  marginAmount     Decimal?   @db.Decimal(10, 2) // For fixed amount margins
+  calculatedMargin Decimal    @db.Decimal(10, 2) // The final calculated margin value
+
+  // Override tracking
+  isOverridden Boolean   @default(false)
+  overriddenBy String? // userId who made the override
+  overriddenAt DateTime?
+  notes        String?   @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submitter        User               @relation(fields: [submittedBy], references: [id])
-  contract         Contract?          @relation(fields: [contractId], references: [id])
-  approvalWorkflow ApprovalWorkflow?  @relation(fields: [approvalWorkflowId], references: [id])
+  invoice          Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  contract         Contract @relation(fields: [contractId], references: [id])
+  overriddenByUser User?    @relation("MarginOverriddenBy", fields: [overriddenBy], references: [id])
+
+  @@index([invoiceId])
+  @@index([contractId])
+  @@index([overriddenBy])
+  @@map("margins")
+}
+
+// ====
+// EXPENSE MANAGEMENT (Avec ownership)
+// ====
+model Expense {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // 🔥 Ownership - qui a soumis la dépense (un User)
+  submittedBy String // userId
+
+  // 🔥 Context - contrat lié (optionnel)
+  contractId String?
+
+  // 🔥 NEW: Link to timesheet
+  timesheetId String?
+
+  // Details
+  title       String
+  description String? @db.Text
+  amount      Decimal @db.Decimal(10, 2)
+  currency    String
+  category    String // travel, meals, equipment, software, etc.
+
+  // 🔥 Receipt (optionnel) - Link to document
+  documentId      String? // Link to Document table
+  receiptUrl      String? // Legacy field, kept for backward compatibility
+  receiptFileName String? // Legacy field
+
+  // Dates
+  expenseDate DateTime
+  submittedAt DateTime @default(now())
+
+  // 🔥 Approval (optionnel)
+  status             String    @default("draft") // draft, submitted, approved, rejected, paid
+  approvalWorkflowId String?
+  approvedBy         String? // userId (optionnel)
+  approvedAt         DateTime?
+  rejectionReason    String?   @db.Text
+  paidAt             DateTime?
+
+  // Additional
+  notes    String? @db.Text
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submitter        User              @relation(fields: [submittedBy], references: [id])
+  contract         Contract?         @relation(fields: [contractId], references: [id])
+  timesheet        Timesheet?        @relation(fields: [timesheetId], references: [id], onDelete: Cascade) // 🔥 NEW
+  document         Document?         @relation(fields: [documentId], references: [id]) // 🔥 NEW
+  approvalWorkflow ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id])
   payments         Payment[]
 
   @@index([tenantId])
   @@index([submittedBy])
   @@index([contractId])
+  @@index([timesheetId]) // 🔥 NEW
+  @@index([documentId]) // 🔥 NEW
   @@index([status])
   @@map("expenses")
 }
@@ -769,52 +911,59 @@ model Expense {
 // TIME TRACKING (Avec ownership)
 // ====
 model Timesheet {
-  id         String   @id @default(cuid())
-  tenantId   String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   submittedBy String
   contractId  String?
 
   // PERIOD
-  startDate    DateTime
-  endDate      DateTime
-  
+  startDate DateTime
+  endDate   DateTime
+
   // STATUS & WORKFLOW
-  status             String    @default("draft")
-  workflowState      String    @default("draft")
+  status             String            @default("draft")
+  workflowState      String            @default("draft")
   approvalWorkflowId String?
   approvalWorkflow   ApprovalWorkflow? @relation("WorkflowTimesheets", fields: [approvalWorkflowId], references: [id])
 
-  approvedBy        String?
-  approvedAt        DateTime?
-  rejectedBy        String?
-  rejectedAt        DateTime?
-  reviewedBy        String?
-  reviewedAt        DateTime?
-  rejectionReason   String?   @db.Text
-  changesRequested  String?   @db.Text
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  rejectionReason  String?   @db.Text
+  changesRequested String?   @db.Text
 
-  // TOTALS
-  totalHours    Decimal  @db.Decimal(10, 2)
-  totalAmount   Decimal? @db.Decimal(10, 2)
+  // TOTALS & AMOUNT BREAKDOWN
+  // 📊 Amount Calculation Logic:
+  // - baseAmount = work amount (hours × rate)
+  // - marginAmount = calculated margin based on contract settings
+  // - totalExpenses = sum of all expense amounts
+  // - totalAmount = final total (baseAmount + marginAmount + totalExpenses)
+  //
+  // ⚠️ IMPORTANT: 
+  // - totalAmount already includes ALL components (work + margin + expenses)
+  // - UI should display totalAmount directly WITHOUT re-adding components
+  // - Margin is HIDDEN from contractors (only visible to admins)
 
-  // 🔥 FIELDS TO ADD FOR YOUR CALCULATION SYSTEM
-  baseAmount    Decimal? @db.Decimal(10, 2)   // <— required for Deel-style
-  marginAmount  Decimal? @db.Decimal(10, 2)   // <— required
-  currency      String?                      // <— required (USD, EUR, etc.)
+  totalHours    Decimal  @db.Decimal(10, 2) // Total hours worked
+  baseAmount    Decimal? @db.Decimal(10, 2) // Work amount (hours × rate)
+  marginAmount  Decimal? @db.Decimal(10, 2) // Calculated margin (HIDDEN from contractors)
+  totalExpenses Decimal? @default(0) @db.Decimal(10, 2) // Sum of all expenses
+  totalAmount   Decimal? @db.Decimal(10, 2) // Final total (baseAmount + marginAmount + totalExpenses)
+  currency      String? // Currency code (USD, EUR, etc.)
 
   // ADMIN MODIFICATIONS
-  adminModifiedAmount  Decimal? @db.Decimal(10, 2)
-  adminModificationNote String? @db.Text
-  modifiedBy           String?
+  adminModifiedAmount   Decimal? @db.Decimal(10, 2)
+  adminModificationNote String?  @db.Text
+  modifiedBy            String?
 
-  // FILES + NOTES
-  notes            String?   @db.Text
-  timesheetFileUrl String?
-  expenseFileUrl   String?
-  
-  // 🔥 NEW: Total expenses amount
-  totalExpenses    Decimal? @db.Decimal(10, 2) @default(0)
+  // FILES + NOTES (Legacy fields - use TimesheetDocument table instead)
+  notes            String? @db.Text
+  timesheetFileUrl String? // DEPRECATED: Use TimesheetDocument table
+  expenseFileUrl   String? // DEPRECATED: Use TimesheetDocument table
 
   // INVOICE (Legacy field - kept for backward compatibility)
   invoiceId   String?
@@ -824,13 +973,14 @@ model Timesheet {
   updatedAt DateTime @updatedAt
 
   // RELATIONS
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submitter    User      @relation(fields: [submittedBy], references: [id])
-  contract     Contract? @relation(fields: [contractId], references: [id])
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submitter    User                 @relation(fields: [submittedBy], references: [id])
+  contract     Contract?            @relation(fields: [contractId], references: [id])
   entries      TimesheetEntry[]
-  invoice      Invoice?  @relation("TimesheetInvoices", fields: [invoiceId], references: [id]) // Legacy relation (renamed)
-  invoiceLink  Invoice?  @relation("InvoiceTimesheet") // 🔥 NEW: Proper link from Invoice side
+  invoice      Invoice?             @relation("TimesheetInvoices", fields: [invoiceId], references: [id]) // Legacy relation (renamed)
+  invoiceLink  Invoice?             @relation("InvoiceTimesheet") // 🔥 NEW: Proper link from Invoice side
   documents    TimesheetDocument[] // 🔥 NEW: Multiple expense documents
+  expenses     Expense[] // 🔥 NEW: Link to Expense table
   stateHistory EntityStateHistory[] @relation("TimesheetStateHistory")
 
   @@index([tenantId])
@@ -840,7 +990,6 @@ model Timesheet {
   @@index([workflowState])
   @@map("timesheets")
 }
-
 
 model TimesheetEntry {
   id          String   @id @default(cuid())
@@ -853,7 +1002,7 @@ model TimesheetEntry {
   rate        Decimal? @db.Decimal(10, 2)
   amount      Decimal? @db.Decimal(10, 2)
   breakHours  Decimal? @db.Decimal(5, 2)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -865,21 +1014,21 @@ model TimesheetEntry {
 
 // 🔥 NEW: Timesheet Document Model for multiple expense files
 model TimesheetDocument {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   timesheetId String
-  
-  fileName    String
-  fileUrl     String
-  fileSize    Int
-  mimeType    String?
-  
-  description String?  @db.Text
-  category    String   @default("expense") // expense, timesheet, other
-  
-  uploadedAt  DateTime @default(now())
-  
-  timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
-  
+
+  fileName String
+  fileUrl  String
+  fileSize Int
+  mimeType String?
+
+  description String? @db.Text
+  category    String  @default("expense") // expense, timesheet, other
+
+  uploadedAt DateTime @default(now())
+
+  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
   @@index([timesheetId])
   @@map("timesheet_documents")
 }
@@ -888,69 +1037,110 @@ model TimesheetDocument {
 // PAYMENT SYSTEM (Avec ownership)
 // ====
 enum PaymentMethodType {
-  BANK_ACCOUNT
-  CREDIT_CARD
-  DEBIT_CARD
-  PAYPAL
-  STRIPE
-  WISE
-  REVOLUT
-  OTHER
+  bank_account @map("BANK_ACCOUNT")
+  credit_card  @map("CREDIT_CARD")
+  debit_card   @map("DEBIT_CARD")
+  paypal       @map("PAYPAL")
+  stripe       @map("STRIPE")
+  wise         @map("WISE")
+  revolut      @map("REVOLUT")
+  other        @map("OTHER")
+}
+
+enum PaymentModel {
+  gross          @map("GROSS")
+  payroll        @map("PAYROLL")
+  payroll_we_pay @map("PAYROLL_WE_PAY")
+  split          @map("SPLIT")
+}
+
+enum MarginType {
+  fixed      @map("FIXED")
+  variable   @map("VARIABLE")
+  custom     @map("CUSTOM")
+  percentage @map("PERCENTAGE")
+}
+
+enum BankAccountUsage {
+  salary   @map("SALARY")
+  gross    @map("GROSS")
+  expenses @map("EXPENSES")
+  other    @map("OTHER")
+}
+
+enum PaymentType {
+  received @map("RECEIVED")
+  sent     @map("SENT")
+}
+
+enum RecipientType {
+  admin      @map("ADMIN")
+  contractor @map("CONTRACTOR")
+  payroll    @map("PAYROLL")
+  client     @map("CLIENT")
+  agency     @map("AGENCY")
+  other      @map("OTHER")
+}
+
+enum RemittanceStatus {
+  pending   @map("PENDING")
+  completed @map("COMPLETED")
+  failed    @map("FAILED")
 }
 
 model Payment {
-  id         String  @id @default(cuid())
-  tenantId   String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // What is being paid
   invoiceId    String?
   expenseId    String?
   payrollRunId String?
-  
+
   // Ownership
   createdBy String // userId
-  
+
   // Payment details
   amount          Decimal @db.Decimal(12, 2)
   currency        String
-  status          String  // pending, received, partially_received, confirmed, processing, completed, failed, refunded
+  status          String // pending, received, partially_received, confirmed, processing, completed, failed, refunded
   workflowState   String  @default("pending") // 🔥 NEW - Formal workflow state
   paymentMethod   String
   paymentMethodId String?
-  
+
   // Payment tracking
-  amountReceived    Decimal? @db.Decimal(12, 2) // 🔥 NEW - for partial payments
-  receivedBy        String?  // 🔥 NEW - userId who confirmed receipt
-  receivedAt        DateTime? // 🔥 NEW
-  confirmedBy       String?  // 🔥 NEW - userId who confirmed payment
-  confirmedAt       DateTime? // 🔥 NEW
-  
+  amountReceived Decimal?  @db.Decimal(12, 2) // 🔥 NEW - for partial payments
+  receivedBy     String? // 🔥 NEW - userId who confirmed receipt
+  receivedAt     DateTime? // 🔥 NEW
+  confirmedBy    String? // 🔥 NEW - userId who confirmed payment
+  confirmedAt    DateTime? // 🔥 NEW
+
   // Transaction
   transactionId   String?
   referenceNumber String?
-  
+
   // Dates
   scheduledDate DateTime?
   processedDate DateTime?
   completedDate DateTime?
-  
+
   // Additional
   description String? @db.Text
   notes       String? @db.Text
   metadata    Json?
-  
+
   // Failure
   failureReason String? @db.Text
   retryCount    Int     @default(0)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice          Invoice?       @relation(fields: [invoiceId], references: [id])
-  expense          Expense?       @relation(fields: [expenseId], references: [id])
-  paymentMethodRel PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice          Invoice?             @relation(fields: [invoiceId], references: [id])
+  expense          Expense?             @relation(fields: [expenseId], references: [id])
+  paymentMethodRel PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   stateHistory     EntityStateHistory[] @relation("PaymentStateHistory") // 🔥 NEW
 
   @@index([tenantId])
@@ -963,16 +1153,16 @@ model Payment {
 }
 
 model PaymentMethod {
-  id       String            @id @default(cuid())
+  id       String @id @default(cuid())
   tenantId String
-  
+
   // 🔥 Owner (simplifié - toujours un userId maintenant)
-  userId   String
-  
+  userId String
+
   // Method details
   type      PaymentMethodType
   isDefault Boolean           @default(false)
-  
+
   // Bank account
   bankName          String?
   accountHolderName String?
@@ -980,23 +1170,23 @@ model PaymentMethod {
   routingNumber     String? // Should be encrypted
   swiftCode         String?
   iban              String?
-  
+
   // Card
   cardLast4      String?
   cardBrand      String?
   cardExpMonth   Int?
   cardExpYear    Int?
   cardholderName String?
-  
+
   // External gateway
   gatewayType  String?
   gatewayToken String?
-  
+
   // Status
   isActive   Boolean   @default(true)
   isVerified Boolean   @default(false)
   verifiedAt DateTime?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1013,44 +1203,43 @@ model PaymentMethod {
 // APPROVAL WORKFLOWS
 // ====
 model ApprovalWorkflow {
-  id         String @id @default(cuid())
-  tenantId   String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // Entity (polymorphic)
   entityType String // expense, timesheet, contract, etc.
   entityId   String
-  
+
   // Configuration
   workflowType String // single_approver, multi_step, parallel, etc.
-  
+
   // Status
   status           String @default("pending") // pending, in_progress, approved, rejected, cancelled
   currentStepOrder Int    @default(1)
-  
+
   // Final decision
-  finalDecision   String?   // approved, rejected
+  finalDecision   String? // approved, rejected
   finalDecisionAt DateTime?
-  finalDecisionBy String?   // userId
-  
+  finalDecisionBy String? // userId
+
   // Dates
   startedAt   DateTime  @default(now())
   completedAt DateTime?
-  
+
   // Metadata
   metadata Json?
-  
+
   // Ownership
   createdBy String // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   steps      ApprovalStep[]
   expenses   Expense[]
-  timesheets Timesheet[] @relation("WorkflowTimesheets")
-
+  timesheets Timesheet[]    @relation("WorkflowTimesheets")
 
   @@index([tenantId])
   @@index([entityType, entityId])
@@ -1062,23 +1251,23 @@ model ApprovalWorkflow {
 model ApprovalStep {
   id         String @id @default(cuid())
   workflowId String
-  
+
   // Configuration
   stepOrder Int
   stepName  String
-  
+
   // 🔥 Approver (simplifié - toujours un userId)
   approverId String
-  
+
   // Status
   status     String    @default("pending") // pending, approved, rejected, skipped
-  decision   String?   // approve, reject
+  decision   String? // approve, reject
   decisionAt DateTime?
   comments   String?   @db.Text
-  
+
   // Rules
   isRequired Boolean @default(true)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1094,35 +1283,35 @@ model ApprovalStep {
 // DOCUMENT MANAGEMENT
 // ====
 model Document {
-  id        String   @id @default(cuid())
-  tenantId  String
+  id       String @id @default(cuid())
+  tenantId String
 
   entityType String?
   entityId   String?
 
   // File storage
-  s3Key      String
-  fileName   String
-  mimeType   String
-  fileSize   Int
-  fileHash   String?
+  s3Key    String
+  fileName String
+  mimeType String
+  fileSize Int
+  fileHash String?
 
-  fileUrl    String? // signed or cached, optional
+  fileUrl String? // signed or cached, optional
 
   description String? @db.Text
   category    String?
 
   // Versioning
-  version          Int      @default(1)
-  isLatestVersion  Boolean  @default(true)
+  version          Int        @default(1)
+  isLatestVersion  Boolean    @default(true)
   parentDocumentId String?
   parentDocument   Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
   versions         Document[] @relation("DocumentVersions")
 
   visibility String @default("private")
 
-  requiresSignature Boolean  @default(false)
-  isSigned          Boolean  @default(false)
+  requiresSignature Boolean   @default(false)
+  isSigned          Boolean   @default(false)
   signedAt          DateTime?
   signedBy          String?
 
@@ -1134,6 +1323,7 @@ model Document {
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contractDocuments ContractDocument[]
+  expenses          Expense[] // 🔥 NEW: Link to Expense table
 
   @@index([tenantId])
   @@index([entityType, entityId])
@@ -1141,19 +1331,18 @@ model Document {
   @@map("documents")
 }
 
-
 // ====
 // TAGGING SYSTEM
 // ====
 model Tag {
-  id        String @id @default(cuid())
-  tenantId  String
-  name      String
-  color     String? @default("#3b82f6")
-  
+  id       String  @id @default(cuid())
+  tenantId String
+  name     String
+  color    String? @default("#3b82f6")
+
   // Ownership
   createdBy String // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1170,11 +1359,11 @@ model TagAssignment {
   id       String @id @default(cuid())
   tenantId String
   tagId    String
-  
+
   // Entity (polymorphic)
   entityType String // contract, invoice, user, etc.
   entityId   String
-  
+
   createdAt DateTime @default(now())
 
   // Relations
@@ -1191,20 +1380,20 @@ model TagAssignment {
 // CUSTOM FIELDS
 // ====
 model CustomField {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   tenantId   String
-  entityType String  // contract, user, invoice, etc.
+  entityType String // contract, user, invoice, etc.
   fieldName  String
-  fieldType  String  // text, number, date, select, multi_select, boolean
+  fieldType  String // text, number, date, select, multi_select, boolean
   fieldLabel String
-  
+
   // Configuration
   isRequired Boolean @default(false)
-  options    Json?   // For select/multi_select fields
-  
+  options    Json? // For select/multi_select fields
+
   // Ownership
   createdBy String // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1221,17 +1410,17 @@ model CustomFieldValue {
   id            String @id @default(cuid())
   tenantId      String
   customFieldId String
-  
+
   // Entity (polymorphic)
   entityType String
   entityId   String
-  
+
   // Value
   value Json
-  
+
   // Ownership
   createdBy String // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1250,21 +1439,21 @@ model CustomFieldValue {
 // USER ACTIVITY TRACKING
 // ====
 model UserActivity {
-  id         String  @id @default(cuid())
-  tenantId   String
-  userId     String
-  
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
   // Activity
-  action      String  // login, logout, create, update, delete, view, etc.
+  action      String // login, logout, create, update, delete, view, etc.
   entityType  String? // contract, invoice, etc.
   entityId    String?
   description String? @db.Text
   metadata    Json?
-  
+
   // Context
   ipAddress String?
   userAgent String?
-  
+
   createdAt DateTime @default(now())
 
   // Relations
@@ -1282,19 +1471,19 @@ model UserActivity {
 // API KEYS (Version PRO - Enterprise Grade)
 // ====
 model ApiKey {
-  id        String @id @default(cuid())
-  tenantId  String
+  id       String @id @default(cuid())
+  tenantId String
 
   // Ownership
   createdById String
   revokedById String?
-  
+
   // Key details
   name        String
   description String?
 
   key       String @unique // Hashed API key
-  keyPrefix String         // Visible prefix (e.g., "sk_live_abc123")
+  keyPrefix String // Visible prefix (e.g., "sk_live_abc123")
 
   // Access control
   scopes      String[] @default([]) // ex: ["invoices.read", "contracts.write"]
@@ -1302,7 +1491,7 @@ model ApiKey {
 
   // Security
   allowedIPs String[] @default([]) // Whitelist IPs
-  rateLimit  Int?                  // Max req/min
+  rateLimit  Int? // Max req/min
 
   // Status
   usageCount Int       @default(0)
@@ -1342,6 +1531,7 @@ model Currency {
   updatedAt DateTime @updatedAt
 
   contracts Contract[]
+  invoices  Invoice[]  @relation("InvoiceCurrency") // 🔥 NEW
 
   @@map("currencies")
 }
@@ -1362,29 +1552,63 @@ model Country {
 }
 
 model Bank {
-  id            String  @id @default(cuid())
-  tenantId      String
-  name          String
-  accountNumber String?
-  swiftCode     String?
-  iban          String?
-  address       String?
-  
-  createdBy     String?
-  
-  status        String   @default("active")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id       String @id @default(cuid())
+  tenantId String
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  companies     Company[]   // 0..n companies using this bank
-  contracts     Contract[]
+  // Account identification
+  accountName   String? // Account name/label (optional)
+  accountNumber String? // IBAN or local account number (optional)
+  accountHolder String? // Account holder name (optional)
+
+  // Bank information
+  bankName              String? // Bank name (optional)
+  swiftCode             String? // SWIFT/BIC code (optional)
+  intermediarySwiftCode String? // Intermediary SWIFT code (optional)
+  routingNumber         String? // Routing number (optional)
+  sortCode              String? // Sort code (optional)
+  branchCode            String? // Branch code (optional)
+  iban                  String? // IBAN (optional)
+
+  // Bank address
+  bankAddress String? // Bank address (optional)
+  bankCity    String? // Bank city (optional)
+  country     String? // Country (optional)
+  state       String? // State/County (optional)
+  postCode    String? // Post code/ZIP code (optional)
+
+  // Account details
+  currency String? // Account currency (optional)
+  usage    BankAccountUsage? // Account usage/purpose (optional)
+
+  // Legacy fields (deprecated, use bankName and accountName instead)
+  name    String? // Legacy: Bank name (optional, deprecated)
+  address String? // Legacy: Bank address (optional, deprecated)
+
+  // User association
+  userId String? // null for company banks, set for user/contractor banks
+
+  // Flags
+  isPrimary Boolean @default(false) // For user banks
+  isActive  Boolean @default(true)
+
+  createdBy String?
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?      @relation("UserBanks", fields: [userId], references: [id], onDelete: Cascade)
+  companies Company[] // 0..n companies using this bank
+  contracts Contract[]
 
   @@index([tenantId])
+  @@index([userId]) // For user bank queries
   @@index([createdBy])
+  @@index([isPrimary]) // For finding primary user banks
+  @@index([usage]) // For finding banks by usage
   @@map("banks")
 }
-
 
 model DocumentType {
   id          String  @id @default(cuid())
@@ -1393,10 +1617,10 @@ model DocumentType {
   description String?
   isRequired  Boolean @default(false)
   isActive    Boolean @default(true)
-  
+
   // Ownership
   createdBy String? // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1419,11 +1643,11 @@ model Lead {
   value       String?
   lastContact DateTime?
   notes       String?   @db.Text
-  
+
   // Ownership
   createdBy  String? // userId
   assignedTo String? // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1443,8 +1667,8 @@ model Task {
   tenantId    String
   title       String
   description String?   @db.Text
-  assignedTo  String    // userId
-  assignedBy  String    // userId
+  assignedTo  String // userId
+  assignedBy  String // userId
   priority    String    @default("medium")
   status      String    @default("pending")
   dueDate     DateTime?
@@ -1472,10 +1696,10 @@ model OnboardingTemplate {
   name        String
   description String? @db.Text
   isActive    Boolean @default(true)
-  
+
   // Ownership
   createdBy String? // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1488,12 +1712,16 @@ model OnboardingTemplate {
 }
 
 model OnboardingQuestion {
-  id                   String  @id @default(cuid())
+  id                   String   @id @default(cuid())
   onboardingTemplateId String
-  questionText         String  @db.Text
+  questionText         String   @db.Text
   questionType         String
-  isRequired           Boolean @default(true)
+  isRequired           Boolean  @default(true)
   order                Int
+  
+  // 🔥 NEW: Country-specific optionality
+  optionalForCountries String[] @default([]) // Array of country IDs where this question is optional
+  
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -1505,19 +1733,19 @@ model OnboardingQuestion {
 }
 
 model OnboardingResponse {
-  id               String    @id @default(cuid())
+  id               String  @id @default(cuid())
   tenantId         String
-  userId           String    // 🔥 Remplacé contractorId par userId
+  userId           String // 🔥 Remplacé contractorId par userId
   questionId       String
-  responseText     String?   @db.Text
+  responseText     String? @db.Text
   responseFilePath String?
-  status           String    @default("pending")
-  adminNotes       String?   @db.Text
-  
+  status           String  @default("pending")
+  adminNotes       String? @db.Text
+
   // Review
-  reviewedBy String?   // userId
+  reviewedBy String? // userId
   reviewedAt DateTime?
-  
+
   submittedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -1539,7 +1767,7 @@ model OnboardingResponse {
 model Payslip {
   id            String    @id @default(cuid())
   tenantId      String
-  userId        String    // 🔥 Remplacé contractorId par userId
+  userId        String // 🔥 Remplacé contractorId par userId
   contractId    String?
   month         Int
   year          Int
@@ -1547,25 +1775,25 @@ model Payslip {
   netPay        Float
   deductions    Float     @default(0)
   tax           Float     @default(0)
-  status        String    // generated, validated, sent, paid
+  status        String // generated, validated, sent, paid
   workflowState String    @default("generated") // 🔥 NEW - Formal workflow state
   generatedDate DateTime  @default(now())
   sentDate      DateTime?
   paidDate      DateTime?
   notes         String?   @db.Text
-  
+
   // Ownership & Workflow
-  generatedBy   String?   // userId
-  validatedBy   String?   // 🔥 NEW - userId who validated
-  validatedAt   DateTime? // 🔥 NEW
-  sentBy        String?   // 🔥 NEW - userId who sent
-  
+  generatedBy String? // userId
+  validatedBy String? // 🔥 NEW - userId who validated
+  validatedAt DateTime? // 🔥 NEW
+  sentBy      String? // 🔥 NEW - userId who sent
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contract     Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contract     Contract?            @relation(fields: [contractId], references: [id], onDelete: SetNull)
   stateHistory EntityStateHistory[] @relation("PayslipStateHistory") // 🔥 NEW
 
   @@index([tenantId])
@@ -1578,42 +1806,52 @@ model Payslip {
 // ====
 // REMITTANCES (Contractor Portal)
 // ====
+// ====
+// REMITTANCES - Payment tracking system
+// ====
 model Remittance {
-  id          String   @id @default(cuid())
-  tenantId    String
-  userId      String   // 🔥 Remplacé contractorId par userId
-  contractId  String?
-  amount      Decimal  @db.Decimal(12, 2)
-  currency    String   @default("USD")
-  status      String   // generated, validated, sent, pending, processing, completed, failed
-  workflowState String @default("generated") // 🔥 NEW - Formal workflow state
-  
-  // Workflow tracking
-  validatedBy   String?   // 🔥 NEW - userId who validated
-  validatedAt   DateTime? // 🔥 NEW
-  sentBy        String?   // 🔥 NEW - userId who sent
-  
-  // Dates
-  requestedAt DateTime  @default(now())
-  processedAt DateTime?
-  completedAt DateTime?
-  
-  // Details
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Payment tracking
+  invoiceId String? // Link to invoice (optional)
+  amount    Decimal @db.Decimal(12, 2)
+  currency  String  @default("USD")
+
+  // Payment flow
+  paymentType   PaymentType // RECEIVED or SENT
+  recipientType RecipientType // ADMIN, CONTRACTOR, PAYROLL, etc.
+  recipientId   String // userId who received payment
+  senderId      String // userId who sent payment
+
+  // Status
+  status RemittanceStatus @default(pending) // pending, completed, failed
+
+  // Additional context
+  contractId  String? // Optional link to contract
   description String? @db.Text
   notes       String? @db.Text
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contract     Contract? @relation(fields: [contractId], references: [id])
-  stateHistory EntityStateHistory[] @relation("RemittanceStateHistory") // 🔥 NEW
+  // Dates
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime? // When payment was completed
+
+  // Relations
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice      Invoice?             @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  contract     Contract?            @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  recipient    User                 @relation("RemittanceRecipient", fields: [recipientId], references: [id])
+  sender       User                 @relation("RemittanceSender", fields: [senderId], references: [id])
+  stateHistory EntityStateHistory[] @relation("RemittanceStateHistory")
 
   @@index([tenantId])
-  @@index([userId])
+  @@index([invoiceId])
+  @@index([contractId])
+  @@index([recipientId])
+  @@index([senderId])
   @@index([status])
-  @@index([workflowState]) // 🔥 NEW
+  @@index([paymentType])
   @@map("remittances")
 }
 
@@ -1621,31 +1859,31 @@ model Remittance {
 // REFERRALS (Contractor Portal)
 // ====
 model Referral {
-  id                   String    @id @default(cuid())
-  tenantId             String
-  referrerUserId       String    // 🔥 Remplacé referrerContractorId par referrerUserId
-  referredUserId       String?   // 🔥 Remplacé referredContractorId par referredUserId
-  
+  id             String  @id @default(cuid())
+  tenantId       String
+  referrerUserId String // 🔥 Remplacé referrerContractorId par referrerUserId
+  referredUserId String? // 🔥 Remplacé referredContractorId par referredUserId
+
   // Referral details
-  referredEmail  String
-  referredName   String?
-  status         String  // pending, accepted, rejected, rewarded
-  
+  referredEmail String
+  referredName  String?
+  status        String // pending, accepted, rejected, rewarded
+
   // Reward
-  rewardAmount   Decimal? @db.Decimal(10, 2)
-  rewardCurrency String?  @default("USD")
+  rewardAmount   Decimal?  @db.Decimal(10, 2)
+  rewardCurrency String?   @default("USD")
   rewardPaidAt   DateTime?
-  
+
   // Dates
   referredAt DateTime  @default(now())
   acceptedAt DateTime?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  referrerUser  User   @relation("ReferralsMade", fields: [referrerUserId], references: [id], onDelete: Cascade)
-  referredUser  User?  @relation("ReferralsReceived", fields: [referredUserId], references: [id], onDelete: SetNull)
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  referrerUser User   @relation("ReferralsMade", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referredUser User?  @relation("ReferralsReceived", fields: [referredUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([referrerUserId])
@@ -1658,28 +1896,28 @@ model Referral {
 // AUDIT LOG
 // ====
 model AuditLog {
-  id         String  @id @default(cuid())
-  tenantId   String?
-  userId     String?
-  
+  id       String  @id @default(cuid())
+  tenantId String?
+  userId   String?
+
   // User info (snapshot)
   userName String
   userRole String
-  
+
   // Action
   action     String // CREATE, UPDATE, DELETE, VIEW, EXPORT, etc.
   entityType String
   entityId   String?
   entityName String?
-  
+
   // Details
   description String
   metadata    Json?
-  
+
   // Context
   ipAddress String?
   userAgent String?
-  
+
   createdAt DateTime @default(now())
 
   tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1773,13 +2011,13 @@ model WebhookSubscription {
   tenantId String
   url      String
   events   String[] // Array of event names
-  secret   String   // For HMAC signature
+  secret   String // For HMAC signature
   isActive Boolean  @default(true)
-  headers  Json?    // Additional headers
-  
+  headers  Json? // Additional headers
+
   // Ownership
   createdBy String? // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1817,11 +2055,11 @@ model PermissionAudit {
   id           String   @id @default(cuid())
   tenantId     String?
   userId       String?
-  action       String   // GRANT, REVOKE, ROLE_ASSIGNED, ROLE_REMOVED
-  resourceType String   // ROLE, PERMISSION, USER
+  action       String // GRANT, REVOKE, ROLE_ASSIGNED, ROLE_REMOVED
+  resourceType String // ROLE, PERMISSION, USER
   resourceId   String
-  changes      Json     // Details of the change
-  performedBy  String   // userId
+  changes      Json // Details of the change
+  performedBy  String // userId
   createdAt    DateTime @default(now())
 
   @@index([tenantId])
@@ -1841,7 +2079,7 @@ model EmailLog {
   from      String
   subject   String
   template  String?
-  status    String    // QUEUED, SENT, FAILED, BOUNCED
+  status    String // QUEUED, SENT, FAILED, BOUNCED
   messageId String?
   error     String?
   sentAt    DateTime?
@@ -1860,7 +2098,7 @@ model SMSLog {
   from      String
   message   String
   template  String?
-  status    String    // QUEUED, SENT, FAILED, DELIVERED
+  status    String // QUEUED, SENT, FAILED, DELIVERED
   messageId String?
   error     String?
   sentAt    DateTime?
@@ -1878,8 +2116,8 @@ model SMSLog {
 model NotificationPreference {
   id        String   @id @default(cuid())
   userId    String
-  channel   String   // EMAIL, SMS, IN_APP
-  event     String   // Event type
+  channel   String // EMAIL, SMS, IN_APP
+  event     String // Event type
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1898,14 +2136,14 @@ model ScheduledJob {
   id         String    @id @default(cuid())
   tenantId   String?
   name       String
-  type       String    // PAYROLL, INVOICE, REPORT, CLEANUP, etc.
-  schedule   String    // Cron expression
+  type       String // PAYROLL, INVOICE, REPORT, CLEANUP, etc.
+  schedule   String // Cron expression
   isActive   Boolean   @default(true)
   lastRunAt  DateTime?
   nextRunAt  DateTime?
-  lastStatus String?   // SUCCESS, FAILED
+  lastStatus String? // SUCCESS, FAILED
   lastError  String?
-  config     Json?     // Job-specific configuration
+  config     Json? // Job-specific configuration
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -1937,9 +2175,9 @@ model SystemConfig {
 model TenantFeatureFlag {
   id         String   @id @default(cuid())
   tenantId   String
-  featureKey String   // API_ACCESS, CUSTOM_BRANDING, ADVANCED_REPORTING, etc.
+  featureKey String // API_ACCESS, CUSTOM_BRANDING, ADVANCED_REPORTING, etc.
   isEnabled  Boolean  @default(false)
-  metadata   Json?    // Configuration for the feature
+  metadata   Json? // Configuration for the feature
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1976,16 +2214,16 @@ model TenantQuota {
 model EmailTemplate {
   id        String  @id @default(cuid())
   tenantId  String
-  key       String  // welcome_email, invoice_sent, contract_signed, etc.
+  key       String // welcome_email, invoice_sent, contract_signed, etc.
   name      String
   subject   String
   body      String  @db.Text // HTML content
-  variables Json?   // Available variables
+  variables Json? // Available variables
   isActive  Boolean @default(true)
-  
+
   // Ownership
   createdBy String? // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2002,15 +2240,15 @@ model EmailTemplate {
 model PDFTemplate {
   id        String  @id @default(cuid())
   tenantId  String
-  key       String  // invoice_template, contract_template, payslip_template, etc.
+  key       String // invoice_template, contract_template, payslip_template, etc.
   name      String
   content   String  @db.Text // HTML/Template content
-  variables Json?   // Available variables
+  variables Json? // Available variables
   isActive  Boolean @default(true)
-  
+
   // Ownership
   createdBy String? // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2027,7 +2265,7 @@ model PDFTemplate {
 model TenantSecuritySettings {
   id       String @id @default(cuid())
   tenantId String @unique
-  
+
   // Password policies
   minPasswordLength   Int     @default(8)
   requireUppercase    Boolean @default(true)
@@ -2035,23 +2273,23 @@ model TenantSecuritySettings {
   requireNumbers      Boolean @default(true)
   requireSpecialChars Boolean @default(false)
   passwordExpiryDays  Int?
-  
+
   // Session management
   sessionTimeoutMinutes Int @default(480) // 8 hours
   maxConcurrentSessions Int @default(3)
-  
+
   // Two-factor authentication
   require2FA          Boolean @default(false)
   require2FAForAdmins Boolean @default(true)
-  
+
   // Login policies
   maxLoginAttempts       Int @default(5)
   lockoutDurationMinutes Int @default(30)
-  
+
   // IP restrictions
   allowedIPs String[] // IP whitelist
   blockedIPs String[] // IP blacklist
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2064,29 +2302,29 @@ model TenantSecuritySettings {
 // DATA EXPORTS
 // ====
 model DataExport {
-  id         String  @id @default(cuid())
-  tenantId   String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // Export details
-  exportType String  // full_backup, invoices, contracts, users, etc.
-  status     String  // pending, processing, completed, failed
-  format     String  // json, csv, xlsx, pdf
-  
+  exportType String // full_backup, invoices, contracts, users, etc.
+  status     String // pending, processing, completed, failed
+  format     String // json, csv, xlsx, pdf
+
   // File
   fileUrl  String?
   fileSize Int?
-  
+
   // Dates
   requestedAt DateTime  @default(now())
   completedAt DateTime?
   expiresAt   DateTime? // Temporary file expiration
-  
+
   // Ownership
   requestedBy String // userId
-  
+
   // Error
   error String? @db.Text
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2105,45 +2343,45 @@ model DataExport {
 /// EntityStateHistory - Tracks all state transitions for any entity
 /// This provides a complete audit trail of workflow state changes
 model EntityStateHistory {
-  id         String   @id @default(cuid())
-  tenantId   String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // Entity (polymorphic)
   entityType String // timesheet, invoice, payment, payslip, remittance
   entityId   String
-  
+
   // State transition
-  fromState  String?  // Previous state (null for initial state)
-  toState    String   // New state
-  
+  fromState String? // Previous state (null for initial state)
+  toState   String // New state
+
   // Metadata
-  action     String   // submit, approve, reject, review, send, etc.
-  actorId    String   // userId who performed the action
-  actorName  String   // For quick display
-  actorRole  String?  // Role at time of action
-  
+  action    String // submit, approve, reject, review, send, etc.
+  actorId   String // userId who performed the action
+  actorName String // For quick display
+  actorRole String? // Role at time of action
+
   // Additional context
-  reason     String?  @db.Text // Why this transition happened
-  metadata   Json?    // Additional context data
-  
+  reason   String? @db.Text // Why this transition happened
+  metadata Json? // Additional context data
+
   // Timestamps
   transitionedAt DateTime @default(now())
-  
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
+
   // Relations to specific entities (optional - for easier querying)
   timesheetId  String?
   invoiceId    String?
   paymentId    String?
   payslipId    String?
   remittanceId String?
-  
+
   timesheet  Timesheet?  @relation("TimesheetStateHistory", fields: [timesheetId], references: [id], onDelete: Cascade)
   invoice    Invoice?    @relation("InvoiceStateHistory", fields: [invoiceId], references: [id], onDelete: Cascade)
   payment    Payment?    @relation("PaymentStateHistory", fields: [paymentId], references: [id], onDelete: Cascade)
   payslip    Payslip?    @relation("PayslipStateHistory", fields: [payslipId], references: [id], onDelete: Cascade)
   remittance Remittance? @relation("RemittanceStateHistory", fields: [remittanceId], references: [id], onDelete: Cascade)
-  
+
   @@index([tenantId])
   @@index([entityType, entityId])
   @@index([actorId])
@@ -2159,40 +2397,40 @@ model EntityStateHistory {
 /// WorkflowTemplate - Configurable workflow templates
 /// Allows tenants to define custom workflow patterns
 model WorkflowTemplate {
-  id          String  @id @default(cuid())
-  tenantId    String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   // Template details
   name        String
   description String? @db.Text
-  entityType  String  // timesheet, invoice, payment, etc.
-  
+  entityType  String // timesheet, invoice, payment, etc.
+
   // Configuration
-  isActive    Boolean @default(true)
-  isDefault   Boolean @default(false)
-  
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
   // Workflow definition (JSON)
-  states      Json    // Array of state definitions with rules
-  transitions Json    // Array of allowed transitions with conditions
-  
+  states      Json // Array of state definitions with rules
+  transitions Json // Array of allowed transitions with conditions
+
   // Permissions (which roles can perform which actions)
-  permissions Json    // { "approve": ["admin", "manager"], "submit": ["contractor"] }
-  
+  permissions Json // { "approve": ["admin", "manager"], "submit": ["contractor"] }
+
   // Auto-actions
-  autoActions Json?   // Automated actions on state changes (e.g., send email)
-  
+  autoActions Json? // Automated actions on state changes (e.g., send email)
+
   // Validation rules
   validationRules Json? // Custom validation per state/transition
-  
+
   // Ownership
   createdBy String // userId
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantSettings TenantWorkflowSettings[] @relation("ActiveWorkflowTemplates")
-  
+
   @@unique([tenantId, name, entityType])
   @@index([tenantId])
   @@index([entityType])
@@ -2206,60 +2444,130 @@ model WorkflowTemplate {
 model TenantWorkflowSettings {
   id       String @id @default(cuid())
   tenantId String @unique
-  
+
   // Active workflow templates per entity type
   timesheetWorkflowTemplateId  String?
   invoiceWorkflowTemplateId    String?
   paymentWorkflowTemplateId    String?
   payslipWorkflowTemplateId    String?
   remittanceWorkflowTemplateId String?
-  
+
   // Global settings
   requireApprovalForTimesheets Boolean @default(true)
   requireApprovalForInvoices   Boolean @default(true)
   requireApprovalForPayments   Boolean @default(true)
-  
+
   // Auto-actions
-  autoSendInvoiceOnApproval   Boolean @default(false)
-  autoCreatePayslipOnInvoice  Boolean @default(false)
-  notifyOnStateChange         Boolean @default(true)
-  
+  autoSendInvoiceOnApproval  Boolean @default(false)
+  autoCreatePayslipOnInvoice Boolean @default(false)
+  notifyOnStateChange        Boolean @default(true)
+
   // Margin calculation settings
-  defaultMarginPaidBy    String? // client, agency, contractor
-  allowMarginOverride    Boolean @default(true)
-  requireMarginApproval  Boolean @default(false)
-  
+  defaultMarginPaidBy   String? // client, agency, contractor
+  allowMarginOverride   Boolean @default(true)
+  requireMarginApproval Boolean @default(false)
+
   // Admin modification settings
   allowAdminModifyAmounts    Boolean @default(true)
   requireApprovalAfterModify Boolean @default(true)
-  
+
   // Additional configuration
   config Json? // Flexible configuration storage
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  tenant                      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  timesheetWorkflowTemplate   WorkflowTemplate? @relation("ActiveWorkflowTemplates", fields: [timesheetWorkflowTemplateId], references: [id])
-  
+
+  tenant                    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timesheetWorkflowTemplate WorkflowTemplate? @relation("ActiveWorkflowTemplates", fields: [timesheetWorkflowTemplateId], references: [id])
+
   @@map("tenant_workflow_settings")
 }
 
 // Add relation to Tenant model
 model TenantWorkflowConfig {
-  id                     String @id @default(cuid())
-  tenantId               String @unique
-  
+  id       String @id @default(cuid())
+  tenantId String @unique
+
   // Payment mode defaults from Contract
-  defaultPaymentMode     String? @default("gross") // gross, payroll, payroll_we_pay, split
-  
+  defaultPaymentMode String? @default("gross") // gross, payroll, payroll_we_pay, split
+
   // Workflow toggles
   enableTimesheetWorkflow Boolean @default(true)
   enableInvoiceWorkflow   Boolean @default(true)
   enablePaymentWorkflow   Boolean @default(true)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("tenant_workflow_config")
+}
+
+
+
+/// FeatureRequest - Feature modification requests from users
+/// Allows users to submit requests for adding, modifying, or deleting features
+model FeatureRequest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+  userRole    String   // Role name of the requester
+  
+  // Request details
+  pageUrl     String   // URL where the request was made
+  pageName    String   // Human-readable page name
+  actionType  String   // ADD, DELETE, MODIFY
+  title       String   // Brief title of the request
+  description String   @db.Text // Detailed description
+  conditions  String?  @db.Text // Additional conditions or context
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  
+  // Status tracking
+  status            String   @default("SUBMITTED") // SUBMITTED, PENDING, WAITING_FOR_CONFIRMATION, CONFIRMED, REJECTED
+  rejectionReason   String?  @db.Text
+  
+  // Approval tracking
+  confirmedBy       String?
+  confirmedAt       DateTime?
+  rejectedBy        String?
+  rejectedAt        DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  confirmedByUser   User?                      @relation("FeatureRequestConfirmedBy", fields: [confirmedBy], references: [id])
+  rejectedByUser    User?                      @relation("FeatureRequestRejectedBy", fields: [rejectedBy], references: [id])
+  attachments       FeatureRequestAttachment[]
+  
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([actionType])
+  @@index([createdAt])
+  @@map("feature_requests")
+}
+
+/// FeatureRequestAttachment - Files attached to feature requests
+/// Stores screenshots, documents, or other files supporting the request
+model FeatureRequestAttachment {
+  id               String   @id @default(cuid())
+  featureRequestId String
+  
+  // File details
+  fileUrl      String   // S3 cloud storage path
+  fileName     String
+  fileSize     Int
+  fileType     String   // MIME type
+  
+  uploadedAt   DateTime @default(now())
+  
+  // Relations
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  
+  @@index([featureRequestId])
+  @@map("feature_request_attachments")
 }

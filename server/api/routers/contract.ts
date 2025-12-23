@@ -8,12 +8,13 @@ import {
 } from "../trpc"
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { PaymentModel } from "@/lib/constants/payment-models"
 
 // =======================================================
 // PERMISSIONS MAP
 // =======================================================
 const P = {
-  // SOW (contrats opérationnels)
+  // SOW (operational contracts)
   CONTRACT: {
     LIST_GLOBAL:   "contract.list.global",
     READ_OWN:      "contract.read.own",
@@ -28,7 +29,7 @@ const P = {
     EXPORT_GLOBAL: "contract.export.global",
     PARTICIPANT_GLOBAL: "contract_participant.manage.global",
   },
-  // MSA (cadres)
+  // MSA (framework agreements)
   MSA: {
     LIST_GLOBAL:   "contract_msa.list.global",
     CREATE_GLOBAL: "contract_msa.create.global",
@@ -101,6 +102,7 @@ const baseContractSchema = z.object({
   marginPaidBy: z.enum(["client", "contractor"]).optional().nullable(),
 
   salaryType: z.string().optional().nullable(),
+  paymentModel: z.nativeEnum(PaymentModel).optional().nullable(),
   invoiceDueDays: z.number().optional().nullable(),
 
   contractReference: z.string().optional().nullable(),
@@ -302,6 +304,18 @@ export const contractRouter = createTRPCRouter({
       const { participants, ...raw } = input
       const data = clean(raw)
 
+      // 🔥 Sync salaryType and paymentModel: If one is provided, ensure both are set
+      if (data.salaryType && !data.paymentModel) {
+        // If salaryType is provided but paymentModel is not, set paymentModel to match
+        const salaryTypeUpper = String(data.salaryType).toUpperCase()
+        if (Object.values(PaymentModel).includes(salaryTypeUpper as PaymentModel)) {
+          data.paymentModel = salaryTypeUpper as PaymentModel
+        }
+      } else if (data.paymentModel && !data.salaryType) {
+        // If paymentModel is provided but salaryType is not, set salaryType to match
+        data.salaryType = data.paymentModel
+      }
+
       const created = await ctx.prisma.$transaction(async (tx) => {
         const base = await tx.contract.create({
           data: {
@@ -402,10 +416,23 @@ export const contractRouter = createTRPCRouter({
         }
       }
 
+      // 🔥 Sync salaryType and paymentModel: If one is being updated, ensure both are synced
+      const cleanedUpdates = clean(updates)
+      if (cleanedUpdates.salaryType && !cleanedUpdates.paymentModel) {
+        // If salaryType is being updated but paymentModel is not, sync paymentModel
+        const salaryTypeUpper = String(cleanedUpdates.salaryType).toUpperCase()
+        if (Object.values(PaymentModel).includes(salaryTypeUpper as PaymentModel)) {
+          cleanedUpdates.paymentModel = salaryTypeUpper as PaymentModel
+        }
+      } else if (cleanedUpdates.paymentModel && !cleanedUpdates.salaryType) {
+        // If paymentModel is being updated but salaryType is not, sync salaryType
+        cleanedUpdates.salaryType = cleanedUpdates.paymentModel
+      }
+
       const updated = await ctx.prisma.$transaction(async (tx) => {
         const base = await tx.contract.update({
           where: { id },
-          data: clean(updates),
+          data: cleanedUpdates,
         })
 
         if (participants) {
@@ -604,7 +631,7 @@ export const contractRouter = createTRPCRouter({
       return updated
     }),
 
-  // 2) SIGN (OWN) → le signataire signe son propre contrat
+  // 2) SIGN (OWN) → the signer signs their own contract
   signOwn: tenantProcedure
     .use(hasPermission(P.CONTRACT.SIGN_OWN))
     .input(z.object({ id: z.string(), signatureUrl: z.string().url().optional() }))
@@ -614,7 +641,7 @@ export const contractRouter = createTRPCRouter({
 
       const updated = await ctx.prisma.contract.update({
         where: { id: input.id },
-        data: { signedAt: new Date() }, // simple marqueur; ta vraie logique de signature peut être plus fine
+        data: { signedAt: new Date() }, // simple marker; your actual signature logic can be more sophisticated
       })
 
       await createAuditLog({
@@ -631,7 +658,7 @@ export const contractRouter = createTRPCRouter({
       return updated
     }),
 
-  // 3) APPROVE (GLOBAL) → active le contrat
+  // 3) APPROVE (GLOBAL) → activates the contract
   approve: tenantProcedure
     .use(hasPermission(P.CONTRACT.APPROVE_GLOBAL))
     .input(idSchema)

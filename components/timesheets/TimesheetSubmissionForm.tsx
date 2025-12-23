@@ -27,8 +27,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-
 // Expense interface
 interface Expense {
   id: string;
@@ -38,10 +36,19 @@ interface Expense {
   receipt: File | null;
 }
 
-// Fake upload
-async function uploadFile(file: File | null): Promise<string | null> {
-  if (!file) return null;
-  return new Promise((res) => setTimeout(() => res("https://fake-url.com/" + file.name), 500));
+// 🔥 FIX: Convert file to base64 (matching contract pattern)
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix (e.g., "data:image/png;base64,")
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+  });
 }
 
 export function TimesheetSubmissionFormModal({
@@ -182,10 +189,91 @@ export function TimesheetSubmissionFormModal({
     setExpenses([]);
   };
 
+  // 🔥 FIX: Upload timesheet document after creation
+  const uploadTimesheetDocument = api.timesheet.uploadExpenseDocument.useMutation();
+
   const create = api.timesheet.createRange.useMutation({
-    onSuccess: () => {
-      toast.success("Timesheet submitted");
-      utils.timesheet.getMyTimesheets.invalidate();
+    onSuccess: async (data) => {
+      // 🔥 FIX: Upload files using backend mutation (matching contract pattern)
+      const timesheetId = data.timesheetId;
+      
+      console.log("[TimesheetSubmission] Timesheet created, uploading files...", { 
+        timesheetId, 
+        hasTimesheetFile: !!timesheetFile,
+        expenseCount: expenses.filter(e => e.receipt).length 
+      });
+      
+      let uploadedCount = 0;
+      let failedCount = 0;
+      
+      try {
+        // Upload main timesheet file if exists
+        if (timesheetFile) {
+          console.log("[TimesheetSubmission] Uploading main timesheet file:", timesheetFile.name);
+          
+          try {
+            const base64 = await fileToBase64(timesheetFile);
+            await uploadTimesheetDocument.mutateAsync({
+              timesheetId,
+              fileName: timesheetFile.name,
+              fileBuffer: base64, // 🔥 FIX: Send base64 to backend
+              fileSize: timesheetFile.size,
+              mimeType: timesheetFile.type,
+              description: "Timesheet document",
+              category: "timesheet",
+            });
+            console.log("[TimesheetSubmission] Main file uploaded successfully");
+            uploadedCount++;
+          } catch (error) {
+            console.error("[TimesheetSubmission] Failed to upload main file:", error);
+            failedCount++;
+          }
+        }
+
+        // Upload expense receipts
+        for (const expense of expenses) {
+          if (expense.receipt) {
+            console.log("[TimesheetSubmission] Uploading expense receipt:", expense.receipt.name);
+            
+            try {
+              const base64 = await fileToBase64(expense.receipt);
+              await uploadTimesheetDocument.mutateAsync({
+                timesheetId,
+                fileName: expense.receipt.name,
+                fileBuffer: base64, // 🔥 FIX: Send base64 to backend
+                fileSize: expense.receipt.size,
+                mimeType: expense.receipt.type,
+                description: `Expense receipt: ${expense.category} - ${expense.description}`,
+                category: "expense",
+              });
+              console.log("[TimesheetSubmission] Receipt uploaded successfully");
+              uploadedCount++;
+            } catch (error) {
+              console.error("[TimesheetSubmission] Failed to upload receipt:", error);
+              failedCount++;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[TimesheetSubmission] Error uploading documents:", error);
+        failedCount++;
+      }
+
+      console.log("[TimesheetSubmission] Upload complete:", { uploadedCount, failedCount });
+
+      // Invalidate queries to refetch with new documents
+      await utils.timesheet.getMyTimesheets.invalidate();
+      await utils.timesheet.getById.invalidate({ id: timesheetId });
+
+      // Show appropriate success message
+      if (failedCount > 0) {
+        toast.warning(`Timesheet created but ${failedCount} file(s) failed to upload. You can upload them later from the timesheet detail page.`);
+      } else if (uploadedCount > 0) {
+        toast.success(`Timesheet created successfully with ${uploadedCount} file(s)!`);
+      } else {
+        toast.success("Timesheet created successfully!");
+      }
+      
       reset();
       onOpenChange(false);
     },
@@ -196,17 +284,13 @@ export function TimesheetSubmissionFormModal({
     if (!contractId) return toast.error("Select a contract");
     if (!startDate || !endDate) return toast.error("Select a period");
 
-    const timesheetUrl = await uploadFile(timesheetFile);
-
-    // Upload expense receipts
-    const expensesWithUrls = await Promise.all(
-      expenses.map(async (exp) => ({
-        category: exp.category,
-        description: exp.description,
-        amount: parseFloat(exp.amount),
-        receiptUrl: await uploadFile(exp.receipt),
-      }))
-    );
+    // 🔥 FIX: Prepare expenses without uploading files (will be uploaded after timesheet creation)
+    const expensesData = expenses.map((exp) => ({
+      category: exp.category,
+      description: exp.description,
+      amount: parseFloat(exp.amount),
+      receiptUrl: null, // Will be uploaded separately as TimesheetDocument
+    }));
 
     create.mutate({
       contractId,
@@ -214,9 +298,9 @@ export function TimesheetSubmissionFormModal({
       endDate,
       hoursPerDay,
       notes: notes || undefined,
-      timesheetFileUrl: timesheetUrl || undefined,
+      timesheetFileUrl: undefined, // 🔥 FIX: Will be uploaded as TimesheetDocument instead
       // 🔥 FIXED: Now sending expenses to backend
-      expenses: expensesWithUrls.length > 0 ? expensesWithUrls : undefined,
+      expenses: expensesData.length > 0 ? expensesData : undefined,
     });
   };
 
@@ -644,16 +728,11 @@ export function TimesheetSubmissionFormModal({
             Cancel
           </Button>
           <Button
-            variant="secondary"
             onClick={() => handleSubmit(true)}
             disabled={create.isPending}
           >
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save as Draft
-          </Button>
-          <Button onClick={() => handleSubmit(false)} disabled={create.isPending}>
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Submit for Review
           </Button>
         </DialogFooter>
         </ScrollArea>

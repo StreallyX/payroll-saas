@@ -50,6 +50,7 @@ export enum Resource {
   // Communication
   COMMENT = "comment",
   NOTIFICATION = "notification",
+  EMAIL = "email",
 
   // Marketing & Sales
   LEAD = "lead",
@@ -102,6 +103,10 @@ export enum Resource {
   SUBSCRIPTION = "subscription",
   TENANT_DETAIL = "tenant_detail",
   SUPERADMIN_USER = "superadmin_user",
+
+  // Feature Request System
+  FEATURE_REQUEST = "feature_request",
+  PLATFORM = "platform",
 }
 
 
@@ -155,6 +160,9 @@ export enum Action {
   PAY = "pay",
   REFUND = "refund",
   PROCESS = "process",
+  VIEW_MARGIN = "view_margin",
+  CONFIRM_MARGIN = "confirmMargin",
+  CONFIRM = "confirm",
   
   // Signature
   SIGN = "sign",
@@ -309,6 +317,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Modifier son profil",
     "Mettre à jour ses informations personnelles",
     PermissionCategory.CORE
+  ),
+  createPermission(
+    Resource.USER,
+    Action.READ,
+    PermissionScope.GLOBAL,
+    "Voir les détails des utilisateurs",
+    "Consulter les profils et informations détaillées de tous les utilisateurs",
+    PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
@@ -976,6 +992,54 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Exporter les données de factures",
     PermissionCategory.FINANCIAL
   ),
+  createPermission(
+    Resource.INVOICE,
+    Action.CONFIRM_MARGIN,
+    PermissionScope.OWN,
+    "Confirmer la marge de ses factures",
+    "Confirmer et valider la marge sur ses propres factures (agences)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.REVIEW,
+    PermissionScope.GLOBAL,
+    "Réviser les factures",
+    "Réviser et mettre en révision les factures",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.REJECT,
+    PermissionScope.GLOBAL,
+    "Rejeter les factures",
+    "Rejeter des factures avec raison",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.VALIDATE,
+    PermissionScope.GLOBAL,
+    "Modifier les montants et marges",
+    "Modifier les montants et marges des factures (admin)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.PAY,
+    PermissionScope.OWN,
+    "Marquer ses factures comme payées",
+    "Marquer comme payées les factures dont on est le destinataire (agences)",
+    PermissionCategory.FINANCIAL
+  ),
+  createPermission(
+    Resource.INVOICE,
+    Action.CONFIRM,
+    PermissionScope.GLOBAL,
+    "Confirmer la réception du paiement",
+    "Confirmer que le paiement a été reçu avec le montant exact (admin)",
+    PermissionCategory.FINANCIAL
+  ),
 
   // ================================================================
   // PAYMENTS
@@ -1182,6 +1246,14 @@ export const ALL_PERMISSIONS: Permission[] = [
   ),
   createPermission(
     Resource.TIMESHEET,
+    Action.REVIEW,
+    PermissionScope.GLOBAL,
+    "Réviser les feuilles de temps",
+    "Marquer les timesheets comme en cours de révision",
+    PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TIMESHEET,
     Action.APPROVE,
     PermissionScope.GLOBAL,
     "Approuver toutes les feuilles de temps",
@@ -1195,6 +1267,22 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Rejeter des feuilles de temps",
     "Rejeter des timesheets",
     PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TIMESHEET,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier toutes les feuilles de temps",
+    "Modifier n'importe quelle timesheet (y compris les montants)",
+    PermissionCategory.TIME_TRACKING
+  ),
+  createPermission(
+    Resource.TIMESHEET,
+    Action.VIEW_MARGIN,
+    PermissionScope.GLOBAL,
+    "Voir les marges des feuilles de temps",
+    "Consulter les détails de marge et la répartition complète des montants dans les timesheets",
+    PermissionCategory.FINANCIAL
   ),
 
   // =============================
@@ -2055,6 +2143,37 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionCategory.ADMINISTRATION
   ),
 
+  // ================================================================
+  // EMAIL
+  // ================================================================
+  createPermission(
+    Resource.EMAIL,
+    Action.SEND,
+    PermissionScope.GLOBAL,
+    "Envoyer des emails",
+    "Envoyer des emails aux utilisateurs",
+    PermissionCategory.COMMUNICATION
+  ),
+  createPermission(
+    Resource.EMAIL,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir l'historique des emails",
+    "Consulter les logs d'envoi d'emails",
+    PermissionCategory.COMMUNICATION
+  ),
+  createPermission(
+    Resource.EMAIL,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer des templates d'email",
+    "Créer et gérer des templates d'email",
+    PermissionCategory.COMMUNICATION
+  ),
+
+  // ================================================================
+  // PAGE ACCESS
+  // ================================================================
   createPermission(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
   createPermission(Resource.AGENCY_INVOICE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
   createPermission(Resource.CONSTRUCTION, Action.ACCESS, PermissionScope.PAGE, "Accéder à Construction"),
@@ -2077,6 +2196,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Payslips de Payments"),
   createPermission(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Remittances"),
   createPermission(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Activity Logs"),
+  createPermission(Resource.EMAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder à l'envoi d'emails"),
   createPermission(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Email Logs"),
   createPermission(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à SMS Logs"),
   createPermission(Resource.USER_ACTIVITY, Action.ACCESS, PermissionScope.PAGE, "Accéder à User Activity"),
@@ -2098,6 +2218,109 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Tenants"),
   createPermission(Resource.TENANT_DETAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant Details"),
   createPermission(Resource.SUPERADMIN_USER, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Superadmin Users"),
+
+  // ================================================================
+  // FEATURE REQUEST PERMISSIONS
+  // ================================================================
+  
+  // Create feature requests (all authenticated users)
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.CREATE,
+    PermissionScope.OWN,
+    "Créer une demande de fonctionnalité",
+    "Soumettre une nouvelle demande de fonctionnalité ou modification",
+    PermissionCategory.CORE
+  ),
+
+  // View own feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.READ,
+    PermissionScope.OWN,
+    "Voir ses propres demandes",
+    "Consulter ses propres demandes de fonctionnalités",
+    PermissionCategory.CORE
+  ),
+
+  // List own feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.LIST,
+    PermissionScope.OWN,
+    "Lister ses demandes",
+    "Voir la liste de ses demandes de fonctionnalités",
+    PermissionCategory.CORE
+  ),
+
+  // View all feature requests (admin)
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir toutes les demandes",
+    "Voir toutes les demandes de fonctionnalités du tenant",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Manage platform features (superadmin/admin with special permission)
+  createPermission(
+    Resource.PLATFORM,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Gérer la plateforme",
+    "Approuver, rejeter et gérer les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Update feature request status
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.UPDATE,
+    PermissionScope.GLOBAL,
+    "Modifier les demandes",
+    "Modifier et gérer les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Confirm feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.CONFIRM,
+    PermissionScope.GLOBAL,
+    "Confirmer les demandes",
+    "Confirmer et valider les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Reject feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.REJECT,
+    PermissionScope.GLOBAL,
+    "Rejeter les demandes",
+    "Rejeter les demandes de fonctionnalités avec raison",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Delete feature requests
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.DELETE,
+    PermissionScope.GLOBAL,
+    "Supprimer les demandes",
+    "Supprimer les demandes de fonctionnalités",
+    PermissionCategory.ADMINISTRATION
+  ),
+
+  // Page access permissions
+  createPermission(
+    Resource.FEATURE_REQUEST,
+    Action.ACCESS,
+    PermissionScope.PAGE,
+    "Accéder aux Feature Requests",
+    "Accéder à la page des demandes de fonctionnalités"
+  ),
 
 ];
 

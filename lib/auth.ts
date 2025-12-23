@@ -38,6 +38,7 @@ export const authOptions: NextAuthOptions = {
             roleId: null,
             roleName: "superadmin",
             homePath: "/superadmin",
+            passwordResetToken: null,
           };
         }
 

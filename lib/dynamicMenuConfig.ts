@@ -4,7 +4,7 @@ import {
   Briefcase, PieChart, CheckSquare, TrendingUp, ClipboardList,
   UserCog, FileType, ListChecks, Layers, Globe, BarChart3, Palette,
   Landmark, Coins, Webhook, Mail, MessageSquare, Activity, 
-  CreditCard, Scale, FileSignature, UserCircle
+  CreditCard, Scale, FileSignature, UserCircle, MessageSquarePlus
 } from "lucide-react"
 
 import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions"
@@ -250,41 +250,36 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/onboarding",
     icon: ClipboardList,
     permissions: [
-      P(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
       P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
     ],
     submenu: [
       {
         label: "My Onboarding",
         href: "/onboarding/my-onboarding",
         icon: UserCheck,
+        description: "View and complete your onboarding",
         permissions: [
           P(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
         ]
       },
       {
-        label: "Review Submissions",
-        href: "/onboarding/review",
-        icon: CheckSquare,
+        label: "All Onboardings",
+        href: "/onboarding",
+        icon: ListChecks,
+        description: "Review all user onboardings",
         permissions: [
           P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
       {
-        label: "Templates",
+        label: "Manage Templates",
         href: "/onboarding/templates",
         icon: FileType,
+        description: "Create and edit onboarding templates",
         permissions: [
           P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      },
-      {
-        label: "ALL Onboarding",
-        href: "/onboarding",
-        icon: UserCheck,
-        permissions: [
-          P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
     ]
@@ -357,6 +352,14 @@ export const dynamicMenuConfig: MenuItem[] = [
         ]
       },
       {
+        label: "Send Email",
+        href: "/reports/send-email",
+        icon: Mail,
+        permissions: [
+          P(Resource.EMAIL, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
         label: "Email Logs",
         href: "/reports/email-logs",
         icon: Mail,
@@ -370,6 +373,37 @@ export const dynamicMenuConfig: MenuItem[] = [
         icon: MessageSquare,
         permissions: [
           P(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+    ]
+  },
+
+  // ===========================
+  // FEATURE REQUESTS
+  // ===========================
+  {
+    label: "Feature Requests",
+    href: "/feature-requests/new",
+    icon: MessageSquarePlus,
+    permissions: [
+      P(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
+      P(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    ],
+    submenu: [
+      {
+        label: "Submit Request",
+        href: "/feature-requests/new",
+        icon: MessageSquarePlus,
+        permissions: [
+          P(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
+        ]
+      },
+      {
+        label: "Manage Requests",
+        href: "/feature-requests/manage",
+        icon: ListChecks,
+        permissions: [
+          P(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
     ]

@@ -110,7 +110,7 @@ export function PaymentConfirmationModal({
                   <span className="font-medium text-lg">
                     {new Intl.NumberFormat("en-US", {
                       style: "currency",
-                      currency: invoice.currency,
+                      currency: invoice.contract?.currency?.code || "USD",
                     }).format(Number(invoice.totalAmount || 0))}
                   </span>
                 </div>

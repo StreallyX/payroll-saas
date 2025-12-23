@@ -7,25 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, Circle, Upload, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { CheckCircle2, Circle, Upload, FileText, AlertCircle, XCircle, Clock, Eye } from "lucide-react";
 import { api } from "@/lib/trpc";
 import { LoadingState } from "@/components/shared/loading-state";
 import { toast } from "sonner";
 
-export default function ContractorOnboardingPage() {
+export default function MyOnboardingPage() {
   const { data, isLoading, refetch } = api.onboarding.getMyOnboardingResponses.useQuery();
 
   const startMutation = api.onboarding.startOnboarding.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      toast.success("Onboarding started!");
+      refetch();
+    },
   });
 
   const submitMutation = api.onboarding.submitResponse.useMutation({
     onSuccess: () => {
-      toast.success("Réponse envoyée !");
+      toast.success("Response submitted successfully!");
       refetch();
       setOpenTextModal(false);
       setOpenFileModal(false);
+      setCurrentQuestion(null);
+      setTextValue("");
+      setFile(null);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -34,66 +42,94 @@ export default function ContractorOnboardingPage() {
   const [openFileModal, setOpenFileModal] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [textValue, setTextValue] = useState("");
-
   const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
 
-  if (isLoading) return <LoadingState message="Chargement..." />;
+  if (isLoading) return <LoadingState message="Loading your onboarding..." />;
 
-  // ------------------------------
-  // 1️⃣ NO ONBOARDING STARTED
-  // ------------------------------
+  // NO ONBOARDING STARTED
   if (!data || !data.onboardingTemplate) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Onboarding"
-          description="Commencez votre onboarding pour activer votre compte"
-        />
+  return (
+    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="text-2xl">
+            Welcome
+          </CardTitle>
+          <CardDescription>
+            To continue, please complete your onboarding.
+          </CardDescription>
+        </CardHeader>
 
-        <Card className="p-10 flex flex-col items-center text-center space-y-4">
-          <h2 className="text-xl font-semibold">Aucun onboarding trouvé</h2>
-          <p className="text-muted-foreground max-w-md">
-            Vous devez commencer votre processus d’onboarding avant de pouvoir accéder à la plateforme.
+        <CardContent className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            This onboarding helps us collect the required information and documents
+            to activate your account and give you full access to the platform.
           </p>
 
-          <Button size="lg" className="mt-4" onClick={() => startMutation.mutate()}>
-            🚀 Start Onboarding
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+          <Alert>
+            <FileText className="h-4 w-4" />
+            <AlertDescription>
+              The process usually takes only a few minutes to complete.
+            </AlertDescription>
+          </Alert>
 
-  // ------------------------------
-  // 2️⃣ ONBOARDING EXISTS
-  // ------------------------------
+          <div className="flex justify-end">
+            <Button
+              onClick={() => startMutation.mutate()}
+              disabled={startMutation.isPending}
+            >
+              {startMutation.isPending ? "Starting..." : "Start onboarding"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+  // ONBOARDING EXISTS
   const template = data.onboardingTemplate;
   const responses = data.onboardingResponses || [];
 
   const totalQuestions = template.questions.length;
-  const approved = responses.filter((r) => r.status === "approved").length;
-  const progress = Math.round((approved / totalQuestions) * 100);
+  const approvedCount = responses.filter((r) => r.status === "approved").length;
+  const pendingCount = responses.filter((r) => r.status === "pending").length;
+  const rejectedCount = responses.filter((r) => r.status === "rejected").length;
+  const notSubmittedCount = totalQuestions - responses.filter(r => r.responseText || r.responseFilePath).length;
+  const progress = totalQuestions > 0 ? Math.round((approvedCount / totalQuestions) * 100) : 0;
 
   const getStatusIcon = (status: string) => {
-    if (status === "approved") return <CheckCircle className="h-6 w-6 text-green-600" />;
-    if (status === "pending") return <Circle className="h-6 w-6 animate-pulse text-blue-600" />;
-    if (status === "rejected") return <Circle className="h-6 w-6 text-red-600" />;
-    return <Circle className="h-6 w-6 text-muted-foreground" />;
+    if (status === "approved") return <CheckCircle2 className="h-6 w-6 text-green-600" />;
+    if (status === "pending") return <Clock className="h-6 w-6 text-yellow-600" />;
+    if (status === "rejected") return <XCircle className="h-6 w-6 text-red-600" />;
+    return <Circle className="h-6 w-6 text-gray-300" />;
   };
 
-  const openText = (q: any) => {
+  const getStatusBadge = (status: string) => {
+    if (status === "approved") return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Approved</Badge>;
+    if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">Pending Review</Badge>;
+    if (status === "rejected") return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Rejected</Badge>;
+    return <Badge variant="outline" className="text-gray-500">Not Submitted</Badge>;
+  };
+
+  const openTextResponse = (q: any, existingResponse?: any) => {
     setCurrentQuestion(q);
-    setTextValue("");
+    setTextValue(existingResponse?.responseText || "");
     setOpenTextModal(true);
   };
 
-  const openFile = (q: any) => {
+  const openFileResponse = (q: any) => {
     setCurrentQuestion(q);
     setFile(null);
     setOpenFileModal(true);
   };
 
   const handleSubmitText = () => {
+    if (!textValue.trim()) return toast.error("Please provide an answer");
+    
     submitMutation.mutate({
       questionId: currentQuestion.id,
       responseText: textValue,
@@ -101,15 +137,86 @@ export default function ContractorOnboardingPage() {
   };
 
   const handleSubmitFile = async () => {
-    if (!file) return toast.error("Choisissez un fichier");
+    if (!file) return toast.error("Please select a file");
+    if (!data?.id || !currentQuestion?.id) return toast.error("Missing required information");
 
-    // 🚨 Ici tu devras ajouter ton upload S3 ou Storage
-    const fakePath = file.name;
+    try {
+      setUploading(true);
+      toast.info("Uploading file...");
 
-    submitMutation.mutate({
-      questionId: currentQuestion.id,
-      responseFilePath: fakePath,
-    });
+      // Upload to S3 via API route with organized path structure
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "onboarding");
+      formData.append("userId", data.id); // Include userId for organized path
+      formData.append("questionId", currentQuestion.id); // Include questionId for organized path
+
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || "Upload failed");
+      }
+
+      const uploadData = await uploadResponse.json();
+
+      // Submit with S3 path
+      submitMutation.mutate({
+        questionId: currentQuestion.id,
+        responseFilePath: uploadData.cloud_storage_path,
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleViewFile = async (filePath: string) => {
+    try {
+      setLoadingFile(filePath);
+      toast.info("Generating secure link...");
+      
+      // Call the API route to get a signed URL
+      const response = await fetch(`/api/files/view?filePath=${encodeURIComponent(filePath)}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate file URL");
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success || !data.url) {
+        throw new Error("Invalid response from server");
+      }
+      
+      // Open the signed URL in a new window
+      const newWindow = window.open(data.url, "_blank");
+      
+      if (!newWindow) {
+        toast.warning("Please allow pop-ups to view the file");
+        
+        // Fallback: Try to create a download link
+        const link = document.createElement('a');
+        link.href = data.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        toast.success("File opened in new tab");
+      }
+    } catch (err: any) {
+      console.error("Error viewing file:", err);
+      toast.error(err.message || "Failed to open file");
+    } finally {
+      setLoadingFile(null);
+    }
   };
 
   return (
@@ -119,66 +226,218 @@ export default function ContractorOnboardingPage() {
         description="Complete your onboarding process and upload required documents"
       />
 
-      {/* Progress */}
+      {/* Progress Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Onboarding Progress</CardTitle>
-          <CardDescription>
-            {approved} of {totalQuestions} steps validated
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Onboarding Progress</CardTitle>
+              <CardDescription>
+                {approvedCount} of {totalQuestions} items approved
+              </CardDescription>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-blue-600">{progress}%</div>
+              <p className="text-sm text-muted-foreground">Complete</p>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Progress value={progress} className="h-3" />
-          <p className="text-sm text-muted-foreground mt-2">{progress}% complete</p>
+          
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">{approvedCount}</div>
+              <div className="text-xs text-green-700">Approved</div>
+            </div>
+            <div className="text-center p-3 bg-yellow-50 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
+              <div className="text-xs text-yellow-700">Pending</div>
+            </div>
+            <div className="text-center p-3 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">{rejectedCount}</div>
+              <div className="text-xs text-red-700">Rejected</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <div className="text-2xl font-bold text-gray-600">{notSubmittedCount}</div>
+              <div className="text-xs text-gray-700">Not Submitted</div>
+            </div>
+          </div>
+
+          {/* Completion Message */}
+          {progress === 100 && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">
+                Congratulations! Your onboarding is complete. All items have been approved.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
-      {/* Questions */}
+      {/* Questions List */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Information</CardTitle>
-          <CardDescription>Submit the requested information</CardDescription>
+          <CardTitle>Required Information</CardTitle>
+          <CardDescription>
+            Please provide all requested information and documents
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {template.questions.map((q) => {
-            const r = responses.find((x) => x.questionId === q.id);
+          {template.questions.map((q: any, index: number) => {
+            const response = responses.find((x) => x.questionId === q.id);
+            const isRejected = response?.status === "rejected";
+            const isPending = response?.status === "pending";
+            const isApproved = response?.status === "approved";
+            const hasResponse = response?.responseText || response?.responseFilePath;
 
             return (
-              <div key={q.id} className="border rounded-lg p-4 flex gap-4">
-                <div>{getStatusIcon(r?.status || "missing")}</div>
+              <div 
+                key={q.id} 
+                className={`border rounded-lg p-5 transition-all ${
+                  isRejected ? "border-red-300 bg-red-50" : 
+                  isPending ? "border-yellow-300 bg-yellow-50" : 
+                  isApproved ? "border-green-300 bg-green-50" : 
+                  "border-gray-200"
+                }`}
+              >
+                <div className="flex gap-4">
+                  {/* Status Icon */}
+                  <div className="flex-shrink-0">
+                    {getStatusIcon(response?.status || "missing")}
+                  </div>
 
-                <div className="flex-1">
-                  <h3 className="font-semibold">{q.questionText}</h3>
-                  <p className="text-sm text-muted-foreground">{q.questionType}</p>
+                  {/* Content */}
+                  <div className="flex-1 space-y-3">
+                    {/* Question Header */}
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">
+                            {index + 1}. {q.questionText}
+                          </h3>
+                          {q.isRequired && (
+                            <Badge variant="outline" className="text-xs">Required</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Type: {q.questionType === "text" ? "Text Answer" : "File Upload"}
+                        </p>
+                      </div>
+                      <div>
+                        {getStatusBadge(response?.status || "missing")}
+                      </div>
+                    </div>
 
-                  {/* Existing response */}
-                  {r?.responseText && <p className="mt-2 text-sm">{r.responseText}</p>}
+                    {/* Rejection Alert */}
+                    {isRejected && response?.adminNotes && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Rejection Reason:</strong> {response.adminNotes}
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
-                  {r?.responseFilePath && (
-                    <Button variant="outline" size="sm" className="mt-2">
-                      <FileText className="h-4 w-4 mr-2" />
-                      View File
-                    </Button>
-                  )}
+                    {/* Existing Response Display */}
+                    {hasResponse && (
+                      <div className="bg-white p-3 rounded border">
+                        {response?.responseText && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Your Answer:</p>
+                            <p className="mt-1 text-gray-900">{response.responseText}</p>
+                          </div>
+                        )}
 
-                  {/* Missing response */}
-                  {(!r || (!r.responseText && !r.responseFilePath)) && (
-                    <>
-                      {q.questionType === "text" && (
-                        <Button size="sm" variant="outline" className="mt-3" onClick={() => openText(q)}>
-                          Provide Text Answer
-                        </Button>
+                        {response?.responseFilePath && (
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm text-gray-700">File uploaded</span>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewFile(response.responseFilePath!)}
+                              disabled={loadingFile === response.responseFilePath}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              {loadingFile === response.responseFilePath ? "Loading..." : "View File"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      {/* For rejected or not submitted items */}
+                      {(isRejected || !hasResponse) && (
+                        <>
+                          {q.questionType === "text" && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => openTextResponse(q, response)}
+                              className={isRejected ? "bg-red-600 hover:bg-red-700" : ""}
+                            >
+                              {isRejected ? "Resubmit Answer" : "Provide Answer"}
+                            </Button>
+                          )}
+
+                          {q.questionType === "file" && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => openFileResponse(q)}
+                              className={isRejected ? "bg-red-600 hover:bg-red-700" : ""}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              {isRejected ? "Reupload File" : "Upload File"}
+                            </Button>
+                          )}
+                        </>
                       )}
 
-                      {q.questionType === "file" && (
-                        <Button size="sm" className="mt-3" onClick={() => openFile(q)}>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload File
+                      {/* For pending items - allow modification */}
+                      {isPending && (
+                        <>
+                          {q.questionType === "text" && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => openTextResponse(q, response)}
+                            >
+                              Edit Answer
+                            </Button>
+                          )}
+
+                          {q.questionType === "file" && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => openFileResponse(q)}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Replace File
+                            </Button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Approved items - read only but allow viewing */}
+                      {isApproved && response?.responseFilePath && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleViewFile(response.responseFilePath!)}
+                          disabled={loadingFile === response.responseFilePath}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          {loadingFile === response.responseFilePath ? "Loading..." : "View File"}
                         </Button>
                       )}
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -186,40 +445,88 @@ export default function ContractorOnboardingPage() {
         </CardContent>
       </Card>
 
-      {/* TEXT MODAL */}
+      {/* TEXT RESPONSE MODAL */}
       <Dialog open={openTextModal} onOpenChange={setOpenTextModal}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{currentQuestion?.questionText}</DialogTitle>
           </DialogHeader>
 
-          <Textarea
-            value={textValue}
-            onChange={(e) => setTextValue(e.target.value)}
-            placeholder="Write your answer..."
-          />
+          <div className="space-y-4">
+            <Textarea
+              value={textValue}
+              onChange={(e) => setTextValue(e.target.value)}
+              placeholder="Enter your answer here..."
+              rows={6}
+              className="resize-none"
+            />
+          </div>
 
-          <Button className="w-full mt-4" onClick={handleSubmitText}>
-            Submit Answer
-          </Button>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setOpenTextModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitText}
+              disabled={!textValue.trim() || submitMutation.isPending}
+            >
+              {submitMutation.isPending ? "Submitting..." : "Submit Answer"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* FILE MODAL */}
+      {/* FILE UPLOAD MODAL */}
       <Dialog open={openFileModal} onOpenChange={setOpenFileModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{currentQuestion?.questionText}</DialogTitle>
           </DialogHeader>
 
-          <Input
-            type="file"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
+          <div className="space-y-4">
+            <div>
+              <Input
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Accepted formats: PDF, Images, Word documents (Max 10MB)
+              </p>
+            </div>
 
-          <Button className="w-full mt-4" onClick={handleSubmitFile}>
-            Upload File
-          </Button>
+            {file && (
+              <div className="p-3 bg-gray-50 rounded border">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-gray-500" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{file.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setOpenFileModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitFile}
+              disabled={!file || uploading || submitMutation.isPending}
+            >
+              {uploading || submitMutation.isPending ? "Uploading..." : "Upload & Submit"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

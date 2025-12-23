@@ -51,7 +51,27 @@ export const remittanceRouter = createTRPCRouter({
         where: buildWhereClause(scope, {}, { tenantId: ctx.tenantId }),
         include: {
           contract: true,
-          user: true
+          recipient: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              amount: true,
+            }
+          }
         },
         orderBy: { completedAt: "desc" }
       });
@@ -77,7 +97,30 @@ export const remittanceRouter = createTRPCRouter({
 
       const remittance = await ctx.prisma.remittance.findFirst({
         where: buildWhereClause(scope, { id: input.remitId }, { tenantId: ctx.tenantId }),
-        include: { contract: true, user: true }
+        include: { 
+          contract: true, 
+          recipient: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              amount: true,
+            }
+          }
+        }
       });
 
       if (!remittance) {
@@ -134,6 +177,7 @@ export const remittanceRouter = createTRPCRouter({
     .input(
       z.object({
         userId: z.string(),
+        invoiceId: z.string().optional(),
         contractId: z.string().optional(),
         amount: z.number().min(0.01),
         currency: z.string().default("USD"),
@@ -146,10 +190,14 @@ export const remittanceRouter = createTRPCRouter({
       const result = await ctx.prisma.remittance.create({
         data: {
           tenantId: ctx.tenantId!,
-          userId: input.userId,
+          invoiceId: input.invoiceId || null,
           contractId: input.contractId || null,
           amount: input.amount,
           currency: input.currency,
+          paymentType: "sent",
+          recipientType: "contractor",
+          recipientId: input.userId,
+          senderId: ctx.session.user.id,
           description: input.description || "",
           notes: input.notes || "",
           status: "pending",
@@ -167,7 +215,7 @@ export const remittanceRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
-        status: z.enum(["pending", "processing", "completed", "failed"]),
+        status: z.enum(["pending", "completed", "failed"]),
         description: z.string().optional(),
         notes: z.string().optional(),
       })
@@ -183,15 +231,32 @@ export const remittanceRouter = createTRPCRouter({
           notes: input.notes ?? undefined,
 
           // Auto update timestamps based on status
-          processedAt:
-            input.status === "processing" ? now : undefined,
-
           completedAt:
             input.status === "completed" ? now : undefined,
         },
         include: {
-          user: true,
+          recipient: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
           contract: true,
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              amount: true,
+            }
+          }
         },
       });
 

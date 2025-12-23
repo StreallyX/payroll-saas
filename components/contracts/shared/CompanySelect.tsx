@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Building2, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc";
@@ -18,10 +24,10 @@ interface CompanySelectProps {
 }
 
 /**
- * Composant de sélection de company avec filtrage par rôle
- * 
- * Utilise l'API tRPC pour récupérer la liste des companies
- * Supporte le filtrage par rôle (agency, client, tenant)
+ * Company selection component with role-based filtering
+ *
+ * Uses the tRPC API to fetch the list of companies
+ * Supports filtering by role (agency, client, tenant)
  */
 export function CompanySelect({
   value,
@@ -29,19 +35,17 @@ export function CompanySelect({
   label = "Company",
   required = false,
   disabled = false,
-  placeholder = "Sélectionner une company...",
+  placeholder = "Select a company...",
   roleFilter,
   className,
 }: CompanySelectProps) {
-  // Récupérer la liste des companies
-  const { data: companies = [], isLoading } = api.company.getAll.useQuery(
-    undefined,
-    {
+  // Fetch the list of companies
+  const { data: companies = [], isLoading } =
+    api.company.getAll.useQuery(undefined, {
       enabled: !disabled,
-    }
-  );
+    });
 
-  // Filtrer par rôle si nécessaire
+  // Filter by role if needed
   const filteredCompanies = roleFilter
     ? companies.filter((c: any) => c.ownerType === roleFilter)
     : companies;
@@ -55,19 +59,26 @@ export function CompanySelect({
           {required && " *"}
         </Label>
       )}
-      <Select value={value} onValueChange={onChange} disabled={disabled || isLoading}>
+
+      <Select
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled || isLoading}
+      >
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
+
         <SelectContent>
           {isLoading ? (
             <SelectItem value="loading" disabled>
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Chargement...
+              Loading...
             </SelectItem>
-          ) : !filteredCompanies || filteredCompanies.length === 0 ? (
+          ) : !filteredCompanies ||
+            filteredCompanies.length === 0 ? (
             <SelectItem value="empty" disabled>
-              Aucune company disponible
+              No companies available
             </SelectItem>
           ) : (
             filteredCompanies.map((company: any) => (

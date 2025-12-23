@@ -121,7 +121,7 @@ export default function RemittancePage() {
   type Remittance = {
     id: string;
     amount: number;
-    status: "pending" | "processing" | "completed" | "failed";
+    status: "pending" | "completed" | "failed";
     completedAt: string | null;
     user?: {
       name?: string | null;
@@ -348,7 +348,7 @@ export default function RemittancePage() {
           onUpdate={({ status, description, notes }) =>
             updateMutation.mutate({
               id: selectedRemit.id,
-              status,
+              status: status as "pending" | "completed" | "failed",
               description,
               notes
             })

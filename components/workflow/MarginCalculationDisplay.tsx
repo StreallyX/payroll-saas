@@ -11,6 +11,15 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+interface Expense {
+  id: string;
+  amount: number;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  date?: Date | string;
+}
+
 interface MarginBreakdown {
   baseAmount: number;
   marginAmount: number;
@@ -24,6 +33,7 @@ interface MarginBreakdown {
 
 interface MarginCalculationDisplayProps {
   breakdown: MarginBreakdown;
+  expenses?: Expense[];
   className?: string;
   showDetails?: boolean;
 }
@@ -74,9 +84,13 @@ const getMarginPaidByDescription = (paidBy: string): string => {
 
 export function MarginCalculationDisplay({
   breakdown,
+  expenses = [],
   className,
   showDetails = true,
 }: MarginCalculationDisplayProps) {
+  // Calculate total expenses
+  const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  
   return (
     <Card className={cn("border-blue-200 bg-blue-50/50", className)}>
       <CardHeader className="pb-3">
@@ -97,7 +111,7 @@ export function MarginCalculationDisplay({
       <CardContent className="space-y-3">
         {/* Base Amount */}
         <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Base Amount</span>
+          <span className="text-sm text-muted-foreground">Base Amount (Work/Hours)</span>
           <span className="font-medium">
             {formatCurrency(breakdown.baseAmount, breakdown.currency)}
           </span>
@@ -124,6 +138,45 @@ export function MarginCalculationDisplay({
             Fixed margin of {formatCurrency(breakdown.marginAmount, breakdown.currency)} 
             {" "}(≈{breakdown.marginPercentage.toFixed(2)}% of base)
           </div>
+        )}
+
+        {/* Expenses Section */}
+        {expenses.length > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Expenses</span>
+              </div>
+              
+              {expenses.map((expense) => (
+                <div key={expense.id} className="flex justify-between items-start pl-4 py-1">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{expense.title}</p>
+                    {expense.description && (
+                      <p className="text-xs text-muted-foreground">{expense.description}</p>
+                    )}
+                    {expense.category && (
+                      <span className="text-xs text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-1">
+                        {expense.category}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-medium text-sm text-green-600">
+                    +{formatCurrency(Number(expense.amount), breakdown.currency)}
+                  </span>
+                </div>
+              ))}
+              
+              {/* Total Expenses */}
+              <div className="flex justify-between items-center pl-4 pt-1 border-t">
+                <span className="text-sm font-medium">Total Expenses</span>
+                <span className="font-medium text-green-600">
+                  +{formatCurrency(totalExpenses, breakdown.currency)}
+                </span>
+              </div>
+            </div>
+          </>
         )}
 
         <Separator />

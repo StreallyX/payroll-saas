@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { CreditCard, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +16,7 @@ import { cn } from "@/lib/utils";
 interface UserBankSelectProps {
   userId: string;
   value?: string;
-  values?: string[]; // Pour mode multiple
+  values?: string[]; // For multiple mode
   onChange?: (value: string) => void;
   onChangeMultiple?: (values: string[]) => void;
   label?: string;
@@ -22,10 +28,10 @@ interface UserBankSelectProps {
 }
 
 /**
- * Composant de sélection de UserBank/PaymentMethod
- * 
- * Supporte le mode simple et multiple
- * Charge les payment methods d'un utilisateur spécifique
+ * UserBank / PaymentMethod selection component
+ *
+ * Supports single and multiple selection modes
+ * Loads payment methods for a specific user
  */
 export function UserBankSelect({
   userId,
@@ -33,16 +39,16 @@ export function UserBankSelect({
   values = [],
   onChange,
   onChangeMultiple,
-  label = "Méthode de paiement",
+  label = "Payment method",
   required = false,
   disabled = false,
-  placeholder = "Sélectionner une méthode de paiement...",
+  placeholder = "Select a payment method...",
   multiple = false,
   className,
 }: UserBankSelectProps) {
-  // Récupérer les payment methods de l'utilisateur
-  // TODO: Implémenter l'API pour récupérer les PaymentMethods d'un utilisateur
-  // Pour l'instant, on utilise une liste vide
+  // Fetch user's payment methods
+  // TODO: Implement proper API to fetch user PaymentMethods
+  // For now, we use a placeholder list
   const { data: allBanks = [], isLoading } = api.bank.getAll.useQuery(
     undefined,
     {
@@ -50,27 +56,29 @@ export function UserBankSelect({
     }
   );
 
-  console.log(allBanks)
+  console.log(allBanks);
 
-  // Filtrer par userId (simulation - à adapter selon la vraie structure)
+  // Filter by userId (temporary logic – adapt to real structure)
   const paymentMethods = {
-    userBanks: allBanks.filter((bank: any) => bank.userId === userId || !bank.userId)
+    userBanks: allBanks.filter(
+      (bank: any) => bank.userId === userId || !bank.userId
+    ),
   };
 
-  // Gestion du mode simple
+  // Handle single or multiple selection
   const handleChange = (newValue: string) => {
     if (multiple && onChangeMultiple) {
-      // Mode multiple: ajouter si pas déjà présent
+      // Multiple mode: add if not already selected
       if (!values.includes(newValue)) {
         onChangeMultiple([...values, newValue]);
       }
     } else if (onChange) {
-      // Mode simple
+      // Single mode
       onChange(newValue);
     }
   };
 
-  // Retirer un élément en mode multiple
+  // Remove item in multiple mode
   const handleRemove = (valueToRemove: string) => {
     if (onChangeMultiple) {
       onChangeMultiple(values.filter((v) => v !== valueToRemove));
@@ -88,7 +96,7 @@ export function UserBankSelect({
           </Label>
         )}
         <div className="text-sm text-muted-foreground">
-          Veuillez d'abord sélectionner un utilisateur
+          Please select a user first
         </div>
       </div>
     );
@@ -104,7 +112,7 @@ export function UserBankSelect({
         </Label>
       )}
 
-      {/* Mode multiple: afficher les sélections */}
+      {/* Multiple mode: selected items */}
       {multiple && values.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {values.map((selectedValue) => {
@@ -117,8 +125,9 @@ export function UserBankSelect({
                 className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-md text-sm"
               >
                 <span>
-                  {selectedBank?.name || "Méthode de paiement"}
-                  {selectedBank?.accountNumber && ` - ${selectedBank.accountNumber.slice(-4)}`}
+                  {selectedBank?.name || "Payment method"}
+                  {selectedBank?.accountNumber &&
+                    ` - ${selectedBank.accountNumber.slice(-4)}`}
                 </span>
                 <Button
                   type="button"
@@ -147,18 +156,19 @@ export function UserBankSelect({
           {isLoading ? (
             <SelectItem value="loading" disabled>
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Chargement...
+              Loading...
             </SelectItem>
-          ) : !paymentMethods?.userBanks || paymentMethods.userBanks.length === 0 ? (
+          ) : !paymentMethods?.userBanks ||
+            paymentMethods.userBanks.length === 0 ? (
             <SelectItem value="empty" disabled>
-              Aucune méthode de paiement disponible
+              No payment methods available
             </SelectItem>
           ) : (
             paymentMethods.userBanks
               .filter((pm: any) => !multiple || !values.includes(pm.id))
               .map((pm: any) => (
                 <SelectItem key={pm.id} value={pm.id}>
-                  {pm.name || "Méthode de paiement"}
+                  {pm.name || "Payment method"}
                   {pm.accountNumber && (
                     <span className="text-xs text-muted-foreground ml-2">
                       (•••• {pm.accountNumber.slice(-4)})

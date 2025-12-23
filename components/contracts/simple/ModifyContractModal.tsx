@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -23,13 +29,14 @@ interface ModifyContractModalProps {
 }
 
 /**
- * Modal pour modifier les informations de base d'un contrat
- * 
- * Permet de modifier:
- * - Le titre
- * - La description
- * 
- * Note: Les participants et documents peuvent être modifiés directement sur la vue détaillée
+ * Modal for editing basic contract information
+ *
+ * Allows editing:
+ * - Title
+ * - Description
+ *
+ * Note: Participants and documents can be edited directly
+ * from the detailed contract view.
  */
 export function ModifyContractModal({
   contract,
@@ -38,11 +45,13 @@ export function ModifyContractModal({
   onSuccess,
 }: ModifyContractModalProps) {
   const utils = api.useUtils();
-  
-  const [title, setTitle] = useState(contract.title || "");
-  const [description, setDescription] = useState(contract.description || "");
 
-  // Réinitialiser les champs quand le modal s'ouvre
+  const [title, setTitle] = useState(contract.title || "");
+  const [description, setDescription] = useState(
+    contract.description || ""
+  );
+
+  // Reset fields when the modal opens
   useEffect(() => {
     if (isOpen) {
       setTitle(contract.title || "");
@@ -50,25 +59,35 @@ export function ModifyContractModal({
     }
   }, [isOpen, contract]);
 
-  // Mutation pour mettre à jour le contrat
-  const updateMutation = api.simpleContract.updateSimpleContract.useMutation({
-    onSuccess: () => {
-      toast.success("Contrat mis à jour avec succès");
-      void utils.simpleContract.getSimpleContractById.invalidate({ id: contract.id });
-      onSuccess();
-      onClose();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Échec de la mise à jour du contrat");
-    },
-  });
+  // Mutation to update the contract
+  const updateMutation =
+    api.simpleContract.updateSimpleContract.useMutation(
+      {
+        onSuccess: () => {
+          toast.success(
+            "Contract updated successfully"
+          );
+          void utils.simpleContract.getSimpleContractById.invalidate(
+            { id: contract.id }
+          );
+          onSuccess();
+          onClose();
+        },
+        onError: (error) => {
+          toast.error(
+            error.message ||
+              "Failed to update the contract"
+          );
+        },
+      }
+    );
 
   /**
-   * Soumet le formulaire
+   * Submit the form
    */
   const handleSubmit = () => {
     if (!title.trim()) {
-      toast.error("Le titre est requis");
+      toast.error("Title is required");
       return;
     }
 
@@ -80,7 +99,7 @@ export function ModifyContractModal({
   };
 
   /**
-   * Ferme le modal
+   * Close the modal
    */
   const handleClose = () => {
     if (!updateMutation.isPending) {
@@ -92,46 +111,51 @@ export function ModifyContractModal({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Modifier le contrat</DialogTitle>
+          <DialogTitle>Edit contract</DialogTitle>
           <DialogDescription>
-            Modifiez les informations de base du contrat. Les participants et documents peuvent être
-            modifiés directement sur la vue détaillée.
+            Update the basic contract information. Participants
+            and documents can be managed directly from the
+            detailed view.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Titre */}
+          {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title" className="required">
-              Titre *
+              Title *
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Titre du contrat"
+              placeholder="Contract title"
               disabled={updateMutation.isPending}
               maxLength={200}
             />
             <p className="text-xs text-muted-foreground">
-              {title.length}/200 caractères
+              {title.length}/200 characters
             </p>
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">
+              Description
+            </Label>
             <Textarea
               id="description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description optionnelle du contrat..."
+              onChange={(e) =>
+                setDescription(e.target.value)
+              }
+              placeholder="Optional contract description..."
               disabled={updateMutation.isPending}
               maxLength={1000}
               rows={4}
             />
             <p className="text-xs text-muted-foreground">
-              {description.length}/1000 caractères
+              {description.length}/1000 characters
             </p>
           </div>
         </div>
@@ -143,21 +167,23 @@ export function ModifyContractModal({
             onClick={handleClose}
             disabled={updateMutation.isPending}
           >
-            Annuler
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!title.trim() || updateMutation.isPending}
+            disabled={
+              !title.trim() || updateMutation.isPending
+            }
           >
             {updateMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Enregistrement...
+                Saving...
               </>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Enregistrer les modifications
+                Save changes
               </>
             )}
           </Button>

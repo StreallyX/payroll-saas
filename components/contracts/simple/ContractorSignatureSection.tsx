@@ -1,13 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileSignature, CheckCircle, Info, Loader2, Calendar } from "lucide-react";
+import {
+  FileSignature,
+  CheckCircle,
+  Info,
+  Loader2,
+  Calendar,
+} from "lucide-react";
 import { useNormContract } from "@/hooks/contracts/useNormContract";
 import { toast } from "sonner";
 
@@ -23,13 +41,13 @@ interface ContractorSignatureSectionProps {
 }
 
 /**
- * Section pour permettre au contractor de signer le contrat
- * 
- * Affiche:
- * - Les informations du contrat
- * - Bouton "Signer le contrat"
- * - Modal de confirmation avec date de signature
- * - Statut de signature (signé ou non)
+ * Section allowing the contractor to sign the contract
+ *
+ * Displays:
+ * - Contract information
+ * - "Sign contract" button
+ * - Confirmation modal with signature date
+ * - Signature status (signed or not)
  */
 export function ContractorSignatureSection({
   contract,
@@ -37,7 +55,7 @@ export function ContractorSignatureSection({
 }: ContractorSignatureSectionProps) {
   const [showSignModal, setShowSignModal] = useState(false);
   const [signatureDate, setSignatureDate] = useState<string>(
-    new Date().toISOString().split("T")[0] // Date du jour par défaut
+    new Date().toISOString().split("T")[0] // Default to today's date
   );
 
   const { contractorSignContract, isSigning } = useNormContract();
@@ -45,11 +63,11 @@ export function ContractorSignatureSection({
   const isAlreadySigned = !!contract.contractorSignedAt;
 
   /**
-   * Gère la signature du contrat
+   * Handle contract signature
    */
   const handleSign = async () => {
     if (!signatureDate) {
-      toast.error("Veuillez sélectionner une date de signature");
+      toast.error("Please select a signature date");
       return;
     }
 
@@ -61,17 +79,22 @@ export function ContractorSignatureSection({
       setShowSignModal(false);
       onSuccess?.();
     } catch (error) {
-      console.error("[ContractorSignatureSection] Error:", error);
+      console.error(
+        "[ContractorSignatureSection] Error:",
+        error
+      );
     }
   };
 
   /**
-   * Formate la date
+   * Format date
    */
-  const formatDate = (date: Date | string | null | undefined): string => {
+  const formatDate = (
+    date: Date | string | null | undefined
+  ): string => {
     if (!date) return "-";
     const d = typeof date === "string" ? new Date(date) : date;
-    return d.toLocaleDateString("fr-FR", {
+    return d.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "long",
       year: "numeric",
@@ -80,51 +103,73 @@ export function ContractorSignatureSection({
 
   return (
     <>
-      <Card className={isAlreadySigned ? "border-green-200 bg-green-50/50" : "border-orange-200 bg-orange-50/50"}>
+      <Card
+        className={
+          isAlreadySigned
+            ? "border-green-200 bg-green-50/50"
+            : "border-orange-200 bg-orange-50/50"
+        }
+      >
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileSignature className="h-5 w-5" />
-            Signature du Contractor
+            Contractor Signature
           </CardTitle>
           <CardDescription>
             {isAlreadySigned
-              ? "Vous avez déjà signé ce contrat"
-              : "Vous devez signer ce contrat pour le valider"}
+              ? "You have already signed this contract"
+              : "You must sign this contract to validate it"}
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          {/* Informations du contrat */}
+          {/* Contract information */}
           <div className="space-y-2">
             <div>
-              <p className="text-sm text-muted-foreground">Titre du contrat</p>
-              <p className="font-medium">{contract.title || "Contrat NORM"}</p>
+              <p className="text-sm text-muted-foreground">
+                Contract title
+              </p>
+              <p className="font-medium">
+                {contract.title || "NORM Contract"}
+              </p>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  Date de début
+                  Start date
                 </p>
-                <p className="font-medium">{formatDate(contract.startDate)}</p>
+                <p className="font-medium">
+                  {formatDate(contract.startDate)}
+                </p>
               </div>
+
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  Date de fin
+                  End date
                 </p>
-                <p className="font-medium">{formatDate(contract.endDate)}</p>
+                <p className="font-medium">
+                  {formatDate(contract.endDate)}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Statut de signature */}
+          {/* Signature status */}
           {isAlreadySigned ? (
             <Alert className="border-green-200 bg-green-50">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                <strong>Contrat signé le {formatDate(contract.contractorSignedAt)}</strong>
+                <strong>
+                  Contract signed on{" "}
+                  {formatDate(
+                    contract.contractorSignedAt
+                  )}
+                </strong>
                 <br />
-                Votre signature a été enregistrée avec succès.
+                Your signature has been successfully recorded.
               </AlertDescription>
             </Alert>
           ) : (
@@ -132,7 +177,9 @@ export function ContractorSignatureSection({
               <Alert className="border-orange-200">
                 <Info className="h-4 w-4 text-orange-600" />
                 <AlertDescription className="text-orange-800">
-                  En signant ce contrat, vous acceptez tous les termes et conditions mentionnés dans le document.
+                  By signing this contract, you confirm that you
+                  have read and accepted all terms and conditions
+                  stated in the document.
                 </AlertDescription>
               </Alert>
 
@@ -142,70 +189,97 @@ export function ContractorSignatureSection({
                 size="lg"
               >
                 <FileSignature className="mr-2 h-5 w-5" />
-                Signer le contrat
+                Sign contract
               </Button>
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Modal de confirmation */}
-      <Dialog open={showSignModal} onOpenChange={setShowSignModal}>
+      {/* Confirmation modal */}
+      <Dialog
+        open={showSignModal}
+        onOpenChange={setShowSignModal}
+      >
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
-              Confirmer la signature
+              Confirm signature
             </DialogTitle>
             <DialogDescription>
-              Veuillez confirmer que vous souhaitez signer ce contrat
+              Please confirm that you want to sign this contract
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Informations du contrat */}
+            {/* Contract information */}
             <div className="space-y-2">
               <div className="p-3 rounded-lg border bg-muted/50">
-                <p className="text-sm text-muted-foreground">Contrat</p>
-                <p className="font-semibold">{contract.title || "Contrat NORM"}</p>
+                <p className="text-sm text-muted-foreground">
+                  Contract
+                </p>
+                <p className="font-semibold">
+                  {contract.title || "NORM Contract"}
+                </p>
               </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-lg border bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Début</p>
-                  <p className="text-sm font-medium">{formatDate(contract.startDate)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Start
+                  </p>
+                  <p className="text-sm font-medium">
+                    {formatDate(contract.startDate)}
+                  </p>
                 </div>
+
                 <div className="p-3 rounded-lg border bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Fin</p>
-                  <p className="text-sm font-medium">{formatDate(contract.endDate)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    End
+                  </p>
+                  <p className="text-sm font-medium">
+                    {formatDate(contract.endDate)}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Date de signature */}
+            {/* Signature date */}
             <div className="space-y-2">
-              <Label htmlFor="signature-date" className="required">
+              <Label
+                htmlFor="signature-date"
+                className="required"
+              >
                 <Calendar className="h-4 w-4 inline mr-1" />
-                Date de signature *
+                Signature date *
               </Label>
               <Input
                 id="signature-date"
                 type="date"
                 value={signatureDate}
-                onChange={(e) => setSignatureDate(e.target.value)}
+                onChange={(e) =>
+                  setSignatureDate(e.target.value)
+                }
                 disabled={isSigning}
-                max={new Date().toISOString().split("T")[0]} // Pas de date future
+                max={
+                  new Date()
+                    .toISOString()
+                    .split("T")[0]
+                } // No future dates
               />
               <p className="text-xs text-muted-foreground">
-                Par défaut, la date du jour est sélectionnée
+                By default, today’s date is selected
               </p>
             </div>
 
-            {/* Avertissement */}
+            {/* Warning */}
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <strong>Important :</strong> Cette action est définitive. En signant, vous confirmez avoir lu et accepté
-                tous les termes du contrat.
+                <strong>Important:</strong> This action is
+                final. By signing, you confirm that you have
+                read and accepted all terms of the contract.
               </AlertDescription>
             </Alert>
           </div>
@@ -217,7 +291,7 @@ export function ContractorSignatureSection({
               onClick={() => setShowSignModal(false)}
               disabled={isSigning}
             >
-              Annuler
+              Cancel
             </Button>
             <Button
               onClick={handleSign}
@@ -226,12 +300,12 @@ export function ContractorSignatureSection({
               {isSigning ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signature en cours...
+                  Signing...
                 </>
               ) : (
                 <>
                   <FileSignature className="mr-2 h-4 w-4" />
-                  Confirmer la signature
+                  Confirm signature
                 </>
               )}
             </Button>

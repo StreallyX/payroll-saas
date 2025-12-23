@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Upload, Loader2 } from "lucide-react";
 import { useContractDocuments } from "@/hooks/contracts/useContractDocuments";
 import { toast } from "sonner";
@@ -17,54 +23,58 @@ interface DocumentUploaderProps {
 }
 
 const DOCUMENT_CATEGORIES = [
-  { value: "Contract", label: "Contrat" },
-  { value: "Invoice", label: "Facture" },
-  { value: "ID Document", label: "Pièce d'identité" },
+  { value: "Contract", label: "Contract" },
+  { value: "Invoice", label: "Invoice" },
+  { value: "ID Document", label: "ID Document" },
   { value: "Signature", label: "Signature" },
-  { value: "Other", label: "Autre" },
+  { value: "Other", label: "Other" },
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProps) {
   const { uploadDocument, isUploading } = useContractDocuments(contractId);
-  
+
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<"Contract" | "Invoice" | "ID Document" | "Signature" | "Other">("Other");
+  const [category, setCategory] = useState<
+    "Contract" | "Invoice" | "ID Document" | "Signature" | "Other"
+  >("Other");
   const [notes, setNotes] = useState("");
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-    
-    // Validation de la taille
+
+    // File size validation
     if (selectedFile.size > MAX_FILE_SIZE) {
-      toast.error(`Le fichier est trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024} MB)`);
+      toast.error(
+        `The file is too large (max ${MAX_FILE_SIZE / 1024 / 1024} MB)`
+      );
       return;
     }
-    
+
     setFile(selectedFile);
   };
-  
+
   const handleUpload = async () => {
     if (!file) {
-      toast.error("Veuillez sélectionner un fichier");
+      toast.error("Please select a file");
       return;
     }
-    
+
     if (!description.trim()) {
-      toast.error("Veuillez fournir une description");
+      toast.error("Please provide a description");
       return;
     }
-    
+
     try {
-      // Convertir le fichier en base64
+      // Convert file to base64
       const reader = new FileReader();
       reader.onload = async (e: any) => {
         const base64 = e.target?.result as string;
-        const pdfBuffer = base64.split(",")[1]; // Enlever le préfixe "data:application/pdf;base64,"
-        
+        const pdfBuffer = base64.split(",")[1]; // Remove data prefix
+
         uploadDocument(
           {
             contractId,
@@ -78,38 +88,45 @@ export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProp
           },
           {
             onSuccess: () => {
-              toast.success("Document uploadé avec succès");
-              // Réinitialiser le formulaire
+              toast.success("Document uploaded successfully");
+
+              // Reset form
               setFile(null);
               setDescription("");
               setCategory("Other");
               setNotes("");
-              // Réinitialiser l'input file
-              const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+
+              // Reset file input
+              const fileInput = document.getElementById(
+                "file-upload"
+              ) as HTMLInputElement;
               if (fileInput) fileInput.value = "";
-              
+
               onSuccess?.();
             },
             onError: (error: any) => {
-              toast.error(error.message || "Échec de l'upload du document");
+              toast.error(error.message || "Failed to upload the document");
             },
           }
         );
       };
+
       reader.readAsDataURL(file);
     } catch (error) {
-      toast.error("Échec de la lecture du fichier");
+      toast.error("Failed to read the file");
     }
   };
-  
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Uploader un document</CardTitle>
+        <CardTitle className="text-lg">Upload a document</CardTitle>
       </CardHeader>
+
       <CardContent className="space-y-4">
+        {/* File */}
         <div className="space-y-2">
-          <Label htmlFor="file-upload">Fichier *</Label>
+          <Label htmlFor="file-upload">File *</Label>
           <Input
             id="file-upload"
             type="file"
@@ -119,31 +136,39 @@ export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProp
           />
           {file && (
             <p className="text-xs text-muted-foreground">
-              Fichier sélectionné: {file.name} ({(file.size / 1024).toFixed(2)} KB)
+              Selected file: {file.name} ({(file.size / 1024).toFixed(2)} KB)
             </p>
           )}
         </div>
-        
+
+        {/* Description */}
         <div className="space-y-2">
           <Label htmlFor="description">Description *</Label>
           <Input
             id="description"
             value={description}
             onChange={(e: any) => setDescription(e.target.value)}
-            placeholder="Ex: Facture du mois de novembre"
+            placeholder="e.g. November invoice"
             disabled={isUploading}
             maxLength={500}
           />
           <p className="text-xs text-muted-foreground">
-            {description.length}/500 caractères
+            {description.length}/500 characters
           </p>
         </div>
-        
+
+        {/* Category */}
         <div className="space-y-2">
-          <Label htmlFor="category">Catégorie *</Label>
-          <Select value={category} onValueChange={(value) => setCategory(value as typeof category)} disabled={isUploading}>
+          <Label htmlFor="category">Category *</Label>
+          <Select
+            value={category}
+            onValueChange={(value) =>
+              setCategory(value as typeof category)
+            }
+            disabled={isUploading}
+          >
             <SelectTrigger id="category">
-              <SelectValue placeholder="Sélectionnez une catégorie" />
+              <SelectValue placeholder="Select a category" />
             </SelectTrigger>
             <SelectContent>
               {DOCUMENT_CATEGORIES.map((cat) => (
@@ -154,23 +179,25 @@ export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProp
             </SelectContent>
           </Select>
         </div>
-        
+
+        {/* Notes */}
         <div className="space-y-2">
-          <Label htmlFor="notes">Notes (optionnel)</Label>
+          <Label htmlFor="notes">Notes (optional)</Label>
           <Textarea
             id="notes"
             value={notes}
             onChange={(e: any) => setNotes(e.target.value)}
-            placeholder="Instructions ou informations supplémentaires..."
+            placeholder="Additional instructions or information..."
             disabled={isUploading}
             maxLength={1000}
             rows={3}
           />
           <p className="text-xs text-muted-foreground">
-            {notes.length}/1000 caractères
+            {notes.length}/1000 characters
           </p>
         </div>
-        
+
+        {/* Submit */}
         <Button
           onClick={handleUpload}
           disabled={isUploading || !file || !description.trim()}
@@ -179,12 +206,12 @@ export function DocumentUploader({ contractId, onSuccess }: DocumentUploaderProp
           {isUploading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Upload en cours...
+              Uploading...
             </>
           ) : (
             <>
               <Upload className="mr-2 h-4 w-4" />
-              Uploader le document
+              Upload document
             </>
           )}
         </Button>

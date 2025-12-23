@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,12 +24,12 @@ interface UploadSignedModalProps {
 }
 
 /**
- * Modal pour uploader une version signée du contrat
- * 
- * Processus:
- * 1. Upload PDF signé
- * 2. Création d'une nouvelle version du document
- * 3. Marquage comme document signé
+ * Modal for uploading a signed version of a contract
+ *
+ * Process:
+ * 1. Upload the signed PDF
+ * 2. Create a new document version
+ * 3. Mark the document as signed
  */
 export function UploadSignedModal({
   open,
@@ -33,10 +39,11 @@ export function UploadSignedModal({
   onSuccess,
 }: UploadSignedModalProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const { uploadSignedWithValidation, isProcessing } = useContractDocument();
+  const { uploadSignedWithValidation, isProcessing } =
+    useContractDocument();
 
   /**
-   * Soumet le formulaire
+   * Submit the form
    */
   const handleSubmit = async () => {
     if (!pdfFile) {
@@ -50,7 +57,7 @@ export function UploadSignedModal({
   };
 
   /**
-   * Ferme le modal
+   * Close the modal
    */
   const handleClose = () => {
     if (!isProcessing) {
@@ -65,29 +72,29 @@ export function UploadSignedModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSignature className="h-5 w-5" />
-            Uploader la version signée
+            Upload signed version
           </DialogTitle>
           <DialogDescription>
-            {contractTitle 
-              ? `Uploadez la version signée du contrat "${contractTitle}"`
-              : "Uploadez la version signée du contrat"
-            }
+            {contractTitle
+              ? `Upload the signed version of the contract "${contractTitle}"`
+              : "Upload the signed version of the contract"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Alert d'information */}
+          {/* Information alert */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Cette nouvelle version remplacera la version actuelle et sera marquée comme signée.
+              This new version will replace the current one and
+              will be marked as signed.
             </AlertDescription>
           </Alert>
 
-          {/* Upload PDF */}
+          {/* PDF upload */}
           <div className="space-y-2">
             <Label htmlFor="pdf-upload" className="required">
-              Document PDF signé *
+              Signed PDF document *
             </Label>
             <PDFUploadZone
               file={pdfFile}
@@ -95,18 +102,27 @@ export function UploadSignedModal({
               disabled={isProcessing}
             />
             <p className="text-xs text-muted-foreground">
-              Le document doit être au format PDF et contenir toutes les signatures requises
+              The document must be in PDF format and include all
+              required signatures.
             </p>
           </div>
 
-          {/* Informations supplémentaires */}
+          {/* Additional information */}
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
-            <h4 className="text-sm font-medium">Que se passe-t-il après l'upload ?</h4>
+            <h4 className="text-sm font-medium">
+              What happens after the upload?
+            </h4>
             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-              <li>Une nouvelle version du document sera créée</li>
-              <li>L'ancienne version restera accessible dans l'historique</li>
-              <li>Le document sera marqué comme signé avec la date actuelle</li>
-              <li>Le statut du contrat restera inchangé</li>
+              <li>A new version of the document will be created</li>
+              <li>
+                The previous version will remain accessible in
+                the history
+              </li>
+              <li>
+                The document will be marked as signed with the
+                current date
+              </li>
+              <li>The contract status will remain unchanged</li>
             </ul>
           </div>
         </div>
@@ -118,7 +134,7 @@ export function UploadSignedModal({
             onClick={handleClose}
             disabled={isProcessing}
           >
-            Annuler
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
@@ -127,12 +143,12 @@ export function UploadSignedModal({
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Upload en cours...
+                Uploading...
               </>
             ) : (
               <>
                 <Upload className="mr-2 h-4 w-4" />
-                Uploader
+                Upload
               </>
             )}
           </Button>

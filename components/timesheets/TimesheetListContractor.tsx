@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export function TimesheetListContractor() {
   const [search, setSearch] = useState("");
@@ -22,6 +23,7 @@ export function TimesheetListContractor() {
       },
       {
         getNextPageParam: (lastPage) => lastPage.nextCursor,
+        refetchInterval: 30000, // Auto-refresh every 30 seconds
       }
     );
 
@@ -68,12 +70,13 @@ export function TimesheetListContractor() {
                 <th className="p-3 font-medium text-gray-600">Hours</th>
                 <th className="p-3 font-medium text-gray-600">Amount</th>
                 <th className="p-3 font-medium text-gray-600">Status</th>
+                <th className="p-3 font-medium text-gray-600 text-right">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {items.map((t: any) => (
-                <tr key={t.id} className="border-b">
+                <tr key={t.id} className="border-b hover:bg-gray-50 transition">
                   <td className="p-3">
                     {format(new Date(t.startDate), "dd MMM")} →{" "}
                     {format(new Date(t.endDate), "dd MMM yyyy")}
@@ -99,6 +102,15 @@ export function TimesheetListContractor() {
                     >
                       {t.status.toUpperCase()}
                     </Badge>
+                  </td>
+
+                  <td className="p-3 text-right">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/timesheets/${t.id}`}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Link>
+                    </Button>
                   </td>
                 </tr>
               ))}

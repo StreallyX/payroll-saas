@@ -9,6 +9,7 @@ import {
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generateRandomPassword } from "@/lib/utils";
+import { emailService } from "@/lib/email/emailService";
 
 // -----------------------------
 // Permissions (tes clés existantes)
@@ -50,7 +51,7 @@ export const userRouter = createTRPCRouter({
   // ---------------------------------------------------------
   // GET ALL USERS
   // - global -> tout voir
-  // - own    -> self + subtree
+  // - own    -> self + subtree + delegated access
   // ---------------------------------------------------------
   getAll: tenantProcedure
     .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN]))
@@ -68,11 +69,31 @@ export const userRouter = createTRPCRouter({
         });
       }
 
+      // Get owned users (subtree)
       const subtree = await getSubtreeUserIds(prisma, userId);
+      
+      // Get delegated access
+      const delegatedGrants = await prisma.delegatedAccess.findMany({
+        where: { 
+          tenantId,
+          grantedToUserId: userId,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: new Date() } }
+          ]
+        },
+        select: { grantedForUserId: true }
+      });
+      
+      const delegatedUserIds = delegatedGrants.map(g => g.grantedForUserId);
+      
+      // Combine all accessible user IDs
+      const accessibleIds = [userId, ...subtree, ...delegatedUserIds];
+      
       return prisma.user.findMany({
         where: {
           tenantId,
-          id: { in: [userId, ...subtree] },
+          id: { in: accessibleIds },
         },
         include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "desc" },
@@ -109,6 +130,104 @@ export const userRouter = createTRPCRouter({
         where: { id: input.id, tenantId },
         include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
       });
+    }),
+
+  // ---------------------------------------------------------
+  // GET USER DETAILS WITH ONBOARDING STATUS
+  // - Returns detailed user info with onboarding progress
+  // - RBAC-based visibility (more permissions = more details)
+  // ---------------------------------------------------------
+  getDetails: tenantProcedure
+    .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN, "user.read.global"]))
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { prisma, session, tenantId } = ctx;
+      const userId = session.user.id;
+      const perms = session.user.permissions || [];
+      const hasGlobal = perms.includes(PERMS.LIST_GLOBAL) || perms.includes("user.read.global");
+
+      // Check access
+      if (!hasGlobal) {
+        const subtree = await getSubtreeUserIds(prisma, userId);
+        if (![userId, ...subtree].includes(input.id)) {
+          throw new Error("Not allowed to view this user.");
+        }
+      }
+
+      // Get user data with relations
+      const user = await prisma.user.findFirst({
+        where: { id: input.id, tenantId },
+        include: {
+          role: true,
+          country: true,
+          createdByUser: { select: { id: true, name: true, email: true } },
+          onboardingTemplate: {
+            include: {
+              questions: {
+                orderBy: { order: "asc" },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new Error("User not found.");
+      }
+
+      // Calculate onboarding progress
+      let onboardingProgress = null;
+      if (user.onboardingTemplateId) {
+        const responses = await prisma.onboardingResponse.findMany({
+          where: { userId: user.id },
+          include: { question: true },
+        });
+
+        const template = user.onboardingTemplate;
+        if (template) {
+          const totalQuestions = template.questions.length;
+          const completedResponses = responses.filter(
+            (r) => r.status === "approved" || r.responseText || r.responseFilePath
+          ).length;
+          const pendingReview = responses.filter((r) => r.status === "pending").length;
+          const rejected = responses.filter((r) => r.status === "rejected").length;
+
+          onboardingProgress = {
+            total: totalQuestions,
+            completed: completedResponses,
+            pending: pendingReview,
+            rejected: rejected,
+            percentage: totalQuestions > 0 ? Math.round((completedResponses / totalQuestions) * 100) : 0,
+            status: user.onboardingStatus,
+          };
+        }
+      }
+
+      // Return data based on permissions
+      const basicInfo = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        onboardingProgress,
+      };
+
+      // If user has global permissions, return all details
+      if (hasGlobal) {
+        return {
+          ...user,
+          onboardingProgress,
+          canViewFullDetails: true,
+        };
+      }
+
+      // Return basic info for non-global users
+      return {
+        ...basicInfo,
+        canViewFullDetails: false,
+      };
     }),
 
   // ---------------------------------------------------------
@@ -168,6 +287,57 @@ export const userRouter = createTRPCRouter({
           metadata: { createdBy: ctx.session.user.id },
         },
       });
+
+      // 🔥 NEW: Send account creation email with credentials
+      try {
+        const tenant = await ctx.prisma.tenant.findUnique({
+          where: { id: ctx.tenantId! },
+          select: { name: true },
+        });
+
+        // Send email with password
+        await emailService.sendWithTemplate(
+          'account-created',
+          {
+            userName: input.name,
+            userEmail: input.email,
+            password: passwordToUse, // Send plain text password
+            companyName: tenant?.name || 'Your Company',
+            loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
+          },
+          {
+            to: input.email,
+          },
+          'high' // High priority for account creation emails
+        );
+
+        // Log email
+        await ctx.prisma.emailLog.create({
+          data: {
+            tenantId: ctx.tenantId,
+            to: input.email,
+            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+            subject: 'Your Account Has Been Created',
+            template: 'account-created',
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send account creation email:', emailError);
+        // Log failed email
+        await ctx.prisma.emailLog.create({
+          data: {
+            tenantId: ctx.tenantId,
+            to: input.email,
+            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+            subject: 'Your Account Has Been Created',
+            template: 'account-created',
+            status: 'FAILED',
+            error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          },
+        });
+      }
 
       return { success: true, id: newUser.id };
     }),

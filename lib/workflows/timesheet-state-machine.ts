@@ -42,7 +42,7 @@ export const TimesheetPermissions = {
   REVIEW_ALL: 'timesheet.review.global',
   APPROVE_ALL: 'timesheet.approve.global',
   REJECT_ALL: 'timesheet.reject.global',
-  MODIFY_ALL: 'timesheet.modify.global', // Admin can modify amounts
+  MODIFY_ALL: 'timesheet.update.global', // Admin can modify amounts - using UPDATE action
 } as const
 
 /**

@@ -81,7 +81,9 @@ export const DEFAULT_ROLES = [
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ALL_PERMISSIONS.map((p) => p.key),
 
-  ADMIN: ALL_PERMISSIONS.map((p) => p.key),
+  ADMIN: ALL_PERMISSIONS
+    .filter((p) => p.resource !== Resource.SUPER_ADMIN)
+    .map((p) => p.key),
 
   CONTRACTOR: [
     buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
@@ -90,6 +92,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.SUBMIT, PermissionScope.OWN),
 
     // TIMESHEETS
     buildPermissionKey(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
@@ -131,6 +136,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.REFERRAL, Action.CREATE, PermissionScope.OWN),
 
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.BANK, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.CREATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.BANK, Action.UPDATE, PermissionScope.OWN),
   ],
 
   PAYROLL: [
@@ -176,6 +186,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
 
+    buildPermissionKey(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN),
+
     // CONTRACTS (own)
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
@@ -195,6 +209,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.USER, Action.DELETE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.ACTIVATE, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.GLOBAL),
+
+    buildPermissionKey(Resource.INVOICE, Action.PAY, PermissionScope.OWN),
 
     // CONTRACTS (own)
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),

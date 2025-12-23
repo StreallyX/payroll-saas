@@ -10,17 +10,17 @@ interface PDFUploadZoneProps {
   file: File | null;
   onChange: (file: File | null) => void;
   disabled?: boolean;
-  maxSize?: number; // en bytes, défaut 10MB
+  maxSize?: number; // in bytes, default 10MB
   className?: string;
 }
 
 /**
- * Zone d'upload PDF avec drag-and-drop et validation
- * 
+ * PDF upload zone with drag-and-drop and validation
+ *
  * Validation:
- * - Type MIME: application/pdf
+ * - MIME type: application/pdf
  * - Extension: .pdf
- * - Taille max: 10MB (configurable)
+ * - Max size: 10MB (configurable)
  */
 export function PDFUploadZone({
   file,
@@ -33,31 +33,31 @@ export function PDFUploadZone({
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Valide un fichier PDF
+   * Validate a PDF file
    */
   const validateFile = (file: File): { valid: boolean; error?: string } => {
-    // Vérifier le type MIME
+    // Check MIME type
     if (file.type !== "application/pdf") {
       return {
         valid: false,
-        error: "Le fichier doit être un PDF",
+        error: "The file must be a PDF",
       };
     }
 
-    // Vérifier l'extension
+    // Check extension
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       return {
         valid: false,
-        error: "Le fichier doit avoir l'extension .pdf",
+        error: "The file must have a .pdf extension",
       };
     }
 
-    // Vérifier la taille
+    // Check size
     if (file.size > maxSize) {
       const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
       return {
         valid: false,
-        error: `Le fichier ne doit pas dépasser ${maxSizeMB}MB`,
+        error: `The file must not exceed ${maxSizeMB}MB`,
       };
     }
 
@@ -65,7 +65,7 @@ export function PDFUploadZone({
   };
 
   /**
-   * Gère la sélection de fichier
+   * Handle file selection
    */
   const handleFileChange = useCallback(
     (selectedFile: File | null) => {
@@ -78,7 +78,7 @@ export function PDFUploadZone({
 
       const validation = validateFile(selectedFile);
       if (!validation.valid) {
-        setError(validation.error || "Fichier invalide");
+        setError(validation.error || "Invalid file");
         return;
       }
 
@@ -88,7 +88,7 @@ export function PDFUploadZone({
   );
 
   /**
-   * Gère le drag over
+   * Handle drag over
    */
   const handleDragOver = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -102,7 +102,7 @@ export function PDFUploadZone({
   );
 
   /**
-   * Gère le drag leave
+   * Handle drag leave
    */
   const handleDragLeave = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -114,7 +114,7 @@ export function PDFUploadZone({
   );
 
   /**
-   * Gère le drop
+   * Handle drop
    */
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -133,7 +133,7 @@ export function PDFUploadZone({
   );
 
   /**
-   * Gère le clic sur le bouton parcourir
+   * Handle browse button click
    */
   const handleBrowseClick = () => {
     const input = document.createElement("input");
@@ -150,7 +150,7 @@ export function PDFUploadZone({
   };
 
   /**
-   * Supprime le fichier sélectionné
+   * Remove selected file
    */
   const handleRemove = () => {
     setError(null);
@@ -158,7 +158,7 @@ export function PDFUploadZone({
   };
 
   /**
-   * Formate la taille du fichier
+   * Format file size
    */
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -168,7 +168,7 @@ export function PDFUploadZone({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Zone de drop */}
+      {/* Drop zone */}
       {!file ? (
         <div
           onDragOver={handleDragOver}
@@ -177,21 +177,22 @@ export function PDFUploadZone({
           className={cn(
             "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors",
             isDragging && !disabled && "border-primary bg-primary/5",
-            !isDragging && "border-muted-foreground/25 hover:border-muted-foreground/50",
+            !isDragging &&
+              "border-muted-foreground/25 hover:border-muted-foreground/50",
             disabled && "cursor-not-allowed opacity-50"
           )}
         >
-          <Upload className={cn(
-            "h-10 w-10 text-muted-foreground",
-            isDragging && "text-primary"
-          )} />
+          <Upload
+            className={cn(
+              "h-10 w-10 text-muted-foreground",
+              isDragging && "text-primary"
+            )}
+          />
           <div className="text-center">
             <p className="text-sm font-medium">
-              Glissez-déposez votre fichier PDF ici
+              Drag and drop your PDF file here
             </p>
-            <p className="text-xs text-muted-foreground">
-              ou
-            </p>
+            <p className="text-xs text-muted-foreground">or</p>
           </div>
           <Button
             type="button"
@@ -200,14 +201,14 @@ export function PDFUploadZone({
             onClick={handleBrowseClick}
             disabled={disabled}
           >
-            Parcourir
+            Browse
           </Button>
           <p className="text-xs text-muted-foreground">
-            PDF uniquement, max {(maxSize / (1024 * 1024)).toFixed(0)}MB
+            PDF only, max {(maxSize / (1024 * 1024)).toFixed(0)}MB
           </p>
         </div>
       ) : (
-        // Fichier sélectionné
+        // Selected file
         <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-4">
           <FileText className="h-8 w-8 text-primary flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -230,7 +231,7 @@ export function PDFUploadZone({
         </div>
       )}
 
-      {/* Message d'erreur */}
+      {/* Error message */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />

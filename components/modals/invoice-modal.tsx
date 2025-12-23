@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { UserSelector } from "@/components/shared/UserSelector";
 
 interface InvoiceModalProps {
   open: boolean;
@@ -41,11 +43,19 @@ export function InvoiceModal({
   readOnly = false,
 }: InvoiceModalProps) {
   const isEditing = !!invoice && !readOnly;
+  const { data: session } = useSession();
+
+  // CHECK PERMISSIONS
+  const permissions = session?.user?.permissions ?? [];
+  const CAN_LIST_GLOBAL = permissions.includes("contract.list.global");
+  const CAN_READ_OWN = permissions.includes("contract.read.own");
 
   // FORM
   const [form, setForm] = useState({
     invoiceNumber: "",
     contractId: "",
+    senderId: "",
+    receiverId: "",
     currency: "USD",
     description: "",
     notes: "",
@@ -63,10 +73,21 @@ export function InvoiceModal({
     attachments: [],
   });
 
-  // LOAD CONTRACTS
-  const { data: contracts } = api.contract.getAll.useQuery(undefined, {
-    enabled: !readOnly,
+  // LOAD CONTRACTS - Use conditional queries based on permissions
+  const globalQuery = api.contract.getAll.useQuery(undefined, {
+    enabled: !readOnly && CAN_LIST_GLOBAL,
   });
+
+  const ownQuery = api.contract.getMyContracts.useQuery(undefined, {
+    enabled: !readOnly && CAN_READ_OWN && !CAN_LIST_GLOBAL,
+  });
+
+  // MERGE CONTRACT RESULTS
+  const contracts = useMemo(() => {
+    if (CAN_LIST_GLOBAL) return globalQuery.data ?? [];
+    if (CAN_READ_OWN) return ownQuery.data ?? [];
+    return [];
+  }, [CAN_LIST_GLOBAL, CAN_READ_OWN, globalQuery.data, ownQuery.data]);
 
   // FILL FORM
   useEffect(() => {
@@ -74,6 +95,8 @@ export function InvoiceModal({
       setForm({
         invoiceNumber: invoice.invoiceNumber ?? "",
         contractId: invoice.contractId ?? "",
+        senderId: invoice.senderId ?? invoice.sender?.id ?? "",
+        receiverId: invoice.receiverId ?? invoice.receiver?.id ?? "",
         currency: invoice.currency ?? "USD",
         description: invoice.description ?? "",
         notes: invoice.notes ?? "",
@@ -211,13 +234,33 @@ export function InvoiceModal({
                   <SelectValue placeholder="Select contract" />
                 </SelectTrigger>
                 <SelectContent>
-                  {contracts?.map((c: any) => (
+                  {contracts.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.contractReference} — {c.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <UserSelector
+                label="Sender"
+                placeholder="Select sender"
+                value={form.senderId}
+                onValueChange={(v) => setForm({ ...form, senderId: v })}
+                disabled={disabled}
+                required={true}
+              />
+
+              <UserSelector
+                label="Receiver"
+                placeholder="Select receiver"
+                value={form.receiverId}
+                onValueChange={(v) => setForm({ ...form, receiverId: v })}
+                disabled={disabled}
+                required={true}
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-4">

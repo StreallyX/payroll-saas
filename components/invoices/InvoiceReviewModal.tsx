@@ -116,7 +116,7 @@ export function InvoiceReviewModal({
       marginPercentage: marginPercent,
       marginType: "percentage" as const, // TODO: Get from contract
       totalWithMargin,
-      currency: data.currency || "USD",
+      currency: data.contract?.currency?.code || "USD",
       marginPaidBy: (data.marginPaidBy || "client") as "client" | "agency" | "contractor",
       paymentMode: "gross" as const, // TODO: Get from contract if field exists
     };
@@ -360,7 +360,7 @@ export function InvoiceReviewModal({
                       <p className="font-medium text-lg text-green-600">
                         {new Intl.NumberFormat("en-US", {
                           style: "currency",
-                          currency: data.currency,
+                          currency: data.contract?.currency?.code || "USD",
                         }).format(Number(data.totalAmount || 0))}
                       </p>
                     </div>
@@ -439,7 +439,7 @@ export function InvoiceReviewModal({
                               Amount was adjusted by admin to{" "}
                               {new Intl.NumberFormat("en-US", {
                                 style: "currency",
-                                currency: data.currency,
+                                currency: data.contract?.currency?.code || "USD",
                               }).format(Number(data.adminModifiedAmount))}
                             </AlertDescription>
                           </Alert>
@@ -516,7 +516,7 @@ export function InvoiceReviewModal({
                     <span className="text-2xl font-bold text-green-600">
                       {new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: data.currency,
+                        currency: data.contract?.currency?.code || "USD",
                       }).format(Number(data.totalAmount || 0))}
                     </span>
                   </div>
