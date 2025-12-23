@@ -55,6 +55,7 @@ export default function AllOnboardingsPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approveComment, setApproveComment] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
 
   const { data: users = [], isLoading, refetch } =
     api.onboarding.getAllUserOnboarding.useQuery();
@@ -111,8 +112,6 @@ export default function AllOnboardingsPage() {
       adminNotes: rejectReason.trim(),
     });
   };
-
-  const [loadingFile, setLoadingFile] = useState<string | null>(null);
 
   const handleViewFile = async (filePath: string) => {
     try {

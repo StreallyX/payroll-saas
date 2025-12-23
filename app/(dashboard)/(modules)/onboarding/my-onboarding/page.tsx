@@ -45,6 +45,7 @@ export default function MyOnboardingPage() {
   const [textValue, setTextValue] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
 
   if (isLoading) return <LoadingState message="Loading your onboarding..." />;
 
@@ -163,8 +164,6 @@ export default function MyOnboardingPage() {
       setUploading(false);
     }
   };
-
-  const [loadingFile, setLoadingFile] = useState<string | null>(null);
 
   const handleViewFile = async (filePath: string) => {
     try {
