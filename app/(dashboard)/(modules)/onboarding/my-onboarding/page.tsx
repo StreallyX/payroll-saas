@@ -166,25 +166,61 @@ export default function MyOnboardingPage() {
   };
 
   const handleViewFile = async (filePath: string) => {
+    console.log("=== HANDLE VIEW FILE START ===");
+    console.log("1. Button clicked!");
+    console.log("2. File path received:", filePath);
+    console.log("3. File path type:", typeof filePath);
+    console.log("4. File path length:", filePath?.length);
+    
     try {
+      console.log("5. Setting loading state...");
       setLoadingFile(filePath);
+      
+      console.log("6. Showing toast notification...");
       toast.info("Generating secure link...");
+      
+      console.log("7. Calling downloadFile function...");
+      console.log("   - Input path:", filePath);
       
       const url = await downloadFile(filePath);
       
-      // Open in new tab
+      console.log("8. Signed URL generated successfully!");
+      console.log("   - URL:", url);
+      console.log("   - URL length:", url?.length);
+      
+      console.log("9. Opening URL in new window...");
       const newWindow = window.open(url, "_blank");
       
+      console.log("10. Window.open result:", newWindow);
+      
       if (!newWindow) {
+        console.warn("11. Pop-up blocked!");
         toast.warning("Please allow pop-ups to view the file");
+        
+        // Fallback: Try to create a download link
+        console.log("12. Creating fallback download link...");
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        console.log("13. Fallback link clicked");
       } else {
+        console.log("11. File opened successfully in new tab");
         toast.success("File opened in new tab");
       }
     } catch (err: any) {
-      console.error("Error viewing file:", err);
+      console.error("=== ERROR IN HANDLE VIEW FILE ===");
+      console.error("Error object:", err);
+      console.error("Error message:", err?.message);
+      console.error("Error stack:", err?.stack);
       toast.error("Failed to open file: " + (err.message || "Unknown error"));
     } finally {
+      console.log("14. Clearing loading state...");
       setLoadingFile(null);
+      console.log("=== HANDLE VIEW FILE END ===");
     }
   };
 

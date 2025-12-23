@@ -117,20 +117,52 @@ export async function downloadFile(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  const contentType = getContentTypeFromKey(key);
+  console.log("=== DOWNLOAD FILE (S3) START ===");
+  console.log("1. Input key:", key);
+  console.log("2. Bucket name:", bucketName);
+  console.log("3. Folder prefix:", folderPrefix);
+  
+  // Check if key needs the folderPrefix added
+  const finalKey = buildKey(key);
+  console.log("4. Final key after buildKey:", finalKey);
+  
+  const contentType = getContentTypeFromKey(finalKey);
+  console.log("5. Detected content type:", contentType);
+  
   const inline = shouldDisplayInline(contentType);
-  const fileName = key.split('/').pop() || 'download';
+  console.log("6. Display inline:", inline);
+  
+  const fileName = finalKey.split('/').pop() || 'download';
+  console.log("7. File name:", fileName);
   
   const command = new GetObjectCommand({
     Bucket: bucketName,
-    Key: key,
+    Key: finalKey,
     ResponseContentDisposition: inline 
       ? "inline" 
       : `attachment; filename="${fileName}"`,
     ResponseContentType: contentType,
   });
+  
+  console.log("8. Command created:", {
+    Bucket: bucketName,
+    Key: finalKey,
+    ContentType: contentType,
+    Disposition: inline ? "inline" : `attachment; filename="${fileName}"`
+  });
 
-  return getSignedUrl(s3Client, command, { expiresIn });
+  console.log("9. Generating signed URL...");
+  try {
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
+    console.log("10. Signed URL generated successfully");
+    console.log("11. URL preview:", signedUrl.substring(0, 100) + "...");
+    console.log("=== DOWNLOAD FILE (S3) END ===");
+    return signedUrl;
+  } catch (error) {
+    console.error("=== ERROR IN DOWNLOAD FILE (S3) ===");
+    console.error("Error:", error);
+    throw error;
+  }
 }
 
 /**
