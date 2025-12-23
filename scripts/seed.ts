@@ -81,7 +81,9 @@ export const DEFAULT_ROLES = [
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ALL_PERMISSIONS.map((p) => p.key),
 
-  ADMIN: ALL_PERMISSIONS.map((p) => p.key),
+  ADMIN: ALL_PERMISSIONS
+    .filter((p) => p.resource !== Resource.SUPER_ADMIN)
+    .map((p) => p.key),
 
   CONTRACTOR: [
     buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
@@ -90,6 +92,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.SUBMIT, PermissionScope.OWN),
 
     // TIMESHEETS
     buildPermissionKey(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
