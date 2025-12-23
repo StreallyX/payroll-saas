@@ -4,5 +4,5 @@
 import { BankAccountList } from "@/components/profile/banks/BankAccountList";
 
 export function BankSection() {
-  return <BankAccountList />;
+ return <BankAccountList />;
 }

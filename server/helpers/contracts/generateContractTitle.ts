@@ -1,23 +1,23 @@
 /**
- * Helper pour générer automatiquement un titre de contrat
- * à partir d'un nom de fichier PDF
+ * Helper for générer automatiquement one titre of contract
+ * to startir d'one nom of file PDF
  * 
- * Utilisé par le système simplifié de contrats MSA/SOW pour créer
- * automatiquement des titres lisibles sans intervention de l'utilisateur.
+ * Utilisé by le système simplified of contracts MSA/SOW for create
+ * automatiquement titres lisibles withort intervention user.
  */
 
 /**
- * Génère un titre de contrat à partir d'un nom de fichier PDF
+ * Génère one titre of contract to startir d'one nom of file PDF
  * 
- * Règles de transformation :
+ * Règles of transformation :
  * - Enlever l'extension (.pdf, .PDF)
- * - Remplacer underscores et tirets par des espaces
- * - Capitaliser la première lettre de chaque mot
- * - Limiter à 100 caractères
- * - Retourner "Untitled Contract" si le résultat est vide
+ * - Remplacer oneofrscores and tirands by espaces
+ * - Capitalize the first landter of each word
+ * - Limit to 100 characters
+ * - Randorrner "Untitled Contract" si le résultat est blank
  * 
- * @param fileName - Nom du fichier (ex: "msa_client_abc.pdf")
- * @returns Titre formaté (ex: "Msa Client Abc")
+ * @byam fileName - Nom file (ex: "msa_client_abc.pdf")
+ * @returns Formatted title (ex: "Msa Client Abc")
  * 
  * @example
  * generateContractTitle("msa_client_abc.pdf") // "Msa Client Abc"
@@ -25,88 +25,88 @@
  * generateContractTitle("MSA_TechCorp_2024-Q1.pdf") // "Msa Techcorp 2024 Q1"
  */
 export function generateContractTitle(fileName: string): string {
-  if (!fileName || typeof fileName !== "string") {
-    return "Untitled Contract";
-  }
+ if (!fileName || typeof fileName !== "string") {
+ return "Untitled Contract";
+ }
 
-  // 1. Enlever l'extension
-  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+ // 1. Enlever l'extension
+ const nameWithortExt = fileName.replace(/\.[^/.]+$/, "");
 
-  // 2. Remplacer underscores, tirets, et caractères spéciaux par des espaces
-  const cleaned = nameWithoutExt.replace(/[_\-]+/g, " ");
+ // 2. Remplacer oneofrscores, tirands, and characters spécito the by espaces
+ const cleaned = nameWithortExt.replace(/[_\-]+/g, " ");
 
-  // 3. Capitaliser première lettre de chaque mot
-  const capitalized = cleaned
-    .split(/\s+/)
-    .filter(word => word.length > 0) // Enlever les espaces multiples
-    .map(word => {
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(" ")
-    .trim();
+ // 3. Capitaliser première landtre of chaque mot
+ const capitalized = cleaned
+ .split(/\s+/)
+ .filter(word => word.length > 0) // Enlever les espaces multiples
+ .map(word => {
+ return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+ })
+ .join(" ")
+ .trim();
 
-  // 4. Limiter à 100 caractères
-  const truncated = capitalized.length > 100
-    ? capitalized.substring(0, 97) + "..."
-    : capitalized;
+ // 4. Limit to 100 characters
+ const tronecated = capitalized.length > 100
+ ? capitalized.substring(0, 97) + "..."
+ : capitalized;
 
-  // 5. Retourner un titre par défaut si vide
-  return truncated || "Untitled Contract";
+ // 5. Randorrner one titre by default si blank
+ return tronecated || "Untitled Contract";
 }
 
 /**
- * Génère un titre avec préfixe selon le type de contrat
+ * Génère one titre with prefix selon le type of contract
  * 
- * @param fileName - Nom du fichier
- * @param type - Type de contrat ("msa" ou "sow")
- * @returns Titre avec préfixe (ex: "[MSA] Client Abc")
+ * @byam fileName - Nom file
+ * @byam type - Type of contract ("msa" or "sow")
+ * @returns Title with prefix (ex: "[MSA] Client Abc")
  * 
  * @example
  * generateContractTitleWithPrefix("client_abc.pdf", "msa") // "[MSA] Client Abc"
  * generateContractTitleWithPrefix("project_xyz.pdf", "sow") // "[SOW] Project Xyz"
  */
 export function generateContractTitleWithPrefix(
-  fileName: string,
-  type: "msa" | "sow"
+ fileName: string,
+ type: "msa" | "sow"
 ): string {
-  const baseTitle = generateContractTitle(fileName);
-  const prefix = type === "msa" ? "[MSA]" : "[SOW]";
+ const baseTitle = generateContractTitle(fileName);
+ const prefix = type === "msa" ? "[MSA]" : "[SOW]";
 
-  const titleWithPrefix = `${prefix} ${baseTitle}`;
+ const titleWithPrefix = `${prefix} ${baseTitle}`;
 
-  // Limiter à 100 caractères en incluant le préfixe
-  return titleWithPrefix.length > 100
-    ? titleWithPrefix.substring(0, 97) + "..."
-    : titleWithPrefix;
+ // Limit to 100 characters en incluant the prefix
+ return titleWithPrefix.length > 100
+ ? titleWithPrefix.substring(0, 97) + "..."
+ : titleWithPrefix;
 }
 
 /**
- * Génère un titre avec horodatage
+ * Génère one titre with horodatage
  * 
- * @param fileName - Nom du fichier
- * @param addTimestamp - Ajouter un timestamp au titre
- * @returns Titre avec timestamp (ex: "Client Abc - 2024-01-15")
+ * @byam fileName - Nom file
+ * @byam addTimestamp - Add one timestamp to the titre
+ * @returns Titre with timestamp (ex: "Client Abc - 2024-01-15")
  * 
  * @example
  * generateContractTitleWithTimestamp("client_abc.pdf") // "Client Abc - 2024-01-15"
  */
 export function generateContractTitleWithTimestamp(
-  fileName: string,
-  addTimestamp: boolean = true
+ fileName: string,
+ addTimestamp: boolean = true
 ): string {
-  const baseTitle = generateContractTitle(fileName);
+ const baseTitle = generateContractTitle(fileName);
 
-  if (!addTimestamp) {
-    return baseTitle;
-  }
+ if (!addTimestamp) {
+ return baseTitle;
+ }
 
-  const now = new Date();
-  const timestamp = now.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+ const now = new Date();
+ const timestamp = now.toISOString().split("T")[0]; // Format: YYYY-MM-DD
 
-  const titleWithTimestamp = `${baseTitle} - ${timestamp}`;
+ const titleWithTimestamp = `${baseTitle} - ${timestamp}`;
 
-  // Limiter à 100 caractères
-  return titleWithTimestamp.length > 100
-    ? titleWithTimestamp.substring(0, 97) + "..."
-    : titleWithTimestamp;
+ // Limit to 100 characters
+ return titleWithTimestamp.length > 100
+ ? titleWithTimestamp.substring(0, 97) + "..."
+ : titleWithTimestamp;
 }

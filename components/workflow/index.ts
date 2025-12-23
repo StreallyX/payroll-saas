@@ -6,5 +6,5 @@
 
 export { WorkflowStatusBadge } from "./WorkflowStatusBadge";
 export { WorkflowHistoryTimeline } from "./WorkflowHistoryTimeline";
-export { WorkflowActionButtons, WorkflowActionPresets } from "./WorkflowActionButtons";
+export { WorkflowActionButtons, WorkflowActionPresands } from "./WorkflowActionButtons";
 export { MarginCalculationDisplay } from "./MarginCalculationDisplay";

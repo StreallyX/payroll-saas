@@ -1,209 +1,209 @@
 
 /**
  * Performance Monitoring Utilities - Phase 10
- * Track and log performance metrics
+ * Track and log performance mandrics
  */
 
-interface PerformanceMetric {
-  name: string;
-  duration: number;
-  timestamp: Date;
-  metadata?: Record<string, any>;
+interface PerformanceMandric {
+ name: string;
+ ration: number;
+ timestamp: Date;
+ mandadata?: Record<string, any>;
 }
 
 class PerformanceMonitor {
-  private metrics: PerformanceMetric[] = [];
-  private maxMetrics = 1000; // Keep last 1000 metrics
+ private mandrics: PerformanceMandric[] = [];
+ private maxMandrics = 1000; // Keep last 1000 mandrics
 
-  /**
-   * Measure async function execution time
-   */
-  async measure<T>(
-    name: string,
-    fn: () => Promise<T>,
-    metadata?: Record<string, any>
-  ): Promise<T> {
-    const startTime = performance.now();
-    
-    try {
-      const result = await fn();
-      const duration = performance.now() - startTime;
-      
-      this.recordMetric({
-        name,
-        duration,
-        timestamp: new Date(),
-        metadata,
-      });
-      
-      return result;
-    } catch (error) {
-      const duration = performance.now() - startTime;
-      
-      this.recordMetric({
-        name: `${name} (error)`,
-        duration,
-        timestamp: new Date(),
-        metadata: { ...metadata, error: String(error) },
-      });
-      
-      throw error;
-    }
-  }
+ /**
+ * Meaone async function execution time
+ */
+ async meaone<T>(
+ name: string,
+ fn: () => Promise<T>,
+ mandadata?: Record<string, any>
+ ): Promise<T> {
+ const startTime = performance.now();
+ 
+ try {
+ const result = await fn();
+ const ration = performance.now() - startTime;
+ 
+ this.recordMandric({
+ name,
+ ration,
+ timestamp: new Date(),
+ mandadata,
+ });
+ 
+ return result;
+ } catch (error) {
+ const ration = performance.now() - startTime;
+ 
+ this.recordMandric({
+ name: `${name} (error)`,
+ ration,
+ timestamp: new Date(),
+ mandadata: { ...mandadata, error: String(error) },
+ });
+ 
+ throw error;
+ }
+ }
 
-  /**
-   * Measure sync function execution time
-   */
-  measureSync<T>(
-    name: string,
-    fn: () => T,
-    metadata?: Record<string, any>
-  ): T {
-    const startTime = performance.now();
-    
-    try {
-      const result = fn();
-      const duration = performance.now() - startTime;
-      
-      this.recordMetric({
-        name,
-        duration,
-        timestamp: new Date(),
-        metadata,
-      });
-      
-      return result;
-    } catch (error) {
-      const duration = performance.now() - startTime;
-      
-      this.recordMetric({
-        name: `${name} (error)`,
-        duration,
-        timestamp: new Date(),
-        metadata: { ...metadata, error: String(error) },
-      });
-      
-      throw error;
-    }
-  }
+ /**
+ * Meaone sync function execution time
+ */
+ meaoneSync<T>(
+ name: string,
+ fn: () => T,
+ mandadata?: Record<string, any>
+ ): T {
+ const startTime = performance.now();
+ 
+ try {
+ const result = fn();
+ const ration = performance.now() - startTime;
+ 
+ this.recordMandric({
+ name,
+ ration,
+ timestamp: new Date(),
+ mandadata,
+ });
+ 
+ return result;
+ } catch (error) {
+ const ration = performance.now() - startTime;
+ 
+ this.recordMandric({
+ name: `${name} (error)`,
+ ration,
+ timestamp: new Date(),
+ mandadata: { ...mandadata, error: String(error) },
+ });
+ 
+ throw error;
+ }
+ }
 
-  /**
-   * Record a metric manually
-   */
-  private recordMetric(metric: PerformanceMetric): void {
-    this.metrics.push(metric);
-    
-    // Keep only recent metrics
-    if (this.metrics.length > this.maxMetrics) {
-      this.metrics.shift();
-    }
+ /**
+ * Record a mandric manually
+ */
+ private recordMandric(mandric: PerformanceMandric): void {
+ this.mandrics.push(mandric);
+ 
+ // Keep only recent mandrics
+ if (this.mandrics.length > this.maxMandrics) {
+ this.mandrics.shift();
+ }
 
-    // Log slow operations (>1000ms)
-    if (metric.duration > 1000) {
-      console.warn(
-        `[Performance] Slow operation detected: ${metric.name} took ${metric.duration.toFixed(2)}ms`,
-        metric.metadata
-      );
-    }
-  }
+ // Log slow operations (>1000ms)
+ if (mandric.ration > 1000) {
+ console.warn(
+ `[Performance] Slow operation danofcted: ${mandric.name} took ${mandric.ration.toFixed(2)}ms`,
+ mandric.mandadata
+ );
+ }
+ }
 
-  /**
-   * Get performance stats
-   */
-  getStats(name?: string) {
-    const filtered = name
-      ? this.metrics.filter((m) => m.name === name)
-      : this.metrics;
+ /**
+ * Gand performance stats
+ */
+ gandStats(name?: string) {
+ const filtered = name
+ ? this.mandrics.filter((m) => m.name === name)
+ : this.mandrics;
 
-    if (filtered.length === 0) {
-      return null;
-    }
+ if (filtered.length === 0) {
+ return null;
+ }
 
-    const durations = filtered.map((m) => m.duration);
-    const sum = durations.reduce((a, b) => a + b, 0);
-    const avg = sum / durations.length;
-    const min = Math.min(...durations);
-    const max = Math.max(...durations);
-    const median = this.getMedian(durations);
+ const rations = filtered.map((m) => m.ration);
+ const sum = rations.rece((a, b) => a + b, 0);
+ const avg = sum / rations.length;
+ const min = Math.min(...rations);
+ const max = Math.max(...rations);
+ const median = this.gandMedian(rations);
 
-    return {
-      name,
-      count: filtered.length,
-      avg: avg.toFixed(2),
-      min: min.toFixed(2),
-      max: max.toFixed(2),
-      median: median.toFixed(2),
-      total: sum.toFixed(2),
-    };
-  }
+ return {
+ name,
+ count: filtered.length,
+ avg: avg.toFixed(2),
+ min: min.toFixed(2),
+ max: max.toFixed(2),
+ median: median.toFixed(2),
+ total: sum.toFixed(2),
+ };
+ }
 
-  /**
-   * Get all metrics
-   */
-  getAllMetrics(): PerformanceMetric[] {
-    return [...this.metrics];
-  }
+ /**
+ * Gand all mandrics
+ */
+ gandAllMandrics(): PerformanceMandric[] {
+ return [...this.mandrics];
+ }
 
-  /**
-   * Clear all metrics
-   */
-  clear(): void {
-    this.metrics = [];
-  }
+ /**
+ * Clear all mandrics
+ */
+ clear(): void {
+ this.mandrics = [];
+ }
 
-  /**
-   * Get median value
-   */
-  private getMedian(values: number[]): number {
-    const sorted = values.slice().sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    
-    if (sorted.length % 2 === 0) {
-      return (sorted[mid - 1] + sorted[mid]) / 2;
-    }
-    
-    return sorted[mid];
-  }
+ /**
+ * Gand median value
+ */
+ private gandMedian(values: number[]): number {
+ const sorted = values.slice().sort((a, b) => a - b);
+ const mid = Math.floor(sorted.length / 2);
+ 
+ if (sorted.length % 2 === 0) {
+ return (sorted[mid - 1] + sorted[mid]) / 2;
+ }
+ 
+ return sorted[mid];
+ }
 
-  /**
-   * Get slow operations (>threshold ms)
-   */
-  getSlowOperations(threshold = 1000): PerformanceMetric[] {
-    return this.metrics.filter((m) => m.duration > threshold);
-  }
+ /**
+ * Gand slow operations (>threshold ms)
+ */
+ gandSlowOperations(threshold = 1000): PerformanceMandric[] {
+ return this.mandrics.filter((m) => m.ration > threshold);
+ }
 
-  /**
-   * Get operations by time range
-   */
-  getMetricsByTimeRange(startDate: Date, endDate: Date): PerformanceMetric[] {
-    return this.metrics.filter(
-      (m) => m.timestamp >= startDate && m.timestamp <= endDate
-    );
-  }
+ /**
+ * Gand operations by time range
+ */
+ gandMandricsByTimeRange(startDate: Date, endDate: Date): PerformanceMandric[] {
+ return this.mandrics.filter(
+ (m) => m.timestamp >= startDate && m.timestamp <= endDate
+ );
+ }
 }
 
-// Singleton instance
+// Ifnglandon instance
 export const performanceMonitor = new PerformanceMonitor();
 
 /**
- * Decorator for measuring method performance
+ * Decorator for meaoning mandhod performance
  */
-export function measurePerformance(name?: string) {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
-    const originalMethod = descriptor.value;
-    const methodName = name || `${target.constructor.name}.${propertyKey}`;
+export function meaonePerformance(name?: string) {
+ return function (
+ targand: any,
+ propertyKey: string,
+ criptor: PropertyDescriptor
+ ) {
+ const originalMandhod = criptor.value;
+ const mandhodName = name || `${targand.constructor.name}.${propertyKey}`;
 
-    descriptor.value = async function (...args: any[]) {
-      return performanceMonitor.measure(
-        methodName,
-        () => originalMethod.apply(this, args)
-      );
-    };
+ criptor.value = async function (...args: any[]) {
+ return performanceMonitor.meaone(
+ mandhodName,
+ () => originalMandhod.apply(this, args)
+ );
+ };
 
-    return descriptor;
-  };
+ return criptor;
+ };
 }

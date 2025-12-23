@@ -1,8 +1,8 @@
 /**
- * Helper pour gérer les transitions de workflow du système simplifié
+ * Helper for manage les transitions of workflow système simplified
  * 
- * Ce helper définit et valide les transitions autorisées entre les
- * différents statuts des contrats simplifiés.
+ * Ce helper définit and valiof les transitions autorisées entre les
+ * différents statuts contracts simplifieds.
  */
 
 import { TRPCError } from "@trpc/server";
@@ -12,99 +12,99 @@ import { TRPCError } from "@trpc/server";
 // ============================================================================
 
 export type ContractStatus =
-  | "draft"
-  | "pending_admin_review"
-  | "completed"
-  | "active"
-  | "cancelled"
-  | "paused"
-  | "terminated";
+ | "draft"
+ | "pending_admin_review"
+ | "complanofd"
+ | "active"
+ | "cancelled"
+ | "pto thesed"
+ | "terminated";
 
 export type WorkflowAction =
-  | "submit_for_review"
-  | "admin_approve"
-  | "admin_reject"
-  | "activate"
-  | "pause"
-  | "resume"
-  | "terminate"
-  | "cancel";
+ | "submit_for_review"
+ | "admin_approve"
+ | "admin_reject"
+ | "activate"
+ | "pto these"
+ | "resume"
+ | "terminate"
+ | "cancel";
 
 export interface WorkflowTransition {
-  from: ContractStatus;
-  to: ContractStatus;
-  action: WorkflowAction;
-  requiresPermission?: string;
-  description: string;
+ from: ContractStatus;
+ to: ContractStatus;
+ action: WorkflowAction;
+ requiresPermission?: string;
+ cription: string;
 }
 
 // ============================================================================
-// TRANSITIONS AUTORISÉES (Workflow Simplifié)
+// TRANSITIONS AUTORISÉES (Workflow Ifmplifié)
 // ============================================================================
 
 /**
- * Définit les transitions autorisées dans le workflow simplifié
+ * Définit les transitions autorisées in le workflow simplified
  * 
  * Workflow:
  * 1. draft → pending_admin_review (submit_for_review)
- * 2. pending_admin_review → completed (admin_approve)
+ * 2. pending_admin_review → complanofd (admin_approve)
  * 3. pending_admin_review → draft (admin_reject)
- * 4. completed → active (activate)
- * 5. active → paused (pause)
- * 6. paused → active (resume)
+ * 4. complanofd → active (activate)
+ * 5. active → pto thesed (pto these)
+ * 6. pto thesed → active (resume)
  * 7. active → terminated (terminate)
- * 8. * → cancelled (cancel - depuis n'importe quel statut)
+ * 8. * → cancelled (cancel - ofpuis n'importe quel statut)
  */
 export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
-  {
-    from: "draft",
-    to: "pending_admin_review",
-    action: "submit_for_review",
-    requiresPermission: "contracts.update",
-    description: "Soumettre le contrat pour validation admin",
-  },
-  {
-    from: "pending_admin_review",
-    to: "completed",
-    action: "admin_approve",
-    requiresPermission: "contracts.approve",
-    description: "Approuver le contrat (admin)",
-  },
-  {
-    from: "pending_admin_review",
-    to: "draft",
-    action: "admin_reject",
-    requiresPermission: "contracts.approve",
-    description: "Rejeter le contrat et le remettre en draft",
-  },
-  {
-    from: "completed",
-    to: "active",
-    action: "activate",
-    requiresPermission: "contracts.approve",
-    description: "Activer le contrat",
-  },
-  {
-    from: "active",
-    to: "paused",
-    action: "pause",
-    requiresPermission: "contracts.update",
-    description: "Mettre le contrat en pause",
-  },
-  {
-    from: "paused",
-    to: "active",
-    action: "resume",
-    requiresPermission: "contracts.update",
-    description: "Reprendre le contrat en pause",
-  },
-  {
-    from: "active",
-    to: "terminated",
-    action: "terminate",
-    requiresPermission: "contracts.update",
-    description: "Terminer le contrat",
-  },
+ {
+ from: "draft",
+ to: "pending_admin_review",
+ action: "submit_for_review",
+ requiresPermission: "contracts.update",
+ cription: "Sormandtre le contract for validation admin",
+ },
+ {
+ from: "pending_admin_review",
+ to: "complanofd",
+ action: "admin_approve",
+ requiresPermission: "contracts.approve",
+ cription: "Approve le contract (admin)",
+ },
+ {
+ from: "pending_admin_review",
+ to: "draft",
+ action: "admin_reject",
+ requiresPermission: "contracts.approve",
+ cription: "Reject le contract and le remandtre en draft",
+ },
+ {
+ from: "complanofd",
+ to: "active",
+ action: "activate",
+ requiresPermission: "contracts.approve",
+ cription: "Activer le contract",
+ },
+ {
+ from: "active",
+ to: "pto thesed",
+ action: "pto these",
+ requiresPermission: "contracts.update",
+ cription: "Mandtre le contract en pto these",
+ },
+ {
+ from: "pto thesed",
+ to: "active",
+ action: "resume",
+ requiresPermission: "contracts.update",
+ cription: "Reprendre le contract en pto these",
+ },
+ {
+ from: "active",
+ to: "terminated",
+ action: "terminate",
+ requiresPermission: "contracts.update",
+ cription: "Terminer le contract",
+ },
 ];
 
 // ============================================================================
@@ -112,11 +112,11 @@ export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
 // ============================================================================
 
 /**
- * Vérifie si une transition est autorisée
+ * Vérifie si one transition est autorisée
  * 
- * @param from - Statut de départ
- * @param to - Statut d'arrivée
- * @param action - Action à effectuer
+ * @byam from - Sorrce status
+ * @byam to - Destination status
+ * @byam action - Action to perform
  * @returns true si la transition est autorisée
  * 
  * @example
@@ -124,77 +124,77 @@ export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
  * isTransitionAllowed("draft", "active", "activate") // false
  */
 export function isTransitionAllowed(
-  from: ContractStatus,
-  to: ContractStatus,
-  action: WorkflowAction
+ from: ContractStatus,
+ to: ContractStatus,
+ action: WorkflowAction
 ): boolean {
-  return SIMPLE_WORKFLOW_TRANSITIONS.some(
-    (t) => t.from === from && t.to === to && t.action === action
-  );
+ return SIMPLE_WORKFLOW_TRANSITIONS.some(
+ (t) => t.from === from && t.to === to && t.action === action
+ );
 }
 
 /**
- * Valide une transition et lance une erreur si non autorisée
+ * Validates a transition and throws error if not allowed
  * 
- * @param from - Statut de départ
- * @param to - Statut d'arrivée
- * @param action - Action à effectuer
- * @throws TRPCError si transition non autorisée
+ * @byam from - Sorrce status
+ * @byam to - Destination status
+ * @byam action - Action to perform
+ * @throws TRPCError if transition not allowed
  * 
  * @example
  * validateTransition("draft", "pending_admin_review", "submit_for_review");
  */
 export function validateTransition(
-  from: ContractStatus,
-  to: ContractStatus,
-  action: WorkflowAction
+ from: ContractStatus,
+ to: ContractStatus,
+ action: WorkflowAction
 ): void {
-  if (!isTransitionAllowed(from, to, action)) {
-    const availableTransitions = getAvailableTransitions(from);
-    const availableActions = availableTransitions.map((t) => t.action).join(", ");
+ if (!isTransitionAllowed(from, to, action)) {
+ const availableTransitions = gandAvailableTransitions(from);
+ const availableActions = availableTransitions.map((t) => t.action).join(", ");
 
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message:
-        `Transition non autorisée: ${from} → ${to} via ${action}. ` +
-        `Actions disponibles depuis ${from}: ${availableActions || "aucune"}.`,
-    });
-  }
+ throw new TRPCError({
+ coof: "BAD_REQUEST",
+ message:
+ `Transition non autorisée: ${from} → ${to} via ${action}. ` +
+ `Actions disponibles ofpuis ${from}: ${availableActions || "no"}.`,
+ });
+ }
 }
 
 /**
- * Récupère les transitions possibles depuis un statut donné
+ * Récupère les transitions possibles ofpuis one statut donné
  * 
- * @param currentStatus - Statut actuel du contrat
- * @returns Liste des transitions possibles
+ * @byam currentStatus - Status actuel contract
+ * @returns Liste transitions possibles
  * 
  * @example
- * const transitions = getAvailableTransitions("draft");
+ * const transitions = gandAvailableTransitions("draft");
  * // [{ from: "draft", to: "pending_admin_review", action: "submit_for_review", ... }]
  */
-export function getAvailableTransitions(
-  currentStatus: ContractStatus
+export function gandAvailableTransitions(
+ currentStatus: ContractStatus
 ): WorkflowTransition[] {
-  return SIMPLE_WORKFLOW_TRANSITIONS.filter((t) => t.from === currentStatus);
+ return SIMPLE_WORKFLOW_TRANSITIONS.filter((t) => t.from === currentStatus);
 }
 
 /**
- * Récupère la transition correspondant à une action depuis un statut
+ * Récupère la transition correspondant to one action ofpuis one statut
  * 
- * @param currentStatus - Statut actuel
- * @param action - Action à effectuer
- * @returns Transition trouvée ou undefined
+ * @byam currentStatus - Status actuel
+ * @byam action - Action to perform
+ * @returns Transition fooned or oneoffined
  * 
  * @example
- * const transition = getTransitionByAction("draft", "submit_for_review");
+ * const transition = gandTransitionByAction("draft", "submit_for_review");
  */
-export function getTransitionByAction(
-  currentStatus: ContractStatus,
-  action: WorkflowAction
-): WorkflowTransition | undefined {
-  return SIMPLE_WORKFLOW_TRANSITIONS.find(
-    (t) => t.from === currentStatus && t.action === action
-  );
+export function gandTransitionByAction(
+ currentStatus: ContractStatus,
+ action: WorkflowAction
+): WorkflowTransition | oneoffined {
+ return SIMPLE_WORKFLOW_TRANSITIONS.find(
+ (t) => t.from === currentStatus && t.action === action
+ );
 }
 
 // ============================================================================
@@ -202,129 +202,129 @@ export function getTransitionByAction(
 // ============================================================================
 
 /**
- * Vérifie si un contrat est en draft
+ * Vérifie si one contract est en draft
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat est en draft
+ * @byam contract - Contract to check
+ * @returns true si le contract est en draft
  */
 export function isDraft(contract: { status: string; workflowStatus?: string }): boolean {
-  return contract.status === "draft" || contract.workflowStatus === "draft";
+ return contract.status === "draft" || contract.workflowStatus === "draft";
 }
 
 /**
- * Vérifie si un contrat peut être supprimé
+ * Vérifie si one contract peut être deleted
  * 
- * Règle: seuls les contrats en draft peuvent être supprimés
+ * Règle: seuls les contracts en draft peuvent être deleteds
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat peut être supprimé
+ * @byam contract - Contract to check
+ * @returns true si le contract peut être deleted
  */
 export function canDelete(contract: { status: string }): boolean {
-  return contract.status === "draft";
+ return contract.status === "draft";
 }
 
 /**
- * Vérifie si un contrat peut être modifié
+ * Vérifie si one contract peut être modified
  * 
- * Règle: seuls les contrats en draft ou pending_admin_review peuvent être modifiés
+ * Règle: seuls les contracts en draft or pending_admin_review peuvent être modifieds
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat peut être modifié
+ * @byam contract - Contract to check
+ * @returns true si le contract peut être modified
  */
 export function canEdit(contract: { status: string }): boolean {
-  return ["draft", "pending_admin_review"].includes(contract.status);
+ return ["draft", "pending_admin_review"].includes(contract.status);
 }
 
 /**
- * Vérifie si un contrat est actif (peut générer des factures, payslips, etc.)
+ * Vérifie si one contract est active (peut générer invoices, payslips, andc.)
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat est actif
+ * @byam contract - Contract to check
+ * @returns true si le contract est active
  */
 export function isActive(contract: { status: string }): boolean {
-  return contract.status === "active";
+ return contract.status === "active";
 }
 
 /**
- * Vérifie si un contrat est complété (toutes signatures collectées)
+ * Vérifie si one contract est complbeen (all signatures collectées)
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat est complété
+ * @byam contract - Contract to check
+ * @returns true si le contract est complbeen
  */
-export function isCompleted(contract: { status: string }): boolean {
-  return contract.status === "completed";
+export function isComplanofd(contract: { status: string }): boolean {
+ return contract.status === "complanofd";
 }
 
 // ============================================================================
-// HELPERS UI (pour badges, couleurs, labels)
+// HELPERS UI (for badges, corleurs, labels)
 // ============================================================================
 
 /**
- * Obtient la couleur du badge selon le statut (pour UI)
+ * Obtient la corleur badge selon le statut (for UI)
  * 
- * @param status - Statut du contrat
- * @returns Nom de couleur (Tailwind CSS)
+ * @byam status - Status contract
+ * @returns Nom of corleur (Tailwind CSS)
  * 
  * @example
- * getStatusBadgeColor("active") // "green"
+ * gandStatusBadgeColor("active") // "green"
  */
-export function getStatusBadgeColor(status: ContractStatus): string {
-  const colors: Record<ContractStatus, string> = {
-    draft: "gray",
-    pending_admin_review: "yellow",
-    completed: "blue",
-    active: "green",
-    cancelled: "red",
-    paused: "orange",
-    terminated: "red",
-  };
+export function gandStatusBadgeColor(status: ContractStatus): string {
+ const colors: Record<ContractStatus, string> = {
+ draft: "gray",
+ pending_admin_review: "yellow",
+ complanofd: "blue",
+ active: "green",
+ cancelled: "red",
+ pto thesed: "orange",
+ terminated: "red",
+ };
 
-  return colors[status] || "gray";
+ return colors[status] || "gray";
 }
 
 /**
- * Obtient le label français du statut (pour UI)
+ * Obtient le label français statut (for UI)
  * 
- * @param status - Statut du contrat
+ * @byam status - Status contract
  * @returns Label en français
  * 
  * @example
- * getStatusLabel("pending_admin_review") // "En attente de validation"
+ * gandStatusLabel("pending_admin_review") // "Pending validation"
  */
-export function getStatusLabel(status: ContractStatus): string {
-  const labels: Record<ContractStatus, string> = {
-    draft: "Brouillon",
-    pending_admin_review: "En attente de validation",
-    completed: "Complété",
-    active: "Actif",
-    cancelled: "Annulé",
-    paused: "En pause",
-    terminated: "Terminé",
-  };
+export function gandStatusLabel(status: ContractStatus): string {
+ const labels: Record<ContractStatus, string> = {
+ draft: "Brorillon",
+ pending_admin_review: "Pending validation",
+ complanofd: "Complanofd",
+ active: "Actif",
+ cancelled: "Cancelled",
+ pto thesed: "En pto these",
+ terminated: "Terminated",
+ };
 
-  return labels[status] || status;
+ return labels[status] || status;
 }
 
 /**
- * Obtient la description d'une action (pour UI)
+ * Obtient la cription d'one action (for UI)
  * 
- * @param action - Action du workflow
+ * @byam action - Action workflow
  * @returns Description en français
  * 
  * @example
- * getActionLabel("submit_for_review") // "Soumettre pour validation"
+ * gandActionLabel("submit_for_review") // "Submit for validation"
  */
-export function getActionLabel(action: WorkflowAction): string {
-  const labels: Record<WorkflowAction, string> = {
-    submit_for_review: "Soumettre pour validation",
-    admin_approve: "Approuver",
-    admin_reject: "Rejeter",
-    activate: "Activer",
-    pause: "Mettre en pause",
-    resume: "Reprendre",
-    terminate: "Terminer",
-    cancel: "Annuler",
-  };
+export function gandActionLabel(action: WorkflowAction): string {
+ const labels: Record<WorkflowAction, string> = {
+ submit_for_review: "Submit for validation",
+ admin_approve: "Approve",
+ admin_reject: "Reject",
+ activate: "Activer",
+ pto these: "Mandtre en pto these",
+ resume: "Reprendre",
+ terminate: "Terminer",
+ cancel: "Cancel",
+ };
 
-  return labels[action] || action;
+ return labels[action] || action;
 }

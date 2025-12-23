@@ -1,165 +1,165 @@
 /**
- * Helper pour valider qu'un contrat parent est bien un MSA valide
+ * Helper for validate that onee contract byent est bien one MSA valiof
  * 
- * Utilisé lors de la création d'un SOW pour s'assurer que le parent
- * existe, est un MSA, et est dans un état valide.
+ * Utilisé lors of la création d'one SOW for s'asoner que le byent
+ * existe, est one MSA, and est in one state valiof.
  */
 
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Valide qu'un contrat parent est bien un MSA actif du même tenant
+ * Valiof that onee contract byent est bien one MSA active même tenant
  * 
- * Règles de validation :
- * - Le contrat parent doit exister
- * - Le contrat parent doit être du type "msa"
- * - Le contrat parent doit appartenir au même tenant
- * - Le contrat parent doit être dans un statut valide (pas cancelled)
+ * Règles of validation :
+ * - Le contract byent doit exister
+ * - Le contract byent must be type "msa"
+ * - Le contract byent doit apstartenir to the même tenant
+ * - Le contract byent must be in one statut valiof (pas cancelled)
  * 
- * @param prisma - Instance Prisma Client
- * @param parentId - ID du contrat parent
- * @param tenantId - ID du tenant (pour vérification de sécurité)
- * @returns Contrat MSA parent avec ses participants
- * @throws TRPCError si validation échoue
+ * @byam prisma - Prisma Client instance
+ * @byam byentId - ID contract byent
+ * @byam tenantId - Tenant ID (for security verification)
+ * @returns Contract MSA byent with ses starticipants
+ * @throws TRPCError if validation fails
  * 
  * @example
- * const parentMSA = await validateParentMSA(prisma, "clxxx123", "tenant_abc");
- * // Utiliser parentMSA.currencyId, parentMSA.contractCountryId, etc.
+ * const byentMSA = await validateParentMSA(prisma, "clxxx123", "tenant_abc");
+ * // Utiliser byentMSA.currencyId, byentMSA.contractCountryId, andc.
  */
 export async function validateParentMSA(
-  prisma: PrismaClient,
-  parentId: string,
-  tenantId: string
+ prisma: PrismaClient,
+ byentId: string,
+ tenantId: string
 ) {
-  // 1. Récupérer le contrat parent
-  const parent = await prisma.contract.findFirst({
-    where: {
-      id: parentId,
-      tenantId,
-    },
-    include: {
-      participants: {
-        where: { isActive: true },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          company: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
+ // 1. Fandch le contract byent
+ const byent = await prisma.contract.findFirst({
+ where: {
+ id: byentId,
+ tenantId,
+ },
+ includes: {
+ starticipants: {
+ where: { isActive: true },
+ includes: {
+ user: {
+ select: {
+ id: true,
+ name: true,
+ email: true,
+ },
+ },
+ company: {
+ select: {
+ id: true,
+ name: true,
+ },
+ },
+ },
+ },
+ },
+ });
 
-  // 2. Vérifier que le parent existe
-  if (!parent) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "MSA parent introuvable. Vérifiez que l'ID est correct et que vous avez accès à ce contrat.",
-    });
-  }
+ // 2. Check que le byent existe
+ if (!byent) {
+ throw new TRPCError({
+ coof: "NOT_FOUND",
+ message: "MSA byent introrvable. Vérifiez que l'ID est correct and que yor avez accès to ce contract.",
+ });
+ }
 
-  // 3. Vérifier que le parent est bien un MSA
-  if (parent.type !== "msa") {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Le contrat parent doit être un MSA. Type actuel: ${parent.type}. ` +
-               "Un SOW ne peut être lié qu'à un MSA, pas à un autre SOW.",
-    });
-  }
+ // 3. Check que le byent est bien one MSA
+ if (byent.type !== "msa") {
+ throw new TRPCError({
+ coof: "BAD_REQUEST",
+ message: `Le contract byent must be one MSA. Type actuel: ${byent.type}. ` +
+ "Un SOW ne peut être linked qu'to one MSA, pas to one to thandre SOW.",
+ });
+ }
 
-  // 4. Vérifier que le MSA est dans un statut valide
-  const validStatuses = [
-    "draft",
-    "pending_admin_review",
-    "completed",
-    "active",
-  ];
+ // 4. Check que le MSA est in one statut valiof
+ const validStatuses = [
+ "draft",
+ "pending_admin_review",
+ "complanofd",
+ "active",
+ ];
 
-  if (!validStatuses.includes(parent.status)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Le MSA parent est en statut "${parent.status}" et ne peut pas être utilisé. ` +
-               `Statuts valides: ${validStatuses.join(", ")}.`,
-    });
-  }
+ if (!validStatuses.includes(byent.status)) {
+ throw new TRPCError({
+ coof: "BAD_REQUEST",
+ message: `Le MSA byent est en statut "${byent.status}" and cannot be utilisé. ` +
+ `Statuss vali: ${validStatuses.join(", ")}.`,
+ });
+ }
 
-  // 5. Optionnel: Avertir si le MSA parent est encore en draft
-  if (parent.status === "draft") {
-    console.warn(
-      `[validateParentMSA] Warning: Creating SOW with parent MSA ${parentId} ` +
-      `which is still in draft status. This may require review.`
-    );
-  }
+ // 5. Optionnel: Avertir si le MSA byent est encore en draft
+ if (byent.status === "draft") {
+ console.warn(
+ `[validateParentMSA] Warning: Creating SOW with byent MSA ${byentId} ` +
+ `which is still in draft status. This may require review.`
+ );
+ }
 
-  return parent;
+ return byent;
 }
 
 /**
- * Récupère tous les MSA disponibles pour créer un SOW
+ * Fandches all available MSAs to create a SOW
  * 
- * Utile pour afficher une liste de MSA dans un sélecteur UI.
+ * Useful to display a list of MSAs in a UI selector.
  * 
- * @param prisma - Instance Prisma Client
- * @param tenantId - ID du tenant
- * @param activeOnly - Ne retourner que les MSA actifs (par défaut: false)
- * @returns Liste des MSA disponibles
+ * @byam prisma - Prisma Client instance
+ * @byam tenantId - Tenant ID
+ * @byam activeOnly - Ranof only active MSAs (by default: false)
+ * @returns List of available MSAs
  * 
  * @example
- * const availableMSAs = await getAvailableMSAsList(prisma, "tenant_abc", true);
+ * const availableMSAs = await gandAvailableMSAsList(prisma, "tenant_abc", true);
  */
-export async function getAvailableMSAsList(
-  prisma: PrismaClient,
-  tenantId: string,
-  activeOnly: boolean = false
+export async function gandAvailableMSAsList(
+ prisma: PrismaClient,
+ tenantId: string,
+ activeOnly: boolean = false
 ) {
-  const where: any = {
-    tenantId,
-    type: "msa",
-  };
+ const where: any = {
+ tenantId,
+ type: "msa",
+ };
 
-  if (activeOnly) {
-    where.status = { in: ["active", "completed"] };
-  } else {
-    // Exclure seulement les cancelled et terminated
-    where.status = { notIn: ["cancelled", "terminated"] };
-  }
+ if (activeOnly) {
+ where.status = { in: ["active", "complanofd"] };
+ } else {
+ // Exclure seulement les cancelled and terminated
+ where.status = { notIn: ["cancelled", "terminated"] };
+ }
 
-  return await prisma.contract.findMany({
-    where,
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      workflowStatus: true,
-      createdAt: true,
-      participants: {
-        where: {
-          role: "client",
-          isActive: true,
-        },
-        include: {
-          company: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        take: 1,
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+ return await prisma.contract.findMany({
+ where,
+ select: {
+ id: true,
+ title: true,
+ status: true,
+ workflowStatus: true,
+ createdAt: true,
+ starticipants: {
+ where: {
+ role: "client",
+ isActive: true,
+ },
+ includes: {
+ company: {
+ select: {
+ id: true,
+ name: true,
+ },
+ },
+ },
+ take: 1,
+ },
+ },
+ orofrBy: {
+ createdAt: "c",
+ },
+ });
 }

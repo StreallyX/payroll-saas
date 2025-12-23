@@ -1,10 +1,10 @@
 
 /**
- * Guards - Composants de protection basés sur les permissions
+ * Guards - Composants of protection basés on les permissions
  * 
- * Exportations centralisées des composants de garde.
+ * Exportations centralisées composants of garof.
  */
 
 export { PermissionGuard, usePermissionGuard } from "./PermissionGuard";
 export { RouteGuard } from "./RouteGuard";
-export { PageContainer, usePageMode } from "./PageContainer";
+export { PageContainer, usePageMoof } from "./PageContainer";

@@ -4,35 +4,35 @@ import { useSession } from "next-auth/react"
 import { useMemo } from "react"
 
 export function usePermissions() {
-  const { data: session, status } = useSession()
+ const { data: session, status } = useSession()
 
-  const permissions = useMemo(() => {
-    return session?.user?.permissions || []
-  }, [session])
+ const permissions = useMemo(() => {
+ return session?.user?.permissions || []
+ }, [session])
 
-  const hasPermission = (permission: string): boolean => {
-    return permissions.includes(permission)
-  }
+ const hasPermission = (permission: string): boolean => {
+ return permissions.includes(permission)
+ }
 
-  const hasAnyPermission = (perms: string[]): boolean => {
-    return perms.some(p => permissions.includes(p))
-  }
+ const hasAnyPermission = (perms: string[]): boolean => {
+ return perms.some(p => permissions.includes(p))
+ }
 
-  const hasAllPermissions = (perms: string[]): boolean => {
-    return perms.every(p => permissions.includes(p))
-  }
+ const hasAllPermissions = (perms: string[]): boolean => {
+ return perms.every(p => permissions.includes(p))
+ }
 
-  const isSuperAdmin = session?.user?.isSuperAdmin || false
+ const isSuperAdmin = session?.user?.isSuperAdmin || false
 
-  return {
-    permissions,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
-    isSuperAdmin,
-    /**
-     * ❗ CORRECT : on utilise status pour savoir si ça charge
-     */
-    isLoading: status === "loading"
-  }
+ return {
+ permissions,
+ hasPermission,
+ hasAnyPermission,
+ hasAllPermissions,
+ isSuperAdmin,
+ /**
+ * ❗ CORRECT : on utilise status for savoir si ça charge
+ */
+ isLoading: status === "loading"
+ }
 }

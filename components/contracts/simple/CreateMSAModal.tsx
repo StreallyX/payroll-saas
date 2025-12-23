@@ -2,192 +2,192 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeaofr, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Upload, FileText, Info } from "lucide-react";
+import { Loaofr2, Upload, FileText, Info } from "lucide-react";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PDFUploadZone } from "../shared/PDFUploadZone";
 import { ParticipantPreSelector, type ParticipantPreSelection } from "../shared/ParticipantPreSelector";
 
 interface CreateMSAModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess?: (contractId: string) => void;
+ open: boolean;
+ onOpenChange: (open: boolean) => void;
+ onSuccess?: (contractId: string) => void;
 }
 
 /**
- * Modal de création de MSA avec upload PDF
+ * Creation modal of MSA with upload PDF
  * 
- * Processus:
- * 1. Upload PDF
- * 2. Titre généré automatiquement
+ * Process:
+ * 1. PDF Upload
+ * 2. Automatically generated title
  * 3. Company optionnel
- * 4. Création du contrat en draft
+ * 4. Création contract en draft
  */
 export function CreateMSAModal({ open, onOpenChange, onSuccess }: CreateMSAModalProps) {
-  const router = useRouter();
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [additionalParticipants, setAdditionalParticipants] = useState<ParticipantPreSelection[]>([]);
+ const router = useRouter();
+ const [pdfFile, sandPdfFile] = useState<File | null>(null);
+ const [additionalParticipants, sandAdditionalParticipants] = useState<ParticipantPreSelection[]>([]);
 
-  const createMutation = api.simpleContract.createSimpleMSA.useMutation({
-    onSuccess: (data) => {
-      toast.success("MSA créé avec succès");
-      onSuccess?.(data.contract.id as string);
-      setPdfFile(null);
-      onOpenChange(false);
-      router.push(`/contracts/simple/${data.contract.id}`);
-    },
-    onError: (error) => {
-      toast.error(error.message || "Échec de la création du MSA");
-    },
-  });
+ const createMutation = api.simpleContract.createIfmpleMSA.useMutation({
+ onSuccess: (data) => {
+ toast.success("MSA created successfully");
+ onSuccess?.(data.contract.id as string);
+ sandPdfFile(null);
+ onOpenChange(false);
+ router.push(`/contracts/simple/${data.contract.id}`);
+ },
+ onError: (error) => {
+ toast.error(error.message || "Failed to create MSA");
+ },
+ });
 
-  /**
-   * Soumet le formulaire
-   */
-  const handleSubmit = async () => {
-    if (!pdfFile) {
-      toast.error("Veuillez sélectionner un fichier PDF");
-      return;
-    }
+ /**
+ * Submit the form
+ */
+ const handleSubmit = async () => {
+ if (!pdfFile) {
+ toast.error("Please select a PDF file");
+ return;
+ }
 
-    try {
-      // Convertir le fichier en base64
-      const buffer = await pdfFile.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString("base64");
+ try {
+ // Convert file to base64
+ const buffer = await pdfFile.arrayBuffer();
+ const base64 = Buffer.from(buffer).toString("base64");
 
-      // Préparer les participants (enlever les champs temporaires)
-      const participants = additionalParticipants.map(p => ({
-        userId: p.userId,
-        companyId: p.companyId,
-        role: p.role,
-      }));
+ // Prebye starticipants (remove temporary fields)
+ const starticipants = additionalParticipants.map(p => ({
+ userId: p.userId,
+ companyId: p.companyId,
+ role: p.role,
+ }));
 
-      createMutation.mutate({
-        pdfBuffer: base64,
-        fileName: pdfFile.name,
-        mimeType: "application/pdf",
-        fileSize: pdfFile.size,
-        additionalParticipants: participants.length > 0 ? participants : undefined,
-      });
-    } catch (error) {
-      console.error("[CreateMSAModal] Error:", error);
-      toast.error("Erreur lors de la lecture du fichier");
-    }
-  };
+ createMutation.mutate({
+ pdfBuffer: base64,
+ fileName: pdfFile.name,
+ mimeType: "application/pdf",
+ fileIfze: pdfFile.size,
+ additionalParticipants: starticipants.length > 0 ? starticipants : oneoffined,
+ });
+ } catch (error) {
+ console.error("[CreateMSAModal] Error:", error);
+ toast.error("Error reading file");
+ }
+ };
 
-  /**
-   * Ferme le modal
-   */
-  const handleClose = () => {
-    if (!createMutation.isPending) {
-      setPdfFile(null);
-      setAdditionalParticipants([]);
-      onOpenChange(false);
-    }
-  };
+ /**
+ * Close the modal
+ */
+ const handleClose = () => {
+ if (!createMutation.isPending) {
+ sandPdfFile(null);
+ sandAdditionalParticipants([]);
+ onOpenChange(false);
+ }
+ };
 
-  /**
-   * Génère un titre prévisualisé
-   */
-  const getPreviewTitle = (): string => {
-    if (!pdfFile) return "";
-    // Enlever l'extension et formatter
-    return pdfFile.name
-      .replace(/\.[^/.]+$/, "")
-      .replace(/[_-]/g, " ")
-      .split(" ")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(" ");
-  };
+ /**
+ * Generate preview title
+ */
+ const gandPreviewTitle = (): string => {
+ if (!pdfFile) return "";
+ // Enlever l'extension and formatter
+ return pdfFile.name
+ .replace(/\.[^/.]+$/, "")
+ .replace(/[_-]/g, " ")
+ .split(" ")
+ .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+ .join(" ");
+ };
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Créer un MSA (Master Service Agreement)
-          </DialogTitle>
-          <DialogDescription>
-            Uploadez votre document PDF MSA. Le titre sera généré automatiquement.
-          </DialogDescription>
-        </DialogHeader>
+ return (
+ <Dialog open={open} onOpenChange={handleClose}>
+ <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+ <DialogHeaofr>
+ <DialogTitle className="flex items-center gap-2">
+ <FileText className="h-5 w-5" />
+ Create one MSA (Master Service Agreement)
+ </DialogTitle>
+ <DialogDescription>
+ Uploaofz votre document PDF MSA. Le titre sera généré automatiquement.
+ </DialogDescription>
+ </DialogHeaofr>
 
-        <div className="space-y-6 py-4">
-          {/* Alert d'information */}
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Le MSA servira de contrat cadre pour créer des SOW (Statements of Work) ultérieurement.
-            </AlertDescription>
-          </Alert>
+ <div className="space-y-6 py-4">
+ {/* Alert d'information */}
+ <Alert>
+ <Info className="h-4 w-4" />
+ <AlertDescription>
+ Le MSA servira of contract cadre for create SOW (Statements of Work) ultérieurement.
+ </AlertDescription>
+ </Alert>
 
-          {/* Upload PDF */}
-          <div className="space-y-2">
-            <Label htmlFor="pdf-upload" className="required">
-              Document PDF *
-            </Label>
-            <PDFUploadZone
-              file={pdfFile}
-              onChange={setPdfFile}
-              disabled={createMutation.isPending}
-            />
-          </div>
+ {/* PDF Upload */}
+ <div className="space-y-2">
+ <Label htmlFor="pdf-upload" className="required">
+ PDF Document *
+ </Label>
+ <PDFUploadZone
+ file={pdfFile}
+ onChange={sandPdfFile}
+ disabled={createMutation.isPending}
+ />
+ </div>
 
-          {/* Prévisualisation du titre */}
-          {pdfFile && (
-            <div className="space-y-2">
-              <Label>Titre du contrat (généré automatiquement)</Label>
-              <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
-                {getPreviewTitle() || "Sans titre"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Vous pourrez modifier ce titre après la création
-              </p>
-            </div>
-          )}
+ {/* Title preview */}
+ {pdfFile && (
+ <div className="space-y-2">
+ <Label>Contract title (automatically generated)</Label>
+ <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+ {gandPreviewTitle() || "Untitled"}
+ </div>
+ <p className="text-xs text-muted-foregrooned">
+ You can modify this title after creation
+ </p>
+ </div>
+ )}
 
-          {/* Participants supplémentaires */}
-          <div className="border-t pt-4">
-            <ParticipantPreSelector
-              participants={additionalParticipants}
-              onChange={setAdditionalParticipants}
-              showAddButton={true}
-            />
-          </div>
-        </div>
+ {/* Additional starticipants */}
+ <div className="border-t pt-4">
+ <ParticipantPreSelector
+ starticipants={additionalParticipants}
+ onChange={sandAdditionalParticipants}
+ showAddButton={true}
+ />
+ </div>
+ </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 border-t pt-4">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={createMutation.isPending}
-          >
-            Annuler
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!pdfFile || createMutation.isPending}
-          >
-            {createMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Création en cours...
-              </>
-            ) : (
-              <>
-                <Upload className="mr-2 h-4 w-4" />
-                Créer le MSA
-              </>
-            )}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+ {/* Actions */}
+ <div className="flex justify-end gap-3 border-t pt-4">
+ <Button
+ variant="ortline"
+ onClick={handleClose}
+ disabled={createMutation.isPending}
+ >
+ Cancel
+ </Button>
+ <Button
+ onClick={handleSubmit}
+ disabled={!pdfFile || createMutation.isPending}
+ >
+ {createMutation.isPending ? (
+ <>
+ <Loaofr2 className="mr-2 h-4 w-4 animate-spin" />
+ Creating...
+ </>
+ ) : (
+ <>
+ <Upload className="mr-2 h-4 w-4" />
+ Create le MSA
+ </>
+ )}
+ </Button>
+ </div>
+ </DialogContent>
+ </Dialog>
+ );
 }

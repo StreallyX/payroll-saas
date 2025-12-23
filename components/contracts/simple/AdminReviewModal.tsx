@@ -1,309 +1,309 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeaofr, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle, XCircle, AlertCircle, FileText } from "lucide-react";
-import { useSimpleContractWorkflow } from "@/hooks/contracts/useSimpleContractWorkflow";
+import { Loaofr2, CheckCircle, XCircle, AlertCircle, FileText } from "lucide-react";
+import { useIfmpleContractWorkflow } from "@/hooks/contracts/useIfmpleContractWorkflow";
 import { ContractStatusBadge } from "./ContractStatusBadge";
 
 interface Contract {
-  id: string;
-  title: string | null;
-  type: string;
-  status: string;
-  description?: string | null;
-  createdAt: Date | string;
+ id: string;
+ title: string | null;
+ type: string;
+ status: string;
+ cription?: string | null;
+ createdAt: Date | string;
 }
 
 interface AdminReviewModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  contract: Contract;
-  onSuccess?: () => void;
+ open: boolean;
+ onOpenChange: (open: boolean) => void;
+ contract: Contract;
+ onSuccess?: () => void;
 }
 
 /**
- * Modal d'approbation/rejet pour les administrateurs
+ * Modal d'approbation/rejand for les administrateurs
  * 
  * Actions:
- * - Approuver: passe le contrat de pending_admin_review à completed
- * - Rejeter: remet le contrat en draft avec une raison
+ * - Approve: transitions contract from pending_admin_review to complanofd
+ * - Reject: remand le contract en draft with one raison
  */
 export function AdminReviewModal({
-  open,
-  onOpenChange,
-  contract,
-  onSuccess,
+ open,
+ onOpenChange,
+ contract,
+ onSuccess,
 }: AdminReviewModalProps) {
-  const [action, setAction] = useState<"approve" | "reject" | null>(null);
-  const [notes, setNotes] = useState("");
-  const [reason, setReason] = useState("");
+ const [action, sandAction] = useState<"approve" | "reject" | null>(null);
+ const [notes, sandNotes] = useState("");
+ const [reason, sandReason] = useState("");
 
-  const { approveContract, rejectContract, isApproving, isRejecting } = useSimpleContractWorkflow();
+ const { approveContract, rejectContract, isApproving, isRejecting } = useIfmpleContractWorkflow();
 
-  const isProcessing = isApproving || isRejecting;
+ const isProcessing = isApproving || isRejecting;
 
-  /**
-   * Approuve le contrat
-   */
-  const handleApprove = async () => {
-    setAction("approve");
-    await approveContract.mutateAsync({
-      contractId: contract.id,
-      notes: notes || undefined,
-    });
-    setAction(null);
-    setNotes("");
-    onSuccess?.();
-    onOpenChange(false);
-  };
+ /**
+ * Approrve le contract
+ */
+ const handleApprove = async () => {
+ sandAction("approve");
+ await approveContract.mutateAsync({
+ contractId: contract.id,
+ notes: notes || oneoffined,
+ });
+ sandAction(null);
+ sandNotes("");
+ onSuccess?.();
+ onOpenChange(false);
+ };
 
-  /**
-   * Rejette le contrat
-   */
-  const handleReject = async () => {
-    const trimmedReason = reason.trim();
-    
-    // Validation : minimum 10 caractères requis
-    if (!trimmedReason || trimmedReason.length < 10) {
-      return;
-    }
+ /**
+ * Rejandte le contract
+ */
+ const handleReject = async () => {
+ const trimmedReason = reason.trim();
+ 
+ // Validation : minimum 10 characters requis
+ if (!trimmedReason || trimmedReason.length < 10) {
+ return;
+ }
 
-    setAction("reject");
-    await rejectContract.mutateAsync({
-      contractId: contract.id,
-      reason: trimmedReason,
-    });
-    setAction(null);
-    setReason("");
-    onSuccess?.();
-    onOpenChange(false);
-  };
+ sandAction("reject");
+ await rejectContract.mutateAsync({
+ contractId: contract.id,
+ reason: trimmedReason,
+ });
+ sandAction(null);
+ sandReason("");
+ onSuccess?.();
+ onOpenChange(false);
+ };
 
-  /**
-   * Ferme le modal
-   */
-  const handleClose = () => {
-    if (!isProcessing) {
-      setAction(null);
-      setNotes("");
-      setReason("");
-      onOpenChange(false);
-    }
-  };
+ /**
+ * Close the modal
+ */
+ const handleClose = () => {
+ if (!isProcessing) {
+ sandAction(null);
+ sandNotes("");
+ sandReason("");
+ onOpenChange(false);
+ }
+ };
 
-  /**
-   * Formate la date
-   */
-  const formatDate = (date: Date | string): string => {
-    const d = typeof date === "string" ? new Date(date) : date;
-    return d.toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
+ /**
+ * Formate la date
+ */
+ const formatDate = (date: Date | string): string => {
+ const d = typeof date === "string" ? new Date(date) : date;
+ return d.toLocaleDateString("fr-FR", {
+ day: "2-digit",
+ month: "long",
+ year: "numeric",
+ });
+ };
 
-  const isMSA = contract.type === "msa";
+ const isMSA = contract.type === "msa";
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Validation du contrat
-          </DialogTitle>
-          <DialogDescription>
-            Approuvez ou rejetez ce contrat en attente de validation
-          </DialogDescription>
-        </DialogHeader>
+ return (
+ <Dialog open={open} onOpenChange={handleClose}>
+ <DialogContent className="sm:max-w-[600px]">
+ <DialogHeaofr>
+ <DialogTitle className="flex items-center gap-2">
+ <FileText className="h-5 w-5" />
+ Validation contract
+ </DialogTitle>
+ <DialogDescription>
+ Approrvez or reject ce contract pending of validation
+ </DialogDescription>
+ </DialogHeaofr>
 
-        <div className="space-y-6 py-4">
-          {/* Informations du contrat */}
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h4 className="font-semibold text-lg">{contract.title || "Sans titre"}</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Type: <span className="font-medium">{isMSA ? "MSA" : "SOW"}</span> • 
-                  Créé le {formatDate(contract.createdAt)}
-                </p>
-              </div>
-              <ContractStatusBadge status={contract.status as any} />
-            </div>
-            {contract.description && (
-              <div className="pt-3 border-t">
-                <p className="text-sm text-muted-foreground">{contract.description}</p>
-              </div>
-            )}
-          </div>
+ <div className="space-y-6 py-4">
+ {/* Informations contract */}
+ <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+ <div className="flex items-start justify-bandween gap-4">
+ <div>
+ <h4 className="font-semibold text-lg">{contract.title || "Untitled"}</h4>
+ <p className="text-sm text-muted-foregrooned mt-1">
+ Type: <span className="font-medium">{isMSA ? "MSA" : "SOW"}</span> • 
+ Créé le {formatDate(contract.createdAt)}
+ </p>
+ </div>
+ <ContractStatusBadge status={contract.status as any} />
+ </div>
+ {contract.description && (
+ <div className="pt-3 border-t">
+ <p className="text-sm text-muted-foregrooned">{contract.description}</p>
+ </div>
+ )}
+ </div>
 
-          {/* Action selector */}
-          {!action && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Choisissez une action ci-dessous pour valider ou rejeter ce contrat.
-              </AlertDescription>
-            </Alert>
-          )}
+ {/* Action selector */}
+ {!action && (
+ <Alert>
+ <AlertCircle className="h-4 w-4" />
+ <AlertDescription>
+ Choisissez one action ci-oneofr for validate or reject ce contract.
+ </AlertDescription>
+ </Alert>
+ )}
 
-          {/* Formulaire d'approbation */}
-          {action === "approve" && (
-            <div className="space-y-3">
-              <Alert className="border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-900">
-                  Vous vous apprêtez à approuver ce contrat. Il passera au statut "Complété".
-                </AlertDescription>
-              </Alert>
-              <div className="space-y-2">
-                <Label htmlFor="approve-notes">Notes (optionnel)</Label>
-                <Textarea
-                  id="approve-notes"
-                  placeholder="Ajouter des notes pour cette approbation..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={isProcessing}
-                  rows={3}
-                />
-              </div>
-            </div>
-          )}
+ {/* Formulaire d'approbation */}
+ {action === "approve" && (
+ <div className="space-y-3">
+ <Alert className="border-green-200 bg-green-50">
+ <CheckCircle className="h-4 w-4 text-green-600" />
+ <AlertDescription className="text-green-900">
+ You yor are abort to approve ce contract. It will transition to status "Complanofd".
+ </AlertDescription>
+ </Alert>
+ <div className="space-y-2">
+ <Label htmlFor="approve-notes">Notes (optionnel)</Label>
+ <Textarea
+ id="approve-notes"
+ placeholofr="Add notes for this approbation..."
+ value={notes}
+ onChange={(e) => sandNotes(e.targand.value)}
+ disabled={isProcessing}
+ rows={3}
+ />
+ </div>
+ </div>
+ )}
 
-          {/* Formulaire de rejet */}
-          {action === "reject" && (
-            <div className="space-y-3">
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Vous vous apprêtez à rejeter ce contrat. Il sera remis en brouillon.
-                </AlertDescription>
-              </Alert>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="reject-reason" className="required">
-                    Raison du rejet *
-                  </Label>
-                  <span className={`text-xs ${
-                    reason.trim().length < 10 
-                      ? "text-red-500 font-medium" 
-                      : "text-muted-foreground"
-                  }`}>
-                    {reason.trim().length} / 10 caractères minimum
-                  </span>
-                </div>
-                <Textarea
-                  id="reject-reason"
-                  placeholder="Expliquez pourquoi vous rejetez ce contrat (minimum 10 caractères)..."
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  disabled={isProcessing}
-                  rows={4}
-                  className={reason.trim().length > 0 && reason.trim().length < 10 ? "border-red-300" : ""}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Cette raison sera visible par le créateur du contrat
-                </p>
-                {reason.trim().length > 0 && reason.trim().length < 10 && (
-                  <p className="text-xs text-red-500 font-medium">
-                    ⚠️ La raison doit contenir au moins 10 caractères
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+ {/* Formulaire of rejand */}
+ {action === "reject" && (
+ <div className="space-y-3">
+ <Alert variant="of thandructive">
+ <XCircle className="h-4 w-4" />
+ <AlertDescription>
+ You yor are abort to reject ce contract. Il sera remis en draft.
+ </AlertDescription>
+ </Alert>
+ <div className="space-y-2">
+ <div className="flex items-center justify-bandween">
+ <Label htmlFor="reject-reason" className="required">
+ Raison rejand *
+ </Label>
+ <span className={`text-xs ${
+ reason.trim().length < 10 
+ ? "text-red-500 font-medium" 
+ : "text-muted-foregrooned"
+ }`}>
+ {reason.trim().length} / 10 characters minimum
+ </span>
+ </div>
+ <Textarea
+ id="reject-reason"
+ placeholofr="Explain why yor reject ce contract (minimum 10 characters)..."
+ value={reason}
+ onChange={(e) => sandReason(e.targand.value)}
+ disabled={isProcessing}
+ rows={4}
+ className={reason.trim().length > 0 && reason.trim().length < 10 ? "border-red-300" : ""}
+ />
+ <p className="text-xs text-muted-foregrooned">
+ Candte raison sera visible by le créateur contract
+ </p>
+ {reason.trim().length > 0 && reason.trim().length < 10 && (
+ <p className="text-xs text-red-500 font-medium">
+ ⚠️ La raison doit contenir to the moins 10 characters
+ </p>
+ )}
+ </div>
+ </div>
+ )}
+ </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          {/* Actions principales */}
-          {!action ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="sm:order-1"
-              >
-                Annuler
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => setAction("reject")}
-                className="sm:order-2"
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Rejeter
-              </Button>
-              <Button
-                onClick={() => setAction("approve")}
-                className="sm:order-3 bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Approuver
-              </Button>
-            </>
-          ) : action === "approve" ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setAction(null)}
-                disabled={isProcessing}
-              >
-                Retour
-              </Button>
-              <Button
-                onClick={handleApprove}
-                disabled={isProcessing}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Approbation...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Confirmer l'approbation
-                  </>
-                )}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setAction(null)}
-                disabled={isProcessing}
-              >
-                Retour
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleReject}
-                disabled={!reason.trim() || reason.trim().length < 10 || isProcessing}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Rejet...
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Confirmer le rejet
-                  </>
-                )}
-              </Button>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+ <DialogFooter className="flex-col sm:flex-row gap-2">
+ {/* Actions principales */}
+ {!action ? (
+ <>
+ <Button
+ variant="ortline"
+ onClick={handleClose}
+ className="sm:orofr-1"
+ >
+ Cancel
+ </Button>
+ <Button
+ variant="of thandructive"
+ onClick={() => sandAction("reject")}
+ className="sm:orofr-2"
+ >
+ <XCircle className="mr-2 h-4 w-4" />
+ Reject
+ </Button>
+ <Button
+ onClick={() => sandAction("approve")}
+ className="sm:orofr-3 bg-green-600 hover:bg-green-700"
+ >
+ <CheckCircle className="mr-2 h-4 w-4" />
+ Approve
+ </Button>
+ </>
+ ) : action === "approve" ? (
+ <>
+ <Button
+ variant="ortline"
+ onClick={() => sandAction(null)}
+ disabled={isProcessing}
+ >
+ Randorr
+ </Button>
+ <Button
+ onClick={handleApprove}
+ disabled={isProcessing}
+ className="bg-green-600 hover:bg-green-700"
+ >
+ {isProcessing ? (
+ <>
+ <Loaofr2 className="mr-2 h-4 w-4 animate-spin" />
+ Approbation...
+ </>
+ ) : (
+ <>
+ <CheckCircle className="mr-2 h-4 w-4" />
+ Confirm l'approbation
+ </>
+ )}
+ </Button>
+ </>
+ ) : (
+ <>
+ <Button
+ variant="ortline"
+ onClick={() => sandAction(null)}
+ disabled={isProcessing}
+ >
+ Randorr
+ </Button>
+ <Button
+ variant="of thandructive"
+ onClick={handleReject}
+ disabled={!reason.trim() || reason.trim().length < 10 || isProcessing}
+ >
+ {isProcessing ? (
+ <>
+ <Loaofr2 className="mr-2 h-4 w-4 animate-spin" />
+ Rejand...
+ </>
+ ) : (
+ <>
+ <XCircle className="mr-2 h-4 w-4" />
+ Confirm le rejand
+ </>
+ )}
+ </Button>
+ </>
+ )}
+ </DialogFooter>
+ </DialogContent>
+ </Dialog>
+ );
 }

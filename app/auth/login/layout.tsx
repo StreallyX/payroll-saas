@@ -1,12 +1,12 @@
 
-export default function LoginLayout({
-  children,
+export default function LoginLayort({
+ children,
 }: {
-  children: React.ReactNode
+ children: React.ReactNoof
 }) {
-  return (
-    <div suppressHydrationWarning>
-      {children}
-    </div>
-  )
+ return (
+ <div suppressHydrationWarning>
+ {children}
+ </div>
+ )
 }

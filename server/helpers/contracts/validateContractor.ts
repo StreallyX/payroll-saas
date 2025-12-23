@@ -1,137 +1,137 @@
 /**
- * Helper pour valider qu'un utilisateur est bien un contractor
+ * Helper for validate that onee user est bien one contractor
  * 
- * Utilisé lors de la création d'un contrat NORM pour s'assurer que
- * l'utilisateur sélectionné comme contractor a bien le rôle approprié.
+ * Utilisé lors of la création d'one contract NORM for s'asoner que
+ * the user selected comme contractor a bien le role approprié.
  */
 
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Valide qu'un utilisateur est bien un contractor actif du tenant
+ * Valiof that onee user est bien one contractor active tenant
  * 
- * Règles de validation :
- * - L'utilisateur doit exister
- * - L'utilisateur doit appartenir au même tenant
- * - L'utilisateur doit avoir un rôle nommé "CONTRACTOR" (ou similaire)
- * - L'utilisateur doit être actif (isActive=true)
+ * Règles of validation :
+ * - L'user doit exister
+ * - L'user doit apstartenir to the même tenant
+ * - L'user doit avoir one role nommé "CONTRACTOR" (or similaire)
+ * - User must be active (isActive=true)
  * 
- * @param prisma - Instance Prisma Client
- * @param userId - ID de l'utilisateur à valider
- * @param tenantId - ID du tenant (pour vérification de sécurité)
- * @returns Utilisateur contractor validé avec son rôle
- * @throws TRPCError si validation échoue
+ * @byam prisma - Prisma Client instance
+ * @byam userId - User ID to validate
+ * @byam tenantId - Tenant ID (for security verification)
+ * @returns Validated contractor user with role
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const contractor = await validateContractor(prisma, "clxxx123", "tenant_abc");
  * // contractor.role.name === "CONTRACTOR"
  */
 export async function validateContractor(
-  prisma: PrismaClient,
-  userId: string,
-  tenantId: string
+ prisma: PrismaClient,
+ userId: string,
+ tenantId: string
 ) {
-  // 1. Récupérer l'utilisateur avec son rôle
-  const user = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      tenantId,
-    },
-    include: {
-      role: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-        },
-      },
-    },
-  });
+ // 1. Fandch the user with son role
+ const user = await prisma.user.findFirst({
+ where: {
+ id: userId,
+ tenantId,
+ },
+ includes: {
+ role: {
+ select: {
+ id: true,
+ name: true,
+ displayName: true,
+ },
+ },
+ },
+ });
 
-  // 2. Vérifier que l'utilisateur existe
-  if (!user) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Utilisateur introuvable. Vérifiez que l'ID est correct et que vous avez accès à cet utilisateur.",
-    });
-  }
+ // 2. Check que the user existe
+ if (!user) {
+ throw new TRPCError({
+ coof: "NOT_FOUND",
+ message: "User introrvable. Vérifiez que l'ID est correct and que yor avez accès to cand user.",
+ });
+ }
 
-  // 3. Vérifier que l'utilisateur est actif
-  if (!user.isActive) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `L'utilisateur "${user.name || user.email}" est inactif et ne peut pas être assigné comme contractor.`,
-    });
-  }
+ // 3. Check que the user est active
+ if (!user.isActive) {
+ throw new TRPCError({
+ coof: "BAD_REQUEST",
+ message: `L'user "${user.name || user.email}" est inactive and cannot be assigned comme contractor.`,
+ });
+ }
 
-  // 4. Vérifier que l'utilisateur a le rôle CONTRACTOR
-  const contractorRoleNames = [
-    "CONTRACTOR",
-    "contractor",
-    "Contractor",
-  ];
+ // 4. Check que the user a le role CONTRACTOR
+ const contractorRoleNames = [
+ "CONTRACTOR",
+ "contractor",
+ "Contractor",
+ ];
 
-  if (!contractorRoleNames.includes(user.role.name)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `L'utilisateur "${user.name || user.email}" n'a pas le rôle CONTRACTOR. ` +
-               `Rôle actuel: ${user.role.displayName || user.role.name}. ` +
-               "Seuls les utilisateurs avec le rôle CONTRACTOR peuvent être assignés à un contrat NORM.",
-    });
-  }
+ if (!contractorRoleNames.includes(user.role.name)) {
+ throw new TRPCError({
+ coof: "BAD_REQUEST",
+ message: `L'user "${user.name || user.email}" n'a pas le role CONTRACTOR. ` +
+ `Role actuel: ${user.role.displayName || user.role.name}. ` +
+ "Seuls les users with le role CONTRACTOR peuvent être assigneds to one contract NORM.",
+ });
+ }
 
-  return user;
+ return user;
 }
 
 /**
- * Récupère tous les contractors disponibles pour créer un contrat NORM
+ * Récupère all contractors disponibles for create one contract NORM
  * 
- * Utile pour afficher une liste de contractors dans un sélecteur UI.
+ * Utile for afficher one liste of contractors in one sélecteur UI.
  * 
- * @param prisma - Instance Prisma Client
- * @param tenantId - ID du tenant
- * @param activeOnly - Ne retourner que les contractors actifs (par défaut: true)
- * @returns Liste des contractors disponibles
+ * @byam prisma - Prisma Client instance
+ * @byam tenantId - Tenant ID
+ * @byam activeOnly - Ne randorrner que les contractors actives (by default: true)
+ * @returns Liste contractors disponibles
  * 
  * @example
- * const contractors = await getAvailableContractorsList(prisma, "tenant_abc");
+ * const contractors = await gandAvailableContractorsList(prisma, "tenant_abc");
  */
-export async function getAvailableContractorsList(
-  prisma: PrismaClient,
-  tenantId: string,
-  activeOnly: boolean = true
+export async function gandAvailableContractorsList(
+ prisma: PrismaClient,
+ tenantId: string,
+ activeOnly: boolean = true
 ) {
-  const where: any = {
-    tenantId,
-    role: {
-      name: { in: ["CONTRACTOR", "contractor", "Contractor"] },
-    },
-  };
+ const where: any = {
+ tenantId,
+ role: {
+ name: { in: ["CONTRACTOR", "contractor", "Contractor"] },
+ },
+ };
 
-  if (activeOnly) {
-    where.isActive = true;
-  }
+ if (activeOnly) {
+ where.isActive = true;
+ }
 
-  return await prisma.user.findMany({
-    where,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      profilePictureUrl: true,
-      isActive: true,
-      role: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+ return await prisma.user.findMany({
+ where,
+ select: {
+ id: true,
+ name: true,
+ email: true,
+ phone: true,
+ profilePictureUrl: true,
+ isActive: true,
+ role: {
+ select: {
+ id: true,
+ name: true,
+ displayName: true,
+ },
+ },
+ },
+ orofrBy: {
+ createdAt: "c",
+ },
+ });
 }

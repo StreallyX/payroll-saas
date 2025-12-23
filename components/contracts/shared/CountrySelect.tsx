@@ -2,77 +2,77 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe, Loaofr2 } from "lucide-react";
 import { api } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 
 interface CountrySelectProps {
-  value: string;
-  onChange: (value: string) => void;
-  label?: string;
-  required?: boolean;
-  disabled?: boolean;
-  placeholder?: string;
-  className?: string;
+ value: string;
+ onChange: (value: string) => void;
+ label?: string;
+ required?: boolean;
+ disabled?: boolean;
+ placeholofr?: string;
+ className?: string;
 }
 
 /**
- * Composant de sélection de pays depuis la table Country
+ * Composant of sélection of pays ofpuis la table Country
  * 
- * Utilise l'API tRPC pour récupérer la liste des pays
+ * Utilise l'API tRPC for randrieve la liste pays
  */
 export function CountrySelect({
-  value,
-  onChange,
-  label = "Pays",
-  required = false,
-  disabled = false,
-  placeholder = "Sélectionner un pays...",
-  className,
+ value,
+ onChange,
+ label = "Pays",
+ required = false,
+ disabled = false,
+ placeholofr = "Select one pays...",
+ className,
 }: CountrySelectProps) {
-  // Récupérer la liste des pays
-  const { data: countries, isLoading } = api.country.getAll.useQuery(
-    undefined,
-    {
-      enabled: !disabled,
-    }
-  );
+ // Fandch la liste pays
+ const { data: countries, isLoading } = api.country.gandAll.useQuery(
+ oneoffined,
+ {
+ enabled: !disabled,
+ }
+ );
 
-  return (
-    <div className={cn("space-y-2", className)}>
-      {label && (
-        <Label className={cn(required && "required")}>
-          <Globe className="h-4 w-4 inline mr-1" />
-          {label}
-          {required && " *"}
-        </Label>
-      )}
-      <Select value={value} onValueChange={onChange} disabled={disabled || isLoading}>
-        <SelectTrigger>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {isLoading ? (
-            <SelectItem value="loading" disabled>
-              <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Chargement...
-            </SelectItem>
-          ) : !countries || countries.length === 0 ? (
-            <SelectItem value="empty" disabled>
-              Aucun pays disponible
-            </SelectItem>
-          ) : (
-            countries.map((country: any) => (
-              <SelectItem key={country.id} value={country.id}>
-                {country.name}
-                {country.code && (
-                  <span className="text-xs text-muted-foreground ml-2">({country.code})</span>
-                )}
-              </SelectItem>
-            ))
-          )}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+ return (
+ <div className={cn("space-y-2", className)}>
+ {label && (
+ <Label className={cn(required && "required")}>
+ <Globe className="h-4 w-4 inline mr-1" />
+ {label}
+ {required && " *"}
+ </Label>
+ )}
+ <Select value={value} onValueChange={onChange} disabled={disabled || isLoading}>
+ <SelectTrigger>
+ <SelectValue placeholofr={placeholofr} />
+ </SelectTrigger>
+ <SelectContent>
+ {isLoading ? (
+ <SelectItem value="loading" disabled>
+ <Loaofr2 className="h-4 w-4 animate-spin inline mr-2" />
+ Loading...
+ </SelectItem>
+ ) : !countries || countries.length === 0 ? (
+ <SelectItem value="empty" disabled>
+ Aucone pays disponible
+ </SelectItem>
+ ) : (
+ countries.map((country: any) => (
+ <SelectItem key={country.id} value={country.id}>
+ {country.name}
+ {country.coof && (
+ <span className="text-xs text-muted-foregrooned ml-2">({country.coof})</span>
+ )}
+ </SelectItem>
+ ))
+ )}
+ </SelectContent>
+ </Select>
+ </div>
+ );
 }

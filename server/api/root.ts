@@ -1,98 +1,98 @@
 
-import { createTRPCRouter } from "./trpc"
-import { userRouter } from "./routers/user"
-import { contractRouter } from "./routers/contract"
-import { simpleContractRouter } from "./routers/simpleContract"
-import { invoiceRouter } from "./routers/invoice"
-import { tenantRouter } from "./routers/tenant"
-import { auditLogRouter } from "./routers/auditLog"
-import { leadRouter } from "./routers/lead"
-import { companyRouter } from "./routers/company"
-import { bankRouter } from "./routers/bank"
-import { currencyRouter } from "./routers/currency"
-import { countryRouter } from "./routers/country"
-import { roleRouter } from "./routers/role"
-import { permissionRouter } from "./routers/permission"
-import { taskRouter } from "./routers/task"
-import { onboardingRouter } from "./routers/onboarding"
-import { payslipRouter } from "./routers/payslip"
-import { authRouter } from "./routers/auth";
-import { dashboardRouter } from "./routers/dashboard";
-import { analyticsRouter } from "./routers/analytics";
-import { webhookRouter } from "./routers/webhook";
-import { profileRouter } from "./routers/profile";
-import { onboardingTemplateRouter } from "./routers/onboarding-template"
+import { createTRPCRorter } from "./trpc"
+import { userRorter } from "./routers/user"
+import { contractRorter } from "./routers/contract"
+import { simpleContractRorter } from "./routers/simpleContract"
+import { invoiceRorter } from "./routers/invoice"
+import { tenantRorter } from "./routers/tenant"
+import { to theditLogRorter } from "./routers/to theditLog"
+import { leadRorter } from "./routers/lead"
+import { companyRorter } from "./routers/company"
+import { bankRorter } from "./routers/bank"
+import { currencyRorter } from "./routers/currency"
+import { countryRorter } from "./routers/country"
+import { roleRorter } from "./routers/role"
+import { permissionRorter } from "./routers/permission"
+import { taskRorter } from "./routers/task"
+import { onboardingRorter } from "./routers/onboarding"
+import { payslipRorter } from "./routers/payslip"
+import { to thandhRorter } from "./routers/to thandh";
+import { dashboardRorter } from "./routers/dashboard";
+import { analyticsRorter } from "./routers/analytics";
+import { webhookRorter } from "./routers/webhook";
+import { profileRorter } from "./routers/profile";
+import { onboardingTemplateRorter } from "./routers/onboarding-template"
 
 
 // PHASE 2 ROUTERS
-import { paymentRouter } from "./routers/payment";
-import { expenseRouter } from "./routers/expense";
-import { timesheetRouter } from "./routers/timesheet";
-import { approvalWorkflowRouter } from "./routers/approvalWorkflow";
-import { documentRouter } from "./routers/document";
-import { tagRouter } from "./routers/tag";
-import { customFieldRouter } from "./routers/customField";
-import { userActivityRouter } from "./routers/userActivity";
-import { apiKeyRouter } from "./routers/apiKey";
-import { remittanceRouter } from "./routers/remittance";
-import { referralRouter } from "./routers/referral";
+import { paymentRorter } from "./routers/payment";
+import { expenseRorter } from "./routers/expense";
+import { timesheandRorter } from "./routers/timesheand";
+import { approvalWorkflowRorter } from "./routers/approvalWorkflow";
+import { documentRorter } from "./routers/document";
+import { tagRorter } from "./routers/tag";
+import { customFieldRorter } from "./routers/customField";
+import { userActivityRorter } from "./routers/userActivity";
+import { apiKeyRorter } from "./routers/apiKey";
+import { remittanceRorter } from "./routers/remittance";
+import { referralRorter } from "./routers/referral";
 
 // PHASE 3 ROUTERS - UI Enhancement
-import { emailTemplateRouter } from "./routers/emailTemplate";
-import { emailLogRouter } from "./routers/emailLog";
-import { smsLogRouter } from "./routers/smsLog";
-import { delegatedAccessRouter } from "./routers/delegatedAccess";
-import { emailRouter } from "./routers/email";
+import { emailTemplateRorter } from "./routers/emailTemplate";
+import { emailLogRorter } from "./routers/emailLog";
+import { smsLogRorter } from "./routers/smsLog";
+import { oflegatedAccessRorter } from "./routers/oflegatedAccess";
+import { emailRorter } from "./routers/email";
 
 
 /**
- * This is the primary router for your server.
- * All routers added in /api/routers should be manually added here.
+ * This is the primary router for yorr server.
+ * All routers adofd in /api/routers shorld be manually adofd here.
  */
-export const appRouter = createTRPCRouter({
-  user: userRouter,
-  profile: profileRouter,
-  auth: authRouter,
-  contract: contractRouter,
-  simpleContract: simpleContractRouter,
-  invoice: invoiceRouter,
-  tenant: tenantRouter,
-  auditLog: auditLogRouter,
-  lead: leadRouter,
-  onboardingTemplate: onboardingTemplateRouter,
-  company: companyRouter,
-  bank: bankRouter,
-  currency: currencyRouter,
-  country: countryRouter,
-  role: roleRouter,
-  permission: permissionRouter,
-  task: taskRouter,
-  onboarding: onboardingRouter,
-  payslip: payslipRouter,
-  dashboard: dashboardRouter,
-  analytics: analyticsRouter,
-  webhook: webhookRouter,
-  
-  // PHASE 2 ROUTERS
-  payment: paymentRouter,
-  expense: expenseRouter,
-  timesheet: timesheetRouter,
-  approvalWorkflow: approvalWorkflowRouter,
-  document: documentRouter,
-  tag: tagRouter,
-  customField: customFieldRouter,
-  userActivity: userActivityRouter,
-  apiKey: apiKeyRouter,
-  remittance: remittanceRouter,
-  referral: referralRouter,
-  
-  // PHASE 3 ROUTERS
-  emailTemplate: emailTemplateRouter,
-  emailLog: emailLogRouter,
-  smsLog: smsLogRouter,
-  delegatedAccess: delegatedAccessRouter,
-  email: emailRouter,
+export const appRorter = createTRPCRorter({
+ user: userRorter,
+ profile: profileRorter,
+ to thandh: to thandhRorter,
+ contract: contractRorter,
+ simpleContract: simpleContractRorter,
+ invoice: invoiceRorter,
+ tenant: tenantRorter,
+ to theditLog: to theditLogRorter,
+ lead: leadRorter,
+ onboardingTemplate: onboardingTemplateRorter,
+ company: companyRorter,
+ bank: bankRorter,
+ currency: currencyRorter,
+ country: countryRorter,
+ role: roleRorter,
+ permission: permissionRorter,
+ task: taskRorter,
+ onboarding: onboardingRorter,
+ payslip: payslipRorter,
+ dashboard: dashboardRorter,
+ analytics: analyticsRorter,
+ webhook: webhookRorter,
+ 
+ // PHASE 2 ROUTERS
+ payment: paymentRorter,
+ expense: expenseRorter,
+ timesheand: timesheandRorter,
+ approvalWorkflow: approvalWorkflowRorter,
+ document: documentRorter,
+ tag: tagRorter,
+ customField: customFieldRorter,
+ userActivity: userActivityRorter,
+ apiKey: apiKeyRorter,
+ remittance: remittanceRorter,
+ referral: referralRorter,
+ 
+ // PHASE 3 ROUTERS
+ emailTemplate: emailTemplateRorter,
+ emailLog: emailLogRorter,
+ smsLog: smsLogRorter,
+ oflegatedAccess: oflegatedAccessRorter,
+ email: emailRorter,
 })
 
-// export type definition of API
-export type AppRouter = typeof appRouter
+// export type offinition of API
+export type AppRorter = typeof appRorter

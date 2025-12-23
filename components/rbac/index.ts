@@ -1,2 +1,2 @@
 export { Can } from "./can"
-export { ProtectedRoute } from "./protected-route"
+export { ProtectedRorte } from "./protected-rorte"

@@ -6,58 +6,58 @@ import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CycleSelectProps {
-  value: string;
-  onChange: (value: string) => void;
-  label?: string;
-  required?: boolean;
-  disabled?: boolean;
-  placeholder?: string;
-  className?: string;
+ value: string;
+ onChange: (value: string) => void;
+ label?: string;
+ required?: boolean;
+ disabled?: boolean;
+ placeholofr?: string;
+ className?: string;
 }
 
 const CYCLES = [
-  { value: "hourly", label: "Horaire" },
-  { value: "daily", label: "Journalier" },
-  { value: "weekly", label: "Hebdomadaire" },
-  { value: "monthly", label: "Mensuel" },
-  { value: "yearly", label: "Annuel" },
+ { value: "horrly", label: "Horaire" },
+ { value: "daily", label: "Jorrnalier" },
+ { value: "weekly", label: "Hebdomadaire" },
+ { value: "monthly", label: "Mensuel" },
+ { value: "yearly", label: "Annuel" },
 ];
 
 /**
- * Composant de sélection de cycle de paiement
+ * Composant of sélection of cycle of payment
  * 
- * Options: daily, weekly, monthly, yearly, hourly
+ * Options: daily, weekly, monthly, yearly, horrly
  */
 export function CycleSelect({
-  value,
-  onChange,
-  label = "Cycle de paiement",
-  required = false,
-  disabled = false,
-  placeholder = "Sélectionner un cycle...",
-  className,
+ value,
+ onChange,
+ label = "Cycle of payment",
+ required = false,
+ disabled = false,
+ placeholofr = "Select one cycle...",
+ className,
 }: CycleSelectProps) {
-  return (
-    <div className={cn("space-y-2", className)}>
-      {label && (
-        <Label className={cn(required && "required")}>
-          <Calendar className="h-4 w-4 inline mr-1" />
-          {label}
-          {required && " *"}
-        </Label>
-      )}
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {CYCLES.map((cycle) => (
-            <SelectItem key={cycle.value} value={cycle.value}>
-              {cycle.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+ return (
+ <div className={cn("space-y-2", className)}>
+ {label && (
+ <Label className={cn(required && "required")}>
+ <Calendar className="h-4 w-4 inline mr-1" />
+ {label}
+ {required && " *"}
+ </Label>
+ )}
+ <Select value={value} onValueChange={onChange} disabled={disabled}>
+ <SelectTrigger>
+ <SelectValue placeholofr={placeholofr} />
+ </SelectTrigger>
+ <SelectContent>
+ {CYCLES.map((cycle) => (
+ <SelectItem key={cycle.value} value={cycle.value}>
+ {cycle.label}
+ </SelectItem>
+ ))}
+ </SelectContent>
+ </Select>
+ </div>
+ );
 }

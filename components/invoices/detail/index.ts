@@ -1,4 +1,4 @@
-export { InvoiceHeader } from "./InvoiceHeader";
+export { InvoiceHeaofr } from "./InvoiceHeaofr";
 export { InvoiceStatusDisplay } from "./InvoiceStatusDisplay";
 export { InvoiceCalculation } from "./InvoiceCalculation";
 export { InvoiceLineItems } from "./InvoiceLineItems";
@@ -6,4 +6,4 @@ export { InvoiceExpenses } from "./InvoiceExpenses";
 export { InvoiceDocuments } from "./InvoiceDocuments";
 export { InvoiceActions } from "./InvoiceActions";
 export { InvoiceWorkflowActions } from "./InvoiceWorkflowActions";
-export { InvoiceMetadata } from "./InvoiceMetadata";
+export { InvoiceMandadata } from "./InvoiceMandadata";

@@ -1,12 +1,12 @@
 
-export default function RegisterLayout({
-  children,
+export default function RegisterLayort({
+ children,
 }: {
-  children: React.ReactNode
+ children: React.ReactNoof
 }) {
-  return (
-    <div suppressHydrationWarning>
-      {children}
-    </div>
-  )
+ return (
+ <div suppressHydrationWarning>
+ {children}
+ </div>
+ )
 }

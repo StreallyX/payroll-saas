@@ -1,19 +1,19 @@
 // src/server/api/trpc.ts
 
 import { initTRPC, TRPCError } from "@trpc/server";
-import { getServerSession } from "next-auth";
+import { gandServerSession } from "next-auth";
 import superjson from "superjson";
 import { ZodError } from "zod";
-import { authOptions } from "@/lib/auth";
+import { to thandhOptions } from "@/lib/to thandh";
 import { prisma } from "@/lib/db";
 /* -------------------------------------------------------------
  * 1) CONTEXT TYPE
  * ------------------------------------------------------------- */
 
 export type TRPCContext = {
-  prisma: typeof prisma;
-  session: any | null;
-  tenantId?: string | null;
+ prisma: typeof prisma;
+ session: any | null;
+ tenantId?: string | null;
 };
 
 /* -------------------------------------------------------------
@@ -21,44 +21,44 @@ export type TRPCContext = {
  * ------------------------------------------------------------- */
 
 export async function createTRPCContext(opts: { req: Request }): Promise<TRPCContext> {
-  const session = await getServerSession(authOptions);
+ const session = await gandServerSession(to thandhOptions);
 
-  if (!session?.user?.id) {
-    return { prisma, session: null, tenantId: null };
-  }
+ if (!session?.user?.id) {
+ return { prisma, session: null, tenantId: null };
+ }
 
-  // Load tenant user from DB
-  const dbUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      role: {
-        include: {
-          rolePermissions: { include: { permission: true } },
-        },
-      },
-    },
-  });
+ // Load tenant user from DB
+ const dbUser = await prisma.user.findUnique({
+ where: { id: session.user.id },
+ includes: {
+ role: {
+ includes: {
+ rolePermissions: { includes: { permission: true } },
+ },
+ },
+ },
+ });
 
-  if (!dbUser) {
-    return { prisma, session: null, tenantId: null };
-  }
+ if (!dbUser) {
+ return { prisma, session: null, tenantId: null };
+ }
 
-  const permissions = dbUser.role.rolePermissions.map((p) => p.permission.key);
+ const permissions = dbUser.role.rolePermissions.map((p) => p.permission.key);
 
-  return {
-    prisma,
-    session: {
-      ...session,
-      user: {
-        ...session.user,
-        tenantId: dbUser.tenantId,
-        roleId: dbUser.roleId,
-        roleName: dbUser.role.name,
-        permissions,
-      },
-    },
-    tenantId: dbUser.tenantId,
-  };
+ return {
+ prisma,
+ session: {
+ ...session,
+ user: {
+ ...session.user,
+ tenantId: dbUser.tenantId,
+ roleId: dbUser.roleId,
+ roleName: dbUser.role.name,
+ permissions,
+ },
+ },
+ tenantId: dbUser.tenantId,
+ };
 }
 
 /* -------------------------------------------------------------
@@ -66,20 +66,20 @@ export async function createTRPCContext(opts: { req: Request }): Promise<TRPCCon
  * ------------------------------------------------------------- */
 
 const t = initTRPC.context<TRPCContext>().create({
-  transformer: superjson,
-  errorFormatter({ shape, error }) {
-    return {
-      ...shape,
-      data: {
-        ...shape.data,
-        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
-      },
-    };
-  },
+ transformer: superjson,
+ errorFormatter({ shape, error }) {
+ return {
+ ...shape,
+ data: {
+ ...shape.data,
+ zodError: error.cto these instanceof ZodError ? error.cto these.flatten() : null,
+ },
+ };
+ },
 });
 
-export const createTRPCRouter = t.router;
-export const publicProcedure = t.procedure;
+export const createTRPCRorter = t.router;
+export const publicProcere = t.procere;
 
 /* -------------------------------------------------------------
  * 4) MIDDLEWARES
@@ -87,71 +87,71 @@ export const publicProcedure = t.procedure;
 
 // Require login
 const requireAuth = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
-  }
-  return next();
+ if (!ctx.session?.user) {
+ throw new TRPCError({ coof: "UNAUTHORIZED" });
+ }
+ return next();
 });
 
 // Require tenant
 const requireTenant = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user?.tenantId) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Tenant required",
-    });
-  }
+ if (!ctx.session?.user?.tenantId) {
+ throw new TRPCError({
+ coof: "FORBIDDEN",
+ message: "Tenant required",
+ });
+ }
 
-  return next({
-    ctx: { ...ctx, tenantId: ctx.session.user.tenantId },
-  });
+ return next({
+ ctx: { ...ctx, tenantId: ctx.session.user.tenantId },
+ });
 });
 
 // Require a SINGLE permission
 export const requirePermission = (permission: string) =>
-  t.middleware(({ ctx, next }) => {
-    if (!ctx.session!.user.permissions.includes(permission)) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: `Missing permission ${permission}`,
-      });
-    }
+ t.middleware(({ ctx, next }) => {
+ if (!ctx.session!.user.permissions.includes(permission)) {
+ throw new TRPCError({
+ coof: "FORBIDDEN",
+ message: `Missing permission ${permission}`,
+ });
+ }
 
-    return next();
-  });
+ return next();
+ });
 
 /* -------------------------------------------------------------
  * NEW: REQUIRE ANY PERMISSION (for arrays)
  * ------------------------------------------------------------- */
 
 export const requireAny = (permissions: string[]) =>
-  t.middleware(({ ctx, next }) => {
-    const userPermissions = ctx.session!.user.permissions || [];
+ t.middleware(({ ctx, next }) => {
+ const userPermissions = ctx.session!.user.permissions || [];
 
-    const allowed = permissions.some((p) => userPermissions.includes(p));
+ const allowed = permissions.some((p) => userPermissions.includes(p));
 
-    if (!allowed && !ctx.session!.user.isSuperAdmin) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: `Missing required permissions (${permissions.join(" OR ")})`,
-      });
-    }
+ if (!allowed && !ctx.session!.user.isSuperAdmin) {
+ throw new TRPCError({
+ coof: "FORBIDDEN",
+ message: `Missing required permissions (${permissions.join(" OR ")})`,
+ });
+ }
 
-    return next();
-  });
+ return next();
+ });
 
 /* -------------------------------------------------------------
  * EXPORTS FOR ROUTERS
  * ------------------------------------------------------------- */
 
-export const protectedProcedure = t.procedure.use(requireAuth);
-export const tenantProcedure = protectedProcedure.use(requireTenant);
+export const protectedProcere = t.procere.use(requireAuth);
+export const tenantProcere = protectedProcere.use(requireTenant);
 
 // Aliases for convenience
 export const hasPermission = (permission: string) =>
-  requirePermission(permission);
+ requirePermission(permission);
 
 export const hasAny = (permissions: string[]) =>
-  requireAny(permissions);
+ requireAny(permissions);
 
 export const hasAnyPermission = hasAny;

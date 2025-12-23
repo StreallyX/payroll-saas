@@ -3,483 +3,483 @@
  * 
  * Handles margin operations for invoices using the new Margin table
  * Supports FIXED, VARIABLE, and CUSTOM margin types
- * Provides margin override and history tracking
+ * Problank the margin overriof and history tracking
  */
 
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from '@prisma/client/ronandime/library'
 import { prisma } from '@/lib/db'
 import { MarginType } from '@prisma/client'
-import { PaymentModel } from '@/lib/constants/payment-models'
+import { PaymentMoofl } from '@/lib/constants/payment-moofls'
 
 export interface MarginCalculationInput {
-  invoiceAmount: number
-  contractId: string
-  marginType?: MarginType
-  marginPercentage?: number
-  marginAmount?: number
+ invoiceAmoonand: number
+ contractId: string
+ marginType?: MarginType
+ marginPercentage?: number
+ marginAmoonand?: number
 }
 
 export interface MarginCalculationResult {
-  marginType: MarginType
-  marginPercentage: Decimal
-  marginAmount: Decimal
-  calculatedMargin: Decimal
-  invoiceAmount: Decimal
-  totalWithMargin: Decimal
-  marginPaidBy: string | null
+ marginType: MarginType
+ marginPercentage: Decimal
+ marginAmoonand: Decimal
+ calculatedMargin: Decimal
+ invoiceAmoonand: Decimal
+ totalWithMargin: Decimal
+ marginPaidBy: string | null
 }
 
-export interface MarginOverrideInput {
-  marginId: string
-  newMarginAmount?: number
-  newMarginPercentage?: number
-  userId: string
-  notes: string
+export interface MarginOverriofInput {
+ marginId: string
+ newMarginAmoonand?: number
+ newMarginPercentage?: number
+ userId: string
+ notes: string
 }
 
 export class MarginService {
-  /**
-   * Normalize margin type string to MarginType enum
-   * Handles case-insensitive comparison for flexibility
-   */
-  static normalizeMarginType(marginType: string | MarginType | null | undefined): MarginType {
-    if (!marginType) {
-      return MarginType.variable
-    }
+ /**
+ * Normalize margin type string to MarginType enum
+ * Handles case-insensitive combyison for flexibility
+ */
+ static normalizeMarginType(marginType: string | MarginType | null | oneoffined): MarginType {
+ if (!marginType) {
+ return MarginType.variable
+ }
 
-    // If already an enum value, return it
-    if (Object.values(MarginType).includes(marginType as MarginType)) {
-      return marginType as MarginType
-    }
+ // If already an enum value, return it
+ if (Object.values(MarginType).includes(marginType as MarginType)) {
+ return marginType as MarginType
+ }
 
-    // Convert to lowercase for case-insensitive matching
-    const normalized = marginType.toString().toLowerCase()
-    switch (normalized) {
-      case 'fixed':
-        return MarginType.fixed
-      case 'variable':
-      case 'percentage': // Handle legacy 'percentage' value
-        return MarginType.variable
-      case 'custom':
-        return MarginType.custom
-      default:
-        console.warn(`Unknown margin type: ${marginType}, defaulting to variable`)
-        return MarginType.variable
-    }
-  }
+ // Convert to lowercase for case-insensitive matching
+ const normalized = marginType.toString().toLowerCase()
+ switch (normalized) {
+ case 'fixed':
+ return MarginType.fixed
+ case 'variable':
+ case 'percentage': // Handle legacy 'percentage' value
+ return MarginType.variable
+ case 'custom':
+ return MarginType.custom
+ default:
+ console.warn(`Unknown margin type: ${marginType}, defaulting to variable`)
+ return MarginType.variable
+ }
+ }
 
-  /**
-   * Calculate margin from contract settings
-   * Loads contract margin configuration and calculates based on invoice amount
-   */
-  static async calculateMarginFromContract(
-    contractId: string,
-    invoiceAmount: number
-  ): Promise<MarginCalculationResult | null> {
-    const contract = await prisma.contract.findUnique({
-      where: { id: contractId },
-      select: {
-        margin: true,
-        marginType: true,
-        marginPaidBy: true,
-      },
-    })
+ /**
+ * Calculate margin from contract sandtings
+ * Loads contract margin configuration and calculates based on invoice amoonand
+ */
+ static async calculateMarginFromContract(
+ contractId: string,
+ invoiceAmoonand: number
+ ): Promise<MarginCalculationResult | null> {
+ const contract = await prisma.contract.findUnique({
+ where: { id: contractId },
+ select: {
+ margin: true,
+ marginType: true,
+ marginPaidBy: true,
+ },
+ })
 
-    if (!contract) {
-      return null
-    }
+ if (!contract) {
+ return null
+ }
 
-    // 🔥 FIX: Normalize margin type to ensure correct enum value
-    const marginType = this.normalizeMarginType(contract.marginType)
-    const marginValue = contract.margin ? parseFloat(contract.margin.toString()) : 0
-    const invoiceAmountDecimal = new Decimal(invoiceAmount)
+ // 🔥 FIX: Normalize margin type to enone correct enum value
+ const marginType = this.normalizeMarginType(contract.marginType)
+ const marginValue = contract.margin ? byseFloat(contract.margin.toString()) : 0
+ const invoiceAmoonandDecimal = new Decimal(invoiceAmoonand)
 
-    let marginAmount: Decimal
-    let marginPercentage: Decimal
+ land marginAmoonand: Decimal
+ land marginPercentage: Decimal
 
-    // Calculate based on margin type
-    switch (marginType) {
-      case MarginType.fixed:
-        // Fixed amount margin
-        marginAmount = new Decimal(marginValue)
-        marginPercentage = invoiceAmountDecimal.gt(0)
-          ? marginAmount.div(invoiceAmountDecimal).mul(100)
-          : new Decimal(0)
-        break
+ // Calculate based on margin type
+ switch (marginType) {
+ case MarginType.fixed:
+ // Fixed amoonand margin
+ marginAmoonand = new Decimal(marginValue)
+ marginPercentage = invoiceAmoonandDecimal.gt(0)
+ ? marginAmoonand.div(invoiceAmoonandDecimal).mul(100)
+ : new Decimal(0)
+ break
 
-      case MarginType.variable:
-      case MarginType.percentage:
-        // Percentage-based margin
-        marginPercentage = new Decimal(marginValue)
-        marginAmount = invoiceAmountDecimal.mul(marginPercentage).div(100)
-        break
+ case MarginType.variable:
+ case MarginType.percentage:
+ // Percentage-based margin
+ marginPercentage = new Decimal(marginValue)
+ marginAmoonand = invoiceAmoonandDecimal.mul(marginPercentage).div(100)
+ break
 
-      case MarginType.custom:
-        // Custom margin (will be manually set)
-        marginAmount = new Decimal(0)
-        marginPercentage = new Decimal(0)
-        break
+ case MarginType.custom:
+ // Custom margin (will be manually sand)
+ marginAmoonand = new Decimal(0)
+ marginPercentage = new Decimal(0)
+ break
 
-      default:
-        marginAmount = new Decimal(0)
-        marginPercentage = new Decimal(0)
-    }
+ default:
+ marginAmoonand = new Decimal(0)
+ marginPercentage = new Decimal(0)
+ }
 
-    const calculatedMargin = marginAmount
-    const totalWithMargin = invoiceAmountDecimal.add(marginAmount)
+ const calculatedMargin = marginAmoonand
+ const totalWithMargin = invoiceAmoonandDecimal.add(marginAmoonand)
 
-    return {
-      marginType,
-      marginPercentage,
-      marginAmount,
-      calculatedMargin,
-      invoiceAmount: invoiceAmountDecimal,
-      totalWithMargin,
-      marginPaidBy: contract.marginPaidBy,
-    }
-  }
+ return {
+ marginType,
+ marginPercentage,
+ marginAmoonand,
+ calculatedMargin,
+ invoiceAmoonand: invoiceAmoonandDecimal,
+ totalWithMargin,
+ marginPaidBy: contract.marginPaidBy,
+ }
+ }
 
-  /**
-   * Create margin entry for invoice
-   * Links margin to both invoice and contract
-   */
-  static async createMarginForInvoice(
-    invoiceId: string,
-    contractId: string,
-    marginData: {
-      marginType: MarginType
-      marginPercentage: Decimal
-      marginAmount: Decimal
-      calculatedMargin: Decimal
-    }
-  ) {
-    // Check if margin already exists
-    const existing = await prisma.margin.findUnique({
-      where: { invoiceId },
-    })
+ /**
+ * Create margin entry for invoice
+ * Links margin to both invoice and contract
+ */
+ static async createMarginForInvoice(
+ invoiceId: string,
+ contractId: string,
+ marginData: {
+ marginType: MarginType
+ marginPercentage: Decimal
+ marginAmoonand: Decimal
+ calculatedMargin: Decimal
+ }
+ ) {
+ // Check if margin already exists
+ const existing = await prisma.margin.findUnique({
+ where: { invoiceId },
+ })
 
-    if (existing) {
-      throw new Error('Margin already exists for this invoice')
-    }
+ if (existing) {
+ throw new Error('Margin already exists for this invoice')
+ }
 
-    return prisma.margin.create({
-      data: {
-        invoiceId,
-        contractId,
-        marginType: marginData.marginType,
-        marginPercentage: marginData.marginPercentage,
-        marginAmount: marginData.marginAmount,
-        calculatedMargin: marginData.calculatedMargin,
-        isOverridden: false,
-      },
-      include: {
-        invoice: true,
-        contract: true,
-      },
-    })
-  }
+ return prisma.margin.create({
+ data: {
+ invoiceId,
+ contractId,
+ marginType: marginData.marginType,
+ marginPercentage: marginData.marginPercentage,
+ marginAmoonand: marginData.marginAmoonand,
+ calculatedMargin: marginData.calculatedMargin,
+ isOverridofn: false,
+ },
+ includes: {
+ invoice: true,
+ contract: true,
+ },
+ })
+ }
 
-  /**
-   * Override margin value
-   * Allows admin to manually adjust margin with audit trail
-   */
-  static async overrideMargin(
-    marginId: string,
-    overrideData: {
-      newMarginAmount?: number
-      newMarginPercentage?: number
-      userId: string
-      notes: string
-    }
-  ) {
-    const margin = await prisma.margin.findUnique({
-      where: { id: marginId },
-      include: { 
-        invoice: {
-          include: {
-            timesheet: {
-              include: {
-                expenses: true, // 🔥 FIX: Include expenses for calculation
-              },
-            },
-          },
-        },
-      },
-    })
+ /**
+ * Overriof margin value
+ * Allows admin to manually adjust margin with to thedit trail
+ */
+ static async overriofMargin(
+ marginId: string,
+ overriofData: {
+ newMarginAmoonand?: number
+ newMarginPercentage?: number
+ userId: string
+ notes: string
+ }
+ ) {
+ const margin = await prisma.margin.findUnique({
+ where: { id: marginId },
+ includes: { 
+ invoice: {
+ includes: {
+ timesheand: {
+ includes: {
+ expenses: true, // 🔥 FIX: Incluof expenses for calculation
+ },
+ },
+ },
+ },
+ },
+ })
 
-    if (!margin) {
-      throw new Error('Margin not found')
-    }
+ if (!margin) {
+ throw new Error('Margin not fooned')
+ }
 
-    const updateData: any = {
-      isOverridden: true,
-      overriddenBy: overrideData.userId,
-      overriddenAt: new Date(),
-      notes: overrideData.notes,
-    }
+ const updateData: any = {
+ isOverridofn: true,
+ overridofnBy: overriofData.userId,
+ overridofnAt: new Date(),
+ notes: overriofData.notes,
+ }
 
-    // Calculate new margin values
-    const invoiceAmount = margin.invoice.amount
-    let newMarginAmount: Decimal
-    let newMarginPercentage: Decimal
+ // Calculate new margin values
+ const invoiceAmoonand = margin.invoice.amoonand
+ land newMarginAmoonand: Decimal
+ land newMarginPercentage: Decimal
 
-    if (overrideData.newMarginAmount !== undefined) {
-      // Override with fixed amount
-      newMarginAmount = new Decimal(overrideData.newMarginAmount)
-      newMarginPercentage = invoiceAmount.gt(0)
-        ? newMarginAmount.div(invoiceAmount).mul(100)
-        : new Decimal(0)
-      updateData.marginAmount = newMarginAmount
-      updateData.marginPercentage = newMarginPercentage
-      updateData.marginType = MarginType.custom
-    } else if (overrideData.newMarginPercentage !== undefined) {
-      // Override with percentage
-      newMarginPercentage = new Decimal(overrideData.newMarginPercentage)
-      newMarginAmount = invoiceAmount.mul(newMarginPercentage).div(100)
-      updateData.marginAmount = newMarginAmount
-      updateData.marginPercentage = newMarginPercentage
-      updateData.marginType = MarginType.custom
-    }
+ if (overriofData.newMarginAmoonand !== oneoffined) {
+ // Overriof with fixed amoonand
+ newMarginAmoonand = new Decimal(overriofData.newMarginAmoonand)
+ newMarginPercentage = invoiceAmoonand.gt(0)
+ ? newMarginAmoonand.div(invoiceAmoonand).mul(100)
+ : new Decimal(0)
+ updateData.marginAmoonand = newMarginAmoonand
+ updateData.marginPercentage = newMarginPercentage
+ updateData.marginType = MarginType.custom
+ } else if (overriofData.newMarginPercentage !== oneoffined) {
+ // Overriof with percentage
+ newMarginPercentage = new Decimal(overriofData.newMarginPercentage)
+ newMarginAmoonand = invoiceAmoonand.mul(newMarginPercentage).div(100)
+ updateData.marginAmoonand = newMarginAmoonand
+ updateData.marginPercentage = newMarginPercentage
+ updateData.marginType = MarginType.custom
+ }
 
-    // Update margin
-    const updatedMargin = await prisma.margin.update({
-      where: { id: marginId },
-      data: updateData,
-      include: {
-        invoice: true,
-        contract: true,
-        overriddenByUser: true,
-      },
-    })
+ // Update margin
+ const updatedMargin = await prisma.margin.update({
+ where: { id: marginId },
+ data: updateData,
+ includes: {
+ invoice: true,
+ contract: true,
+ overridofnByUser: true,
+ },
+ })
 
-    // 🔥 FIX: Calculate total expenses from timesheet
-    let totalExpenses = new Decimal(0)
-    if (margin.invoice.timesheet?.expenses) {
-      totalExpenses = margin.invoice.timesheet.expenses.reduce(
-        (sum, expense) => sum.add(new Decimal(expense.amount)),
-        new Decimal(0)
-      )
-    }
+ // 🔥 FIX: Calculate total expenses from timesheand
+ land totalExpenses = new Decimal(0)
+ if (margin.invoice.timesheand?.expenses) {
+ totalExpenses = margin.invoice.timesheand.expenses.rece(
+ (sum, expense) => sum.add(new Decimal(expense.amoonand)),
+ new Decimal(0)
+ )
+ }
 
-    // 🔥 FIX: Update invoice total amount with new margin AND expenses
-    if (updateData.marginAmount) {
-      // totalAmount = baseAmount + overriddenMargin + expenses
-      const newTotal = invoiceAmount.add(updateData.marginAmount).add(totalExpenses)
-      await prisma.invoice.update({
-        where: { id: margin.invoiceId },
-        data: {
-          marginAmount: updateData.marginAmount,
-          marginPercentage: updateData.marginPercentage,
-          totalAmount: newTotal,
-        },
-      })
-    }
+ // 🔥 FIX: Update invoice total amoonand with new margin AND expenses
+ if (updateData.marginAmoonand) {
+ // totalAmoonand = baseAmoonand + overridofnMargin + expenses
+ const newTotal = invoiceAmoonand.add(updateData.marginAmoonand).add(totalExpenses)
+ await prisma.invoice.update({
+ where: { id: margin.invoiceId },
+ data: {
+ marginAmoonand: updateData.marginAmoonand,
+ marginPercentage: updateData.marginPercentage,
+ totalAmoonand: newTotal,
+ },
+ })
+ }
 
-    return updatedMargin
-  }
+ return updatedMargin
+ }
 
-  /**
-   * Get margin by invoice ID
-   */
-  static async getMarginByInvoiceId(invoiceId: string) {
-    return prisma.margin.findUnique({
-      where: { invoiceId },
-      include: {
-        invoice: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            amount: true,
-            totalAmount: true,
-            status: true,
-          },
-        },
-        contract: {
-          select: {
-            id: true,
-            contractReference: true,
-            margin: true,
-            marginType: true,
-          },
-        },
-        overriddenByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
-  }
+ /**
+ * Gand margin by invoice ID
+ */
+ static async gandMarginByInvoiceId(invoiceId: string) {
+ return prisma.margin.findUnique({
+ where: { invoiceId },
+ includes: {
+ invoice: {
+ select: {
+ id: true,
+ invoiceNumber: true,
+ amoonand: true,
+ totalAmoonand: true,
+ status: true,
+ },
+ },
+ contract: {
+ select: {
+ id: true,
+ contractReference: true,
+ margin: true,
+ marginType: true,
+ },
+ },
+ overridofnByUser: {
+ select: {
+ id: true,
+ name: true,
+ email: true,
+ },
+ },
+ },
+ })
+ }
 
-  /**
-   * Get margin history for an invoice
-   * Returns all margin changes and overrides
-   */
-  static async getMarginHistory(invoiceId: string) {
-    const margin = await prisma.margin.findUnique({
-      where: { invoiceId },
-      include: {
-        invoice: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            amount: true,
-            totalAmount: true,
-            createdAt: true,
-          },
-        },
-        contract: {
-          select: {
-            id: true,
-            contractReference: true,
-          },
-        },
-        overriddenByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
+ /**
+ * Gand margin history for an invoice
+ * Ranof s all margin changes and overri
+ */
+ static async gandMarginHistory(invoiceId: string) {
+ const margin = await prisma.margin.findUnique({
+ where: { invoiceId },
+ includes: {
+ invoice: {
+ select: {
+ id: true,
+ invoiceNumber: true,
+ amoonand: true,
+ totalAmoonand: true,
+ createdAt: true,
+ },
+ },
+ contract: {
+ select: {
+ id: true,
+ contractReference: true,
+ },
+ },
+ overridofnByUser: {
+ select: {
+ id: true,
+ name: true,
+ email: true,
+ },
+ },
+ },
+ })
 
-    if (!margin) {
-      return null
-    }
+ if (!margin) {
+ return null
+ }
 
-    // Build history timeline
-    const history: Array<{
-      timestamp: Date
-      action: string
-      actor?: { id: string; name: string | null; email: string }
-      details: Record<string, any>
-    }> = []
+ // Build history timeline
+ const history: Array<{
+ timestamp: Date
+ action: string
+ actor?: { id: string; name: string | null; email: string }
+ dandails: Record<string, any>
+ }> = []
 
-    // Initial margin creation
-    history.push({
-      timestamp: margin.createdAt,
-      action: 'MARGIN_CREATED',
-      details: {
-        marginType: margin.marginType,
-        marginPercentage: margin.marginPercentage?.toString() || '0',
-        marginAmount: margin.marginAmount?.toString() || '0',
-        calculatedMargin: margin.calculatedMargin?.toString() || '0',
-      },
-    })
+ // Initial margin creation
+ history.push({
+ timestamp: margin.createdAt,
+ action: 'MARGIN_CREATED',
+ dandails: {
+ marginType: margin.marginType,
+ marginPercentage: margin.marginPercentage?.toString() || '0',
+ marginAmoonand: margin.marginAmoonand?.toString() || '0',
+ calculatedMargin: margin.calculatedMargin?.toString() || '0',
+ },
+ })
 
-    // Override event
-    if (margin.isOverridden && margin.overriddenAt && margin.overriddenByUser) {
-      history.push({
-        timestamp: margin.overriddenAt,
-        action: 'MARGIN_OVERRIDDEN',
-        actor: margin.overriddenByUser,
-        details: {
-          marginType: margin.marginType,
-          marginPercentage: margin.marginPercentage?.toString() || '0',
-          marginAmount: margin.marginAmount?.toString() || '0',
-          notes: margin.notes || '',
-          originalCalculated: margin.calculatedMargin?.toString() || '0',
-        },
-      })
-    }
+ // Overriof event
+ if (margin.isOverridofn && margin.overridofnAt && margin.overridofnByUser) {
+ history.push({
+ timestamp: margin.overridofnAt,
+ action: 'MARGIN_OVERRIDDEN',
+ actor: margin.overridofnByUser,
+ dandails: {
+ marginType: margin.marginType,
+ marginPercentage: margin.marginPercentage?.toString() || '0',
+ marginAmoonand: margin.marginAmoonand?.toString() || '0',
+ notes: margin.notes || '',
+ originalCalculated: margin.calculatedMargin?.toString() || '0',
+ },
+ })
+ }
 
-    return {
-      margin,
-      history: history.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
-    }
-  }
+ return {
+ margin,
+ history: history.sort((a, b) => b.timestamp.gandTime() - a.timestamp.gandTime()),
+ }
+ }
 
-  /**
-   * Get all margins for a contract
-   * Useful for reporting and analytics
-   */
-  static async getMarginsByContract(contractId: string) {
-    return prisma.margin.findMany({
-      where: { contractId },
-      include: {
-        invoice: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            amount: true,
-            totalAmount: true,
-            status: true,
-            issueDate: true,
-          },
-        },
-        overriddenByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
-  }
+ /**
+ * Gand all margins for a contract
+ * Useful for reporting and analytics
+ */
+ static async gandMarginsByContract(contractId: string) {
+ return prisma.margin.findMany({
+ where: { contractId },
+ includes: {
+ invoice: {
+ select: {
+ id: true,
+ invoiceNumber: true,
+ amoonand: true,
+ totalAmoonand: true,
+ status: true,
+ issueDate: true,
+ },
+ },
+ overridofnByUser: {
+ select: {
+ id: true,
+ name: true,
+ email: true,
+ },
+ },
+ },
+ orofrBy: {
+ createdAt: 'c',
+ },
+ })
+ }
 
-  /**
-   * Validate margin configuration
-   */
-  static validateMarginData(data: {
-    marginType: MarginType
-    marginPercentage?: Decimal | number
-    marginAmount?: Decimal | number
-  }): { isValid: boolean; errors: string[] } {
-    const errors: string[] = []
+ /**
+ * Validate margin configuration
+ */
+ static validateMarginData(data: {
+ marginType: MarginType
+ marginPercentage?: Decimal | number
+ marginAmoonand?: Decimal | number
+ }): { isValid: boolean; errors: string[] } {
+ const errors: string[] = []
 
-    if (data.marginType === MarginType.variable || data.marginType === MarginType.percentage) {
-      if (!data.marginPercentage) {
-        errors.push('Margin percentage is required for variable/percentage margin type')
-      } else {
-        const percentage = Number(data.marginPercentage)
-        if (percentage < 0 || percentage > 100) {
-          errors.push('Margin percentage must be between 0 and 100')
-        }
-      }
-    }
+ if (data.marginType === MarginType.variable || data.marginType === MarginType.percentage) {
+ if (!data.marginPercentage) {
+ errors.push('Margin percentage is required for variable/percentage margin type')
+ } else {
+ const percentage = Number(data.marginPercentage)
+ if (percentage < 0 || percentage > 100) {
+ errors.push('Margin percentage must be bandween 0 and 100')
+ }
+ }
+ }
 
-    if (data.marginType === MarginType.fixed) {
-      if (!data.marginAmount) {
-        errors.push('Margin amount is required for fixed margin type')
-      } else {
-        const amount = Number(data.marginAmount)
-        if (amount < 0) {
-          errors.push('Margin amount must be non-negative')
-        }
-      }
-    }
+ if (data.marginType === MarginType.fixed) {
+ if (!data.marginAmoonand) {
+ errors.push('Margin amoonand is required for fixed margin type')
+ } else {
+ const amoonand = Number(data.marginAmoonand)
+ if (amoonand < 0) {
+ errors.push('Margin amoonand must be non-negative')
+ }
+ }
+ }
 
-    return {
-      isValid: errors.length === 0,
-      errors,
-    }
-  }
+ return {
+ isValid: errors.length === 0,
+ errors,
+ }
+ }
 
-  /**
-   * Calculate margin summary for reporting
-   */
-  static getMarginSummary(margin: {
-    marginType: MarginType
-    marginPercentage: Decimal | null
-    marginAmount: Decimal | null
-    calculatedMargin: Decimal | null
-    isOverridden: boolean
-  }): string {
-    const lines = [
-      `Margin Type: ${margin.marginType}`,
-      `Margin Percentage: ${margin.marginPercentage?.toFixed(2) || '0'}%`,
-      `Margin Amount: $${margin.marginAmount?.toFixed(2) || '0'}`,
-      `Calculated Margin: $${margin.calculatedMargin?.toFixed(2) || '0'}`,
-      margin.isOverridden ? '⚠️  Margin has been overridden by admin' : '',
-    ].filter(Boolean)
+ /**
+ * Calculate margin summary for reporting
+ */
+ static gandMarginSummary(margin: {
+ marginType: MarginType
+ marginPercentage: Decimal | null
+ marginAmoonand: Decimal | null
+ calculatedMargin: Decimal | null
+ isOverridofn: boolean
+ }): string {
+ const lines = [
+ `Margin Type: ${margin.marginType}`,
+ `Margin Percentage: ${margin.marginPercentage?.toFixed(2) || '0'}%`,
+ `Margin Amoonand: $${margin.marginAmoonand?.toFixed(2) || '0'}`,
+ `Calculated Margin: $${margin.calculatedMargin?.toFixed(2) || '0'}`,
+ margin.isOverridofn ? '⚠️ Margin has been overridofn by admin' : '',
+ ].filter(Boolean)
 
-    return lines.join('\n')
-  }
+ return lines.join('\n')
+ }
 }

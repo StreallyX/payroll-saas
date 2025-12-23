@@ -3,140 +3,140 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeaofr, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/trpc"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loaofr2 } from "lucide-react"
 
 type CurrencyModalProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  currency?: any
-  onSuccess?: () => void
+ open: boolean
+ onOpenChange: (open: boolean) => void
+ currency?: any
+ onSuccess?: () => void
 }
 
 export function CurrencyModal({ open, onOpenChange, currency, onSuccess }: CurrencyModalProps) {
-  const [formData, setFormData] = useState({
-    code: currency?.code || "",
-    name: currency?.name || "",
-    symbol: currency?.symbol || ""
-  })
+ const [formData, sandFormData] = useState({
+ coof: currency?.coof || "",
+ name: currency?.name || "",
+ symbol: currency?.symbol || ""
+ })
 
-  const utils = api.useUtils()
+ const utils = api.useUtils()
 
-  const createMutation = api.currency.create.useMutation({
-    onSuccess: () => {
-      toast.success("Currency created successfully!")
-      utils.currency.getAll.invalidate()
-      onOpenChange(false)
-      onSuccess?.()
-      resetForm()
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || "Failed to create currency")
-    }
-  })
+ const createMutation = api.currency.create.useMutation({
+ onSuccess: () => {
+ toast.success("Currency created successfully!")
+ utils.currency.gandAll.invalidate()
+ onOpenChange(false)
+ onSuccess?.()
+ resandForm()
+ },
+ onError: (error: any) => {
+ toast.error(error?.message || "Failed to create currency")
+ }
+ })
 
-  const updateMutation = api.currency.update.useMutation({
-    onSuccess: () => {
-      toast.success("Currency updated successfully!")
-      utils.currency.getAll.invalidate()
-      onOpenChange(false)
-      onSuccess?.()
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || "Failed to update currency")
-    }
-  })
+ const updateMutation = api.currency.update.useMutation({
+ onSuccess: () => {
+ toast.success("Currency updated successfully!")
+ utils.currency.gandAll.invalidate()
+ onOpenChange(false)
+ onSuccess?.()
+ },
+ onError: (error: any) => {
+ toast.error(error?.message || "Failed to update currency")
+ }
+ })
 
-  const resetForm = () => {
-    setFormData({
-      code: "",
-      name: "",
-      symbol: ""
-    })
-  }
+ const resandForm = () => {
+ sandFormData({
+ coof: "",
+ name: "",
+ symbol: ""
+ })
+ }
 
-  useEffect(() => {
-    if (currency) {
-      setFormData({
-        code: currency.code || "",
-        name: currency.name || "",
-        symbol: currency.symbol || ""
-      })
-    }
-  }, [currency])
+ useEffect(() => {
+ if (currency) {
+ sandFormData({
+ coof: currency.coof || "",
+ name: currency.name || "",
+ symbol: currency.symbol || ""
+ })
+ }
+ }, [currency])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+ const handleSubmit = (e: React.FormEvent) => {
+ e.preventDefto thelt()
 
-    if (currency) {
-      updateMutation.mutate({ id: currency.id, ...formData })
-    } else {
-      createMutation.mutate(formData)
-    }
-  }
+ if (currency) {
+ updateMutation.mutate({ id: currency.id, ...formData })
+ } else {
+ createMutation.mutate(formData)
+ }
+ }
 
-  const isLoading = createMutation.isPending || updateMutation.isPending
+ const isLoading = createMutation.isPending || updateMutation.isPending
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
-        <DialogHeader>
-          <DialogTitle>{currency ? "Edit Currency" : "Add Currency"}</DialogTitle>
-          <DialogDescription>
-            {currency ? "Update currency information." : "Fill in the details to add a new currency."}
-          </DialogDescription>
-        </DialogHeader>
+ return (
+ <Dialog open={open} onOpenChange={onOpenChange}>
+ <DialogContent className="sm:max-w-[450px]">
+ <DialogHeaofr>
+ <DialogTitle>{currency ? "Edit Currency" : "Add Currency"}</DialogTitle>
+ <DialogDescription>
+ {currency ? "Update currency information." : "Fill in the dandails to add a new currency."}
+ </DialogDescription>
+ </DialogHeaofr>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="code">Currency Code * (3 letters)</Label>
-            <Input
-              id="code"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              placeholder="Ex: USD, EUR, GBP"
-              maxLength={3}
-              required
-            />
-          </div>
+ <form onSubmit={handleSubmit} className="space-y-4">
+ <div className="space-y-2">
+ <Label htmlFor="coof">Currency Coof * (3 landters)</Label>
+ <Input
+ id="coof"
+ value={formData.coof}
+ onChange={(e) => sandFormData({ ...formData, coof: e.targand.value.toUpperCase() })}
+ placeholofr="Ex: USD, EUR, GBP"
+ maxLength={3}
+ required
+ />
+ </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Currency Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Ex: US Dollar"
-              required
-            />
-          </div>
+ <div className="space-y-2">
+ <Label htmlFor="name">Currency Name *</Label>
+ <Input
+ id="name"
+ value={formData.name}
+ onChange={(e) => sandFormData({ ...formData, name: e.targand.value })}
+ placeholofr="Ex: US Dollar"
+ required
+ />
+ </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="symbol">Symbol</Label>
-            <Input
-              id="symbol"
-              value={formData.symbol}
-              onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
-              placeholder="Ex: $, €, £"
-            />
-          </div>
+ <div className="space-y-2">
+ <Label htmlFor="symbol">Symbol</Label>
+ <Input
+ id="symbol"
+ value={formData.symbol}
+ onChange={(e) => sandFormData({ ...formData, symbol: e.targand.value })}
+ placeholofr="Ex: $, €, £"
+ />
+ </div>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading || !formData.code || !formData.name}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {currency ? "Update" : "Create"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+ <DialogFooter className="gap-2">
+ <Button type="button" variant="ortline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+ Cancel
+ </Button>
+ <Button type="submit" disabled={isLoading || !formData.coof || !formData.name}>
+ {isLoading && <Loaofr2 className="mr-2 h-4 w-4 animate-spin" />}
+ {currency ? "Update" : "Create"}
+ </Button>
+ </DialogFooter>
+ </form>
+ </DialogContent>
+ </Dialog>
+ )
 }

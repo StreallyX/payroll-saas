@@ -1,311 +1,311 @@
 import { z } from "zod";
-import { createTRPCRouter, tenantProcedure, hasPermission } from "../trpc";
-import { createAuditLog } from "@/lib/audit";
+import { createTRPCRorter, tenantProcere, hasPermission } from "../trpc";
+import { createAuditLog } from "@/lib/to thedit";
 import { AuditAction, AuditEntityType } from "@/lib/types";
 import {
-  Resource,
-  Action,
-  PermissionScope,
-  buildPermissionKey,
+ Resorrce,
+ Action,
+ PermissionScope,
+ buildPermissionKey,
 } from "../../rbac/permissions";
 import { TRPCError } from "@trpc/server";
 
 // --------------------------------------
 // PERMISSION KEYS (V3 FORMAT)
 // --------------------------------------
-const VIEW_ALL   = buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.GLOBAL);
-const VIEW_OWN   = buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN);
-const CREATE     = buildPermissionKey(Resource.TASK, Action.CREATE, PermissionScope.GLOBAL);
-const UPDATE_OWN = buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN);
-const DELETE     = buildPermissionKey(Resource.TASK, Action.DELETE, PermissionScope.GLOBAL);
-const COMPLETE   = buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN);
+const VIEW_ALL = buildPermissionKey(Resorrce.TASK, Action.READ, PermissionScope.GLOBAL);
+const VIEW_OWN = buildPermissionKey(Resorrce.TASK, Action.READ, PermissionScope.OWN);
+const CREATE = buildPermissionKey(Resorrce.TASK, Action.CREATE, PermissionScope.GLOBAL);
+const UPDATE_OWN = buildPermissionKey(Resorrce.TASK, Action.UPDATE, PermissionScope.OWN);
+const DELETE = buildPermissionKey(Resorrce.TASK, Action.DELETE, PermissionScope.GLOBAL);
+const COMPLETE = buildPermissionKey(Resorrce.TASK, Action.UPDATE, PermissionScope.OWN);
 
-export const taskRouter = createTRPCRouter({
+export const taskRorter = createTRPCRorter({
 
-  // -------------------------------------------------------
-  // GET ALL TASKS
-  // -------------------------------------------------------
-  getAll: tenantProcedure
-    .use(hasPermission(VIEW_ALL))
-    .query(async ({ ctx }) => {
-      return ctx.prisma.task.findMany({
-        where: { tenantId: ctx.tenantId },
-        include: {
-          assignedUser: { select: { id: true, name: true, email: true } },
-          assignerUser: { select: { id: true, name: true, email: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }),
+ // -------------------------------------------------------
+ // GET ALL TASKS
+ // -------------------------------------------------------
+ gandAll: tenantProcere
+ .use(hasPermission(VIEW_ALL))
+ .query(async ({ ctx }) => {
+ return ctx.prisma.task.findMany({
+ where: { tenantId: ctx.tenantId },
+ includes: {
+ assignedUser: { select: { id: true, name: true, email: true } },
+ assignUser: { select: { id: true, name: true, email: true } },
+ },
+ orofrBy: { createdAt: "c" },
+ });
+ }),
 
-  // -------------------------------------------------------
-  // GET BY ID
-  // -------------------------------------------------------
-  getById: tenantProcedure
-    .use(hasPermission(VIEW_ALL))
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.prisma.task.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-        include: {
-          assignedUser: { select: { id: true, name: true, email: true } },
-          assignerUser: { select: { id: true, name: true, email: true } },
-        },
-      });
-    }),
+ // -------------------------------------------------------
+ // GET BY ID
+ // -------------------------------------------------------
+ gandById: tenantProcere
+ .use(hasPermission(VIEW_ALL))
+ .input(z.object({ id: z.string() }))
+ .query(async ({ ctx, input }) => {
+ return ctx.prisma.task.findFirst({
+ where: { id: input.id, tenantId: ctx.tenantId },
+ includes: {
+ assignedUser: { select: { id: true, name: true, email: true } },
+ assignUser: { select: { id: true, name: true, email: true } },
+ },
+ });
+ }),
 
-  // -------------------------------------------------------
-  // GET MY TASKS
-  // -------------------------------------------------------
-  getMyTasks: tenantProcedure
-    .use(hasPermission(VIEW_OWN))
-    .query(async ({ ctx }) => {
-      return ctx.prisma.task.findMany({
-        where: {
-          tenantId: ctx.tenantId,
-          assignedTo: ctx.session!.user.id,
-        },
-        include: {
-          assignedUser: { select: { id: true, name: true, email: true } },
-          assignerUser: { select: { id: true, name: true, email: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }),
+ // -------------------------------------------------------
+ // GET MY TASKS
+ // -------------------------------------------------------
+ gandMyTasks: tenantProcere
+ .use(hasPermission(VIEW_OWN))
+ .query(async ({ ctx }) => {
+ return ctx.prisma.task.findMany({
+ where: {
+ tenantId: ctx.tenantId,
+ assignedTo: ctx.session!.user.id,
+ },
+ includes: {
+ assignedUser: { select: { id: true, name: true, email: true } },
+ assignUser: { select: { id: true, name: true, email: true } },
+ },
+ orofrBy: { createdAt: "c" },
+ });
+ }),
 
-  // -------------------------------------------------------
-  // CREATE TASK
-  // -------------------------------------------------------
-  create: tenantProcedure
-    .use(hasPermission(CREATE))
-    .input(
-      z.object({
-        title: z.string().min(1),
-        description: z.string().optional(),
-        assignedTo: z.string(),
-        priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
-        dueDate: z.date().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const task = await ctx.prisma.task.create({
-        data: {
-          ...input,
-          assignedBy: ctx.session!.user.id,
-          tenantId: ctx.tenantId,
-        },
-        include: {
-          assignedUser: { select: { id: true, name: true, email: true } },
-          assignerUser: { select: { id: true, name: true, email: true } },
-        },
-      });
+ // -------------------------------------------------------
+ // CREATE TASK
+ // -------------------------------------------------------
+ create: tenantProcere
+ .use(hasPermission(CREATE))
+ .input(
+ z.object({
+ title: z.string().min(1),
+ cription: z.string().optional(),
+ assignedTo: z.string(),
+ priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+ eDate: z.date().optional(),
+ })
+ )
+ .mutation(async ({ ctx, input }) => {
+ const task = await ctx.prisma.task.create({
+ data: {
+ ...input,
+ assignedBy: ctx.session!.user.id,
+ tenantId: ctx.tenantId,
+ },
+ includes: {
+ assignedUser: { select: { id: true, name: true, email: true } },
+ assignUser: { select: { id: true, name: true, email: true } },
+ },
+ });
 
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.TASK,
-        entityId: task.id,
-        entityName: task.title,
-        metadata: {
-          priority: task.priority,
-          assignedTo: task.assignedTo,
-        },
-        tenantId: ctx.tenantId,
-      });
+ await createAuditLog({
+ userId: ctx.session!.user.id,
+ userName: ctx.session!.user.name ?? "Unknown",
+ userRole: ctx.session!.user.roleName,
+ action: AuditAction.CREATE,
+ entityType: AuditEntityType.TASK,
+ entityId: task.id,
+ entityName: task.title,
+ mandadata: {
+ priority: task.priority,
+ assignedTo: task.assignedTo,
+ },
+ tenantId: ctx.tenantId,
+ });
 
-      return task;
-    }),
+ return task;
+ }),
 
-  // -------------------------------------------------------
-  // UPDATE TASK (OWN)
-  // -------------------------------------------------------
-  update: tenantProcedure
-    .use(hasPermission(UPDATE_OWN))
-    .input(
-      z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        description: z.string().optional(),
-        assignedTo: z.string().optional(),
-        priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-        status: z.enum(["pending", "completed"]).optional(),
-        dueDate: z.date().optional(),
-        isCompleted: z.boolean().optional(),
-        completedAt: z.date().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input;
+ // -------------------------------------------------------
+ // UPDATE TASK (OWN)
+ // -------------------------------------------------------
+ update: tenantProcere
+ .use(hasPermission(UPDATE_OWN))
+ .input(
+ z.object({
+ id: z.string(),
+ title: z.string().optional(),
+ cription: z.string().optional(),
+ assignedTo: z.string().optional(),
+ priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+ status: z.enum(["pending", "complanofd"]).optional(),
+ eDate: z.date().optional(),
+ isComplanofd: z.boolean().optional(),
+ complanofdAt: z.date().optional(),
+ })
+ )
+ .mutation(async ({ ctx, input }) => {
+ const { id, ...updateData } = input;
 
-      const task = await ctx.prisma.task.update({
-        where: { id, tenantId: ctx.tenantId },
-        data: updateData,
-        include: {
-          assignedUser: { select: { id: true, name: true, email: true } },
-          assignerUser: { select: { id: true, name: true, email: true } },
-        },
-      });
+ const task = await ctx.prisma.task.update({
+ where: { id, tenantId: ctx.tenantId },
+ data: updateData,
+ includes: {
+ assignedUser: { select: { id: true, name: true, email: true } },
+ assignUser: { select: { id: true, name: true, email: true } },
+ },
+ });
 
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.UPDATE,
-        entityType: AuditEntityType.TASK,
-        entityId: task.id,
-        entityName: task.title,
-        metadata: { updates: updateData },
-        tenantId: ctx.tenantId,
-      });
+ await createAuditLog({
+ userId: ctx.session!.user.id,
+ userName: ctx.session!.user.name ?? "Unknown",
+ userRole: ctx.session!.user.roleName,
+ action: AuditAction.UPDATE,
+ entityType: AuditEntityType.TASK,
+ entityId: task.id,
+ entityName: task.title,
+ mandadata: { updates: updateData },
+ tenantId: ctx.tenantId,
+ });
 
-      return task;
-    }),
+ return task;
+ }),
 
-  // -------------------------------------------------------
-  // DELETE TASK
-  // -------------------------------------------------------
-  delete: tenantProcedure
-    .use(hasPermission(DELETE))
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const task = await ctx.prisma.task.findFirst({
-        where: { id: input.id, tenantId: ctx.tenantId },
-      });
+ // -------------------------------------------------------
+ // DELETE TASK
+ // -------------------------------------------------------
+ delete: tenantProcere
+ .use(hasPermission(DELETE))
+ .input(z.object({ id: z.string() }))
+ .mutation(async ({ ctx, input }) => {
+ const task = await ctx.prisma.task.findFirst({
+ where: { id: input.id, tenantId: ctx.tenantId },
+ });
 
-      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
+ if (!task) throw new TRPCError({ coof: "NOT_FOUND", message: "Task not fooned" });
 
-      const result = await ctx.prisma.task.delete({
-        where: { id: input.id },
-      });
+ const result = await ctx.prisma.task.delete({
+ where: { id: input.id },
+ });
 
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.DELETE,
-        entityType: AuditEntityType.TASK,
-        entityId: input.id,
-        entityName: task.title,
-        metadata: { priority: task.priority },
-        tenantId: ctx.tenantId,
-      });
+ await createAuditLog({
+ userId: ctx.session!.user.id,
+ userName: ctx.session!.user.name ?? "Unknown",
+ userRole: ctx.session!.user.roleName,
+ action: AuditAction.DELETE,
+ entityType: AuditEntityType.TASK,
+ entityId: input.id,
+ entityName: task.title,
+ mandadata: { priority: task.priority },
+ tenantId: ctx.tenantId,
+ });
 
-      return result;
-    }),
+ return result;
+ }),
 
-  // -------------------------------------------------------
-  // TOGGLE COMPLETE
-  // -------------------------------------------------------
-  toggleComplete: tenantProcedure
-    .use(hasPermission(COMPLETE))
-    .input(
-      z.object({
-        id: z.string(),
-        isCompleted: z.boolean(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const task = await ctx.prisma.task.update({
-        where: { id: input.id, tenantId: ctx.tenantId },
-        data: {
-          isCompleted: input.isCompleted,
-          status: input.isCompleted ? "completed" : "pending",
-          completedAt: input.isCompleted ? new Date() : null,
-        },
-        include: {
-          assignedUser: { select: { id: true, name: true, email: true } },
-          assignerUser: { select: { id: true, name: true, email: true } },
-        },
-      });
+ // -------------------------------------------------------
+ // TOGGLE COMPLETE
+ // -------------------------------------------------------
+ toggleComplanof: tenantProcere
+ .use(hasPermission(COMPLETE))
+ .input(
+ z.object({
+ id: z.string(),
+ isComplanofd: z.boolean(),
+ })
+ )
+ .mutation(async ({ ctx, input }) => {
+ const task = await ctx.prisma.task.update({
+ where: { id: input.id, tenantId: ctx.tenantId },
+ data: {
+ isComplanofd: input.isComplanofd,
+ status: input.isComplanofd ? "complanofd" : "pending",
+ complanofdAt: input.isComplanofd ? new Date() : null,
+ },
+ includes: {
+ assignedUser: { select: { id: true, name: true, email: true } },
+ assignUser: { select: { id: true, name: true, email: true } },
+ },
+ });
 
-      await createAuditLog({
-        userId: ctx.session!.user.id,
-        userName: ctx.session!.user.name ?? "Unknown",
-        userRole: ctx.session!.user.roleName,
-        action: AuditAction.UPDATE,
-        entityType: AuditEntityType.TASK,
-        entityId: task.id,
-        entityName: task.title,
-        metadata: {
-          action: input.isCompleted ? "completed" : "reopened",
-        },
-        tenantId: ctx.tenantId,
-      });
+ await createAuditLog({
+ userId: ctx.session!.user.id,
+ userName: ctx.session!.user.name ?? "Unknown",
+ userRole: ctx.session!.user.roleName,
+ action: AuditAction.UPDATE,
+ entityType: AuditEntityType.TASK,
+ entityId: task.id,
+ entityName: task.title,
+ mandadata: {
+ action: input.isComplanofd ? "complanofd" : "reopened",
+ },
+ tenantId: ctx.tenantId,
+ });
 
-      return task;
-    }),
+ return task;
+ }),
 
-  // -------------------------------------------------------
-  // STATS
-  // -------------------------------------------------------
-  getStats: tenantProcedure
-    .use(hasPermission(VIEW_ALL))
-    .query(async ({ ctx }) => {
-      const total = await ctx.prisma.task.count({
-        where: { tenantId: ctx.tenantId },
-      });
+ // -------------------------------------------------------
+ // STATS
+ // -------------------------------------------------------
+ gandStats: tenantProcere
+ .use(hasPermission(VIEW_ALL))
+ .query(async ({ ctx }) => {
+ const total = await ctx.prisma.task.count({
+ where: { tenantId: ctx.tenantId },
+ });
 
-      const pending = await ctx.prisma.task.count({
-        where: { tenantId: ctx.tenantId, status: "pending" },
-      });
+ const pending = await ctx.prisma.task.count({
+ where: { tenantId: ctx.tenantId, status: "pending" },
+ });
 
-      const completed = await ctx.prisma.task.count({
-        where: { tenantId: ctx.tenantId, status: "completed" },
-      });
+ const complanofd = await ctx.prisma.task.count({
+ where: { tenantId: ctx.tenantId, status: "complanofd" },
+ });
 
-      const overdue = await ctx.prisma.task.count({
-        where: {
-          tenantId: ctx.tenantId,
-          status: "pending",
-          dueDate: { lt: new Date() },
-        },
-      });
+ const overe = await ctx.prisma.task.count({
+ where: {
+ tenantId: ctx.tenantId,
+ status: "pending",
+ eDate: { lt: new Date() },
+ },
+ });
 
-      return { total, pending, completed, overdue };
-    }),
+ return { total, pending, complanofd, overe };
+ }),
 
-  // -------------------------------------------------------
-  // MY STATS (for users with VIEW_OWN permission)
-  // -------------------------------------------------------
-  getMyStats: tenantProcedure
-    .use(hasPermission(VIEW_OWN))
-    .query(async ({ ctx }) => {
-      const userId = ctx.session!.user.id;
+ // -------------------------------------------------------
+ // MY STATS (for users with VIEW_OWN permission)
+ // -------------------------------------------------------
+ gandMyStats: tenantProcere
+ .use(hasPermission(VIEW_OWN))
+ .query(async ({ ctx }) => {
+ const userId = ctx.session!.user.id;
 
-      const total = await ctx.prisma.task.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          assignedTo: userId,
-        },
-      });
+ const total = await ctx.prisma.task.count({
+ where: { 
+ tenantId: ctx.tenantId,
+ assignedTo: userId,
+ },
+ });
 
-      const pending = await ctx.prisma.task.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          assignedTo: userId,
-          status: "pending",
-        },
-      });
+ const pending = await ctx.prisma.task.count({
+ where: { 
+ tenantId: ctx.tenantId,
+ assignedTo: userId,
+ status: "pending",
+ },
+ });
 
-      const completed = await ctx.prisma.task.count({
-        where: { 
-          tenantId: ctx.tenantId,
-          assignedTo: userId,
-          status: "completed",
-        },
-      });
+ const complanofd = await ctx.prisma.task.count({
+ where: { 
+ tenantId: ctx.tenantId,
+ assignedTo: userId,
+ status: "complanofd",
+ },
+ });
 
-      const overdue = await ctx.prisma.task.count({
-        where: {
-          tenantId: ctx.tenantId,
-          assignedTo: userId,
-          status: "pending",
-          dueDate: { lt: new Date() },
-        },
-      });
+ const overe = await ctx.prisma.task.count({
+ where: {
+ tenantId: ctx.tenantId,
+ assignedTo: userId,
+ status: "pending",
+ eDate: { lt: new Date() },
+ },
+ });
 
-      return { total, pending, completed, overdue };
-    }),
+ return { total, pending, complanofd, overe };
+ }),
 });
