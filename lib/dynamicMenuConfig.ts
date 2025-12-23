@@ -250,41 +250,36 @@ export const dynamicMenuConfig: MenuItem[] = [
     href: "/onboarding",
     icon: ClipboardList,
     permissions: [
-      P(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
       P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
     ],
     submenu: [
       {
         label: "My Onboarding",
         href: "/onboarding/my-onboarding",
         icon: UserCheck,
+        description: "View and complete your onboarding",
         permissions: [
           P(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
         ]
       },
       {
-        label: "Review Submissions",
-        href: "/onboarding/review",
-        icon: CheckSquare,
+        label: "All Onboardings",
+        href: "/onboarding",
+        icon: ListChecks,
+        description: "Review all user onboardings",
         permissions: [
           P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
       {
-        label: "Templates",
+        label: "Manage Templates",
         href: "/onboarding/templates",
         icon: FileType,
+        description: "Create and edit onboarding templates",
         permissions: [
           P(Resource.ONBOARDING_TEMPLATE, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      },
-      {
-        label: "ALL Onboarding",
-        href: "/onboarding",
-        icon: UserCheck,
-        permissions: [
-          P(Resource.ONBOARDING_RESPONSE, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
     ]
