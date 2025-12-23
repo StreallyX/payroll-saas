@@ -348,7 +348,8 @@ export const onboardingRouter = createTRPCRouter({
           tenantId,
           questionId: q.id,
           status: "pending"
-        }))
+        })),
+        skipDuplicates: true  // Skip if records already exist
       });
 
       return { started: true };
