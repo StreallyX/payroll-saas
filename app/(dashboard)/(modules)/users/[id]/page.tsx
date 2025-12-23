@@ -176,7 +176,7 @@ export default function UserDetailPage() {
                   {formatDate(user.createdAt)}
                 </div>
               </div>
-              {user.createdByUser && (
+              {user.canViewFullDetails && "createdByUser" in user && user.createdByUser && (
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-1">Created By</div>
                   <div className="text-base">{user.createdByUser.name || user.createdByUser.email}</div>
@@ -254,7 +254,7 @@ export default function UserDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {user.phone && (
+                {"phone" in user && user.phone && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">Phone</div>
                     <div className="flex items-center gap-2 text-base">
@@ -263,19 +263,19 @@ export default function UserDetailPage() {
                     </div>
                   </div>
                 )}
-                {user.dateOfBirth && (
+                {"dateOfBirth" in user && user.dateOfBirth && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">Date of Birth</div>
                     <div className="text-base">{formatDate(user.dateOfBirth)}</div>
                   </div>
                 )}
-                {user.country && (
+                {"country" in user && user.country && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">Country</div>
                     <div className="text-base">{user.country.name}</div>
                   </div>
                 )}
-                {user.city && (
+                {"city" in user && user.city && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">City</div>
                     <div className="flex items-center gap-2 text-base">
@@ -284,28 +284,28 @@ export default function UserDetailPage() {
                     </div>
                   </div>
                 )}
-                {user.address1 && (
+                {"address1" in user && user.address1 && (
                   <div className="md:col-span-2">
                     <div className="text-sm font-medium text-muted-foreground mb-1">Address</div>
                     <div className="text-base">
                       {user.address1}
-                      {user.address2 && `, ${user.address2}`}
+                      {"address2" in user && user.address2 && `, ${user.address2}`}
                     </div>
                   </div>
                 )}
-                {user.companyName && (
+                {"companyName" in user && user.companyName && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">Company</div>
                     <div className="text-base">{user.companyName}</div>
                   </div>
                 )}
-                {user.vatNumber && (
+                {"vatNumber" in user && user.vatNumber && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">VAT Number</div>
                     <div className="text-base">{user.vatNumber}</div>
                   </div>
                 )}
-                {user.lastLoginAt && (
+                {"lastLoginAt" in user && user.lastLoginAt && (
                   <div>
                     <div className="text-sm font-medium text-muted-foreground mb-1">Last Login</div>
                     <div className="flex items-center gap-2 text-base">

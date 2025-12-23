@@ -199,7 +199,7 @@ export default function DelegatedAccessPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRevokeAccess(grant.id)}
-                          disabled={revokeMutation.isLoading}
+                          disabled={revokeMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
@@ -258,9 +258,9 @@ export default function DelegatedAccessPage() {
               </Button>
               <Button
                 onClick={handleGrantAccess}
-                disabled={!selectedUserId || grantMutation.isLoading}
+                disabled={!selectedUserId || grantMutation.isPending}
               >
-                {grantMutation.isLoading ? "Granting..." : "Grant Access"}
+                {grantMutation.isPending ? "Granting..." : "Grant Access"}
               </Button>
             </DialogFooter>
           </DialogContent>

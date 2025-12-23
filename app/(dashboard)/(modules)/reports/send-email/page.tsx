@@ -237,10 +237,10 @@ export default function SendEmailPage() {
             <div className="flex justify-end gap-2 mt-6">
               <Button
                 onClick={handleSendEmail}
-                disabled={sendMutation.isLoading}
+                disabled={sendMutation.isPending}
                 className="min-w-[120px]"
               >
-                {sendMutation.isLoading ? (
+                {sendMutation.isPending ? (
                   <>Sending...</>
                 ) : (
                   <>

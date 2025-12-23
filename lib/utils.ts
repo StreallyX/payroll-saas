@@ -29,3 +29,13 @@ export function generateRandomPassword(length = 10): string {
   }
   return result
 }
+
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return "N/A"
+  const d = typeof date === "string" ? new Date(date) : date
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+}
