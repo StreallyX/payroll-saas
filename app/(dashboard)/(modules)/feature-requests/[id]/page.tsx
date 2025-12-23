@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { use } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -48,12 +47,12 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
 };
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 export default function FeatureRequestDetailPage({ params }: PageProps) {
   const router = useRouter();
-  const { id } = use(params);
+  const { id } = params;
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [viewerOpen, setViewerOpen] = useState(false);
