@@ -35,9 +35,32 @@ export async function POST(req: NextRequest) {
     
     // Validate file type based on upload type
     const fileType = file.type;
-    const allowedTypes = uploadType === "onboarding" 
-      ? ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/gif", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-      : ["application/pdf"];
+    const ALLOWED_TYPES_BY_UPLOAD: Record<string, string[]> = {
+      onboarding: [
+        "application/pdf",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ],
+      "feature-requests": [
+        "application/pdf",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+      ],
+      contracts: [
+        "application/pdf",
+      ],
+    };
+
+    const allowedTypes =
+      ALLOWED_TYPES_BY_UPLOAD[uploadType] ??
+      ["application/pdf"];
+
     
     if (!allowedTypes.includes(fileType)) {
       return NextResponse.json(
