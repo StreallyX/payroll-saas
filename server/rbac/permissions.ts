@@ -50,6 +50,7 @@ export enum Resource {
   // Communication
   COMMENT = "comment",
   NOTIFICATION = "notification",
+  EMAIL = "email",
 
   // Marketing & Sales
   LEAD = "lead",
@@ -2138,6 +2139,37 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionCategory.ADMINISTRATION
   ),
 
+  // ================================================================
+  // EMAIL
+  // ================================================================
+  createPermission(
+    Resource.EMAIL,
+    Action.SEND,
+    PermissionScope.GLOBAL,
+    "Envoyer des emails",
+    "Envoyer des emails aux utilisateurs",
+    PermissionCategory.COMMUNICATION
+  ),
+  createPermission(
+    Resource.EMAIL,
+    Action.LIST,
+    PermissionScope.GLOBAL,
+    "Voir l'historique des emails",
+    "Consulter les logs d'envoi d'emails",
+    PermissionCategory.COMMUNICATION
+  ),
+  createPermission(
+    Resource.EMAIL,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Créer des templates d'email",
+    "Créer et gérer des templates d'email",
+    PermissionCategory.COMMUNICATION
+  ),
+
+  // ================================================================
+  // PAGE ACCESS
+  // ================================================================
   createPermission(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
   createPermission(Resource.AGENCY_INVOICE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
   createPermission(Resource.CONSTRUCTION, Action.ACCESS, PermissionScope.PAGE, "Accéder à Construction"),
@@ -2160,6 +2192,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Payslips de Payments"),
   createPermission(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Remittances"),
   createPermission(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Activity Logs"),
+  createPermission(Resource.EMAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder à l'envoi d'emails"),
   createPermission(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Email Logs"),
   createPermission(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à SMS Logs"),
   createPermission(Resource.USER_ACTIVITY, Action.ACCESS, PermissionScope.PAGE, "Accéder à User Activity"),

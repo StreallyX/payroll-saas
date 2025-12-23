@@ -42,6 +42,7 @@ import { emailTemplateRouter } from "./routers/emailTemplate";
 import { emailLogRouter } from "./routers/emailLog";
 import { smsLogRouter } from "./routers/smsLog";
 import { delegatedAccessRouter } from "./routers/delegatedAccess";
+import { emailRouter } from "./routers/email";
 
 
 /**
@@ -90,6 +91,7 @@ export const appRouter = createTRPCRouter({
   emailLog: emailLogRouter,
   smsLog: smsLogRouter,
   delegatedAccess: delegatedAccessRouter,
+  email: emailRouter,
 })
 
 // export type definition of API

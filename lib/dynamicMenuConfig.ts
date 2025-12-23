@@ -357,6 +357,14 @@ export const dynamicMenuConfig: MenuItem[] = [
         ]
       },
       {
+        label: "Send Email",
+        href: "/reports/send-email",
+        icon: Mail,
+        permissions: [
+          P(Resource.EMAIL, Action.ACCESS, PermissionScope.PAGE),
+        ]
+      },
+      {
         label: "Email Logs",
         href: "/reports/email-logs",
         icon: Mail,
