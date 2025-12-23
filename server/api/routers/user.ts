@@ -51,7 +51,7 @@ export const userRouter = createTRPCRouter({
   // ---------------------------------------------------------
   // GET ALL USERS
   // - global -> tout voir
-  // - own    -> self + subtree
+  // - own    -> self + subtree + delegated access
   // ---------------------------------------------------------
   getAll: tenantProcedure
     .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN]))
@@ -69,11 +69,31 @@ export const userRouter = createTRPCRouter({
         });
       }
 
+      // Get owned users (subtree)
       const subtree = await getSubtreeUserIds(prisma, userId);
+      
+      // Get delegated access
+      const delegatedGrants = await prisma.delegatedAccess.findMany({
+        where: { 
+          tenantId,
+          grantedToUserId: userId,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: new Date() } }
+          ]
+        },
+        select: { grantedForUserId: true }
+      });
+      
+      const delegatedUserIds = delegatedGrants.map(g => g.grantedForUserId);
+      
+      // Combine all accessible user IDs
+      const accessibleIds = [userId, ...subtree, ...delegatedUserIds];
+      
       return prisma.user.findMany({
         where: {
           tenantId,
-          id: { in: [userId, ...subtree] },
+          id: { in: accessibleIds },
         },
         include: { role: true, createdByUser: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "desc" },

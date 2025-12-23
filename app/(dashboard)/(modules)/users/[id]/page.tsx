@@ -102,14 +102,23 @@ export default function UserDetailPage() {
           </div>
           <div className="flex gap-2">
             {user.canViewFullDetails && (
-              <Button
-                variant="outline"
-                onClick={handleImpersonate}
-                disabled={impersonating}
-              >
-                <UserCog className="h-4 w-4 mr-2" />
-                {impersonating ? "Impersonating..." : "Impersonate User"}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/users/${userId}/delegated-access`)}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Manage Access
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleImpersonate}
+                  disabled={impersonating}
+                >
+                  <UserCog className="h-4 w-4 mr-2" />
+                  {impersonating ? "Impersonating..." : "Impersonate User"}
+                </Button>
+              </>
             )}
           </div>
         </div>

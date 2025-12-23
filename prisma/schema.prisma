@@ -220,6 +220,7 @@ model Tenant {
   entityStateHistory   EntityStateHistory[] // 🔥 NEW
   workflowTemplates    WorkflowTemplate[] // 🔥 NEW
   workflowSettings     TenantWorkflowSettings? // 🔥 NEW
+  delegatedAccess      DelegatedAccess[] // 🔥 NEW
 
   @@map("tenants")
 }
@@ -329,6 +330,11 @@ model User {
   // 🔥 NEW: Bank accounts for contractors (for SPLIT payments)
   banks Bank[] @relation("UserBanks")
 
+  // 🔥 NEW: Delegated access relations
+  delegatedAccessGrantedTo  DelegatedAccess[] @relation("DelegatedAccessGrantedTo")
+  delegatedAccessGrantedFor DelegatedAccess[] @relation("DelegatedAccessGrantedFor")
+  delegatedAccessGrantedBy  DelegatedAccess[] @relation("DelegatedAccessGrantedBy")
+
   @@unique([tenantId, email])
   @@index([tenantId])
   @@index([email])
@@ -338,6 +344,33 @@ model User {
   @@index([createdBy])
   @@index([status])
   @@map("users")
+}
+
+// ====
+// DELEGATED ACCESS
+// ====
+/// Allows users with "own" scope to be granted access to specific other users
+/// Admins can grant users with limited permissions access to see specific users
+model DelegatedAccess {
+  id               String   @id @default(cuid())
+  tenantId         String
+  grantedToUserId  String   // User who receives access
+  grantedForUserId String   // User they can access
+  grantedBy        String   // Admin who granted access
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime? // Optional expiration
+
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grantedToUser    User     @relation("DelegatedAccessGrantedTo", fields: [grantedToUserId], references: [id], onDelete: Cascade)
+  grantedForUser   User     @relation("DelegatedAccessGrantedFor", fields: [grantedForUserId], references: [id], onDelete: Cascade)
+  grantedByUser    User     @relation("DelegatedAccessGrantedBy", fields: [grantedBy], references: [id], onDelete: Cascade)
+
+  @@unique([grantedToUserId, grantedForUserId])
+  @@index([tenantId])
+  @@index([grantedToUserId])
+  @@index([grantedForUserId])
+  @@index([grantedBy])
+  @@map("delegated_access")
 }
 
 model Company {
