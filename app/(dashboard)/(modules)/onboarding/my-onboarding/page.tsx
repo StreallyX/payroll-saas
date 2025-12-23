@@ -127,15 +127,18 @@ export default function MyOnboardingPage() {
 
   const handleSubmitFile = async () => {
     if (!file) return toast.error("Please select a file");
+    if (!data?.id || !currentQuestion?.id) return toast.error("Missing required information");
 
     try {
       setUploading(true);
       toast.info("Uploading file...");
 
-      // Upload to S3 via API route
+      // Upload to S3 via API route with organized path structure
       const formData = new FormData();
       formData.append("file", file);
       formData.append("type", "onboarding");
+      formData.append("userId", data.id); // Include userId for organized path
+      formData.append("questionId", currentQuestion.id); // Include questionId for organized path
 
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
@@ -161,13 +164,28 @@ export default function MyOnboardingPage() {
     }
   };
 
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
+
   const handleViewFile = async (filePath: string) => {
     try {
-      toast.info("Loading file...");
+      setLoadingFile(filePath);
+      toast.info("Generating secure link...");
+      
       const url = await downloadFile(filePath);
-      window.open(url, "_blank");
+      
+      // Open in new tab
+      const newWindow = window.open(url, "_blank");
+      
+      if (!newWindow) {
+        toast.warning("Please allow pop-ups to view the file");
+      } else {
+        toast.success("File opened in new tab");
+      }
     } catch (err: any) {
-      toast.error("Failed to open file: " + err.message);
+      console.error("Error viewing file:", err);
+      toast.error("Failed to open file: " + (err.message || "Unknown error"));
+    } finally {
+      setLoadingFile(null);
     }
   };
 
@@ -312,9 +330,10 @@ export default function MyOnboardingPage() {
                               variant="outline" 
                               size="sm"
                               onClick={() => handleViewFile(response.responseFilePath!)}
+                              disabled={loadingFile === response.responseFilePath}
                             >
                               <Eye className="h-4 w-4 mr-1" />
-                              View File
+                              {loadingFile === response.responseFilePath ? "Loading..." : "View File"}
                             </Button>
                           </div>
                         )}
@@ -381,9 +400,10 @@ export default function MyOnboardingPage() {
                           size="sm" 
                           variant="outline"
                           onClick={() => handleViewFile(response.responseFilePath!)}
+                          disabled={loadingFile === response.responseFilePath}
                         >
                           <Eye className="h-4 w-4 mr-1" />
-                          View File
+                          {loadingFile === response.responseFilePath ? "Loading..." : "View File"}
                         </Button>
                       )}
                     </div>

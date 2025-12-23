@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
     // Get upload type (contracts, onboarding, etc.)
     const uploadType = formData.get("type") as string || "contracts";
     
+    // Get additional context for onboarding uploads
+    const userId = formData.get("userId") as string;
+    const questionId = formData.get("questionId") as string;
+    
     // Validate file type based on upload type
     const fileType = file.type;
     const allowedTypes = uploadType === "onboarding" 
@@ -54,10 +58,18 @@ export async function POST(req: NextRequest) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Generate S3 key with timestamp and original filename
+    // Generate S3 key with better structure
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const s3Key = `uploads/${uploadType}/${timestamp}-${sanitizedFileName}`;
+    
+    let s3Key: string;
+    if (uploadType === "onboarding" && userId && questionId) {
+      // Organized structure for onboarding: onboarding/{userId}/{questionId}/{timestamp}_{filename}
+      s3Key = `uploads/${uploadType}/${userId}/${questionId}/${timestamp}_${sanitizedFileName}`;
+    } else {
+      // Fallback to old structure for other types
+      s3Key = `uploads/${uploadType}/${timestamp}-${sanitizedFileName}`;
+    }
 
     // Upload to S3
     const cloud_storage_path = await uploadFile(buffer, s3Key);

@@ -112,13 +112,28 @@ export default function AllOnboardingsPage() {
     });
   };
 
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
+
   const handleViewFile = async (filePath: string) => {
     try {
-      toast.info("Loading file...");
+      setLoadingFile(filePath);
+      toast.info("Generating secure link...");
+      
       const url = await downloadFile(filePath);
-      window.open(url, "_blank");
+      
+      // Open in new tab
+      const newWindow = window.open(url, "_blank");
+      
+      if (!newWindow) {
+        toast.warning("Please allow pop-ups to view the file");
+      } else {
+        toast.success("File opened in new tab");
+      }
     } catch (err: any) {
-      toast.error("Failed to open file: " + err.message);
+      console.error("Error viewing file:", err);
+      toast.error("Failed to open file: " + (err.message || "Unknown error"));
+    } finally {
+      setLoadingFile(null);
     }
   };
 
@@ -447,8 +462,10 @@ export default function AllOnboardingsPage() {
                               size="sm"
                               className="mt-2"
                               onClick={() => handleViewFile(r.responseFilePath!)}
+                              disabled={loadingFile === r.responseFilePath}
                             >
-                              <FileText className="w-4 h-4 mr-2" /> View File
+                              <FileText className="w-4 h-4 mr-2" /> 
+                              {loadingFile === r.responseFilePath ? "Loading..." : "View File"}
                             </Button>
                           </div>
                         )}

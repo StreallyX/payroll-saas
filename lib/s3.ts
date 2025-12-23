@@ -58,17 +58,76 @@ export async function uploadFile(
 }
 
 /**
+ * Detect content type from file extension
+ */
+function getContentTypeFromKey(key: string): string {
+  const ext = key.split('.').pop()?.toLowerCase() || '';
+  
+  const contentTypes: Record<string, string> = {
+    // Images
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    
+    // Documents
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    
+    // Text
+    'txt': 'text/plain',
+    'csv': 'text/csv',
+    
+    // Archives
+    'zip': 'application/zip',
+    'rar': 'application/x-rar-compressed',
+  };
+  
+  return contentTypes[ext] || 'application/octet-stream';
+}
+
+/**
+ * Determine if file should be displayed inline or downloaded
+ */
+function shouldDisplayInline(contentType: string): boolean {
+  const inlineTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'application/pdf',
+    'text/plain',
+  ];
+  
+  return inlineTypes.includes(contentType);
+}
+
+/**
  * Generate a signed URL to download or view a file.
  */
 export async function downloadFile(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  const contentType = getContentTypeFromKey(key);
+  const inline = shouldDisplayInline(contentType);
+  const fileName = key.split('/').pop() || 'download';
+  
   const command = new GetObjectCommand({
     Bucket: bucketName,
     Key: key,
-    ResponseContentDisposition: "inline",       // 🔥 IMPORTANT
-    ResponseContentType: "application/pdf",     // 🔥 Évite les téléchargements
+    ResponseContentDisposition: inline 
+      ? "inline" 
+      : `attachment; filename="${fileName}"`,
+    ResponseContentType: contentType,
   });
 
   return getSignedUrl(s3Client, command, { expiresIn });
@@ -137,13 +196,17 @@ export async function getSignedUrlForKey(
   expiresIn = 3600,
   download = false
 ): Promise<string> {
+  const contentType = getContentTypeFromKey(key);
+  const inline = shouldDisplayInline(contentType);
+  const fileName = key.split('/').pop() || 'download';
+  
   const command = new GetObjectCommand({
     Bucket: bucketName,
     Key: key,
     ResponseContentDisposition: download
-      ? `attachment; filename="${key.split('/').pop()}"`
-      : "inline",
-    ResponseContentType: "application/pdf",
+      ? `attachment; filename="${fileName}"`
+      : (inline ? "inline" : `attachment; filename="${fileName}"`),
+    ResponseContentType: contentType,
   });
 
   return getSignedUrl(s3Client, command, { expiresIn });
