@@ -1,30 +1,20 @@
 import "next-auth";
+import "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      name?: string | null;
-      email?: string | null;
-
-      tenantId: string | null;
-      roleId: string | null;
+      email: string;
+      name: string | null;
+      image?: string | null;
       roleName: string;
-
-      tenant?: {
-        id: string;
-        name: string;
-        logoUrl?: string | null;
-        primaryColor?: string | null;
-        accentColor?: string | null;
-      } | null;
-
+      roleId: string | null;
+      tenantId: string | null;
       isSuperAdmin: boolean;
       mustChangePassword: boolean;
       homePath: string;
-      passwordResetToken?: string | null;
-
-      // 🔥 The key you MUST add
+      passwordResetToken: string | null;
       permissions: string[];
     };
   }
@@ -33,17 +23,13 @@ declare module "next-auth" {
     id: string;
     email: string;
     name: string | null;
-
-    tenantId: string | null;
-    roleId: string | null;
     roleName: string;
-
+    roleId: string | null;
+    tenantId: string | null;
     isSuperAdmin: boolean;
     mustChangePassword: boolean;
     homePath: string;
-    passwordResetToken?: string | null;
-
-    // 🔥 Add this so authorize() can return it
+    passwordResetToken: string | null;
     permissions?: string[];
   }
 }
@@ -51,16 +37,15 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    tenantId: string | null;
-    roleId: string | null;
+    email: string;
+    name: string | null;
     roleName: string;
-
+    roleId: string | null;
+    tenantId: string | null;
     isSuperAdmin: boolean;
     mustChangePassword: boolean;
     homePath: string;
-    passwordResetToken?: string | null;
-
-    // 🔥 Add the permissions to JWT
+    passwordResetToken: string | null;
     permissions: string[];
   }
 }

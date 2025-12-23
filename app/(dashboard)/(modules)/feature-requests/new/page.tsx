@@ -406,10 +406,10 @@ export default function NewFeatureRequestPage() {
               <div className="flex items-center gap-4 pt-6 border-t">
                 <Button
                   type="submit"
-                  disabled={createMutation.isLoading || uploading}
+                  disabled={createMutation.isPending || uploading}
                   className="flex-1 sm:flex-initial"
                 >
-                  {createMutation.isLoading ? (
+                  {createMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Submitting...
@@ -425,7 +425,7 @@ export default function NewFeatureRequestPage() {
                   type="button"
                   variant="outline"
                   onClick={() => router.back()}
-                  disabled={createMutation.isLoading}
+                  disabled={createMutation.isPending}
                 >
                   Cancel
                 </Button>

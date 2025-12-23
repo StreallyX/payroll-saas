@@ -169,7 +169,6 @@ export default function ManageFeatureRequestsPage() {
           title="Total Requests"
           value={stats.total}
           icon={ListTodo}
-          trend="up"
         />
         <StatsCard
           title="Submitted"
@@ -356,7 +355,7 @@ export default function ManageFeatureRequestsPage() {
                               size="sm"
                               className="text-green-600 hover:text-green-700 hover:bg-green-50"
                               onClick={() => handleConfirm(request.id)}
-                              disabled={updateStatusMutation.isLoading}
+                              disabled={updateStatusMutation.isPending}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Confirm
@@ -366,7 +365,7 @@ export default function ManageFeatureRequestsPage() {
                               size="sm"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => handleReject(request.id)}
-                              disabled={updateStatusMutation.isLoading}
+                              disabled={updateStatusMutation.isPending}
                             >
                               <XCircle className="h-4 w-4 mr-1" />
                               Reject
@@ -416,7 +415,7 @@ export default function ManageFeatureRequestsPage() {
             <Button
               variant="destructive"
               onClick={confirmReject}
-              disabled={updateStatusMutation.isLoading || !rejectionReason.trim()}
+              disabled={updateStatusMutation.isPending || !rejectionReason.trim()}
             >
               Reject Request
             </Button>

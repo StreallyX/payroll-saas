@@ -192,7 +192,7 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
                   variant="outline"
                   className="text-green-600 hover:text-green-700 hover:bg-green-50"
                   onClick={handleConfirm}
-                  disabled={updateStatusMutation.isLoading}
+                  disabled={updateStatusMutation.isPending}
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Confirm Request
@@ -201,7 +201,7 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
                   variant="outline"
                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   onClick={handleReject}
-                  disabled={updateStatusMutation.isLoading}
+                  disabled={updateStatusMutation.isPending}
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject Request
@@ -436,7 +436,7 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
             <Button
               variant="destructive"
               onClick={confirmReject}
-              disabled={updateStatusMutation.isLoading || !rejectionReason.trim()}
+              disabled={updateStatusMutation.isPending || !rejectionReason.trim()}
             >
               Reject Request
             </Button>
