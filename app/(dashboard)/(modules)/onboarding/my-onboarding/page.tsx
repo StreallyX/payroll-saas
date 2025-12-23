@@ -50,112 +50,45 @@ export default function MyOnboardingPage() {
 
   // NO ONBOARDING STARTED
   if (!data || !data.onboardingTemplate) {
-    return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center p-4">
-        <div className="w-full max-w-4xl">
-          {/* Animated Hero Card with Gradient Background */}
-          <Card className="relative overflow-hidden border-none shadow-2xl">
-            {/* Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 opacity-10"></div>
-            
-            {/* Decorative Elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-            
-            <CardContent className="relative p-12 md:p-16 flex flex-col items-center text-center space-y-8">
-              {/* Icon with Animated Ring */}
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
-                <div className="relative w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-2xl transform transition-transform hover:scale-110 duration-300">
-                  <FileText className="w-12 h-12 md:w-16 md:h-16 text-white" />
-                </div>
-              </div>
+  return (
+    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="text-2xl">
+            Welcome
+          </CardTitle>
+          <CardDescription>
+            To continue, please complete your onboarding.
+          </CardDescription>
+        </CardHeader>
 
-              {/* Title with Gradient Text */}
-              <div className="space-y-3">
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Welcome! Let's Get Started
-                </h1>
-                <div className="w-24 h-1 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-              </div>
+        <CardContent className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            This onboarding helps us collect the required information and documents
+            to activate your account and give you full access to the platform.
+          </p>
 
-              {/* Description */}
-              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed">
-                Begin your onboarding journey to unlock all platform features. 
-                Complete the required steps and you'll be all set!
-              </p>
+          <Alert>
+            <FileText className="h-4 w-4" />
+            <AlertDescription>
+              The process usually takes only a few minutes to complete.
+            </AlertDescription>
+          </Alert>
 
-              {/* Feature Pills */}
-              <div className="flex flex-wrap justify-center gap-3 pt-4">
-                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 px-4 py-2 text-sm font-medium border border-blue-200">
-                  ✨ Quick Setup
-                </Badge>
-                <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 px-4 py-2 text-sm font-medium border border-purple-200">
-                  📋 Simple Steps
-                </Badge>
-                <Badge className="bg-pink-100 text-pink-700 hover:bg-pink-100 px-4 py-2 text-sm font-medium border border-pink-200">
-                  🚀 Fast Activation
-                </Badge>
-              </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => startMutation.mutate()}
+              disabled={startMutation.isPending}
+            >
+              {startMutation.isPending ? "Starting..." : "Start onboarding"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-              {/* CTA Button */}
-              <Button 
-                size="lg" 
-                className="mt-8 px-8 py-6 text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 shadow-xl hover:shadow-2xl transform transition-all hover:scale-105 duration-300 border-0"
-                onClick={() => startMutation.mutate()}
-                disabled={startMutation.isPending}
-              >
-                {startMutation.isPending ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Starting Your Journey...
-                  </>
-                ) : (
-                  <>
-                    🚀 Start My Onboarding
-                  </>
-                )}
-              </Button>
-
-              {/* Info Text */}
-              <p className="text-sm text-gray-500 dark:text-gray-400 pt-4">
-                Takes only a few minutes to complete
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Additional Info Card */}
-          <Card className="mt-6 border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                <div className="space-y-2">
-                  <div className="w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Quick Process</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Complete in minutes</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="w-12 h-12 mx-auto bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Simple Steps</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Easy to follow</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="w-12 h-12 mx-auto bg-pink-100 dark:bg-pink-900/30 rounded-lg flex items-center justify-center">
-                    <Circle className="w-6 h-6 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Full Access</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Unlock all features</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   // ONBOARDING EXISTS
   const template = data.onboardingTemplate;
