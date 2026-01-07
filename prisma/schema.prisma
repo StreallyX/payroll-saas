@@ -222,6 +222,7 @@ model Tenant {
   workflowSettings     TenantWorkflowSettings? // 🔥 NEW
   delegatedAccess      DelegatedAccess[] // 🔥 NEW
   featureRequests      FeatureRequest[] // Feature request system
+  pageTestStatuses     PageTestStatus[] // Page testing tracking
 
   @@map("tenants")
 }
@@ -2522,7 +2523,7 @@ model FeatureRequest {
   priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
   
   // Status tracking
-  status            String   @default("SUBMITTED") // SUBMITTED, PENDING, WAITING_FOR_CONFIRMATION, CONFIRMED, REJECTED
+  status            String   @default("PENDING") // PENDING, SUBMITTED, WAITING_FOR_CONFIRMATION, CONFIRMED, REJECTED
   rejectionReason   String?  @db.Text
   
   // Approval tracking
@@ -2569,5 +2570,37 @@ model FeatureRequestAttachment {
   featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
   
   @@index([featureRequestId])
+
+/// PageTestStatus - Track testing status of platform pages by role
+/// Allows tracking which pages have been validated for each role
+model PageTestStatus {
+  id        String   @id @default(cuid())
+  tenantId  String
+  
+  // Page identification
+  pageUrl   String   // URL/path of the page (e.g., "/dashboard", "/contracts")
+  pageName  String   // Human-readable page name
+  pageRole  String   // Role required to access (e.g., "ADMIN", "CONTRACTOR", "AGENCY")
+  
+  // Testing status
+  isValidated Boolean  @default(false)
+  testedBy    String?  // userId who validated
+  testedAt    DateTime?
+  
+  // Additional info
+  notes       String?  @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, pageUrl, pageRole])
+  @@index([tenantId])
+  @@index([pageRole])
+  @@index([isValidated])
+  @@map("page_test_status")
+}
   @@map("feature_request_attachments")
 }
