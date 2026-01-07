@@ -142,6 +142,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.BANK, Action.DELETE, PermissionScope.OWN),
     buildPermissionKey(Resource.BANK, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.BANK, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
+
   ],
 
   PAYROLL: [
@@ -194,6 +198,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // CONTRACTS (own)
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
   ],
 
   AGENCY: [
@@ -253,6 +260,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
   ],
 };
 
@@ -521,7 +531,7 @@ async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) 
   ];
   const contractCount = 4;
 
-  for (const contractType of contractTypes) {
+  /*for (const contractType of contractTypes) {
     for (let i = 1; i <= contractCount; i++) {
       // Check if contract already exists
       const existingContract = await prisma.contract.findFirst({
@@ -567,7 +577,7 @@ async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) 
     }
   }
 
-  console.log("✨ Tenant company, bank account and contracts creation completed!");
+  console.log("✨ Tenant company, bank account and contracts creation completed!");*/
 }
 
 // ====================================================================
