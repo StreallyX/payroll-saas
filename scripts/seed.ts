@@ -6,6 +6,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { PaymentModel } from "@prisma/client";
 
 // ⚠️ IMPORTANT : importer TON nouveau fichier RBAC v4
 import {
@@ -454,7 +455,7 @@ async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) 
         accountHolder: "Tenant Company",
         accountNumber: "1234567890",
         currency: usdCurrency.code,
-        usage: "GROSS",
+        usage: "gross",
         isPrimary: true,
         isActive: true,
         status: "active",
@@ -512,7 +513,12 @@ async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) 
   }
 
   // 5. Create 4 contracts of each type (GROSS, PAYROLL, PAYROLL_WE_PAY, SPLIT)
-  const contractTypes = ["GROSS", "PAYROLL", "PAYROLL_WE_PAY", "SPLIT"];
+  const contractTypes: PaymentModel[] = [
+    PaymentModel.gross,
+    PaymentModel.payroll,
+    PaymentModel.payroll_we_pay,
+    PaymentModel.split,
+  ];
   const contractCount = 4;
 
   for (const contractType of contractTypes) {

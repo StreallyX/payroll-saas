@@ -2570,6 +2570,7 @@ model FeatureRequestAttachment {
   featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
   
   @@index([featureRequestId])
+}
 
 /// PageTestStatus - Track testing status of platform pages by role
 /// Allows tracking which pages have been validated for each role
@@ -2601,6 +2602,4 @@ model PageTestStatus {
   @@index([pageRole])
   @@index([isValidated])
   @@map("page_test_status")
-}
-  @@map("feature_request_attachments")
 }
