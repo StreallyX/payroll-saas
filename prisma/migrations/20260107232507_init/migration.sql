@@ -5,7 +5,19 @@ CREATE TYPE "PaymentMethodType" AS ENUM ('BANK_ACCOUNT', 'CREDIT_CARD', 'DEBIT_C
 CREATE TYPE "PaymentModel" AS ENUM ('GROSS', 'PAYROLL', 'PAYROLL_WE_PAY', 'SPLIT');
 
 -- CreateEnum
-CREATE TYPE "MarginType" AS ENUM ('FIXED', 'VARIABLE', 'CUSTOM');
+CREATE TYPE "MarginType" AS ENUM ('FIXED', 'VARIABLE', 'CUSTOM', 'PERCENTAGE');
+
+-- CreateEnum
+CREATE TYPE "BankAccountUsage" AS ENUM ('SALARY', 'GROSS', 'EXPENSES', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "PaymentType" AS ENUM ('RECEIVED', 'SENT');
+
+-- CreateEnum
+CREATE TYPE "RecipientType" AS ENUM ('ADMIN', 'CONTRACTOR', 'PAYROLL', 'CLIENT', 'AGENCY', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "RemittanceStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
 
 -- CreateTable
 CREATE TABLE "roles" (
@@ -147,6 +159,19 @@ CREATE TABLE "users" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "delegated_access" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "grantedToUserId" TEXT NOT NULL,
+    "grantedForUserId" TEXT NOT NULL,
+    "grantedBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3),
+
+    CONSTRAINT "delegated_access_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -317,6 +342,7 @@ CREATE TABLE "invoices" (
     "contractId" TEXT,
     "timesheetId" TEXT,
     "invoiceNumber" TEXT,
+    "parentInvoiceId" TEXT,
     "createdBy" TEXT,
     "senderId" TEXT,
     "receiverId" TEXT,
@@ -332,7 +358,7 @@ CREATE TABLE "invoices" (
     "rejectionReason" TEXT,
     "changesRequested" TEXT,
     "amount" DECIMAL(10,2) NOT NULL,
-    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "currencyId" TEXT,
     "taxAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "totalAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "marginAmount" DECIMAL(10,2),
@@ -345,8 +371,10 @@ CREATE TABLE "invoices" (
     "paymentModel" "PaymentModel",
     "agencyMarkedPaidAt" TIMESTAMP(3),
     "agencyMarkedPaidBy" TEXT,
+    "amountPaidByAgency" DECIMAL(10,2),
     "paymentReceivedAt" TIMESTAMP(3),
     "paymentReceivedBy" TEXT,
+    "amountReceived" DECIMAL(10,2),
     "issueDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "dueDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "paidDate" TIMESTAMP(3),
@@ -371,6 +399,21 @@ CREATE TABLE "invoice_line_items" (
     "amount" DECIMAL(10,2) NOT NULL,
 
     CONSTRAINT "invoice_line_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "invoice_documents" (
+    "id" TEXT NOT NULL,
+    "invoiceId" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "fileUrl" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "mimeType" TEXT,
+    "description" TEXT,
+    "category" TEXT NOT NULL DEFAULT 'invoice',
+    "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "invoice_documents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -443,9 +486,10 @@ CREATE TABLE "timesheets" (
     "rejectionReason" TEXT,
     "changesRequested" TEXT,
     "totalHours" DECIMAL(10,2) NOT NULL,
-    "totalAmount" DECIMAL(10,2),
     "baseAmount" DECIMAL(10,2),
     "marginAmount" DECIMAL(10,2),
+    "totalExpenses" DECIMAL(10,2) DEFAULT 0,
+    "totalAmount" DECIMAL(10,2),
     "currency" TEXT,
     "adminModifiedAmount" DECIMAL(10,2),
     "adminModificationNote" TEXT,
@@ -453,7 +497,6 @@ CREATE TABLE "timesheets" (
     "notes" TEXT,
     "timesheetFileUrl" TEXT,
     "expenseFileUrl" TEXT,
-    "totalExpenses" DECIMAL(10,2) DEFAULT 0,
     "invoiceId" TEXT,
     "submittedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -758,11 +801,28 @@ CREATE TABLE "countries" (
 CREATE TABLE "banks" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "accountName" TEXT,
     "accountNumber" TEXT,
+    "accountHolder" TEXT,
+    "bankName" TEXT,
     "swiftCode" TEXT,
+    "intermediarySwiftCode" TEXT,
+    "routingNumber" TEXT,
+    "sortCode" TEXT,
+    "branchCode" TEXT,
     "iban" TEXT,
+    "bankAddress" TEXT,
+    "bankCity" TEXT,
+    "country" TEXT,
+    "state" TEXT,
+    "postCode" TEXT,
+    "currency" TEXT,
+    "usage" "BankAccountUsage",
+    "name" TEXT,
     "address" TEXT,
+    "userId" TEXT,
+    "isPrimary" BOOLEAN NOT NULL DEFAULT false,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdBy" TEXT,
     "status" TEXT NOT NULL DEFAULT 'active',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -848,6 +908,7 @@ CREATE TABLE "onboarding_questions" (
     "questionType" TEXT NOT NULL,
     "isRequired" BOOLEAN NOT NULL DEFAULT true,
     "order" INTEGER NOT NULL,
+    "optionalForCountries" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -905,22 +966,20 @@ CREATE TABLE "payslips" (
 CREATE TABLE "remittances" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "contractId" TEXT,
+    "invoiceId" TEXT,
     "amount" DECIMAL(12,2) NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'USD',
-    "status" TEXT NOT NULL,
-    "workflowState" TEXT NOT NULL DEFAULT 'generated',
-    "validatedBy" TEXT,
-    "validatedAt" TIMESTAMP(3),
-    "sentBy" TEXT,
-    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "processedAt" TIMESTAMP(3),
-    "completedAt" TIMESTAMP(3),
+    "paymentType" "PaymentType" NOT NULL,
+    "recipientType" "RecipientType" NOT NULL,
+    "recipientId" TEXT NOT NULL,
+    "senderId" TEXT NOT NULL,
+    "status" "RemittanceStatus" NOT NULL DEFAULT 'PENDING',
+    "contractId" TEXT,
     "description" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "completedAt" TIMESTAMP(3),
 
     CONSTRAINT "remittances_pkey" PRIMARY KEY ("id")
 );
@@ -1341,6 +1400,61 @@ CREATE TABLE "tenant_workflow_config" (
     CONSTRAINT "tenant_workflow_config_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "feature_requests" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "userRole" TEXT NOT NULL,
+    "pageUrl" TEXT NOT NULL,
+    "pageName" TEXT NOT NULL,
+    "actionType" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "conditions" TEXT,
+    "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "rejectionReason" TEXT,
+    "confirmedBy" TEXT,
+    "confirmedAt" TIMESTAMP(3),
+    "rejectedBy" TEXT,
+    "rejectedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "feature_requests_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "FeatureRequestAttachment" (
+    "id" TEXT NOT NULL,
+    "featureRequestId" TEXT NOT NULL,
+    "fileUrl" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "fileType" TEXT NOT NULL,
+    "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "FeatureRequestAttachment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "page_test_status" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "pageUrl" TEXT NOT NULL,
+    "pageName" TEXT NOT NULL,
+    "pageRole" TEXT NOT NULL,
+    "isValidated" BOOLEAN NOT NULL DEFAULT false,
+    "testedBy" TEXT,
+    "testedAt" TIMESTAMP(3),
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "page_test_status_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE INDEX "roles_tenantId_idx" ON "roles"("tenantId");
 
@@ -1409,6 +1523,21 @@ CREATE INDEX "users_status_idx" ON "users"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_tenantId_email_key" ON "users"("tenantId", "email");
+
+-- CreateIndex
+CREATE INDEX "delegated_access_tenantId_idx" ON "delegated_access"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "delegated_access_grantedToUserId_idx" ON "delegated_access"("grantedToUserId");
+
+-- CreateIndex
+CREATE INDEX "delegated_access_grantedForUserId_idx" ON "delegated_access"("grantedForUserId");
+
+-- CreateIndex
+CREATE INDEX "delegated_access_grantedBy_idx" ON "delegated_access"("grantedBy");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "delegated_access_grantedToUserId_grantedForUserId_key" ON "delegated_access"("grantedToUserId", "grantedForUserId");
 
 -- CreateIndex
 CREATE INDEX "companies_tenantId_idx" ON "companies"("tenantId");
@@ -1507,6 +1636,9 @@ CREATE INDEX "invoices_contractId_idx" ON "invoices"("contractId");
 CREATE INDEX "invoices_timesheetId_idx" ON "invoices"("timesheetId");
 
 -- CreateIndex
+CREATE INDEX "invoices_currencyId_idx" ON "invoices"("currencyId");
+
+-- CreateIndex
 CREATE INDEX "invoices_createdBy_idx" ON "invoices"("createdBy");
 
 -- CreateIndex
@@ -1522,6 +1654,9 @@ CREATE INDEX "invoices_agencyMarkedPaidBy_idx" ON "invoices"("agencyMarkedPaidBy
 CREATE INDEX "invoices_paymentReceivedBy_idx" ON "invoices"("paymentReceivedBy");
 
 -- CreateIndex
+CREATE INDEX "invoices_parentInvoiceId_idx" ON "invoices"("parentInvoiceId");
+
+-- CreateIndex
 CREATE INDEX "invoices_status_idx" ON "invoices"("status");
 
 -- CreateIndex
@@ -1529,6 +1664,9 @@ CREATE INDEX "invoices_workflowState_idx" ON "invoices"("workflowState");
 
 -- CreateIndex
 CREATE INDEX "invoice_line_items_invoiceId_idx" ON "invoice_line_items"("invoiceId");
+
+-- CreateIndex
+CREATE INDEX "invoice_documents_invoiceId_idx" ON "invoice_documents"("invoiceId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "margins_invoiceId_key" ON "margins"("invoiceId");
@@ -1699,7 +1837,16 @@ CREATE UNIQUE INDEX "countries_code_key" ON "countries"("code");
 CREATE INDEX "banks_tenantId_idx" ON "banks"("tenantId");
 
 -- CreateIndex
+CREATE INDEX "banks_userId_idx" ON "banks"("userId");
+
+-- CreateIndex
 CREATE INDEX "banks_createdBy_idx" ON "banks"("createdBy");
+
+-- CreateIndex
+CREATE INDEX "banks_isPrimary_idx" ON "banks"("isPrimary");
+
+-- CreateIndex
+CREATE INDEX "banks_usage_idx" ON "banks"("usage");
 
 -- CreateIndex
 CREATE INDEX "document_types_tenantId_idx" ON "document_types"("tenantId");
@@ -1759,13 +1906,22 @@ CREATE INDEX "payslips_workflowState_idx" ON "payslips"("workflowState");
 CREATE INDEX "remittances_tenantId_idx" ON "remittances"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "remittances_userId_idx" ON "remittances"("userId");
+CREATE INDEX "remittances_invoiceId_idx" ON "remittances"("invoiceId");
+
+-- CreateIndex
+CREATE INDEX "remittances_contractId_idx" ON "remittances"("contractId");
+
+-- CreateIndex
+CREATE INDEX "remittances_recipientId_idx" ON "remittances"("recipientId");
+
+-- CreateIndex
+CREATE INDEX "remittances_senderId_idx" ON "remittances"("senderId");
 
 -- CreateIndex
 CREATE INDEX "remittances_status_idx" ON "remittances"("status");
 
 -- CreateIndex
-CREATE INDEX "remittances_workflowState_idx" ON "remittances"("workflowState");
+CREATE INDEX "remittances_paymentType_idx" ON "remittances"("paymentType");
 
 -- CreateIndex
 CREATE INDEX "referrals_tenantId_idx" ON "referrals"("tenantId");
@@ -1965,6 +2121,39 @@ CREATE UNIQUE INDEX "tenant_workflow_settings_tenantId_key" ON "tenant_workflow_
 -- CreateIndex
 CREATE UNIQUE INDEX "tenant_workflow_config_tenantId_key" ON "tenant_workflow_config"("tenantId");
 
+-- CreateIndex
+CREATE INDEX "feature_requests_tenantId_idx" ON "feature_requests"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "feature_requests_userId_idx" ON "feature_requests"("userId");
+
+-- CreateIndex
+CREATE INDEX "feature_requests_status_idx" ON "feature_requests"("status");
+
+-- CreateIndex
+CREATE INDEX "feature_requests_priority_idx" ON "feature_requests"("priority");
+
+-- CreateIndex
+CREATE INDEX "feature_requests_actionType_idx" ON "feature_requests"("actionType");
+
+-- CreateIndex
+CREATE INDEX "feature_requests_createdAt_idx" ON "feature_requests"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "FeatureRequestAttachment_featureRequestId_idx" ON "FeatureRequestAttachment"("featureRequestId");
+
+-- CreateIndex
+CREATE INDEX "page_test_status_tenantId_idx" ON "page_test_status"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "page_test_status_pageRole_idx" ON "page_test_status"("pageRole");
+
+-- CreateIndex
+CREATE INDEX "page_test_status_isValidated_idx" ON "page_test_status"("isValidated");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "page_test_status_tenantId_pageUrl_pageRole_key" ON "page_test_status"("tenantId", "pageUrl", "pageRole");
+
 -- AddForeignKey
 ALTER TABLE "roles" ADD CONSTRAINT "roles_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1991,6 +2180,18 @@ ALTER TABLE "users" ADD CONSTRAINT "users_countryId_fkey" FOREIGN KEY ("countryI
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_onboardingTemplateId_fkey" FOREIGN KEY ("onboardingTemplateId") REFERENCES "onboarding_templates"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delegated_access" ADD CONSTRAINT "delegated_access_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delegated_access" ADD CONSTRAINT "delegated_access_grantedToUserId_fkey" FOREIGN KEY ("grantedToUserId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delegated_access" ADD CONSTRAINT "delegated_access_grantedForUserId_fkey" FOREIGN KEY ("grantedForUserId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "delegated_access" ADD CONSTRAINT "delegated_access_grantedBy_fkey" FOREIGN KEY ("grantedBy") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "companies" ADD CONSTRAINT "companies_bankId_fkey" FOREIGN KEY ("bankId") REFERENCES "banks"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -2047,6 +2248,9 @@ ALTER TABLE "contract_status_history" ADD CONSTRAINT "contract_status_history_co
 ALTER TABLE "contract_notifications" ADD CONSTRAINT "contract_notifications_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "contracts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_parentInvoiceId_fkey" FOREIGN KEY ("parentInvoiceId") REFERENCES "invoices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -2054,6 +2258,9 @@ ALTER TABLE "invoices" ADD CONSTRAINT "invoices_contractId_fkey" FOREIGN KEY ("c
 
 -- AddForeignKey
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_timesheetId_fkey" FOREIGN KEY ("timesheetId") REFERENCES "timesheets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_currencyId_fkey" FOREIGN KEY ("currencyId") REFERENCES "currencies"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -2069,6 +2276,9 @@ ALTER TABLE "invoices" ADD CONSTRAINT "invoices_paymentReceivedBy_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "invoice_line_items" ADD CONSTRAINT "invoice_line_items_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoice_documents" ADD CONSTRAINT "invoice_documents_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "margins" ADD CONSTRAINT "margins_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2185,6 +2395,9 @@ ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_revokedById_fkey" FOREIGN KEY ("
 ALTER TABLE "banks" ADD CONSTRAINT "banks_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "banks" ADD CONSTRAINT "banks_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "document_types" ADD CONSTRAINT "document_types_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -2227,10 +2440,16 @@ ALTER TABLE "payslips" ADD CONSTRAINT "payslips_contractId_fkey" FOREIGN KEY ("c
 ALTER TABLE "remittances" ADD CONSTRAINT "remittances_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "remittances" ADD CONSTRAINT "remittances_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "remittances" ADD CONSTRAINT "remittances_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "remittances" ADD CONSTRAINT "remittances_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "contracts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "remittances" ADD CONSTRAINT "remittances_recipientId_fkey" FOREIGN KEY ("recipientId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "remittances" ADD CONSTRAINT "remittances_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "referrals" ADD CONSTRAINT "referrals_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2309,3 +2528,21 @@ ALTER TABLE "tenant_workflow_settings" ADD CONSTRAINT "tenant_workflow_settings_
 
 -- AddForeignKey
 ALTER TABLE "tenant_workflow_settings" ADD CONSTRAINT "tenant_workflow_settings_timesheetWorkflowTemplateId_fkey" FOREIGN KEY ("timesheetWorkflowTemplateId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "feature_requests" ADD CONSTRAINT "feature_requests_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "feature_requests" ADD CONSTRAINT "feature_requests_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "feature_requests" ADD CONSTRAINT "feature_requests_confirmedBy_fkey" FOREIGN KEY ("confirmedBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "feature_requests" ADD CONSTRAINT "feature_requests_rejectedBy_fkey" FOREIGN KEY ("rejectedBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FeatureRequestAttachment" ADD CONSTRAINT "FeatureRequestAttachment_featureRequestId_fkey" FOREIGN KEY ("featureRequestId") REFERENCES "feature_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "page_test_status" ADD CONSTRAINT "page_test_status_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

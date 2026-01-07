@@ -203,7 +203,7 @@ export default function LoginPage() {
         </Card>
 
         {/* Quick Login Buttons (Development Only) */}
-        {mounted && process.env.NODE_ENV === "development" && (
+        {mounted && /*process.env.NODE_ENV === "development" &&*/ (
           <Card className="mt-4">
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-3">

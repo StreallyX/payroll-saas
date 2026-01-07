@@ -6,6 +6,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { PaymentModel } from "@prisma/client";
 
 // ⚠️ IMPORTANT : importer TON nouveau fichier RBAC v4
 import {
@@ -141,6 +142,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.BANK, Action.DELETE, PermissionScope.OWN),
     buildPermissionKey(Resource.BANK, Action.CREATE, PermissionScope.OWN),
     buildPermissionKey(Resource.BANK, Action.UPDATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
+
   ],
 
   PAYROLL: [
@@ -193,6 +198,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // CONTRACTS (own)
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
   ],
 
   AGENCY: [
@@ -252,6 +260,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.ROLE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.UPDATE, PermissionScope.OWN),
     buildPermissionKey(Resource.ROLE, Action.CREATE, PermissionScope.OWN),
+
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+    buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
   ],
 };
 
@@ -417,6 +428,159 @@ async function seedBaseData(prisma: PrismaClient) {
 
 
 // ====================================================================
+// SEED COMPANY + BANK + CONTRACTS
+// ====================================================================
+
+async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) {
+  console.log("🏢 Création de la tenant company, compte bancaire et contrats...");
+
+  // 1. Get USD currency and US country
+  const usdCurrency = await prisma.currency.findUnique({
+    where: { code: "USD" },
+  });
+
+  const usCountry = await prisma.country.findUnique({
+    where: { code: "US" },
+  });
+
+  if (!usdCurrency || !usCountry) {
+    console.error("❌ USD or US not found. Please run seedBaseData first.");
+    return;
+  }
+
+  // 2. Create default bank account for tenant company
+  let tenantBank = await prisma.bank.findFirst({
+    where: {
+      tenantId,
+      createdBy: null, // Tenant-level bank
+    },
+  });
+
+  if (!tenantBank) {
+    tenantBank = await prisma.bank.create({
+      data: {
+        tenantId,
+        accountName: "Default Tenant Bank Account",
+        bankName: "Default Bank",
+        accountHolder: "Tenant Company",
+        accountNumber: "1234567890",
+        currency: usdCurrency.code,
+        usage: "gross",
+        isPrimary: true,
+        isActive: true,
+        status: "active",
+      },
+    });
+    console.log("✅ Default bank account created");
+  } else {
+    console.log("✅ Default bank account already exists");
+  }
+
+  // 3. Create tenant company marked as TENANT
+  let tenantCompany = await prisma.company.findFirst({
+    where: {
+      tenantId,
+      ownerType: "tenant",
+    },
+  });
+
+  if (!tenantCompany) {
+    tenantCompany = await prisma.company.create({
+      data: {
+        tenantId,
+        name: "Tenant Company",
+        ownerType: "tenant",
+        bankId: tenantBank.id,
+        contactPerson: "Admin",
+        contactEmail: "admin@tenant.com",
+        contactPhone: "+1234567890",
+        countryId: usCountry.id,
+        city: "New York",
+        status: "active",
+      },
+    });
+    console.log("✅ Tenant company created");
+  } else {
+    console.log("✅ Tenant company already exists");
+  }
+
+  // 4. Get admin user for contract creation
+  const adminUser = await prisma.user.findFirst({
+    where: {
+      tenantId,
+      role: {
+        name: "ADMIN",
+      },
+    },
+    include: {
+      role: true,
+    },
+  });
+
+  if (!adminUser) {
+    console.error("❌ Admin user not found. Cannot create contracts.");
+    return;
+  }
+
+  // 5. Create 4 contracts of each type (GROSS, PAYROLL, PAYROLL_WE_PAY, SPLIT)
+  const contractTypes: PaymentModel[] = [
+    PaymentModel.gross,
+    PaymentModel.payroll,
+    PaymentModel.payroll_we_pay,
+    PaymentModel.split,
+  ];
+  const contractCount = 4;
+
+  /*for (const contractType of contractTypes) {
+    for (let i = 1; i <= contractCount; i++) {
+      // Check if contract already exists
+      const existingContract = await prisma.contract.findFirst({
+        where: {
+          tenantId,
+          paymentModel: contractType as any,
+          title: `${contractType} Contract ${i}`,
+        },
+      });
+
+      if (!existingContract) {
+        await prisma.contract.create({
+          data: {
+            tenantId,
+            type: "sow",
+            createdBy: adminUser.id,
+            status: "active",
+            title: `${contractType} Contract ${i}`,
+            description: `Sample ${contractType} contract for testing purposes`,
+            workflowStatus: "active",
+            rate: 5000,
+            rateType: "monthly",
+            currencyId: usdCurrency.id,
+            rateCycle: "monthly",
+            margin: 10,
+            marginType: "percentage",
+            marginPaidBy: "client",
+            salaryType: "gross",
+            bankId: tenantBank.id,
+            invoiceDueDays: 30,
+            invoiceDueTerm: "net30",
+            paymentModel: contractType as any,
+            contractReference: `${contractType}-${Date.now()}-${i}`,
+            contractCountryId: usCountry.id,
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+          },
+        });
+        console.log(`✅ Created ${contractType} Contract ${i}`);
+      } else {
+        console.log(`✅ ${contractType} Contract ${i} already exists`);
+      }
+    }
+  }
+
+  console.log("✨ Tenant company, bank account and contracts creation completed!");*/
+}
+
+// ====================================================================
 // MAIN
 // ====================================================================
 
@@ -445,6 +609,9 @@ async function main() {
 
   // Test Users
   await seedTestUsers(prisma, tenant.id);
+
+  // Company + Bank + Contracts (NEW)
+  await seedCompanyBankContracts(prisma, tenant.id);
 
   console.log("✨ Seed terminé !");
 }

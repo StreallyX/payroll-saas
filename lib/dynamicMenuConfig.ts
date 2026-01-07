@@ -406,6 +406,14 @@ export const dynamicMenuConfig: MenuItem[] = [
           P(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
         ]
       },
+      {
+        label: "Page Testing",
+        href: "/feature-requests/test-tracking",
+        icon: ListChecks,
+        permissions: [
+          P(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
+        ]
+      },
     ]
   },
 
