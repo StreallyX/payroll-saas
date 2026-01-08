@@ -423,7 +423,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.CREATE,
     PermissionScope.OWN,
     "Create own roles",
-    "Create un rôle qui sera marqué comme appartenant à l’utilisateur",
+    "Create a role that will be marked as belonging to the user",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -2102,7 +2102,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.UPDATE,
     PermissionScope.GLOBAL,
     "Edit participants",
-    "Update le rôle ou les informations d’un participant",
+    "Update the role or information of a participant",
     PermissionCategory.BUSINESS
   ),
   createPermission(

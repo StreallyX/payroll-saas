@@ -261,7 +261,7 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      // Si password non fourni → on crée un token d’activation
+      // If password not provided → we create an activation token
       if (!input.password) {
         const token = crypto.randomBytes(48).toString("hex");
         await ctx.prisma.passwordResetToken.create({

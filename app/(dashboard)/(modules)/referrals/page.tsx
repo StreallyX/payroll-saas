@@ -133,7 +133,7 @@ export default function ContractorReferPage() {
     });
   };
 
-  // === COLUMNS ADAPTÉS À TON NOUVEAU BACKEND ===
+  // === COLUMNS ADAPTED TO YOUR NEW BACKEND ===
   const columns: Column<any>[] = [
     {
       key: "referredName",
