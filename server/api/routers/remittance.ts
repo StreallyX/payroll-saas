@@ -21,7 +21,7 @@ const DELETE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.DELETE, Per
 
 
 // ==========================================================================
-// 🔥 Helper pour convertir Decimal en number
+// 🔥 Helper to convert Decimal to number
 // ==========================================================================
 const serializeRemittance = (r: any) => ({
   ...r,

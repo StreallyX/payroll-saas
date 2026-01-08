@@ -1,8 +1,8 @@
 
 /**
- * Guards - Composants de protection basés sur les permissions
+ * Guards - Permission-based protection components
  * 
- * Exportations centralisées des composants de garde.
+ * Centralized exports of guard components.
  */
 
 export { PermissionGuard, usePermissionGuard } from "./PermissionGuard";

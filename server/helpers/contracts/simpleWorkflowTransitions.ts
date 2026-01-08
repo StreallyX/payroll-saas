@@ -1,8 +1,8 @@
 /**
- * Helper pour gérer les transitions de workflow du système simplifié
+ * Helper for managing simplified system workflow transitions
  * 
- * Ce helper définit et valide les transitions autorisées entre les
- * différents statuts des contrats simplifiés.
+ * This helper defines and validates allowed transitions between
+ * different statuses of simplified contracts.
  */
 
 import { TRPCError } from "@trpc/server";
@@ -39,11 +39,11 @@ export interface WorkflowTransition {
 }
 
 // ============================================================================
-// TRANSITIONS AUTORISÉES (Workflow Simplifié)
+// ALLOWED TRANSITIONS (Simplified Workflow)
 // ============================================================================
 
 /**
- * Définit les transitions autorisées dans le workflow simplifié
+ * Defines allowed transitions in simplified workflow
  * 
  * Workflow:
  * 1. draft → pending_admin_review (submit_for_review)
@@ -53,7 +53,7 @@ export interface WorkflowTransition {
  * 5. active → paused (pause)
  * 6. paused → active (resume)
  * 7. active → terminated (terminate)
- * 8. * → cancelled (cancel - depuis n'importe quel statut)
+ * 8. * → cancelled (cancel - from any status)
  */
 export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
   {
@@ -61,49 +61,49 @@ export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
     to: "pending_admin_review",
     action: "submit_for_review",
     requiresPermission: "contracts.update",
-    description: "Soumettre le contrat pour validation admin",
+    description: "Submit contract for admin validation",
   },
   {
     from: "pending_admin_review",
     to: "completed",
     action: "admin_approve",
     requiresPermission: "contracts.approve",
-    description: "Approuver le contrat (admin)",
+    description: "Approve contract (admin)",
   },
   {
     from: "pending_admin_review",
     to: "draft",
     action: "admin_reject",
     requiresPermission: "contracts.approve",
-    description: "Rejeter le contrat et le remettre en draft",
+    description: "Reject contract and return to draft",
   },
   {
     from: "completed",
     to: "active",
     action: "activate",
     requiresPermission: "contracts.approve",
-    description: "Activer le contrat",
+    description: "Activate contract",
   },
   {
     from: "active",
     to: "paused",
     action: "pause",
     requiresPermission: "contracts.update",
-    description: "Mettre le contrat en pause",
+    description: "Pause contract",
   },
   {
     from: "paused",
     to: "active",
     action: "resume",
     requiresPermission: "contracts.update",
-    description: "Reprendre le contrat en pause",
+    description: "Resume paused contract",
   },
   {
     from: "active",
     to: "terminated",
     action: "terminate",
     requiresPermission: "contracts.update",
-    description: "Terminer le contrat",
+    description: "Terminate contract",
   },
 ];
 
@@ -112,12 +112,12 @@ export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
 // ============================================================================
 
 /**
- * Vérifie si une transition est autorisée
+ * Checks if a transition is allowed
  * 
- * @param from - Statut de départ
- * @param to - Statut d'arrivée
- * @param action - Action à effectuer
- * @returns true si la transition est autorisée
+ * @param from - Starting status
+ * @param to - Target status
+ * @param action - Action to perform
+ * @returns true if transition is allowed
  * 
  * @example
  * isTransitionAllowed("draft", "pending_admin_review", "submit_for_review") // true
@@ -134,12 +134,12 @@ export function isTransitionAllowed(
 }
 
 /**
- * Valide une transition et lance une erreur si non autorisée
+ * Validates a transition and throws error if not allowed
  * 
- * @param from - Statut de départ
- * @param to - Statut d'arrivée
- * @param action - Action à effectuer
- * @throws TRPCError si transition non autorisée
+ * @param from - Starting status
+ * @param to - Target status
+ * @param action - Action to perform
+ * @throws TRPCError if transition not allowed
  * 
  * @example
  * validateTransition("draft", "pending_admin_review", "submit_for_review");
@@ -156,17 +156,17 @@ export function validateTransition(
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
-        `Transition non autorisée: ${from} → ${to} via ${action}. ` +
-        `Actions disponibles depuis ${from}: ${availableActions || "aucune"}.`,
+        `Transition not allowed: ${from} → ${to} via ${action}. ` +
+        `Available actions from ${from}: ${availableActions || "none"}.`,
     });
   }
 }
 
 /**
- * Récupère les transitions possibles depuis un statut donné
+ * Retrieves possible transitions from a given status
  * 
- * @param currentStatus - Statut actuel du contrat
- * @returns Liste des transitions possibles
+ * @param currentStatus - Current contract status
+ * @returns List of possible transitions
  * 
  * @example
  * const transitions = getAvailableTransitions("draft");
@@ -179,11 +179,11 @@ export function getAvailableTransitions(
 }
 
 /**
- * Récupère la transition correspondant à une action depuis un statut
+ * Retrieves transition corresponding to an action from a status
  * 
  * @param currentStatus - Statut actuel
- * @param action - Action à effectuer
- * @returns Transition trouvée ou undefined
+ * @param action - Action to perform
+ * @returns Found transition or undefined
  * 
  * @example
  * const transition = getTransitionByAction("draft", "submit_for_review");
@@ -198,58 +198,58 @@ export function getTransitionByAction(
 }
 
 // ============================================================================
-// HELPERS DE STATUT
+// STATUS HELPERS
 // ============================================================================
 
 /**
- * Vérifie si un contrat est en draft
+ * Checks if a contract is in draft
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat est en draft
+ * @param contract - Contract to check
+ * @returns true if contract is in draft
  */
 export function isDraft(contract: { status: string; workflowStatus?: string }): boolean {
   return contract.status === "draft" || contract.workflowStatus === "draft";
 }
 
 /**
- * Vérifie si un contrat peut être supprimé
+ * Checks if a contract can be deleted
  * 
- * Règle: seuls les contrats en draft peuvent être supprimés
+ * Rule: only draft contracts can be deleted
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat peut être supprimé
+ * @param contract - Contract to check
+ * @returns true if contract can be deleted
  */
 export function canDelete(contract: { status: string }): boolean {
   return contract.status === "draft";
 }
 
 /**
- * Vérifie si un contrat peut être modifié
+ * Checks if a contract can be modified
  * 
- * Règle: seuls les contrats en draft ou pending_admin_review peuvent être modifiés
+ * Rule: only draft or pending_admin_review contracts can be modified
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat peut être modifié
+ * @param contract - Contract to check
+ * @returns true if contract can be modified
  */
 export function canEdit(contract: { status: string }): boolean {
   return ["draft", "pending_admin_review"].includes(contract.status);
 }
 
 /**
- * Vérifie si un contrat est actif (peut générer des factures, payslips, etc.)
+ * Checks if a contract is active (can generate invoices, payslips, etc.)
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat est actif
+ * @param contract - Contract to check
+ * @returns true if contract is active
  */
 export function isActive(contract: { status: string }): boolean {
   return contract.status === "active";
 }
 
 /**
- * Vérifie si un contrat est complété (toutes signatures collectées)
+ * Checks if a contract is completed (all signatures collected)
  * 
- * @param contract - Contrat à vérifier
- * @returns true si le contrat est complété
+ * @param contract - Contract to check
+ * @returns true if contract is completed
  */
 export function isCompleted(contract: { status: string }): boolean {
   return contract.status === "completed";
@@ -260,10 +260,10 @@ export function isCompleted(contract: { status: string }): boolean {
 // ============================================================================
 
 /**
- * Obtient la couleur du badge selon le statut (pour UI)
+ * Gets badge color based on status (for UI)
  * 
- * @param status - Statut du contrat
- * @returns Nom de couleur (Tailwind CSS)
+ * @param status - Contract status
+ * @returns Color name (Tailwind CSS)
  * 
  * @example
  * getStatusBadgeColor("active") // "green"
@@ -283,44 +283,44 @@ export function getStatusBadgeColor(status: ContractStatus): string {
 }
 
 /**
- * Obtient le label français du statut (pour UI)
+ * Gets status label (for UI)
  * 
- * @param status - Statut du contrat
- * @returns Label en français
+ * @param status - Contract status
+ * @returns Label
  * 
  * @example
- * getStatusLabel("pending_admin_review") // "En attente de validation"
+ * getStatusLabel("pending_admin_review") // "Awaiting validation"
  */
 export function getStatusLabel(status: ContractStatus): string {
   const labels: Record<ContractStatus, string> = {
     draft: "Brouillon",
-    pending_admin_review: "En attente de validation",
-    completed: "Complété",
+    pending_admin_review: "Awaiting validation",
+    completed: "Completed",
     active: "Actif",
-    cancelled: "Annulé",
+    cancelled: "Cancelled",
     paused: "En pause",
-    terminated: "Terminé",
+    terminated: "Terminated",
   };
 
   return labels[status] || status;
 }
 
 /**
- * Obtient la description d'une action (pour UI)
+ * Gets action description (for UI)
  * 
  * @param action - Action du workflow
- * @returns Description en français
+ * @returns Description
  * 
  * @example
- * getActionLabel("submit_for_review") // "Soumettre pour validation"
+ * getActionLabel("submit_for_review") // "Submit for validation"
  */
 export function getActionLabel(action: WorkflowAction): string {
   const labels: Record<WorkflowAction, string> = {
-    submit_for_review: "Soumettre pour validation",
+    submit_for_review: "Submit for validation",
     admin_approve: "Approuver",
     admin_reject: "Rejeter",
     activate: "Activer",
-    pause: "Mettre en pause",
+    pause: "Pause",
     resume: "Reprendre",
     terminate: "Terminer",
     cancel: "Annuler",

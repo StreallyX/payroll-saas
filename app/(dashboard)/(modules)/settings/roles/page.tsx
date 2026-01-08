@@ -33,13 +33,13 @@ export default function ManageRolesPage() {
 
   const deleteMutation = api.role.delete.useMutation({
     onSuccess: () => {
-      toast.success("Rôle deleted successfully!")
+      toast.success("Role deleted successfully!")
       utils.role.getAll.invalidate()
       utils.role.getStats.invalidate()
       setRoleToDelete(null)
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to delete du rôle")
+      toast.error(error?.message || "Failed to delete role")
     }
   })
 
@@ -58,7 +58,7 @@ export default function ManageRolesPage() {
   }
 
   if (isLoading) {
-    return <LoadingState message="Chargement des rôles..." />
+    return <LoadingState message="Loading roles..." />
   }
 
   const filteredRoles = roles?.filter(role =>
@@ -68,14 +68,14 @@ export default function ManageRolesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Gestion des rôles"
-        description="Gérez les rôles et les permissions du système"
+        title="Role Management"
+        description="Manage system roles and permissions"
       >
         <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
-              placeholder="Search un rôle..."
+              placeholder="Search a role..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-64"
@@ -83,7 +83,7 @@ export default function ManageRolesPage() {
           </div>
           <Button size="sm" onClick={handleAddRole}>
             <Plus className="h-4 w-4 mr-2" />
-            New rôle
+            New role
           </Button>
         </div>
       </PageHeader>
@@ -94,7 +94,7 @@ export default function ManageRolesPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total des rôles</p>
+                <p className="text-sm text-gray-600">Total roles</p>
                 <p className="text-2xl font-bold mt-1">{stats.total}</p>
               </div>
               <Shield className="h-8 w-8 text-blue-500" />
@@ -216,8 +216,8 @@ export default function ManageRolesPage() {
             deleteMutation.mutate({ id: roleToDelete.id })
           }
         }}
-        title="Delete le rôle"
-        description={`Are you sure you want to delete le rôle "${roleToDelete?.name}" ? Cette action est irréversible.`}
+        title="Delete role"
+        description={`Are you sure you want to delete the role "${roleToDelete?.name}" ? This action is irreversible.`}
         isLoading={deleteMutation.isPending}
       />
     </div>

@@ -4,12 +4,12 @@ import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 
 /**
- * Hook pour gérer les actions spécifiques aux contrats NORM
+ * Hook for managing NORM contract specific actions
  * 
  * Actions disponibles:
- * - createNormContract: Créer un nouveau contrat NORM
- * - updateNormContract: Mettre à jour un contrat NORM (draft uniquement)
- * - contractorSignContract: Permettre au contractor de signer le contrat
+ * - createNormContract: Create a new NORM contract
+ * - updateNormContract: Update a NORM contract (draft only)
+ * - contractorSignContract: Allow contractor to sign the contract
  */
 export function useNormContract() {
   const utils = api.useUtils();
@@ -17,36 +17,36 @@ export function useNormContract() {
   // Create NORM contract
   const createNormContract = api.simpleContract.createNormContract.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat NORM créé avec succès");
-      // Invalider les queries pour rafraîchir les données
+      toast.success("NORM contract created successfully");
+      // Invalidate queries to refresh data
       utils.simpleContract.listSimpleContracts.invalidate();
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de la création du contrat NORM");
+      toast.error(error.message || "Failed to create NORM contract");
     },
   });
 
   // Update NORM contract
   const updateNormContract = api.simpleContract.updateNormContract.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat NORM mis à jour avec succès");
+      toast.success("NORM contract updated successfully");
       utils.simpleContract.listSimpleContracts.invalidate();
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de la mise à jour du contrat NORM");
+      toast.error(error.message || "Failed to update NORM contract");
     },
   });
 
   // Contractor sign contract
   const contractorSignContract = api.simpleContract.contractorSignContract.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat signé avec succès");
+      toast.success("Contract signed successfully");
       utils.simpleContract.listSimpleContracts.invalidate();
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de la signature du contrat");
+      toast.error(error.message || "Failed to sign contract");
     },
   });
 

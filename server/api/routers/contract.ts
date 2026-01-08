@@ -49,22 +49,22 @@ const participantInputSchema = z.object({
   isPrimary: z.boolean().optional().default(false),
 })
 .refine((data) => {
-  // 🔥 VALIDATION : Au moins userId OU companyId doit être présent
+  // 🔥 VALIDATION: At least userId OR companyId must be present
   if (!data.userId && !data.companyId) {
     return false
   }
   return true
 }, {
-  message: "Au moins userId ou companyId doit être fourni pour un participant."
+  message: "At least userId or companyId must be provided for a participant."
 })
 .refine((data) => {
-  // 🔥 VALIDATION CRITIQUE : Les approvers ne doivent JAMAIS avoir requiresSignature: true
+  // 🔥 CRITICAL VALIDATION: Approvers must NEVER have requiresSignature: true
   if (data.role === "approver" && data.requiresSignature === true) {
     return false
   }
   return true
 }, {
-  message: "Les approvers ne peuvent pas avoir requiresSignature: true. Utilisez le champ 'approved' pour les approbations."
+  message: "Approvers cannot have requiresSignature: true. Use the 'approved' field for approvals."
 })
 
 const baseContractSchema = z.object({
@@ -83,8 +83,8 @@ const baseContractSchema = z.object({
   status: z.enum(["draft", "pending_approval", "pending_signature", "active", "completed", "cancelled", "paused"]).optional(),
   workflowStatus: z.enum([
     "draft",
-    "pending_approval", // 🔥 Ajouté pour le workflow d'approbation
-    "pending_signature", // 🔥 Ajouté pour le workflow de signature
+    "pending_approval", // 🔥 Added for approval workflow
+    "pending_signature", // 🔥 Added for signature workflow
     "pending_agency_sign",
     "pending_contractor_sign",
     "active",
@@ -287,18 +287,18 @@ export const contractRouter = createTRPCRouter({
       const userId = ctx.session.user.id
       await ensureTypePermission(ctx, input.type, "CREATE_GLOBAL")
 
-      // règles de parentage
+      // parenting rules
       if (input.type === "sow" && input.parentId) {
         const parent = await ctx.prisma.contract.findFirst({
           where: { id: input.parentId, tenantId: ctx.tenantId },
           select: { id: true, type: true },
         })
         assert(parent, "Parent MSA introuvable", "BAD_REQUEST")
-        assert(parent!.type === "msa", "Le parent doit être un MSA", "BAD_REQUEST")
+        assert(parent!.type === "msa", "Parent must be an MSA", "BAD_REQUEST")
       }
       if (input.type === "msa") {
-        // sécurité : un MSA n'a pas de parent
-        assert(!input.parentId, "Un MSA ne peut pas avoir de parent", "BAD_REQUEST")
+        // security: an MSA has no parent
+        assert(!input.parentId, "An MSA cannot have a parent", "BAD_REQUEST")
       }
 
       const { participants, ...raw } = input
@@ -333,8 +333,8 @@ export const contractRouter = createTRPCRouter({
               userId: p.userId || null,
               companyId: p.companyId || null,
               role: p.role,
-              requiresSignature: p.role === "approver" ? false : (p.requiresSignature ?? false), // 🔥 Approvers ne peuvent JAMAIS avoir requiresSignature
-              approved: false, // 🔥 Initialisé à false, passera à true quand l'approver approuve
+              requiresSignature: p.role === "approver" ? false : (p.requiresSignature ?? false), // 🔥 Approvers can NEVER have requiresSignature
+              approved: false, // 🔥 Initialized to false, will become true when approver approves
               isPrimary: p.isPrimary ?? false,
             })),
           })
@@ -391,9 +391,9 @@ export const contractRouter = createTRPCRouter({
         if (!user.permissions.includes(P.MSA.UPDATE_GLOBAL)) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Missing contract_msa.update.global" })
         }
-        // sécurité : on évite de lier un parent à un MSA
+        // security: we avoid linking a parent to an MSA
         if (updates.parentId) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Un MSA ne peut pas avoir de parent" })
+          throw new TRPCError({ code: "BAD_REQUEST", message: "An MSA cannot have a parent" })
         }
       } else {
         // SOW → update global ou own (draft-only)
@@ -405,14 +405,14 @@ export const contractRouter = createTRPCRouter({
           await ensureIsParticipantActive(ctx, id, user.id)
           assert(isDraft(current), "OWN update only allowed on DRAFT contracts", "FORBIDDEN")
         }
-        // si on modifie parentId sur un SOW → le parent doit rester un MSA
+        // if we modify parentId on a SOW → parent must remain an MSA
         if (updates.parentId) {
           const parent = await ctx.prisma.contract.findFirst({
             where: { id: updates.parentId, tenantId },
             select: { id: true, type: true },
           })
           assert(parent, "Parent MSA introuvable", "BAD_REQUEST")
-          assert(parent!.type === "msa", "Le parent doit être un MSA", "BAD_REQUEST")
+          assert(parent!.type === "msa", "Parent must be an MSA", "BAD_REQUEST")
         }
       }
 
@@ -492,7 +492,7 @@ export const contractRouter = createTRPCRouter({
       })
       if (!current) throw new TRPCError({ code: "NOT_FOUND" })
 
-      // authorisations par type OK (procédure couvre les 2 permissions)
+      // authorizations by type OK (procedure covers both permissions)
       assert(isDraft(current), "Delete only allowed on DRAFT contracts", "FORBIDDEN")
 
       await ctx.prisma.contract.delete({ where: { id: input.id } })
@@ -555,8 +555,8 @@ export const contractRouter = createTRPCRouter({
           userId: participant.userId,
           companyId: participant.companyId,
           role: participant.role,
-          requiresSignature: participant.role === "approver" ? false : (participant.requiresSignature ?? false), // 🔥 Approvers ne peuvent JAMAIS avoir requiresSignature
-          approved: false, // 🔥 Initialisé à false, passera à true quand l'approver approuve
+          requiresSignature: participant.role === "approver" ? false : (participant.requiresSignature ?? false), // 🔥 Approvers can NEVER have requiresSignature
+          approved: false, // 🔥 Initialized to false, will become true when approver approves
           isPrimary: participant.isPrimary ?? false,
         },
       })
@@ -596,9 +596,9 @@ export const contractRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // ACTIONS MÉTIER
+  // BUSINESS ACTIONS
   // -------------------------------------------------------
-  // 1) SEND (GLOBAL) → passe en pending_* et émet notifs
+  // 1) SEND (GLOBAL) → changes to pending_* and emits notifications
   sendForSignature: tenantProcedure
     .use(hasPermission(P.CONTRACT.SEND_GLOBAL))
     .input(z.object({ id: z.string(), target: z.enum(["agency", "contractor"]).optional() }))
@@ -732,7 +732,7 @@ export const contractRouter = createTRPCRouter({
         },
         orderBy: { createdAt: "desc" },
       })
-      // à brancher sur ton générateur CSV/Excel/PDF
+      // to connect to your CSV/Excel/PDF generator
       return { count: rows.length, rows }
     }),
 
@@ -762,7 +762,7 @@ export const contractRouter = createTRPCRouter({
     .use(hasAnyPermission([P.CONTRACT.UPDATE_GLOBAL, P.CONTRACT.UPDATE_OWN]))
     .input(z.object({ 
       contractId: z.string(),
-      documentId: z.string(), // ID du document uploadé
+      documentId: z.string(), // ID of uploaded document
     }))
     .mutation(async ({ ctx, input }) => {
       const contract = await ctx.prisma.contract.findFirst({
@@ -884,7 +884,7 @@ export const contractRouter = createTRPCRouter({
   uploadSignedContract: tenantProcedure
     .input(z.object({ 
       contractId: z.string(),
-      documentId: z.string(), // ID du document uploadé
+      documentId: z.string(), // ID of uploaded document
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id

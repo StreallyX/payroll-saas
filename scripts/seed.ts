@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * SEED RBAC V4 - Compatible avec la nouvelle base User-centric
+ * SEED RBAC V4 - Compatible with new User-centric base
  * ====================================================================
  */
 
@@ -8,7 +8,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { PaymentModel } from "@prisma/client";
 
-// ⚠️ IMPORTANT : importer TON nouveau fichier RBAC v4
+// ⚠️ IMPORTANT: import YOUR new RBAC v4 file
 import {
   ALL_PERMISSIONS,
   Resource,
@@ -76,7 +76,7 @@ export const DEFAULT_ROLES = [
 
 
 // ====================================================================
-// ROLE → PERMISSIONS   (clean pour ta DB v4)
+// ROLE → PERMISSIONS (clean for your DB v4)
 // ====================================================================
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -336,7 +336,7 @@ export async function seedRBAC(prisma: PrismaClient, tenantId: string) {
 // ====================================================================
 
 export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
-  console.log("👤 Création des utilisateurs…");
+  console.log("👤 Creating users...");
 
   const USERS = [
     {
@@ -392,11 +392,11 @@ export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
     });
   }
 
-  console.log("✨ Comptes créés !");
+  console.log("✨ Accounts created!");
 }
 
 // ====================================================================
-// SEED DEFAULT CURRENCY + COUNTRY (CORRIGÉ)
+// SEED DEFAULT CURRENCY + COUNTRY (FIXED)
 // ====================================================================
 
 async function seedBaseData(prisma: PrismaClient) {
@@ -415,7 +415,7 @@ async function seedBaseData(prisma: PrismaClient) {
 
   // 1 country de base → United States
   await prisma.country.upsert({
-    where: { code: "US" },        // ✔ utilise TON champ "code"
+    where: { code: "US" },        // ✔ uses YOUR "code" field
     update: {},
     create: {
       code: "US",
@@ -432,7 +432,7 @@ async function seedBaseData(prisma: PrismaClient) {
 // ====================================================================
 
 async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) {
-  console.log("🏢 Création de la tenant company, compte bancaire et contrats...");
+  console.log("🏢 Creating tenant company, bank account and contracts...");
 
   // 1. Get USD currency and US country
   const usdCurrency = await prisma.currency.findUnique({
@@ -592,7 +592,7 @@ async function main() {
   let tenant = await prisma.tenant.findFirst();
 
   if (!tenant) {
-    console.log("📦 Aucun tenant → création…");
+    console.log("📦 No tenant → creating...");
     tenant = await prisma.tenant.create({
       data: {
         name: "Default Tenant",
@@ -613,7 +613,7 @@ async function main() {
   // Company + Bank + Contracts (NEW)
   await seedCompanyBankContracts(prisma, tenant.id);
 
-  console.log("✨ Seed terminé !");
+  console.log("✨ Seed completed!");
 }
 
 

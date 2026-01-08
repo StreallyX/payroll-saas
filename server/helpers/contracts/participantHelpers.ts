@@ -1,8 +1,8 @@
 /**
- * Helpers pour la gestion des participants supplémentaires
+ * Helpers for managing additional participants
  * 
- * Ces helpers facilitent la création et la validation des participants
- * lors de la création de contrats ou l'ajout manuel de participants.
+ * These helpers facilitate creation and validation of participants
+ * during contract creation or manual participant addition.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -10,16 +10,16 @@ import { TRPCError } from "@trpc/server";
 import { AdditionalParticipantInput } from "@/server/validators/simpleContract";
 
 /**
- * Crée plusieurs participants supplémentaires pour un contrat
+ * Creates multiple additional participants for a contract
  * 
- * Cette fonction est utilisée lors de la création de contrats pour ajouter
- * tous les participants supplémentaires en une seule transaction.
+ * This function is used during contract creation to add
+ * all additional participants in a single transaction.
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param participants - Tableau de participants à créer
- * @returns Tableau des participants créés
- * @throws TRPCError si validation échoue
+ * @param contractId - Contract ID
+ * @param participants - Array of participants to create
+ * @returns Array of created participants
+ * @throws TRPCError if validation fails
  * 
  * @example
  * await createAdditionalParticipants(prisma, "clxxx123", [
@@ -42,15 +42,15 @@ export async function createAdditionalParticipants(
   for (const participant of participants) {
     const { userId, companyId, role } = participant;
 
-    // Validation: au moins userId ou companyId doit être fourni
+    // Validation: at least userId or companyId must be provided
     if (!userId && !companyId) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Au moins userId ou companyId doit être fourni pour chaque participant",
+        message: "At least userId or companyId must be provided for each participant",
       });
     }
 
-    // Vérifier si le participant n'existe pas déjà
+    // Check if participant doesn't already exist
     const existingParticipant = await prisma.contractParticipant.findFirst({
       where: {
         contractId,
@@ -67,7 +67,7 @@ export async function createAdditionalParticipants(
       continue;
     }
 
-    // Créer le participant
+    // Create participant
     try {
       const created = await prisma.contractParticipant.create({
         data: {
@@ -103,7 +103,7 @@ export async function createAdditionalParticipants(
       console.error("[createAdditionalParticipants] Error creating participant:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Échec de la création d'un participant supplémentaire",
+        message: "Failed to create additional participant",
         cause: error,
       });
     }
@@ -113,13 +113,13 @@ export async function createAdditionalParticipants(
 }
 
 /**
- * Vérifie si un participant peut être supprimé
+ * Checks if a participant can be deleted
  * 
- * Les participants principaux (company_tenant, agency, contractor) ne peuvent
- * pas être supprimés car ils sont essentiels au contrat.
+ * Main participants (company_tenant, agency, contractor) cannot
+ * be deleted as they are essential to the contract.
  * 
- * @param role - Rôle du participant
- * @returns true si le participant peut être supprimé, false sinon
+ * @param role - Participant role
+ * @returns true if participant can be deleted, false otherwise
  * 
  * @example
  * const canRemove = canRemoveParticipant("additional"); // true
@@ -131,18 +131,18 @@ export function canRemoveParticipant(role: string): boolean {
 }
 
 /**
- * Valide qu'un participant peut être ajouté à un contrat
+ * Validates that a participant can be added to a contract
  * 
- * Vérifie que :
- * - Le contrat existe et est dans un statut modifiable (draft ou pending)
+ * Verifies that:
+ * - Contract exists and is in a modifiable status (draft or pending)
  * - Au moins userId ou companyId est fourni
- * - L'utilisateur ou la company existent s'ils sont fournis
+ * - User or company exist if provided
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur (optionnel)
- * @param companyId - ID de la company (optionnel)
- * @throws TRPCError si validation échoue
+ * @param contractId - Contract ID
+ * @param userId - User ID (optional)
+ * @param companyId - Company ID (optional)
+ * @throws TRPCError if validation fails
  * 
  * @example
  * await validateParticipantAddition(prisma, "clxxx123", "clusr456", null);
@@ -153,15 +153,15 @@ export async function validateParticipantAddition(
   userId?: string,
   companyId?: string
 ) {
-  // Validation 1: Au moins userId ou companyId doit être fourni
+  // Validation 1: At least userId or companyId must be provided
   if (!userId && !companyId) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Au moins userId ou companyId doit être fourni",
+      message: "At least userId or companyId must be provided",
     });
   }
 
-  // Validation 2: Le contrat existe et est modifiable
+  // Validation 2: Contract exists and is modifiable
   const contract = await prisma.contract.findUnique({
     where: { id: contractId },
     select: {
@@ -177,15 +177,15 @@ export async function validateParticipantAddition(
     });
   }
 
-  // Les contrats "completed" et "active" ne peuvent plus être modifiés
+  // "completed" and "active" contracts can no longer be modified
   if (contract.workflowStatus === "completed" || contract.workflowStatus === "active") {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Impossible d'ajouter des participants à un contrat complété ou actif",
+      message: "Cannot add participants to a completed or active contract",
     });
   }
 
-  // Validation 3: Vérifier que l'utilisateur existe (si fourni)
+  // Validation 3: Verify user exists (if provided)
   if (userId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -200,7 +200,7 @@ export async function validateParticipantAddition(
     }
   }
 
-  // Validation 4: Vérifier que la company existe (si fournie)
+  // Validation 4: Verify company exists (if provided)
   if (companyId) {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -217,19 +217,19 @@ export async function validateParticipantAddition(
 }
 
 /**
- * Récupère la company associée à un utilisateur (si elle existe)
+ * Retrieves the company associated with a user (if it exists)
  * 
- * Utile pour implémenter la fonctionnalité "lier la company du user"
- * lors de la sélection d'un participant.
+ * Useful for implementing "link user's company" feature
+ * when selecting a participant.
  * 
  * @param prisma - Instance Prisma Client
- * @param userId - ID de l'utilisateur
- * @returns Company associée ou null
+ * @param userId - User ID
+ * @returns Associated company or null
  * 
  * @example
  * const userCompany = await getUserCompany(prisma, "clusr456");
  * if (userCompany) {
- *   // Proposer de lier aussi la company
+ *   // Offer to also link the company
  * }
  */
 export async function getUserCompany(
@@ -237,7 +237,7 @@ export async function getUserCompany(
   userId: string
 ) {
   try {
-    // Chercher une CompanyUser active pour cet utilisateur
+    // Find an active CompanyUser for this user
     const companyUser = await prisma.companyUser.findFirst({
       where: {
         userId,
@@ -252,7 +252,7 @@ export async function getUserCompany(
         },
       },
       orderBy: {
-        createdAt: "desc", // Prendre la plus récente si plusieurs
+        createdAt: "desc", // Take the most recent if multiple
       },
     });
 

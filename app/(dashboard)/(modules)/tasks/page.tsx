@@ -75,23 +75,23 @@ export default function AdminTasksPage() {
   // Toggle completion mutation
   const toggleMutation = api.task.toggleComplete.useMutation({
     onSuccess: () => {
-      toast.success("Statut de la tâche mis à jour!")
+      toast.success("Task status updated!")
       refetch()
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to update de la tâche")
+      toast.error(error.message || "Failed to update task")
     },
   })
 
   // Delete mutation
   const deleteMutation = api.task.delete.useMutation({
     onSuccess: () => {
-      toast.success("Tâche deleted successfully!")
+      toast.success("Task deleted successfully!")
       refetch()
       setDeleteId(null)
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to delete de la tâche")
+      toast.error(error.message || "Failed to delete task")
     },
   })
 
@@ -121,14 +121,14 @@ export default function AdminTasksPage() {
   const filteredTasks = tasks?.filter(task => task.status === activeTab) || []
 
   if (isLoading) {
-    return <LoadingState message="Chargement des tâches..." />
+    return <LoadingState message="Loading tasks..." />
   }
 
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Mes Tâches" 
-        description="Gérez vos tâches assignées et suivez la progression"
+        title="My Tasks" 
+        description="Manage your assigned tasks and track progress"
       >
         {canCreate && (
           <Button
@@ -138,13 +138,13 @@ export default function AdminTasksPage() {
             }}
           >
             <Plus className="mr-2 h-4 w-4" />
-            New Tâche
+            New Task
           </Button>
         )}
       </PageHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatsCard title="Total des Tâches" value={stats?.total || 0} icon={CheckCircle} />
+        <StatsCard title="Total Tasks" value={stats?.total || 0} icon={CheckCircle} />
         <StatsCard title="En Attente" value={stats?.pending || 0} icon={Clock} />
         <StatsCard title="Completedes" value={stats?.completed || 0} icon={CheckCircle} />
         <StatsCard title="En Retard" value={stats?.overdue || 0} icon={AlertCircle} />
@@ -172,9 +172,9 @@ export default function AdminTasksPage() {
               {filteredTasks.length === 0 ? (
                 <EmptyState
                   icon={CheckCircle}
-                  title={`Aucune tâche ${activeTab === "pending" ? "en attente" : "terminée"}`}
-                  description={activeTab === "pending" ? "Créez votre première tâche pour commencer" : "Aucune tâche terminée pour le moment"}
-                  actionLabel={canCreate && activeTab === "pending" ? "New Tâche" : undefined}
+                  title={`No tasks ${activeTab === "pending" ? "pending" : "completed"}`}
+                  description={activeTab === "pending" ? "Create your first task to get started" : "No completed tasks yet"}
+                  actionLabel={canCreate && activeTab === "pending" ? "New Task" : undefined}
                   onAction={canCreate ? () => {
                     setEditingTask(null)
                     setModalOpen(true)
@@ -227,11 +227,11 @@ export default function AdminTasksPage() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             {task.dueDate && (
                               <>
-                                <span>Échéance: {format(new Date(task.dueDate), "dd/MM/yyyy")}</span>
+                                <span>Due: {format(new Date(task.dueDate), "dd/MM/yyyy")}</span>
                                 <span>•</span>
                               </>
                             )}
-                            <span>Assigné par: {task.assignerUser.name || task.assignerUser.email}</span>
+                            <span>Assigned by: {task.assignerUser.name || task.assignerUser.email}</span>
                           </div>
                         </div>
                         {!task.isCompleted && (
@@ -257,8 +257,8 @@ export default function AdminTasksPage() {
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Delete la Tâche"
-        description="Are you sure you want to delete cette tâche ? Cette action est irréversible."
+        title="Delete Task"
+        description="Are you sure you want to delete this task? This action is irreversible."
         isLoading={deleteMutation.isPending}
       />
 

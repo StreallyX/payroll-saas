@@ -39,7 +39,7 @@ export const expenseRouter = createTRPCRouter({
 
       const where: any = { tenantId: ctx.tenantId };
 
-      // OWN → on ne voit que nos dépenses
+      // OWN → we only see our expenses
       if (CAN_READ_OWN && !CAN_READ_TENANT) {
         where.submittedBy = userId;
       }

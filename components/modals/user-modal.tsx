@@ -61,26 +61,26 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
   const createMutation = api.user.create.useMutation({
     onSuccess: () => {
-      toast.success("Utilisateur créé avec succès.")
+      toast.success("User created successfully.")
       utils.user.getAll.invalidate()
       onOpenChange(false)
       onSuccess?.()
       resetForm()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Erreur lors de la création.")
+      toast.error(error?.message || "Error during creation.")
     }
   })
 
   const updateMutation = api.user.update.useMutation({
     onSuccess: () => {
-      toast.success("Utilisateur mis à jour.")
+      toast.success("User updated.")
       utils.user.getAll.invalidate()
       onOpenChange(false)
       onSuccess?.()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Erreur lors de la mise à jour.")
+      toast.error(error?.message || "Error during update.")
     }
   })
 
@@ -97,9 +97,9 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name) return toast.error("Le nom est requis.")
-    if (!formData.email) return toast.error("L'email est requis.")
-    if (!formData.roleId) return toast.error("Le rôle est requis.")
+    if (!formData.name) return toast.error("Name is required.")
+    if (!formData.email) return toast.error("Email is required.")
+    if (!formData.roleId) return toast.error("Role is required.")
 
     if (user) {
       updateMutation.mutate({
@@ -125,11 +125,11 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{user ? "Modifier un utilisateur" : "Créer un utilisateur"}</DialogTitle>
+          <DialogTitle>{user ? "Edit user" : "Create user"}</DialogTitle>
           <DialogDescription>
             {user
-              ? "Modifiez les informations de cet utilisateur."
-              : "Indiquez les détails du nouvel utilisateur."}
+              ? "Edit this user's information."
+              : "Enter the new user's details."}
           </DialogDescription>
         </DialogHeader>
 
@@ -162,28 +162,28 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
             {/* Password — only on create */}
             {!user && (
               <div className="grid gap-2">
-                <Label htmlFor="password">Mot de passe (optionnel)</Label>
+                <Label htmlFor="password">Password (optional)</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   disabled={isLoading}
-                  placeholder="Si vide → mot de passe généré"
+                  placeholder="If empty → password generated"
                 />
               </div>
             )}
 
             {/* Role */}
             <div className="grid gap-2">
-              <Label>Rôle *</Label>
+              <Label>Role *</Label>
               <Select
                 value={formData.roleId}
                 onValueChange={(value) => setFormData({ ...formData, roleId: value })}
                 disabled={isLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez un rôle" />
+                  <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
                   {roles?.map((role) => (
@@ -199,8 +199,8 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
             {user && (
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Status du compte</Label>
-                  <p className="text-sm text-muted-foreground">Permettre la connexion</p>
+                  <Label>Account status</Label>
+                  <p className="text-sm text-muted-foreground">Allow login</p>
                 </div>
                 <Switch
                   checked={formData.isActive}
@@ -226,7 +226,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {user ? "Mettre à jour" : "Créer"}
+              {user ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </form>

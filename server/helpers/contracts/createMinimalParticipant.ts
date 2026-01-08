@@ -1,8 +1,8 @@
 /**
- * Helper pour créer des participants minimaux pour les contrats simplifiés
+ * Helper for creating minimal participants for simplified contracts
  * 
- * Ce helper assure que les participants sont créés correctement avec les
- * règles de validation appropriées (ex: approvers ne peuvent pas signer).
+ * This helper ensures participants are created correctly with
+ * appropriate validation rules (e.g., approvers cannot sign).
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -19,17 +19,17 @@ interface CreateMinimalParticipantInput {
 }
 
 /**
- * Crée un participant minimal pour un contrat simplifié
+ * Creates a minimal participant for a simplified contract
  * 
- * Règles de validation :
- * - Soit userId, soit companyId doit être fourni (au moins un)
- * - Par défaut: isActive=true, approved=false, requiresSignature=false
- * - Les approvers ne peuvent JAMAIS avoir requiresSignature=true
+ * Validation rules:
+ * - Either userId or companyId must be provided (at least one)
+ * - Default: isActive=true, approved=false, requiresSignature=false
+ * - Approvers can NEVER have requiresSignature=true
  * 
  * @param prisma - Instance Prisma Client
- * @param input - Données du participant
- * @returns Participant créé
- * @throws TRPCError si validation échoue
+ * @param input - Participant data
+ * @returns Participant created
+ * @throws TRPCError if validation fails
  * 
  * @example
  * await createMinimalParticipant(prisma, {
@@ -53,24 +53,24 @@ export async function createMinimalParticipant(
     approved = false,
   } = input;
 
-  // Validation 1: Au moins userId ou companyId doit être fourni
+  // Validation 1: At least userId or companyId must be provided
   if (!userId && !companyId) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Au moins userId ou companyId doit être fourni pour créer un participant",
+      message: "At least userId or companyId must be provided to create a participant",
     });
   }
 
-  // Validation 2: Les approvers ne peuvent JAMAIS avoir requiresSignature=true
+  // Validation 2: Approvers can NEVER have requiresSignature=true
   if (role === "approver" && requiresSignature) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Les approvers ne peuvent pas avoir requiresSignature=true. " +
-               "Les approvers approuvent, ils ne signent pas.",
+      message: "Approvers cannot have requiresSignature=true. " +
+               "Approvers approve, they don't sign.",
     });
   }
 
-  // Créer le participant
+  // Create participant
   try {
     return await prisma.contractParticipant.create({
       data: {
@@ -104,21 +104,21 @@ export async function createMinimalParticipant(
     console.error("[createMinimalParticipant] Error:", error);
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: "Échec de la création du participant",
+      message: "Failed to create participant",
       cause: error,
     });
   }
 }
 
 /**
- * Crée automatiquement un participant "client" basé sur une company
+ * Automatically creates a "client" participant based on a company
  * 
- * Raccourci pour créer un client primaire sans signature requise.
+ * Shortcut for creating a primary client without required signature.
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param companyId - ID de la company
- * @returns Participant client créé
+ * @param contractId - Contract ID
+ * @param companyId - Company ID
+ * @returns Client participant created
  * 
  * @example
  * await createClientParticipant(prisma, "clxxx123", "clyyy456");
@@ -139,14 +139,14 @@ export async function createClientParticipant(
 }
 
 /**
- * Crée automatiquement un participant "contractor" basé sur un utilisateur
+ * Automatically creates a "contractor" participant based on a user
  * 
- * Raccourci pour créer un contractor primaire avec signature requise.
+ * Shortcut for creating a primary contractor with required signature.
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur contractor
- * @returns Participant contractor créé
+ * @param contractId - Contract ID
+ * @param userId - Contractor user ID
+ * @returns Contractor participant created
  * 
  * @example
  * await createContractorParticipant(prisma, "clxxx123", "clzzz789");
@@ -167,15 +167,15 @@ export async function createContractorParticipant(
 }
 
 /**
- * Crée un participant "approver" (admin interne qui approuve le contrat)
+ * Creates an "approver" participant (internal admin who approves the contract)
  * 
- * IMPORTANT: Les approvers n'ont jamais requiresSignature=true.
- * Ils approuvent via le champ "approved", ils ne signent pas.
+ * IMPORTANT: Approvers never have requiresSignature=true.
+ * They approve via the "approved" field, they don't sign.
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur approver
- * @returns Participant approver créé
+ * @param contractId - Contract ID
+ * @param userId - Approver user ID
+ * @returns Approver participant created
  * 
  * @example
  * await createApproverParticipant(prisma, "clxxx123", "cladmin123");
@@ -190,7 +190,7 @@ export async function createApproverParticipant(
     userId,
     role: "approver",
     isPrimary: false,
-    requiresSignature: false, // ⚠️ CRITIQUE: Toujours false pour les approvers
+    requiresSignature: false, // ⚠️ CRITICAL: Always false for approvers
     approved: false,
   });
 }

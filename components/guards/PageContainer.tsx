@@ -18,13 +18,13 @@ interface PageContainerProps {
 
 
 /**
- * PageContainer - Conteneur intelligent pour les pages multi-rôles
+ * PageContainer - Smart container for multi-role pages
  * 
- * Ce composant adapte le contenu de la page selon les permissions de l'utilisateur.
- * Il permet d'avoir une seule page qui fonctionne différemment pour différents rôles.
+ * This component adapts page content based on user permissions.
+ * It allows having a single page that works differently for different roles.
  * 
  * @example
- * // Page Invoices qui fonctionne pour Contractor ET Admin
+ * // Invoices page that works for Contractor AND Admin
  * export default function InvoicesPage() {
  *   return (
  *     <PageContainer 
@@ -54,13 +54,13 @@ export function PageContainer({
 }: PageContainerProps) {
   const { hasPermission } = usePermissions();
 
-  // Déterminer le mode
+  // Determine mode
   const hasManageAccess = managePermission ? hasPermission(managePermission) : false;
   const hasOwnAccess = ownPermission ? hasPermission(ownPermission) : false;
 
-  // Mode = "manage" si l'utilisateur a la permission manage
-  // Mode = "own" si l'utilisateur a la permission own
-  // Mode = "none" si l'utilisateur n'a aucune permission
+  // Mode = "manage" if user has manage permission
+  // Mode = "own" if user has own permission
+  // Mode = "none" if user has no permission
   const mode = hasManageAccess ? "manage" : hasOwnAccess ? "own" : "none";
 
   return (
@@ -70,8 +70,8 @@ export function PageContainer({
           <Info className="h-4 w-4" />
           <AlertDescription>
             {mode === "manage" 
-              ? "Vous êtes en mode administrateur - Vous pouvez voir et gérer toutes les données." 
-              : "Vous êtes en mode personnel - Vous ne pouvez voir que vos propres données."}
+              ? "You are in administrator mode - You can view and manage all data." 
+              : "You are in personal mode - You can only view your own data."}
           </AlertDescription>
         </Alert>
       )}
@@ -82,7 +82,7 @@ export function PageContainer({
 }
 
 /**
- * Hook pour obtenir le mode actuel de la page
+ * Hook to get the current page mode
  */
 export function usePageMode(
   ownPermission?: string,

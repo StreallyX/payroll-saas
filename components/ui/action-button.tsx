@@ -50,7 +50,7 @@ export function ActionButton({
   children,
   ...buttonProps
 }: ActionButtonProps) {
-  // Si pas de permission requise, afficher le bouton normalement
+  // If no permission required, display button normally
   if (!permission && permissions.length === 0) {
     return (
       <TooltipProvider>

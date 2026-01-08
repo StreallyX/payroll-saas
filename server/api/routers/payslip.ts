@@ -45,7 +45,7 @@ const DELETE = buildPermissionKey(
   PermissionScope.GLOBAL
 );
 
-// Si tu as un Action.SEND dans ton enum
+// If you have an Action.SEND in your enum
 // const SEND = buildPermissionKey(Resource.PAYSLIP, Action.SEND, PermissionScope.GLOBAL);
 
 export const payslipRouter = createTRPCRouter({
@@ -64,7 +64,7 @@ export const payslipRouter = createTRPCRouter({
 
       const where: any = { tenantId };
 
-      // Si le user n'a PAS la permission globale → on limite à ses propres payslips
+      // If user does NOT have global permission → we limit to their own payslips
       if (!hasGlobal) {
         where.userId = userId;
       }
@@ -133,7 +133,7 @@ export const payslipRouter = createTRPCRouter({
         });
       }
 
-      // Si le user n'a que OWN → on vérifie qu'il est propriétaire du payslip
+      // If user only has OWN → we verify they own the payslip
       if (!hasGlobal && payslip.userId !== sessionUser.id) {
         throw new TRPCError({
           code: "FORBIDDEN",

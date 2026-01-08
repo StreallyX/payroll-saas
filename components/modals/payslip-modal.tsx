@@ -33,17 +33,17 @@ interface PayslipModalProps {
 
 const MONTHS = [
   { value: 1, label: "Janvier" },
-  { value: 2, label: "Février" },
+  { value: 2, label: "February" },
   { value: 3, label: "Mars" },
   { value: 4, label: "Avril" },
   { value: 5, label: "Mai" },
   { value: 6, label: "Juin" },
   { value: 7, label: "Juillet" },
-  { value: 8, label: "Août" },
+  { value: 8, label: "August" },
   { value: 9, label: "Septembre" },
   { value: 10, label: "Octobre" },
   { value: 11, label: "Novembre" },
-  { value: 12, label: "Décembre" },
+  { value: 12, label: "December" },
 ];
 
 export function PayslipModal({
@@ -64,7 +64,7 @@ export function PayslipModal({
   // LOAD USERS (CONTRACTORS)
   // --------------------------
   const { data: users } = api.user.getAll.useQuery(); 
-  // 👆 NOTE : Je t'explique plus bas comment ajouter cette route
+  // 👆 NOTE: I'll explain below how to add this route
 
   // LOAD CONTRACTS - Use conditional queries based on permissions
   const globalQuery = api.contract.getAll.useQuery(undefined, {
@@ -145,7 +145,7 @@ export function PayslipModal({
   // --------------------------
   const createMutation = api.payslip.create.useMutation({
     onSuccess: () => {
-      toast.success("Payslip créé");
+      toast.success("Payslip created");
       utils.payslip.getAll.invalidate();
       utils.payslip.getStats.invalidate();
       onOpenChange(false);
@@ -156,7 +156,7 @@ export function PayslipModal({
 
   const updateMutation = api.payslip.update.useMutation({
     onSuccess: () => {
-      toast.success("Payslip mis à jour");
+      toast.success("Payslip updated");
       utils.payslip.getAll.invalidate();
       utils.payslip.getStats.invalidate();
       onOpenChange(false);
@@ -173,7 +173,7 @@ export function PayslipModal({
     setIsLoading(true);
 
     if (!formData.userId) {
-      toast.error("Veuillez sélectionner un utilisateur");
+      toast.error("Please select a user");
       setIsLoading(false);
       return;
     }
@@ -205,7 +205,7 @@ export function PayslipModal({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {payslip ? "Modifier le payslip" : "Créer un nouveau payslip"}
+            {payslip ? "Edit payslip" : "Create new payslip"}
           </DialogTitle>
         </DialogHeader>
 
@@ -218,7 +218,7 @@ export function PayslipModal({
               onValueChange={(v) => setFormData({ ...formData, userId: v })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un utilisateur" />
+                <SelectValue placeholder="Select a user" />
               </SelectTrigger>
               <SelectContent>
                 {users?.map((u) => (
@@ -240,7 +240,7 @@ export function PayslipModal({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un contrat" />
+                <SelectValue placeholder="Select a contract" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Aucun</SelectItem>
@@ -277,7 +277,7 @@ export function PayslipModal({
             </div>
 
             <div>
-              <Label>Année</Label>
+              <Label>Year</Label>
               <Input
                 type="number"
                 min="2020"
@@ -324,7 +324,7 @@ export function PayslipModal({
             </div>
 
             <div>
-              <Label>Déductions</Label>
+              <Label>Deductions</Label>
               <Input
                 type="number"
                 value={formData.deductions}
@@ -366,9 +366,9 @@ export function PayslipModal({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">En attente</SelectItem>
-                <SelectItem value="generated">Généré</SelectItem>
-                <SelectItem value="sent">Envoyé</SelectItem>
-                <SelectItem value="paid">Payé</SelectItem>
+                <SelectItem value="generated">Generated</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -387,7 +387,7 @@ export function PayslipModal({
             </div>
 
             <div>
-              <Label>Date de paiement</Label>
+              <Label>Payment date</Label>
               <Input
                 type="date"
                 value={formData.paidDate}
@@ -418,7 +418,7 @@ export function PayslipModal({
               {isLoading && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              {payslip ? "Enregistrer" : "Créer"}
+              {payslip ? "Save" : "Create"}
             </Button>
           </DialogFooter>
         </form>

@@ -1,27 +1,27 @@
 /**
- * Helper pour valider qu'un contrat parent est bien un MSA valide
+ * Helper for validating that a parent contract is a valid MSA
  * 
- * Utilisé lors de la création d'un SOW pour s'assurer que le parent
- * existe, est un MSA, et est dans un état valide.
+ * Used during SOW creation to ensure the parent
+ * exists, is an MSA, and is in a valid state.
  */
 
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Valide qu'un contrat parent est bien un MSA actif du même tenant
+ * Validates that a parent contract is an active MSA of the same tenant
  * 
- * Règles de validation :
- * - Le contrat parent doit exister
- * - Le contrat parent doit être du type "msa"
- * - Le contrat parent doit appartenir au même tenant
- * - Le contrat parent doit être dans un statut valide (pas cancelled)
+ * Validation rules:
+ * - Parent contract must exist
+ * - Parent contract must be of type "msa"
+ * - Parent contract must belong to the same tenant
+ * - Parent contract must be in a valid status (not cancelled)
  * 
  * @param prisma - Instance Prisma Client
- * @param parentId - ID du contrat parent
- * @param tenantId - ID du tenant (pour vérification de sécurité)
- * @returns Contrat MSA parent avec ses participants
- * @throws TRPCError si validation échoue
+ * @param parentId - Parent contract ID
+ * @param tenantId - Tenant ID (for security verification)
+ * @returns Parent MSA contract with its participants
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const parentMSA = await validateParentMSA(prisma, "clxxx123", "tenant_abc");
@@ -32,7 +32,7 @@ export async function validateParentMSA(
   parentId: string,
   tenantId: string
 ) {
-  // 1. Récupérer le contrat parent
+  // 1. Retrieve parent contract
   const parent = await prisma.contract.findFirst({
     where: {
       id: parentId,
@@ -60,24 +60,24 @@ export async function validateParentMSA(
     },
   });
 
-  // 2. Vérifier que le parent existe
+  // 2. Verify parent exists
   if (!parent) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: "MSA parent introuvable. Vérifiez que l'ID est correct et que vous avez accès à ce contrat.",
+      message: "Parent MSA not found. Verify the ID is correct and you have access to this contract.",
     });
   }
 
-  // 3. Vérifier que le parent est bien un MSA
+  // 3. Verify parent is an MSA
   if (parent.type !== "msa") {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `Le contrat parent doit être un MSA. Type actuel: ${parent.type}. ` +
-               "Un SOW ne peut être lié qu'à un MSA, pas à un autre SOW.",
+      message: `Parent contract must be an MSA. Current type: ${parent.type}. ` +
+               "A SOW can only be linked to an MSA, not to another SOW.",
     });
   }
 
-  // 4. Vérifier que le MSA est dans un statut valide
+  // 4. Verify MSA is in a valid status
   const validStatuses = [
     "draft",
     "pending_admin_review",
@@ -88,12 +88,12 @@ export async function validateParentMSA(
   if (!validStatuses.includes(parent.status)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `Le MSA parent est en statut "${parent.status}" et ne peut pas être utilisé. ` +
+      message: `Parent MSA is in status "${parent.status}" and cannot be used. ` +
                `Statuts valides: ${validStatuses.join(", ")}.`,
     });
   }
 
-  // 5. Optionnel: Avertir si le MSA parent est encore en draft
+  // 5. Optional: Warn if parent MSA is still in draft
   if (parent.status === "draft") {
     console.warn(
       `[validateParentMSA] Warning: Creating SOW with parent MSA ${parentId} ` +
@@ -105,14 +105,14 @@ export async function validateParentMSA(
 }
 
 /**
- * Récupère tous les MSA disponibles pour créer un SOW
+ * Retrieves all MSAs available for creating a SOW
  * 
- * Utile pour afficher une liste de MSA dans un sélecteur UI.
+ * Useful for displaying a list of MSAs in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
  * @param tenantId - ID du tenant
- * @param activeOnly - Ne retourner que les MSA actifs (par défaut: false)
- * @returns Liste des MSA disponibles
+ * @param activeOnly - Only return active MSAs (default: false)
+ * @returns List of available MSAs
  * 
  * @example
  * const availableMSAs = await getAvailableMSAsList(prisma, "tenant_abc", true);
@@ -130,7 +130,7 @@ export async function getAvailableMSAsList(
   if (activeOnly) {
     where.status = { in: ["active", "completed"] };
   } else {
-    // Exclure seulement les cancelled et terminated
+    // Exclude only cancelled and terminated
     where.status = { notIn: ["cancelled", "terminated"] };
   }
 

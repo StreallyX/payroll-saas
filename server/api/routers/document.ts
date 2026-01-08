@@ -95,7 +95,7 @@ export const documentRouter = createTRPCRouter({
 
       if (!doc) throw new Error("Document not found.");
 
-      // 🔥 ICI : on passe download à la fonction S3
+      // 🔥 HERE: we pass download to S3 function
       const url = await getSignedUrlForKey(
         doc.s3Key,
         3600,

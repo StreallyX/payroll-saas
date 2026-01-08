@@ -30,7 +30,7 @@ import { useSession } from "next-auth/react";
 
 // ===========================================================
 // TYPES — IMPORTANT : UNIQUEMENT string | undefined
-// (compatibilité totale avec Zod + Prisma)
+// (full compatibility with Zod + Prisma)
 // ===========================================================
 type CompanyFormValues = {
   name: string;
@@ -258,7 +258,7 @@ export function CompanyModal({
                     Tenant Company
                   </Label>
                   <p className="text-sm text-blue-700 mt-1">
-                    Cette company appartient-elle à la plateforme (tenant) ?
+                    Does this company belong to the platform (tenant)?
                   </p>
                 </div>
 

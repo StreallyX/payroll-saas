@@ -112,7 +112,7 @@ export const onboardingTemplateRouter = createTRPCRouter({
       description: z.string().optional(),
       isActive: z.boolean().optional(),
       questions: z.array(z.object({
-        // on remplace tout, l'id est facultatif/ignoré
+        // we replace everything, id is optional/ignored
         questionText: z.string().min(1),
         questionType: z.enum(["text", "file"]),
         isRequired: z.boolean().optional(),
@@ -130,7 +130,7 @@ export const onboardingTemplateRouter = createTRPCRouter({
 
       // Remplacement atomique via transaction
       const result = await ctx.prisma.$transaction(async (tx) => {
-        // ⚠️ Bon champ : onboardingTemplateId (pas templateId)
+        // ⚠️ Correct field: onboardingTemplateId (not templateId)
         await tx.onboardingQuestion.deleteMany({
           where: { onboardingTemplateId: input.id },
         });
@@ -177,11 +177,11 @@ export const onboardingTemplateRouter = createTRPCRouter({
       if (linkedUsersCount > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Ce template est assigné à des utilisateurs. Détache-les avant suppression.",
+          message: "This template is assigned to users. Detach them before deletion.",
         });
       }
 
-      // Avec onDelete: Cascade, supprimer le template suffit.
+      // With onDelete: Cascade, deleting the template is sufficient.
       return ctx.prisma.onboardingTemplate.delete({
         where: { id: input.id },
       });

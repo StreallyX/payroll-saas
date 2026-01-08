@@ -1,27 +1,27 @@
 /**
- * Helper pour valider que les companies existent et sont actives
+ * Helper for validating that companies exist and are active
  * 
- * Utilisé lors de la création d'un contrat NORM pour s'assurer que
- * les companies (tenant et agency) existent et sont dans un état valide.
+ * Used during NORM contract creation to ensure that
+ * companies (tenant and agency) exist and are in a valid state.
  */
 
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Valide qu'une company existe et est active dans le tenant
+ * Validates that a company exists and is active in the tenant
  * 
- * Règles de validation :
- * - La company doit exister
- * - La company doit appartenir au même tenant
- * - La company doit être active (status="active")
+ * Validation rules:
+ * - Company must exist
+ * - Company must belong to the same tenant
+ * - Company must be active (status="active")
  * 
  * @param prisma - Instance Prisma Client
- * @param companyId - ID de la company à valider
- * @param tenantId - ID du tenant (pour vérification de sécurité)
- * @param companyType - Type de company ("tenant" ou "agency") pour messages d'erreur
- * @returns Company validée
- * @throws TRPCError si validation échoue
+ * @param companyId - Company ID to validate
+ * @param tenantId - Tenant ID (for security verification)
+ * @param companyType - Company type ("tenant" or "agency") for error messages
+ * @returns Validated company
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const companyTenant = await validateCompany(prisma, "clxxx123", "tenant_abc", "tenant");
@@ -32,7 +32,7 @@ export async function validateCompany(
   tenantId: string,
   companyType: "tenant" | "agency" = "tenant"
 ) {
-  // 1. Récupérer la company
+  // 1. Retrieve company
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,
@@ -56,19 +56,19 @@ export async function validateCompany(
     },
   });
 
-  // 2. Vérifier que la company existe
+  // 2. Verify company exists
   if (!company) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: `Company ${companyType} introuvable. Vérifiez que l'ID est correct et que vous avez accès à cette company.`,
+      message: `Company ${companyType} not found. Verify the ID is correct and you have access to this company.`,
     });
   }
 
-  // 3. Vérifier que la company est active
+  // 3. Verify company is active
   if (company.status !== "active") {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `La company ${companyType} "${company.name}" est inactive (statut: ${company.status}) et ne peut pas être utilisée dans un contrat.`,
+      message: `The company ${companyType} "${company.name}" is inactive (status: ${company.status}) and cannot be used in a contract.`,
     });
   }
 
@@ -76,16 +76,16 @@ export async function validateCompany(
 }
 
 /**
- * Valide plusieurs companies en une seule opération
+ * Validates multiple companies in a single operation
  * 
- * Utile pour valider à la fois la company tenant et l'agency.
+ * Useful for validating both tenant company and agency.
  * 
  * @param prisma - Instance Prisma Client
- * @param companyTenantId - ID de la company tenant
+ * @param companyTenantId - Tenant company ID
  * @param agencyId - ID de l'agency
  * @param tenantId - ID du tenant
- * @returns Object contenant les deux companies validées
- * @throws TRPCError si une validation échoue
+ * @returns Object containing both validated companies
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const { companyTenant, agency } = await validateCompanies(
@@ -101,17 +101,17 @@ export async function validateCompanies(
   agencyId: string,
   tenantId: string
 ) {
-  // Valider les deux companies en parallèle
+  // Validate both companies in parallel
   const [companyTenant, agency] = await Promise.all([
     validateCompany(prisma, companyTenantId, tenantId, "tenant"),
     validateCompany(prisma, agencyId, tenantId, "agency"),
   ]);
 
-  // Vérifier que ce ne sont pas la même company
+  // Verify they are not the same company
   if (companyTenant.id === agency.id) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "La company tenant et l'agency ne peuvent pas être la même company.",
+      message: "Tenant company and agency cannot be the same company.",
     });
   }
 
@@ -122,14 +122,14 @@ export async function validateCompanies(
 }
 
 /**
- * Récupère toutes les companies disponibles pour créer un contrat NORM
+ * Retrieves all companies available for creating a NORM contract
  * 
- * Utile pour afficher une liste de companies dans un sélecteur UI.
+ * Useful for displaying a list of companies in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
  * @param tenantId - ID du tenant
- * @param activeOnly - Ne retourner que les companies actives (par défaut: true)
- * @returns Liste des companies disponibles
+ * @param activeOnly - Only return active companies (default: true)
+ * @returns List of available companies
  * 
  * @example
  * const companies = await getAvailableCompaniesList(prisma, "tenant_abc");

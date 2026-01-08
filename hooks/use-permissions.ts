@@ -31,7 +31,7 @@ export function usePermissions() {
     hasAllPermissions,
     isSuperAdmin,
     /**
-     * ❗ CORRECT : on utilise status pour savoir si ça charge
+     * ❗ CORRECT: we use status to know if it's loading
      */
     isLoading: status === "loading"
   }
