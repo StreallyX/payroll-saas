@@ -748,7 +748,7 @@ createRange: tenantProcedure
             },
           },
 
-          // ⭐️ INCLUDE COMPLET POUR RETURN L'INVOICE COMPLÈTE
+          // ⭐️ COMPLETE INCLUDE TO RETURN THE FULL INVOICE
           include: {
             lineItems: true,
             sender: {

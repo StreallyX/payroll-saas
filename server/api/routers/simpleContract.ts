@@ -147,7 +147,7 @@ export const simpleContractRouter = createTRPCRouter({
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
 
-        // 4. Create le document lié
+        // 4. Create the linked document
         const document = await ctx.prisma.document.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -264,8 +264,8 @@ export const simpleContractRouter = createTRPCRouter({
    * Workflow:
    * - Validation du MSA parent
    * - Upload PDF vers S3
-   * - Génération automatique du titre
-   * - Création du contrat SOW avec statut "draft"
+   * - Automatic title generation
+   * - Creation of SOW contract with "draft" status
    * - Inheritance of parent MSA fields (currency, country, etc.)
    * - Creation of linked document
    * 
@@ -314,7 +314,7 @@ export const simpleContractRouter = createTRPCRouter({
       const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
       const s3Key = await uploadFile(buffer, s3FileName);
 
-      // 5. Create le document lié
+      // 5. Create the linked document
       const document = await ctx.prisma.document.create({
         data: {
           tenantId: ctx.tenantId!,
@@ -923,7 +923,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[uploadSignedVersion] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Upload failed de la version signée",
+          message: "Upload failed for the signed version",
           cause: error,
         });
       }
@@ -1022,7 +1022,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 6. Historique (notes supprimé car n’existe pas)
+      // 6. History (notes removed as it does not exist)
       await ctx.prisma.contractStatusHistory.create({
         data: {
           contractId: contract.id,
@@ -1440,7 +1440,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (!isDraft(contract)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Seuls les contrats en draft peuvent être supprimés",
+          message: "Only draft contracts can be deleted",
         });
       }
 

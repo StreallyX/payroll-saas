@@ -365,7 +365,7 @@ export function PayslipModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="generated">Generated</SelectItem>
                 <SelectItem value="sent">Sent</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>

@@ -334,7 +334,7 @@ export const onboardingRouter = createTRPCRouter({
 
       if (!template) throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Aucun template d’onboarding configuré."
+        message: "No onboarding template configured."
       });
 
       await ctx.prisma.user.update({

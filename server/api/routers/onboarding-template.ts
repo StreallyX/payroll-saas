@@ -170,7 +170,7 @@ export const onboardingTemplateRouter = createTRPCRouter({
     )
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Optionnel: vérif d’usage (users liés)
+      // Optional: usage check (linked users)
       const linkedUsersCount = await ctx.prisma.user.count({
         where: { tenantId: ctx.tenantId, onboardingTemplateId: input.id },
       });

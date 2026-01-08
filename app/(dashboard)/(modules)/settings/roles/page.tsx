@@ -103,7 +103,7 @@ export default function ManageRolesPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avec utilisateurs</p>
+                <p className="text-sm text-gray-600">With users</p>
                 <p className="text-2xl font-bold mt-1">{stats.withUsers}</p>
               </div>
               <Users className="h-8 w-8 text-green-500" />

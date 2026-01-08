@@ -541,7 +541,7 @@ export const addParticipantSchema = z.object({
 /**
  * 15. REMOVE PARTICIPANT
  * 
- * Supprimer un participant d'un contrat
+ * Remove a participant from a contract
  */
 export const removeParticipantSchema = z.object({
   participantId: z.string()

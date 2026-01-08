@@ -145,9 +145,9 @@ export default function AdminTasksPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard title="Total Tasks" value={stats?.total || 0} icon={CheckCircle} />
-        <StatsCard title="En Attente" value={stats?.pending || 0} icon={Clock} />
+        <StatsCard title="Pending" value={stats?.pending || 0} icon={Clock} />
         <StatsCard title="Completedes" value={stats?.completed || 0} icon={CheckCircle} />
-        <StatsCard title="En Retard" value={stats?.overdue || 0} icon={AlertCircle} />
+        <StatsCard title="Overdue" value={stats?.overdue || 0} icon={AlertCircle} />
       </div>
 
       <Card>
@@ -239,7 +239,7 @@ export default function AdminTasksPage() {
                             size="sm"
                             onClick={() => toggleTaskComplete(task.id, task.isCompleted)}
                           >
-                            Marquer Completed
+                            Mark Completed
                           </Button>
                         )}
                       </div>

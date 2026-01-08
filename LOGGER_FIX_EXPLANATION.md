@@ -10,8 +10,8 @@ Error: ENOENT: no such file or directory, mkdir 'logs'
 ```
 
 ### Location of Problematic Code
-- **Fichier**: `lib/logging/logger.ts`
-- **Problem**: Le logger Winston tentait d'écrire des logs dans des fichiers locaux (`logs/error.log`, `logs/combined.log`, `logs/exceptions.log`, `logs/rejections.log`) sans vérifier l'existence du dossier parent ni la compatibilité avec l'environnement d'exécution.
+- **File**: `lib/logging/logger.ts`
+- **Problem**: The Winston logger was trying to write logs to local files (`logs/error.log`, `logs/combined.log`, `logs/exceptions.log`, `logs/rejections.log`) without checking the existence of the d
 
 ### Identified Causes
 1. **Serverless Environment**: The `/var/task/` path indicates a serverless environment (AWS Lambda, Vercel, etc.)
@@ -141,4 +141,4 @@ For a more robust production logging solution, consider:
 
 ## ✨ Final Result
 
-The application is now compatible with serverless environments while maintaining file logging functionality in local development. The logger automatically adapts to its environnement d'exécution sans configuration supplémentaire requise.
+The application is now compatible with serverless environments while maintaining file logging functionality in local development. The logger automatically adapts to its execution environment without 
