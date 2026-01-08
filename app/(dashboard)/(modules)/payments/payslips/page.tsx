@@ -21,17 +21,17 @@ import { toast } from "sonner";
 
 const MONTHS = [
   { value: "1", label: "Janvier" },
-  { value: "2", label: "Février" },
+  { value: "2", label: "February" },
   { value: "3", label: "Mars" },
   { value: "4", label: "Avril" },
   { value: "5", label: "Mai" },
   { value: "6", label: "Juin" },
   { value: "7", label: "Juillet" },
-  { value: "8", label: "Août" },
+  { value: "8", label: "August" },
   { value: "9", label: "Septembre" },
   { value: "10", label: "Octobre" },
   { value: "11", label: "Novembre" },
-  { value: "12", label: "Décembre" },
+  { value: "12", label: "December" },
 ];
 
 
@@ -79,7 +79,7 @@ export default function PayslipsPage() {
   // ---------------------------------------------------------
   const deleteMutation = api.payslip.delete.useMutation({
     onSuccess: () => {
-      toast.success("Payslip supprimé");
+      toast.success("Payslip deleted");
       refetch();
       setDeleteId(null);
     },
@@ -200,7 +200,7 @@ export default function PayslipsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Payslips"
-        description="Visualisez et gérez les bulletins de paie."
+        description="View and manage payslips."
       >
         {canCreate && (
           <Button
@@ -219,19 +219,19 @@ export default function PayslipsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Ce mois</p>
+            <p className="text-xs text-gray-500">This month</p>
             <p className="text-2xl font-bold">{stats?.thisMonth}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Générés</p>
+            <p className="text-xs text-gray-500">Generated</p>
             <p className="text-2xl font-bold">{stats?.generated}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Envoyés</p>
+            <p className="text-xs text-gray-500">Sent</p>
             <p className="text-2xl font-bold">{stats?.sent}</p>
           </CardContent>
         </Card>
@@ -262,8 +262,8 @@ export default function PayslipsPage() {
       {filteredPayslips.length === 0 ? (
         <EmptyState
           title="Aucun bulletin"
-          description="Créez un bulletin pour commencer."
-          actionLabel={canCreate ? "Créer un bulletin" : undefined}
+          description="Create a payslip to get started."
+          actionLabel={canCreate ? "Create a payslip" : undefined}
           onAction={() => {
             setEditingPayslip(null);
             setModalOpen(true);
@@ -293,8 +293,8 @@ export default function PayslipsPage() {
         open={deleteId !== null}
         onOpenChange={(o) => !o && setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Supprimer le bulletin"
-        description="Cette action est définitive."
+        title="Delete payslip"
+        description="This action is permanent."
         isLoading={deleteMutation.isPending}
       />
     </div>

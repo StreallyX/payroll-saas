@@ -1,7 +1,7 @@
 /**
- * Validators Zod pour le système simplifié de contrats MSA/SOW
+ * Zod validators for simplified MSA/SOW contract system
  * 
- * Ce fichier contient tous les schémas de validation pour les endpoints
+ * This file contains all validation schemas for endpoints
  * du router simpleContract.
  */
 
@@ -15,87 +15,87 @@ const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME_TYPES = ["application/pdf"];
 
 // ============================================================================
-// SCHÉMAS DE BASE
+// BASE SCHEMAS
 // ============================================================================
 
 /**
- * Schéma pour la validation d'un fichier PDF encodé en base64
+ * Schema for validating a base64 encoded PDF file
  */
 export const pdfFileSchema = z.object({
   pdfBuffer: z.string()
-    .min(1, "Le fichier PDF ne peut pas être vide")
+    .min(1, "PDF file cannot be empty")
     .refine(
       (val) => {
         try {
-          // Vérifier que c'est du base64 valide
+          // Verify it's valid base64
           const decoded = Buffer.from(val, "base64");
           return decoded.length > 0;
         } catch {
           return false;
         }
       },
-      { message: "Le buffer PDF doit être encodé en base64 valide" }
+      { message: "PDF buffer must be valid base64 encoded" }
     ),
   fileName: z.string()
-    .min(1, "Le nom du fichier est requis")
-    .max(255, "Le nom du fichier est trop long (max 255 caractères)")
+    .min(1, "Filename is required")
+    .max(255, "Filename is too long (max 255 characters)")
     .refine(
       (val) => val.toLowerCase().endsWith(".pdf"),
-      { message: "Le fichier doit avoir l'extension .pdf" }
+      { message: "File must have .pdf extension" }
     ),
   mimeType: z.enum(["application/pdf"], {
-    errorMap: () => ({ message: "Seuls les fichiers PDF sont acceptés" }),
+    errorMap: () => ({ message: "Only PDF files are accepted" }),
   }),
   fileSize: z.number()
-    .int("La taille du fichier doit être un entier")
-    .positive("La taille du fichier doit être positive")
-    .max(MAX_PDF_SIZE, `Le fichier est trop volumineux (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
+    .int("File size must be an integer")
+    .positive("File size must be positive")
+    .max(MAX_PDF_SIZE, `File is too large (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
 });
 
 /**
- * Schéma pour un participant supplémentaire
- * Au moins un de userId ou companyId doit être fourni
+ * Schema for an additional participant
+ * At least one of userId or companyId must be provided
  */
 export const additionalParticipantSchema = z.object({
   userId: z.string()
-    .cuid("L'ID du user doit être un CUID valide")
+    .cuid("User ID must be a valid CUID")
     .optional(),
   companyId: z.string()
-    .cuid("L'ID de la company doit être un CUID valide")
+    .cuid("Company ID must be a valid CUID")
     .optional(),
   role: z.string()
-    .min(1, "Le rôle est requis")
-    .max(50, "Le rôle est trop long (max 50 caractères)")
+    .min(1, "Role is required")
+    .max(50, "Role is too long (max 50 characters)")
     .default("additional"),
 })
 .refine(
   (data) => data.userId || data.companyId,
   {
-    message: "Au moins un de userId ou companyId doit être fourni",
+    message: "At least one of userId or companyId must be provided",
     path: ["userId"],
   }
 );
 
 /**
- * Tableau de participants supplémentaires pour la création de contrats
+ * Array of additional participants for contract creation
  */
 export const additionalParticipantsSchema = z.array(additionalParticipantSchema)
   .optional()
   .default([]);
 
 // ============================================================================
-// SCHÉMAS POUR LES ENDPOINTS
+// SCHEMAS FOR ENDPOINTS
 // ============================================================================
 
 /**
  * 1. CREATE SIMPLE MSA
  * 
- * Input: PDF + informations minimales + participants supplémentaires
- * Output: Contrat MSA créé avec statut "draft"
+ * Input: PDF + minimal information + additional participants
+ * Output: MSA contract created with status "draft"
  */
 export const createSimpleMSASchema = pdfFileSchema.extend({
   companyId: z.string()
-    .cuid("L'ID de la company doit être un CUID valide")
+    .cuid("Company ID must be a valid CUID")
     .optional(),
   additionalParticipants: additionalParticipantsSchema,
 });
@@ -103,15 +103,15 @@ export const createSimpleMSASchema = pdfFileSchema.extend({
 /**
  * 2. CREATE SIMPLE SOW
  * 
- * Input: PDF + MSA parent + informations minimales + participants supplémentaires
- * Output: Contrat SOW créé avec statut "draft"
+ * Input: PDF + parent MSA + minimal information + additional participants
+ * Output: SOW contract created with status "draft"
  */
 export const createSimpleSOWSchema = pdfFileSchema.extend({
   parentMSAId: z.string()
-    .cuid("L'ID du MSA parent doit être un CUID valide")
-    .min(1, "L'ID du MSA parent est requis"),
+    .cuid("Parent MSA ID must be a valid CUID")
+    .min(1, "Parent MSA ID is required"),
   companyId: z.string()
-    .cuid("L'ID de la company doit être un CUID valide")
+    .cuid("Company ID must be a valid CUID")
     .optional(),
   additionalParticipants: additionalParticipantsSchema,
 });
@@ -123,10 +123,10 @@ export const createSimpleSOWSchema = pdfFileSchema.extend({
  */
 export const submitForReviewSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   notes: z.string()
-    .max(5000, "Les notes sont trop longues (max 5000 caractères)")
+    .max(5000, "Notes are too long (max 5000 characters)")
     .optional(),
 });
 
@@ -137,10 +137,10 @@ export const submitForReviewSchema = z.object({
  */
 export const adminApproveSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   notes: z.string()
-    .max(5000, "Les notes sont trop longues (max 5000 caractères)")
+    .max(5000, "Notes are too long (max 5000 characters)")
     .optional(),
 });
 
@@ -151,36 +151,36 @@ export const adminApproveSchema = z.object({
  */
 export const adminRejectSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   reason: z.string()
-    .min(10, "La raison du rejet doit contenir au moins 10 caractères")
-    .max(5000, "La raison du rejet est trop longue (max 5000 caractères)"),
+    .min(10, "Rejection reason must contain at least 10 characters")
+    .max(5000, "Rejection reason is too long (max 5000 characters)"),
 });
 
 /**
  * 6. UPLOAD SIGNED VERSION
  * 
- * Upload d'une version signée du contrat (completed/active)
+ * Upload of a signed version of the contract (completed/active)
  */
 export const uploadSignedVersionSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   pdfBuffer: z.string()
-    .min(1, "Le fichier PDF ne peut pas être vide"),
+    .min(1, "PDF file cannot be empty"),
   fileName: z.string()
-    .min(1, "Le nom du fichier est requis")
-    .max(255, "Le nom du fichier est trop long")
+    .min(1, "Filename is required")
+    .max(255, "Filename is too long")
     .refine(
       (val) => val.toLowerCase().endsWith(".pdf"),
-      { message: "Le fichier doit avoir l'extension .pdf" }
+      { message: "File must have .pdf extension" }
     ),
   mimeType: z.enum(["application/pdf"]),
   fileSize: z.number()
     .int()
     .positive()
-    .max(MAX_PDF_SIZE, `Le fichier est trop volumineux (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
+    .max(MAX_PDF_SIZE, `File is too large (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
 });
 
 /**
@@ -190,35 +190,35 @@ export const uploadSignedVersionSchema = z.object({
  */
 export const activateContractSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   notes: z.string()
-    .max(5000, "Les notes sont trop longues (max 5000 caractères)")
+    .max(5000, "Notes are too long (max 5000 characters)")
     .optional(),
 });
 
 /**
- * 7B. UPDATE SIMPLE CONTRACT (TITRE ET DESCRIPTION)
+ * 7B. UPDATE SIMPLE CONTRACT (TITLE AND DESCRIPTION)
  * 
- * Permet de mettre à jour le titre et la description d'un contrat MSA/SOW/NORM
+ * Allows updating the title and description of an MSA/SOW/NORM contract
  */
 export const updateSimpleContractSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   title: z.string()
-    .min(1, "Le titre est requis")
-    .max(200, "Le titre est trop long (max 200 caractères)")
+    .min(1, "Title is required")
+    .max(200, "Title is too long (max 200 characters)")
     .optional(),
   description: z.string()
-    .max(1000, "La description est trop longue (max 1000 caractères)")
+    .max(1000, "Description is too long (max 1000 characters)")
     .optional(),
 });
 
 /**
  * 8. LIST SIMPLE CONTRACTS
  * 
- * Filtres et pagination pour la liste des contrats
+ * Filters and pagination for contract list
  */
 export const listSimpleContractsSchema = z.object({
   type: z.enum(["all", "msa", "sow", "norm"]).default("all"),
@@ -239,27 +239,27 @@ export const listSimpleContractsSchema = z.object({
 /**
  * 9. GET SIMPLE CONTRACT BY ID
  * 
- * Récupération d'un contrat par son ID
+ * Retrieval of a contract by its ID
  */
 export const getSimpleContractByIdSchema = z.object({
   id: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
 });
 
 /**
  * 10. DELETE DRAFT CONTRACT
  * 
- * Suppression d'un contrat en draft uniquement
+ * Deletion of a draft contract only
  */
 export const deleteDraftContractSchema = z.object({
   id: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
 });
 
 // ============================================================================
-// TYPES EXPORTÉS (inférés depuis les schémas)
+// EXPORTED TYPES (inferred from schemas)
 // ============================================================================
 
 export type CreateSimpleMSAInput = z.infer<typeof createSimpleMSASchema>;
@@ -279,16 +279,16 @@ export type DeleteDraftContractInput = z.infer<typeof deleteDraftContractSchema>
 // ============================================================================
 
 /**
- * Schéma de base pour les champs communs des contrats NORM
+ * Base schema for common NORM contract fields
  */
 const normContractBaseFields = {
   // Champs essentiels (parties)
   companyTenantId: z.string()
-    .cuid("L'ID de la company tenant doit être un CUID valide"),
+    .cuid("Tenant company ID must be a valid CUID"),
   agencyId: z.string()
-    .cuid("L'ID de l'agency doit être un CUID valide"),
+    .cuid("Agency ID must be a valid CUID"),
   contractorId: z.string()
-    .cuid("L'ID du contractor doit être un CUID valide"),
+    .cuid("Contractor ID must be a valid CUID"),
   
   // Dates (essentielles)
   startDate: z.string()
@@ -301,42 +301,42 @@ const normContractBaseFields = {
   // Salary Type (essentiel)
   salaryType: z.enum(["gross", "payroll", "payroll_we_pay", "split"], {
     errorMap: () => ({ 
-      message: "Le type de salaire doit être: gross, payroll, payroll_we_pay ou split" 
+      message: "Salary type must be: gross, payroll, payroll_we_pay or split" 
     }),
   }),
   
   // Champs conditionnels selon salaryType
   userBankId: z.string().cuid().optional(), // Pour Gross
-  payrollUserId: z.string().cuid().optional(), // Pour Payroll et Payroll We Pay
+  payrollUserId: z.string().cuid().optional(), // For Payroll and Payroll We Pay
   userBankIds: z.array(z.string().cuid()).optional(), // Pour Split
   
   // Champs optionnels - Tarification
   rateAmount: z.number()
-    .positive("Le montant du taux doit être positif")
+    .positive("Rate amount must be positive")
     .optional(),
   rateCurrency: z.string()
-    .min(3, "La devise doit contenir au moins 3 caractères")
-    .max(3, "La devise doit contenir 3 caractères")
+    .min(3, "Currency must contain at least 3 characters")
+    .max(3, "Currency must contain 3 characters")
     .optional(),
   rateCycle: z.enum(["daily", "weekly", "monthly", "yearly", "hourly"], {
     errorMap: () => ({ 
-      message: "Le cycle doit être: daily, weekly, monthly, yearly ou hourly" 
+      message: "Cycle must be: daily, weekly, monthly, yearly or hourly" 
     }),
   }).optional(),
   
   // Champs optionnels - Marge
   marginAmount: z.number()
-    .positive("Le montant de la marge doit être positif")
+    .positive("Margin amount must be positive")
     .optional(),
   marginCurrency: z.string()
-    .min(3, "La devise doit contenir au moins 3 caractères")
-    .max(3, "La devise doit contenir 3 caractères")
+    .min(3, "Currency must contain at least 3 characters")
+    .max(3, "Currency must contain 3 characters")
     .optional(),
   marginType: z.enum(["fixed", "percentage"], {
-    errorMap: () => ({ message: "Le type de marge doit être: fixed ou percentage" }),
+    errorMap: () => ({ message: "Margin type must be: fixed or percentage" }),
   }).optional(),
   marginPaidBy: z.enum(["client", "agency"], {
-    errorMap: () => ({ message: "La marge doit être payée par: client ou agency" }),
+    errorMap: () => ({ message: "Margin must be paid by: client or agency" }),
   }).optional(),
 
   invoiceDueTerm: z.enum([
@@ -351,22 +351,22 @@ const normContractBaseFields = {
 
   // Champs optionnels - Autres
   invoiceDueDays: z.number()
-    .int("Le nombre de jours doit être un entier")
-    .positive("Le nombre de jours doit être positif")
-    .max(365, "Le nombre de jours ne peut pas dépasser 365")
+    .int("Number of days must be an integer")
+    .positive("Number of days must be positive")
+    .max(365, "Number of days cannot exceed 365")
     .optional(),
   notes: z.string()
-    .max(5000, "Les notes sont trop longues (max 5000 caractères)")
+    .max(5000, "Notes are too long (max 5000 characters)")
     .optional(),
   contractReference: z.string()
-    .max(255, "La référence est trop longue (max 255 caractères)")
+    .max(255, "Reference is too long (max 255 characters)")
     .optional(),
   contractVatRate: z.number()
-    .min(0, "Le taux de TVA doit être entre 0 et 100")
-    .max(100, "Le taux de TVA doit être entre 0 et 100")
+    .min(0, "VAT rate must be between 0 and 100")
+    .max(100, "VAT rate must be between 0 and 100")
     .optional(),
   contractCountryId: z.string()
-    .cuid("L'ID du pays doit être un CUID valide")
+    .cuid("Country ID must be a valid CUID")
     .optional(),
   
   // Dates de signature (optionnelles)
@@ -379,7 +379,7 @@ const normContractBaseFields = {
 /**
  * 11. CREATE NORM CONTRACT
  * 
- * Crée un contrat NORM avec validation conditionnelle selon salaryType
+ * Creates a NORM contract with conditional validation based on salaryType
  */
 export const createNormContractSchema = pdfFileSchema
   .extend(normContractBaseFields)
@@ -395,7 +395,7 @@ export const createNormContractSchema = pdfFileSchema
       return true;
     },
     {
-      message: "La date de début doit être antérieure à la date de fin",
+      message: "Start date must be before end date",
       path: ["endDate"],
     }
   )
@@ -414,7 +414,7 @@ export const createNormContractSchema = pdfFileSchema
       return true;
     },
     {
-      message: "Champ requis selon le type de salaire sélectionné",
+      message: "Field required based on selected salary type",
       path: ["salaryType"],
     }
   );
@@ -422,15 +422,15 @@ export const createNormContractSchema = pdfFileSchema
 /**
  * 12. UPDATE NORM CONTRACT
  * 
- * Met à jour un contrat NORM (draft uniquement)
- * Tous les champs sont optionnels sauf contractId
+ * Updates a NORM contract (draft only)
+ * All fields are optional except contractId
  */
 export const updateNormContractSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   
-  // Tous les champs optionnels
+  // All fields optional
   companyTenantId: z.string().cuid().optional(),
   agencyId: z.string().cuid().optional(),
   contractorId: z.string().cuid().optional(),
@@ -471,14 +471,14 @@ export const updateNormContractSchema = z.object({
 })
 .refine(
   (data) => {
-    // Validation des dates si les deux sont présentes
+    // Date validation if both are present
     if (data.startDate && data.endDate && data.startDate >= data.endDate) {
       return false;
     }
     return true;
   },
   {
-    message: "La date de début doit être antérieure à la date de fin",
+    message: "Start date must be before end date",
     path: ["endDate"],
   }
 );
@@ -486,20 +486,20 @@ export const updateNormContractSchema = z.object({
 /**
  * 13. CONTRACTOR SIGN CONTRACT
  * 
- * Permet au contractor de signer son contrat
+ * Allows contractor to sign their contract
  */
 export const contractorSignContractSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   signatureDate: z.string()
     .or(z.date())
     .transform((val) => (typeof val === "string" ? new Date(val) : val))
-    .optional(), // Si non fourni, on utilise la date actuelle
+    .optional(), // If not provided, current date is used
 });
 
 // ============================================================================
-// TYPES EXPORTÉS POUR NORM
+// EXPORTED TYPES FOR NORM
 // ============================================================================
 
 export type CreateNormContractInput = z.infer<typeof createNormContractSchema>;
@@ -513,27 +513,27 @@ export type ContractorSignContractInput = z.infer<typeof contractorSignContractS
 /**
  * 14. ADD PARTICIPANT
  * 
- * Ajouter un participant à un contrat existant
+ * Add a participant to an existing contract
  */
 export const addParticipantSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   userId: z.string()
-    .cuid("L'ID du user doit être un CUID valide")
+    .cuid("User ID must be a valid CUID")
     .optional(),
   companyId: z.string()
-    .cuid("L'ID de la company doit être un CUID valide")
+    .cuid("Company ID must be a valid CUID")
     .optional(),
   role: z.string()
-    .min(1, "Le rôle est requis")
-    .max(50, "Le rôle est trop long (max 50 caractères)")
+    .min(1, "Role is required")
+    .max(50, "Role is too long (max 50 characters)")
     .default("additional"),
 })
 .refine(
   (data) => data.userId || data.companyId,
   {
-    message: "Au moins un de userId ou companyId doit être fourni",
+    message: "At least one of userId or companyId must be provided",
     path: ["userId"],
   }
 );
@@ -545,19 +545,19 @@ export const addParticipantSchema = z.object({
  */
 export const removeParticipantSchema = z.object({
   participantId: z.string()
-    .cuid("L'ID du participant doit être un CUID valide")
-    .min(1, "L'ID du participant est requis"),
+    .cuid("Participant ID must be a valid CUID")
+    .min(1, "Participant ID is required"),
 });
 
 /**
  * 16. LIST PARTICIPANTS
  * 
- * Lister tous les participants d'un contrat
+ * List all participants of a contract
  */
 export const listParticipantsSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
 });
 
 // ============================================================================
@@ -565,7 +565,7 @@ export const listParticipantsSchema = z.object({
 // ============================================================================
 
 /**
- * Catégories de documents disponibles
+ * Available document categories
  */
 export const documentCategoryEnum = z.enum([
   "Contract",
@@ -578,67 +578,67 @@ export const documentCategoryEnum = z.enum([
 /**
  * 17. UPLOAD DOCUMENT
  * 
- * Uploader un document pour un contrat
+ * Upload a document for a contract
  */
 export const uploadDocumentSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
   pdfBuffer: z.string()
-    .min(1, "Le fichier ne peut pas être vide"),
+    .min(1, "File cannot be empty"),
   fileName: z.string()
-    .min(1, "Le nom du fichier est requis")
-    .max(255, "Le nom du fichier est trop long (max 255 caractères)"),
+    .min(1, "Filename is required")
+    .max(255, "Filename is too long (max 255 characters)"),
   mimeType: z.string()
-    .min(1, "Le type MIME est requis"),
+    .min(1, "MIME type is required"),
   fileSize: z.number()
-    .int("La taille du fichier doit être un entier")
-    .positive("La taille du fichier doit être positive")
-    .max(MAX_PDF_SIZE, `Le fichier est trop volumineux (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
+    .int("File size must be an integer")
+    .positive("File size must be positive")
+    .max(MAX_PDF_SIZE, `File is too large (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
   description: z.string()
-    .min(1, "La description est requise")
-    .max(500, "La description est trop longue (max 500 caractères)"),
+    .min(1, "Description is required")
+    .max(500, "Description is too long (max 500 characters)"),
   category: documentCategoryEnum,
   notes: z.string()
-    .max(1000, "Les notes sont trop longues (max 1000 caractères)")
+    .max(1000, "Notes are too long (max 1000 characters)")
     .optional(),
 });
 
 /**
  * 18. LIST DOCUMENTS
  * 
- * Lister tous les documents d'un contrat
+ * List all documents of a contract
  */
 export const listDocumentsSchema = z.object({
   contractId: z.string()
-    .cuid("L'ID du contrat doit être un CUID valide")
-    .min(1, "L'ID du contrat est requis"),
+    .cuid("Contract ID must be a valid CUID")
+    .min(1, "Contract ID is required"),
 });
 
 /**
  * 19. DELETE DOCUMENT
  * 
- * Supprimer un document
+ * Delete a document
  */
 export const deleteDocumentSchema = z.object({
   documentId: z.string()
-    .cuid("L'ID du document doit être un CUID valide")
-    .min(1, "L'ID du document est requis"),
+    .cuid("Document ID must be a valid CUID")
+    .min(1, "Document ID is required"),
 });
 
 /**
  * 20. DOWNLOAD DOCUMENT
  * 
- * Obtenir l'URL signée pour télécharger un document
+ * Get signed URL to download a document
  */
 export const downloadDocumentSchema = z.object({
   documentId: z.string()
-    .cuid("L'ID du document doit être un CUID valide")
-    .min(1, "L'ID du document est requis"),
+    .cuid("Document ID must be a valid CUID")
+    .min(1, "Document ID is required"),
 });
 
 // ============================================================================
-// TYPES EXPORTÉS POUR PARTICIPANTS ET DOCUMENTS
+// EXPORTED TYPES FOR PARTICIPANTS AND DOCUMENTS
 // ============================================================================
 
 export type AdditionalParticipantInput = z.infer<typeof additionalParticipantSchema>;

@@ -1,23 +1,23 @@
 /**
- * Helper pour générer automatiquement un titre de contrat
- * à partir d'un nom de fichier PDF
+ * Helper for automatically generating a contract title
+ * from a PDF filename
  * 
- * Utilisé par le système simplifié de contrats MSA/SOW pour créer
- * automatiquement des titres lisibles sans intervention de l'utilisateur.
+ * Used by the simplified MSA/SOW contract system to create
+ * automatically readable titles without user intervention.
  */
 
 /**
- * Génère un titre de contrat à partir d'un nom de fichier PDF
+ * Generates a contract title from a PDF filename
  * 
- * Règles de transformation :
+ * Transformation rules:
  * - Enlever l'extension (.pdf, .PDF)
- * - Remplacer underscores et tirets par des espaces
- * - Capitaliser la première lettre de chaque mot
- * - Limiter à 100 caractères
- * - Retourner "Untitled Contract" si le résultat est vide
+ * - Replace underscores and hyphens with spaces
+ * - Capitalize first letter of each word
+ * - Limit to 100 characters
+ * - Return "Untitled Contract" if result is empty
  * 
- * @param fileName - Nom du fichier (ex: "msa_client_abc.pdf")
- * @returns Titre formaté (ex: "Msa Client Abc")
+ * @param fileName - Filename (e.g., "msa_client_abc.pdf")
+ * @returns Formatted title (e.g., "Msa Client Abc")
  * 
  * @example
  * generateContractTitle("msa_client_abc.pdf") // "Msa Client Abc"
@@ -32,10 +32,10 @@ export function generateContractTitle(fileName: string): string {
   // 1. Enlever l'extension
   const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
 
-  // 2. Remplacer underscores, tirets, et caractères spéciaux par des espaces
+  // 2. Replace underscores, hyphens, and special characters with spaces
   const cleaned = nameWithoutExt.replace(/[_\-]+/g, " ");
 
-  // 3. Capitaliser première lettre de chaque mot
+  // 3. Capitalize first letter of each word
   const capitalized = cleaned
     .split(/\s+/)
     .filter(word => word.length > 0) // Enlever les espaces multiples
@@ -45,21 +45,21 @@ export function generateContractTitle(fileName: string): string {
     .join(" ")
     .trim();
 
-  // 4. Limiter à 100 caractères
+  // 4. Limit to 100 characters
   const truncated = capitalized.length > 100
     ? capitalized.substring(0, 97) + "..."
     : capitalized;
 
-  // 5. Retourner un titre par défaut si vide
+  // 5. Return default title if empty
   return truncated || "Untitled Contract";
 }
 
 /**
- * Génère un titre avec préfixe selon le type de contrat
+ * Generates a title with prefix based on contract type
  * 
- * @param fileName - Nom du fichier
- * @param type - Type de contrat ("msa" ou "sow")
- * @returns Titre avec préfixe (ex: "[MSA] Client Abc")
+ * @param fileName - Filename
+ * @param type - Contract type ("msa" or "sow")
+ * @returns Title with prefix (e.g., "[MSA] Client Abc")
  * 
  * @example
  * generateContractTitleWithPrefix("client_abc.pdf", "msa") // "[MSA] Client Abc"
@@ -74,18 +74,18 @@ export function generateContractTitleWithPrefix(
 
   const titleWithPrefix = `${prefix} ${baseTitle}`;
 
-  // Limiter à 100 caractères en incluant le préfixe
+  // Limit to 100 characters including prefix
   return titleWithPrefix.length > 100
     ? titleWithPrefix.substring(0, 97) + "..."
     : titleWithPrefix;
 }
 
 /**
- * Génère un titre avec horodatage
+ * Generates a title with timestamp
  * 
- * @param fileName - Nom du fichier
- * @param addTimestamp - Ajouter un timestamp au titre
- * @returns Titre avec timestamp (ex: "Client Abc - 2024-01-15")
+ * @param fileName - Filename
+ * @param addTimestamp - Add timestamp to title
+ * @returns Title with timestamp (e.g., "Client Abc - 2024-01-15")
  * 
  * @example
  * generateContractTitleWithTimestamp("client_abc.pdf") // "Client Abc - 2024-01-15"
@@ -105,7 +105,7 @@ export function generateContractTitleWithTimestamp(
 
   const titleWithTimestamp = `${baseTitle} - ${timestamp}`;
 
-  // Limiter à 100 caractères
+  // Limit to 100 characters
   return titleWithTimestamp.length > 100
     ? titleWithTimestamp.substring(0, 97) + "..."
     : titleWithTimestamp;

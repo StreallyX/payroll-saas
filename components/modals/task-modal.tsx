@@ -56,7 +56,7 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
 
   const createMutation = api.task.create.useMutation({
     onSuccess: () => {
-      toast.success("Tâche created successfully!")
+      toast.success("Task created successfully!")
       utils.task.getAll.invalidate()
       utils.task.getStats.invalidate()
       onOpenChange(false)
@@ -64,20 +64,20 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
       resetForm()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to create de la tâche")
+      toast.error(error?.message || "Failed to create task")
     }
   })
 
   const updateMutation = api.task.update.useMutation({
     onSuccess: () => {
-      toast.success("Tâche updated successfully!")
+      toast.success("Task updated successfully!")
       utils.task.getAll.invalidate()
       utils.task.getStats.invalidate()
       onOpenChange(false)
       onSuccess?.()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to update de la tâche")
+      toast.error(error?.message || "Failed to update task")
     }
   })
 
@@ -95,12 +95,12 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
     e.preventDefault()
 
     if (!formData.title) {
-      toast.error("Le titre est requis")
+      toast.error("Title is required")
       return
     }
 
     if (!formData.assignedTo) {
-      toast.error("Veuillez assigner la tâche à un utilisateur")
+      toast.error("Please assign the task to a user")
       return
     }
 
@@ -130,11 +130,11 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{task ? "Edit Tâche" : "New Tâche"}</DialogTitle>
+          <DialogTitle>{task ? "Edit Task" : "New Task"}</DialogTitle>
           <DialogDescription>
             {task 
-              ? "Mettez à jour les informations de la tâche." 
-              : "Remplissez les détails pour créer une nouvelle tâche."}
+              ? "Update task information." 
+              : "Fill in the details to create a new task."}
           </DialogDescription>
         </DialogHeader>
 
@@ -145,7 +145,7 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Titre de la tâche"
+              placeholder="Task title"
               required
             />
           </div>
@@ -156,20 +156,20 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Détails de la tâche..."
+              placeholder="Task details..."
               rows={4}
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="assignedTo">Assigner à *</Label>
+              <Label htmlFor="assignedTo">Assign to *</Label>
               <Select 
                 value={formData.assignedTo} 
                 onValueChange={(value) => setFormData({ ...formData, assignedTo: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select un utilisateur" />
+                  <SelectValue placeholder="Select a user" />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((user: any) => (
@@ -182,13 +182,13 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="priority">Priorité</Label>
+              <Label htmlFor="priority">Priority</Label>
               <Select 
                 value={formData.priority} 
                 onValueChange={(value) => setFormData({ ...formData, priority: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select la priorité" />
+                  <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Basse</SelectItem>
@@ -201,7 +201,7 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="dueDate">Date d'échéance</Label>
+            <Label htmlFor="dueDate">Due date</Label>
             <Input
               id="dueDate"
               type="date"
@@ -216,7 +216,7 @@ export function TaskModal({ open, onOpenChange, task, onSuccess }: TaskModalProp
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {task ? "Mettre à Jour" : "Create"}
+              {task ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </form>

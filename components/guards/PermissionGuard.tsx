@@ -22,7 +22,7 @@ export function PermissionGuard({
   requireAll = false,
   fallback = null,
   showAlert = false,
-  alertMessage = "Vous n'avez pas les permissions nécessaires.",
+  alertMessage = "You do not have the necessary permissions.",
 }: PermissionGuardProps) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } =
     usePermissions();

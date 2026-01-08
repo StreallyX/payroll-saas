@@ -1,23 +1,23 @@
 /**
- * Helpers pour vérifier les permissions et l'accès aux contrats
+ * Helpers for checking permissions and contract access
  * 
- * Ces helpers vérifient si un utilisateur a les droits nécessaires pour
- * effectuer des actions sur un contrat (lecture, modification, upload de documents).
+ * These helpers verify if a user has the necessary rights to
+ * perform actions on a contract (read, modify, upload documents).
  */
 
 import { PrismaClient } from "@prisma/client";
 
 /**
- * Vérifie si un utilisateur est participant d'un contrat
+ * Checks if a user is a participant of a contract
  * 
- * Un utilisateur est considéré comme participant si :
- * - Il apparaît directement dans ContractParticipant (via userId)
- * - Il est membre d'une company qui est participante (via companyId)
+ * A user is considered a participant if:
+ * - They appear directly in ContractParticipant (via userId)
+ * - They are a member of a company that is a participant (via companyId)
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur
- * @returns true si l'utilisateur est participant, false sinon
+ * @param contractId - Contract ID
+ * @param userId - User ID
+ * @returns true if user is participant, false otherwise
  * 
  * @example
  * const canAccess = await isContractParticipant(prisma, "clxxx123", "clusr456");
@@ -28,7 +28,7 @@ export async function isContractParticipant(
   userId: string
 ): Promise<boolean> {
   try {
-    // Vérifier si l'utilisateur est directement participant
+    // Check if user is directly a participant
     const directParticipant = await prisma.contractParticipant.findFirst({
       where: {
         contractId,
@@ -41,7 +41,7 @@ export async function isContractParticipant(
       return true;
     }
 
-    // Vérifier si l'utilisateur est membre d'une company participante
+    // Check if user is a member of a participating company
     const companyParticipant = await prisma.contractParticipant.findFirst({
       where: {
         contractId,
@@ -68,22 +68,22 @@ export async function isContractParticipant(
 }
 
 /**
- * Vérifie si un utilisateur peut modifier un contrat
+ * Checks if a user can modify a contract
  * 
- * Un utilisateur peut modifier un contrat si :
- * - Il a la permission contract.update.global OU
- * - Il a la permission contract.update.own ET est participant du contrat OU
- * - Il est le créateur du contrat (createdBy) ET a contract.update.own
+ * A user can modify a contract if:
+ * - They have contract.update.global permission OR
+ * - They have contract.update.own permission AND are a participant of the contract OR
+ * - They are the contract creator (createdBy) AND have contract.update.own
  * 
- * De plus, certains statuts de contrat empêchent toute modification :
- * - Les contrats "active" et "completed" ne peuvent plus être modifiés
- *   (sauf pour certaines actions spécifiques)
+ * Additionally, certain contract statuses prevent any modification:
+ * - "active" and "completed" contracts can no longer be modified
+ *   (except for certain specific actions)
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur
- * @param userPermissions - Permissions de l'utilisateur (clés des permissions)
- * @returns true si l'utilisateur peut modifier, false sinon
+ * @param contractId - Contract ID
+ * @param userId - User ID
+ * @param userPermissions - User permissions (permission keys)
+ * @returns true if user can modify, false otherwise
  * 
  * @example
  * const canModify = await canModifyContract(
@@ -105,7 +105,7 @@ export async function canModifyContract(
       return true;
     }
 
-    // Récupérer le contrat pour vérifier le statut et le créateur
+    // Retrieve contract to check status and creator
     const contract = await prisma.contract.findUnique({
       where: { id: contractId },
       select: {
@@ -118,21 +118,21 @@ export async function canModifyContract(
       return false;
     }
 
-    // Les contrats "completed" et "active" ne peuvent plus être modifiés
-    // (sauf pour uploader des documents signés, mais c'est géré ailleurs)
+    // "completed" and "active" contracts can no longer be modified
+    // (except for uploading signed documents, but that's handled elsewhere)
     if (contract.workflowStatus === "completed" || contract.workflowStatus === "active") {
-      // Seul contract.update.global peut modifier ces contrats
+      // Only contract.update.global can modify these contracts
       return userPermissions.includes("contract.update.global");
     }
 
-    // Permission "own" nécessite d'être participant ou créateur
+    // "own" permission requires being a participant or creator
     if (userPermissions.includes("contract.update.own")) {
-      // Vérifier si l'utilisateur est le créateur
+      // Check if user is the creator
       if (contract.createdBy === userId) {
         return true;
       }
 
-      // Vérifier si l'utilisateur est participant
+      // Check if user is a participant
       const isParticipant = await isContractParticipant(prisma, contractId, userId);
       return isParticipant;
     }
@@ -145,19 +145,19 @@ export async function canModifyContract(
 }
 
 /**
- * Vérifie si un utilisateur peut uploader des documents pour un contrat
+ * Checks if a user can upload documents for a contract
  * 
- * Un utilisateur peut uploader des documents si :
- * - Il est participant du contrat (directement ou via company) ET
- * - Le contrat n'est pas en statut "completed" ou "active"
+ * A user can upload documents if:
+ * - They are a participant of the contract (directly or via company) AND
+ * - Contract is not in "completed" or "active" status
  * 
- * Exception: Les utilisateurs avec contract.update.global peuvent toujours uploader
+ * Exception: Users with contract.update.global can always upload
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur
- * @param userPermissions - Permissions de l'utilisateur (clés des permissions)
- * @returns true si l'utilisateur peut uploader, false sinon
+ * @param contractId - Contract ID
+ * @param userId - User ID
+ * @param userPermissions - User permissions (permission keys)
+ * @returns true if user can upload, false otherwise
  * 
  * @example
  * const canUpload = await canUploadDocument(
@@ -179,7 +179,7 @@ export async function canUploadDocument(
       return true;
     }
 
-    // Récupérer le contrat pour vérifier le statut
+    // Retrieve contract to check status
     const contract = await prisma.contract.findUnique({
       where: { id: contractId },
       select: {
@@ -191,13 +191,13 @@ export async function canUploadDocument(
       return false;
     }
 
-    // Les contrats "completed" et "active" ne permettent plus l'upload
-    // (sauf pour contract.update.global, déjà vérifié plus haut)
+    // "completed" and "active" contracts no longer allow upload
+    // (except for contract.update.global, already checked above)
     if (contract.workflowStatus === "completed" || contract.workflowStatus === "active") {
       return false;
     }
 
-    // Vérifier si l'utilisateur est participant
+    // Check if user is a participant
     const isParticipant = await isContractParticipant(prisma, contractId, userId);
     return isParticipant;
   } catch (error) {
@@ -207,20 +207,20 @@ export async function canUploadDocument(
 }
 
 /**
- * Vérifie si un utilisateur peut supprimer un document
+ * Checks if a user can delete a document
  * 
- * Un utilisateur peut supprimer un document si :
- * - Il est l'uploader du document OU
- * - Il a la permission contract.update.global
+ * A user can delete a document if:
+ * - They are the document uploader OR
+ * - They have contract.update.global permission
  * 
- * De plus, le contrat ne doit pas être "completed" ou "active"
- * (sauf pour contract.update.global)
+ * Additionally, contract must not be "completed" or "active"
+ * (except for contract.update.global)
  * 
  * @param prisma - Instance Prisma Client
  * @param contractDocumentId - ID du ContractDocument
- * @param userId - ID de l'utilisateur
- * @param userPermissions - Permissions de l'utilisateur (clés des permissions)
- * @returns true si l'utilisateur peut supprimer, false sinon
+ * @param userId - User ID
+ * @param userPermissions - User permissions (permission keys)
+ * @returns true if user can delete, false otherwise
  * 
  * @example
  * const canDelete = await canDeleteDocument(
@@ -242,7 +242,7 @@ export async function canDeleteDocument(
       return true;
     }
 
-    // Récupérer le document avec le contrat associé
+    // Retrieve document with associated contract
     const contractDocument = await prisma.contractDocument.findUnique({
       where: { id: contractDocumentId },
       include: {
@@ -258,13 +258,13 @@ export async function canDeleteDocument(
       return false;
     }
 
-    // Les contrats "completed" et "active" ne permettent plus la suppression
+    // "completed" and "active" contracts no longer allow deletion
     const contract = contractDocument.contract;
     if (contract.workflowStatus === "completed" || contract.workflowStatus === "active") {
       return false;
     }
 
-    // Vérifier si l'utilisateur est l'uploader
+    // Check if user is the uploader
     if (contractDocument.uploadedByUserId === userId) {
       return true;
     }
@@ -277,18 +277,18 @@ export async function canDeleteDocument(
 }
 
 /**
- * Vérifie si un utilisateur peut voir un contrat
+ * Checks if a user can view a contract
  * 
- * Un utilisateur peut voir un contrat si :
- * - Il a la permission contract.read.global OU
- * - Il a la permission contract.read.own ET est participant du contrat OU
- * - Il est le créateur du contrat (createdBy)
+ * A user can view a contract if:
+ * - They have contract.read.global permission OR
+ * - They have contract.read.own permission AND are a participant of the contract OR
+ * - They are the contract creator (createdBy)
  * 
  * @param prisma - Instance Prisma Client
- * @param contractId - ID du contrat
- * @param userId - ID de l'utilisateur
- * @param userPermissions - Permissions de l'utilisateur (clés des permissions)
- * @returns true si l'utilisateur peut voir, false sinon
+ * @param contractId - Contract ID
+ * @param userId - User ID
+ * @param userPermissions - User permissions (permission keys)
+ * @returns true if user can view, false otherwise
  * 
  * @example
  * const canView = await canViewContract(
@@ -310,7 +310,7 @@ export async function canViewContract(
       return true;
     }
 
-    // Récupérer le contrat pour vérifier le créateur
+    // Retrieve contract to check creator
     const contract = await prisma.contract.findUnique({
       where: { id: contractId },
       select: {
@@ -322,14 +322,14 @@ export async function canViewContract(
       return false;
     }
 
-    // Permission "own" nécessite d'être participant ou créateur
+    // "own" permission requires being a participant or creator
     if (userPermissions.includes("contract.read.own")) {
-      // Vérifier si l'utilisateur est le créateur
+      // Check if user is the creator
       if (contract.createdBy === userId) {
         return true;
       }
 
-      // Vérifier si l'utilisateur est participant
+      // Check if user is a participant
       const isParticipant = await isContractParticipant(prisma, contractId, userId);
       return isParticipant;
     }

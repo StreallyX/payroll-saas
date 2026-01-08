@@ -4,14 +4,14 @@ import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 
 /**
- * Hook pour gérer le workflow des contrats simplifiés
+ * Hook for managing simplified contract workflow
  * 
  * Actions disponibles:
- * - submitForReview: Soumet un contrat draft pour review admin
- * - approveContract: Approuve un contrat en pending_admin_review
- * - rejectContract: Rejette un contrat et le remet en draft
- * - activateContract: Active un contrat completed
- * - deleteDraftContract: Supprime un contrat en draft
+ * - submitForReview: Submit a draft contract for admin review
+ * - approveContract: Approve a contract in pending_admin_review
+ * - rejectContract: Reject a contract and return it to draft
+ * - activateContract: Activate a completed contract
+ * - deleteDraftContract: Delete a draft contract
  */
 export function useSimpleContractWorkflow() {
   const utils = api.useUtils();
@@ -19,60 +19,60 @@ export function useSimpleContractWorkflow() {
   // Submit for review
   const submitForReview = api.simpleContract.submitForReview.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat soumis pour validation");
-      // Invalider les queries pour rafraîchir les données
+      toast.success("Contract submitted for validation");
+      // Invalidate queries to refresh data
       utils.simpleContract.listSimpleContracts.invalidate();
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de la soumission");
+      toast.error(error.message || "Submission failed");
     },
   });
 
   // Admin approve
   const approveContract = api.simpleContract.adminApprove.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat approuvé avec succès");
+      toast.success("Contract approved successfully");
       utils.simpleContract.listSimpleContracts.invalidate();
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de l'approbation");
+      toast.error(error.message || "Approval failed");
     },
   });
 
   // Admin reject
   const rejectContract = api.simpleContract.adminReject.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat rejeté");
+      toast.success("Contract rejected");
       utils.simpleContract.listSimpleContracts.invalidate();
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
     },
     onError: (error) => {
-      toast.error(error.message || "Échec du rejet");
+      toast.error(error.message || "Rejection failed");
     },
   });
 
   // Activate contract
   const activateContract = api.simpleContract.activateContract.useMutation({
     onSuccess: (data) => {
-      toast.success("Contrat activé avec succès");
+      toast.success("Contract activated successfully");
       utils.simpleContract.listSimpleContracts.invalidate();
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de l'activation");
+      toast.error(error.message || "Activation failed");
     },
   });
 
   // Delete draft contract
   const deleteDraftContract = api.simpleContract.deleteDraftContract.useMutation({
     onSuccess: () => {
-      toast.success("Contrat supprimé");
+      toast.success("Contract deleted");
       utils.simpleContract.listSimpleContracts.invalidate();
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de la suppression");
+      toast.error(error.message || "Deletion failed");
     },
   });
 

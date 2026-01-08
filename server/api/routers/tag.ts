@@ -22,7 +22,7 @@ export const tagRouter = createTRPCRouter({
     .use(hasPermission(LIST))
     .input(
       z.object({
-        isActive: z.boolean().optional(), // ⚠️ ton modèle n'a pas isActive, donc je ne filtre pas dessus
+        isActive: z.boolean().optional(), // ⚠️ your model doesn't have isActive, so I don't filter on it
       }).optional()
     )
     .query(async ({ ctx }) => {

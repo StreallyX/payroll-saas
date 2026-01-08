@@ -1,15 +1,15 @@
 /**
- * Scopes de permissions pour le contexte
+ * Permission scopes for context
  */
 export enum PermissionScope {
-  GLOBAL = "global",   // Accès à toutes les ressources du tenant
-  OWN = "own",        // Accès uniquement à ses propres ressources
-  TENANT = "tenant",  // Accès au niveau tenant (équivalent à global pour certaines ressources)
+  GLOBAL = "global",   // Access to all tenant resources
+  OWN = "own",        // Access only to own resources
+  TENANT = "tenant",  // Tenant-level access (equivalent to global for some resources)
   PAGE = "page",
 }
 
 /**
- * Ressources disponibles dans la plateforme
+ * Resources available in the platform
  */
 export enum Resource {
   // Core entities
@@ -122,11 +122,11 @@ export enum Action {
   ACCESS = "access",
   LINK = "link",
   
-  // Liste et recherche
+  // List and search
   LIST = "list",
   SEARCH = "search",
   
-  // Actions spécifiques
+  // Specific actions
   APPROVE = "approve",
   REJECT = "reject",
   SEND = "send",
@@ -181,7 +181,7 @@ export enum Action {
 }
 
 /**
- * Type pour une permission complète
+ * Type for a complete permission
  */
 export interface Permission {
   resource: Resource;
@@ -194,11 +194,11 @@ export interface Permission {
 }
 
 /**
- * Catégories de permissions pour l'UI
+ * Permission categories for UI
  */
 export enum PermissionCategory {
   CORE = "Gestion de base",
-  BUSINESS = "Gestion métier",
+  BUSINESS = "Business management",
   FINANCIAL = "Finance",
   TIME_TRACKING = "Temps et travail",
   DOCUMENTS = "Documents",
@@ -212,7 +212,7 @@ export enum PermissionCategory {
 // ====================================================================
 
 /**
- * Construit une clé de permission
+ * Builds a permission key
  */
 export function buildPermissionKey(
   resource: Resource,
@@ -223,7 +223,7 @@ export function buildPermissionKey(
 }
 
 /**
- * Parse une clé de permission
+ * Parses a permission key
  */
 export function parsePermissionKey(key: string): {
   resource: string;
@@ -241,7 +241,7 @@ export function parsePermissionKey(key: string): {
 }
 
 /**
- * Crée un objet Permission
+ * Creates a Permission object
  */
 export function createPermission(
   resource: Resource,
@@ -263,7 +263,7 @@ export function createPermission(
 }
 
 // ====================================================================
-// PERMISSIONS COMPLÈTES VOOR PLATEFORME DEEL-LIKE
+// COMPLETE PERMISSIONS FOR DEEL-LIKE PLATFORM
 // ====================================================================
 
 export const ALL_PERMISSIONS: Permission[] = [
@@ -275,8 +275,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.SUPER_ADMIN,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir son dashboard",
-    "Accéder à son tableau de bord personnel",
+    "View own dashboard",
+    "Access personal dashboard",
     PermissionCategory.CORE
   ),
   // ================================================================
@@ -286,16 +286,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.DASHBOARD,
     Action.READ,
     PermissionScope.OWN,
-    "Voir son dashboard",
-    "Accéder à son tableau de bord personnel",
+    "View own dashboard",
+    "Access personal dashboard",
     PermissionCategory.CORE
   ),
   createPermission(
     Resource.DASHBOARD,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les dashboards",
-    "Accéder aux statistiques globales du tenant",
+    "View all dashboards",
+    "Access tenant global statistics",
     PermissionCategory.REPORTING
   ),
 
@@ -306,72 +306,72 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.USER,
     Action.READ,
     PermissionScope.OWN,
-    "Voir son profil",
-    "Consulter et gérer son propre profil utilisateur",
+    "View own profile",
+    "View and manage own user profile",
     PermissionCategory.CORE
   ),
   createPermission(
     Resource.USER,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier son profil",
-    "Mettre à jour ses informations personnelles",
+    "Edit own profile",
+    "Update personal information",
     PermissionCategory.CORE
   ),
   createPermission(
     Resource.USER,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir les détails des utilisateurs",
-    "Consulter les profils et informations détaillées de tous les utilisateurs",
+    "View user details",
+    "View profiles and detailed information of all users",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les utilisateurs",
-    "Lister et rechercher tous les utilisateurs du tenant",
+    "View all users",
+    "List and search all tenant users",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des utilisateurs",
-    "Ajouter de nouveaux utilisateurs",
+    "Create users",
+    "Add new users",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les utilisateurs",
-    "Mettre à jour les informations des utilisateurs",
+    "Edit users",
+    "Update user information",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des utilisateurs",
-    "Supprimer des comptes utilisateurs",
+    "Delete users",
+    "Delete user accounts",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
     Action.ACTIVATE,
     PermissionScope.GLOBAL,
-    "Activer des utilisateurs",
-    "Activer ou désactiver des comptes",
+    "Activate users",
+    "Activate or deactivate accounts",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.USER,
     Action.IMPERSONATE,
     PermissionScope.GLOBAL,
-    "Se connecter en tant qu'utilisateur",
-    "Impersonner un autre utilisateur",
+    "Log in as user",
+    "Impersonate another user",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -382,64 +382,64 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.ROLE,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les rôles",
-    "Lister tous les rôles",
+    "View roles",
+    "List all roles",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des rôles",
-    "Créer de nouveaux rôles personnalisés",
+    "Create roles",
+    "Create new custom roles",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier des rôles",
-    "Modifier les rôles existants",
+    "Edit roles",
+    "Edit existing roles",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des rôles",
-    "Supprimer des rôles (sauf système)",
+    "Delete roles",
+    "Delete roles (except system)",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses propres rôles",
-    "Lire uniquement les rôles que l'utilisateur a créés",
+    "View own roles",
+    "Read only roles user has created",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer ses propres rôles",
-    "Créer un rôle qui sera marqué comme appartenant à l’utilisateur",
+    "Create own roles",
+    "Create un rôle qui sera marqué comme appartenant à l’utilisateur",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses propres rôles",
-    "Modifier uniquement les rôles que l'utilisateur a créés",
+    "Edit own roles",
+    "Edit only roles user has created",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ROLE,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses propres rôles",
-    "Supprimer uniquement les rôles créés par l'utilisateur (hors rôles système)",
+    "Delete own roles",
+    "Delete only roles created by user (except system roles)",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -450,8 +450,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PERMISSION,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les permissions",
-    "Lister toutes les permissions disponibles",
+    "View permissions",
+    "List all available permissions",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -459,15 +459,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.ASSIGN,
     PermissionScope.GLOBAL,
     "Assigner des permissions",
-    "Attribuer des permissions aux rôles",
+    "Assign permissions to roles",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.PERMISSION,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des permissions",
-    "Créer de nouvelles permissions personnalisées",
+    "Create permissions",
+    "Create new custom permissions",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -480,16 +480,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.COMPANY,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les entreprises",
-    "Lister toutes les entreprises du tenant",
+    "View all companies",
+    "List all tenant companies",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.LIST,
     PermissionScope.OWN,
-    "Voir ses entreprises",
-    "Lister uniquement les entreprises appartenant à l'utilisateur",
+    "View own companies",
+    "List only companies belonging to user",
     PermissionCategory.BUSINESS
   ),
 
@@ -498,16 +498,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.COMPANY,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des entreprises (global)",
-    "Créer des entreprises appartenant au tenant",
+    "Create companies (global)",
+    "Create companies belonging to tenant",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer ses propres entreprises",
-    "Créer des entreprises appartenant à l'utilisateur",
+    "Create own companies",
+    "Create companies belonging to user",
     PermissionCategory.BUSINESS
   ),
 
@@ -516,16 +516,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.COMPANY,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier toutes les entreprises",
-    "Mettre à jour n'importe quelle entreprise du tenant",
+    "Edit all companies",
+    "Update any tenant company",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses entreprises",
-    "Mettre à jour uniquement les entreprises appartenant à l'utilisateur",
+    "Edit own companies",
+    "Update only companies belonging to user",
     PermissionCategory.BUSINESS
   ),
 
@@ -534,16 +534,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.COMPANY,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des entreprises (global)",
-    "Supprimer n'importe quelle entreprise du tenant",
+    "Delete companies (global)",
+    "Delete any tenant company",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.COMPANY,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses entreprises",
-    "Supprimer uniquement les entreprises appartenant à l'utilisateur",
+    "Delete own companies",
+    "Delete only companies belonging to user",
     PermissionCategory.BUSINESS
   ),
 
@@ -555,7 +555,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses contrats",
+    "View own contracts",
     "Consulter ses propres contrats",
     PermissionCategory.BUSINESS
   ),
@@ -563,56 +563,56 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT,
     Action.ASSIGN,
     PermissionScope.GLOBAL,
-    "Assigner les participants à un contrat",
-    "Permet d'ajouter un admin, un approver ou toute autre personne sur un contrat",
+    "Assign participants to a contract",
+    "Allows adding an admin, approver or any other person to a contract",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les contrats",
-    "Lister et rechercher tous les contrats",
+    "View all contracts",
+    "List and search all contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des contrats",
-    "Créer de nouveaux contrats",
+    "Create contracts",
+    "Create new contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses contrats",
-    "Mettre à jour ses propres contrats (draft uniquement)",
+    "Edit own contracts",
+    "Update own contracts (draft only)",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier tous les contrats",
-    "Mettre à jour n'importe quel contrat",
+    "Edit all contracts",
+    "Update any contract",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des contrats",
-    "Supprimer des contrats (draft uniquement)",
+    "Delete contracts",
+    "Delete contracts (draft only)",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.SEND,
     PermissionScope.GLOBAL,
-    "Envoyer des contrats",
-    "Envoyer des contrats pour signature",
+    "Send contracts",
+    "Send contracts for signature",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -620,39 +620,39 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.SIGN,
     PermissionScope.OWN,
     "Signer ses contrats",
-    "Signer électroniquement ses contrats",
+    "Electronically sign own contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver des contrats",
-    "Approuver et activer des contrats",
+    "Approve contracts",
+    "Approve and activate contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.CANCEL,
     PermissionScope.GLOBAL,
-    "Annuler des contrats",
-    "Annuler ou résilier des contrats",
+    "Cancel contracts",
+    "Cancel or terminate contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter des contrats",
-    "Exporter les données de contrats",
+    "Export contracts",
+    "Export contract data",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT,
     Action.LINK,
     PermissionScope.GLOBAL,
-    "Lier un SOW à un MSA",
-    "Créer ou rattacher un SOW à un contrat MSA",
+    "Link SOW to MSA",
+    "Create or attach SOW to MSA contract",
     PermissionCategory.BUSINESS
   ),
 
@@ -664,48 +664,48 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_MSA,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les MSA",
-    "Lister tous les Master Service Agreements",
+    "View all MSAs",
+    "List all Master Service Agreements",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir un MSA",
-    "Consulter les Master Service Agreements",
+    "View an MSA",
+    "View Master Service Agreements",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer un MSA",
-    "Créer un Master Service Agreement",
+    "Create an MSA",
+    "Create a Master Service Agreement",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier un MSA",
-    "Mettre à jour un Master Service Agreement",
+    "Edit an MSA",
+    "Update a Master Service Agreement",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer un MSA",
-    "Supprimer un Master Service Agreement (non signé)",
+    "Delete an MSA",
+    "Delete a Master Service Agreement (unsigned)",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.SEND,
     PermissionScope.GLOBAL,
-    "Envoyer un MSA",
-    "Envoyer un Master Service Agreement pour signature",
+    "Send an MSA",
+    "Send a Master Service Agreement for signature",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -713,31 +713,31 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.SIGN,
     PermissionScope.GLOBAL, // pas OWN — signature par managers/clients
     "Signer un MSA",
-    "Signer un Master Service Agreement",
+    "Sign a Master Service Agreement",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver un MSA",
-    "Approuver un Master Service Agreement",
+    "Approve an MSA",
+    "Approve a Master Service Agreement",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.CANCEL,
     PermissionScope.GLOBAL,
-    "Annuler un MSA",
-    "Annuler ou résilier un Master Service Agreement",
+    "Cancel an MSA",
+    "Cancel or terminate a Master Service Agreement",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_MSA,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter les MSA",
-    "Exporter la liste des Master Service Agreements",
+    "Export MSAs",
+    "Export list of Master Service Agreements",
     PermissionCategory.BUSINESS
   ),
   // ================================================================
@@ -747,8 +747,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les SOW",
-    "Lister tous les Statements of Work",
+    "View all SOWs",
+    "List all Statements of Work",
     PermissionCategory.BUSINESS
   ),
 
@@ -756,15 +756,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses SOW",
-    "Consulter les SOW liés à mes contrats",
+    "View own SOWs",
+    "View SOWs linked to my contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_SOW,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les SOW",
+    "View all SOWs",
     "Consulter n'importe quel Statement of Work",
     PermissionCategory.BUSINESS
   ),
@@ -773,8 +773,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer un SOW",
-    "Créer un Statement of Work rattaché à un MSA",
+    "Create a SOW",
+    "Create a Statement of Work attached to an MSA",
     PermissionCategory.BUSINESS
   ),
 
@@ -782,16 +782,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses SOW",
-    "Mettre à jour ses propres SOW (draft uniquement)",
+    "Edit own SOWs",
+    "Update own SOWs (draft only)",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_SOW,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier tous les SOW",
-    "Mettre à jour n'importe quel Statement of Work",
+    "Edit all SOWs",
+    "Update any Statement of Work",
     PermissionCategory.BUSINESS
   ),
 
@@ -799,8 +799,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer un SOW",
-    "Supprimer un Statement of Work (non signé)",
+    "Delete a SOW",
+    "Delete a Statement of Work (unsigned)",
     PermissionCategory.BUSINESS
   ),
 
@@ -808,8 +808,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.SEND,
     PermissionScope.GLOBAL,
-    "Envoyer un SOW",
-    "Envoyer un Statement of Work pour signature",
+    "Send a SOW",
+    "Send a Statement of Work for signature",
     PermissionCategory.BUSINESS
   ),
 
@@ -826,8 +826,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver un SOW",
-    "Approuver un Statement of Work",
+    "Approve a SOW",
+    "Approve a Statement of Work",
     PermissionCategory.BUSINESS
   ),
 
@@ -835,8 +835,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.CANCEL,
     PermissionScope.GLOBAL,
-    "Annuler un SOW",
-    "Annuler ou résilier un Statement of Work",
+    "Cancel a SOW",
+    "Cancel or terminate a Statement of Work",
     PermissionCategory.BUSINESS
   ),
 
@@ -844,8 +844,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter les SOW",
-    "Exporter la liste des Statements of Work",
+    "Export SOWs",
+    "Export list of Statements of Work",
     PermissionCategory.BUSINESS
   ),
 
@@ -856,16 +856,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_DOCUMENT,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses documents de contrat",
-    "Consulter les documents de ses contrats",
+    "View own contract documents",
+    "View documents of own contracts",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
     Resource.CONTRACT_DOCUMENT,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les documents de contrat",
-    "Consulter tous les documents",
+    "View all contract documents",
+    "View all documents",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -873,7 +873,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.UPLOAD,
     PermissionScope.OWN,
     "Uploader des documents",
-    "Ajouter des documents à ses contrats",
+    "Add documents to own contracts",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -881,15 +881,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.UPLOAD,
     PermissionScope.GLOBAL,
     "Uploader tous documents",
-    "Ajouter des documents à n'importe quel contrat",
+    "Add documents to any contract",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
     Resource.CONTRACT_DOCUMENT,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des documents",
-    "Supprimer des documents de contrat",
+    "Delete documents",
+    "Delete contract documents",
     PermissionCategory.DOCUMENTS
   ),
 
@@ -900,7 +900,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.INVOICE,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses factures",
+    "View own invoices",
     "Consulter ses propres factures",
     PermissionCategory.FINANCIAL
   ),
@@ -908,136 +908,136 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.INVOICE,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer ses factures",
-    "Créer ses propres factures (contractors)",
+    "Create own invoices",
+    "Create own invoices (contractors)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les factures",
-    "Lister et rechercher toutes les factures",
+    "View all invoices",
+    "List and search all invoices",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des factures",
-    "Créer des factures pour n'importe quel contrat",
+    "Create invoices",
+    "Create invoices for any contract",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses factures",
-    "Mettre à jour ses factures (draft uniquement)",
+    "Edit own invoices",
+    "Update own invoices (draft only)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier toutes les factures",
-    "Mettre à jour n'importe quelle facture",
+    "Edit all invoices",
+    "Update any invoice",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des factures",
-    "Supprimer des factures (draft uniquement)",
+    "Delete invoices",
+    "Delete invoices (draft only)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.SEND,
     PermissionScope.GLOBAL,
-    "Envoyer des factures",
-    "Envoyer des factures aux clients",
+    "Send invoices",
+    "Send invoices to clients",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver des factures",
-    "Valider des factures avant envoi",
+    "Approve invoices",
+    "Validate invoices before sending",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.PAY,
     PermissionScope.OWN,
-    "Payer ses factures",
-    "Marquer ses propres factures comme payées (pour les agences)",
+    "Pay own invoices",
+    "Mark own invoices as paid (for agencies)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.PAY,
     PermissionScope.GLOBAL,
-    "Marquer comme payée",
-    "Marquer des factures comme payées",
+    "Mark as paid",
+    "Mark invoices as paid",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter des factures",
-    "Exporter les données de factures",
+    "Export invoices",
+    "Export invoice data",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.CONFIRM_MARGIN,
     PermissionScope.OWN,
-    "Confirmer la marge de ses factures",
-    "Confirmer et valider la marge sur ses propres factures (agences)",
+    "Confirm margin on own invoices",
+    "Confirm and validate margin on own invoices (agencies)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.REVIEW,
     PermissionScope.GLOBAL,
-    "Réviser les factures",
-    "Réviser et mettre en révision les factures",
+    "Review invoices",
+    "Review and put invoices in review",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.REJECT,
     PermissionScope.GLOBAL,
-    "Rejeter les factures",
-    "Rejeter des factures avec raison",
+    "Reject invoices",
+    "Reject invoices with reason",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.VALIDATE,
     PermissionScope.GLOBAL,
-    "Modifier les montants et marges",
-    "Modifier les montants et marges des factures (admin)",
+    "Edit amounts and margins",
+    "Edit invoice amounts and margins (admin)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.PAY,
     PermissionScope.OWN,
-    "Marquer ses factures comme payées",
-    "Marquer comme payées les factures dont on est le destinataire (agences)",
+    "Mark own invoices as paid",
+    "Mark as paid invoices where you are the recipient (agencies)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.INVOICE,
     Action.CONFIRM,
     PermissionScope.GLOBAL,
-    "Confirmer la réception du paiement",
-    "Confirmer que le paiement a été reçu avec le montant exact (admin)",
+    "Confirm payment receipt",
+    "Confirm payment was received with exact amount (admin)",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1048,7 +1048,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYMENT,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses paiements",
+    "View own payments",
     "Consulter ses propres paiements",
     PermissionCategory.FINANCIAL
   ),
@@ -1056,48 +1056,48 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYMENT,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les paiements",
-    "Lister tous les paiements",
+    "View all payments",
+    "List all payments",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.PAYMENT,
     Action.CREATE,
     PermissionScope.TENANT,
-    "Créer des paiements",
-    "Créer de nouveaux paiements",
+    "Create payments",
+    "Create new payments",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.PAYMENT,
     Action.UPDATE,
     PermissionScope.TENANT,
-    "Modifier les paiements",
-    "Mettre à jour des paiements (y compris confirmation)",
+    "Edit payments",
+    "Update payments (including confirmation)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.PAYMENT,
     Action.DELETE,
     PermissionScope.TENANT,
-    "Supprimer des paiements",
-    "Supprimer des paiements non complétés",
+    "Delete payments",
+    "Delete incomplete payments",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.PAYMENT,
     Action.READ,
     PermissionScope.TENANT,
-    "Voir les paiements",
-    "Consulter les paiements du tenant",
+    "View payments",
+    "View tenant payments",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.PAYMENT,
     Action.PROCESS,
     PermissionScope.GLOBAL,
-    "Traiter des paiements",
-    "Traiter et finaliser des paiements",
+    "Process payments",
+    "Process and finalize payments",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
@@ -1105,15 +1105,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.REFUND,
     PermissionScope.GLOBAL,
     "Rembourser des paiements",
-    "Émettre des remboursements",
+    "Issue refunds",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.PAYMENT,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter des paiements",
-    "Exporter les données de paiements",
+    "Export payments",
+    "Export payment data",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1124,72 +1124,72 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.EXPENSE,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses dépenses",
-    "Consulter ses propres dépenses",
+    "View own expenses",
+    "View own expenses",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer des dépenses",
-    "Soumettre des notes de frais",
+    "Create expenses",
+    "Submit expense reports",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses dépenses",
-    "Mettre à jour ses dépenses (draft/rejected)",
+    "Edit own expenses",
+    "Update own expenses (draft/rejected)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses dépenses",
-    "Supprimer ses dépenses (draft uniquement)",
+    "Delete own expenses",
+    "Delete own expenses (draft only)",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.SUBMIT,
     PermissionScope.OWN,
-    "Soumettre ses dépenses",
-    "Soumettre des dépenses pour approbation",
+    "Submit own expenses",
+    "Submit expenses for approval",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les dépenses",
-    "Lister toutes les dépenses",
+    "View all expenses",
+    "List all expenses",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver toutes les dépenses",
-    "Approuver n'importe quelle dépense",
+    "Approve all expenses",
+    "Approve any expense",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.REJECT,
     PermissionScope.GLOBAL,
-    "Rejeter des dépenses",
-    "Rejeter des demandes de dépenses",
+    "Reject expenses",
+    "Reject expense requests",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.EXPENSE,
     Action.PAY,
     PermissionScope.GLOBAL,
-    "Marquer comme payée",
-    "Marquer des dépenses comme remboursées",
+    "Mark as paid",
+    "Mark expenses as reimbursed",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1200,7 +1200,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TIMESHEET,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses feuilles de temps",
+    "View own timesheets",
     "Consulter ses propres timesheets",
     PermissionCategory.TIME_TRACKING
   ),
@@ -1208,55 +1208,55 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TIMESHEET,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer des feuilles de temps",
-    "Créer de nouvelles timesheets",
+    "Create timesheets",
+    "Create new timesheets",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses feuilles de temps",
-    "Mettre à jour ses timesheets (draft uniquement)",
+    "Edit own timesheets",
+    "Update own timesheets (draft only)",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses feuilles de temps",
-    "Supprimer ses timesheets (draft uniquement)",
+    "Delete own timesheets",
+    "Delete own timesheets (draft only)",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.SUBMIT,
     PermissionScope.OWN,
-    "Soumettre ses feuilles de temps",
-    "Soumettre des timesheets pour approbation",
+    "Submit own timesheets",
+    "Submit timesheets for approval",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les feuilles de temps",
-    "Lister toutes les timesheets",
+    "View all timesheets",
+    "List all timesheets",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.REVIEW,
     PermissionScope.GLOBAL,
-    "Réviser les feuilles de temps",
-    "Marquer les timesheets comme en cours de révision",
+    "Review timesheets",
+    "Mark timesheets as under review",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver toutes les feuilles de temps",
+    "Approve all timesheets",
     "Approuver n'importe quelle timesheet",
     PermissionCategory.TIME_TRACKING
   ),
@@ -1264,24 +1264,24 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TIMESHEET,
     Action.REJECT,
     PermissionScope.GLOBAL,
-    "Rejeter des feuilles de temps",
-    "Rejeter des timesheets",
+    "Reject timesheets",
+    "Reject timesheets",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier toutes les feuilles de temps",
-    "Modifier n'importe quelle timesheet (y compris les montants)",
+    "Edit all timesheets",
+    "Edit any timesheet (including amounts)",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TIMESHEET,
     Action.VIEW_MARGIN,
     PermissionScope.GLOBAL,
-    "Voir les marges des feuilles de temps",
-    "Consulter les détails de marge et la répartition complète des montants dans les timesheets",
+    "View timesheet margins",
+    "View margin details and complete amount breakdown in timesheets",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1292,7 +1292,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses bulletins de paie",
+    "View own payslips",
     "Consulter uniquement ses propres bulletins",
     PermissionCategory.FINANCIAL
   ),
@@ -1301,8 +1301,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les bulletins de paie",
-    "Consulter les bulletins de tous les utilisateurs",
+    "View all payslips",
+    "View payslips of all users",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1310,8 +1310,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Lister les bulletins de paie",
-    "Accéder à la liste complète des bulletins",
+    "List payslips",
+    "Access complete payslip list",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1319,8 +1319,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Générer des bulletins de paie",
-    "Créer de nouveaux bulletins de paie pour un utilisateur",
+    "Generate payslips",
+    "Create new payslips for a user",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1328,8 +1328,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les bulletins de paie",
-    "Mettre à jour les bulletins existants",
+    "Edit payslips",
+    "Update existing payslips",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1337,8 +1337,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer les bulletins de paie",
-    "Supprimer les bulletins de paie existants",
+    "Delete payslips",
+    "Delete existing payslips",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1346,8 +1346,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.SEND,
     PermissionScope.GLOBAL,
-    "Envoyer des bulletins de paie",
-    "Envoyer les bulletins par email aux utilisateurs",
+    "Send payslips",
+    "Send payslips by email to users",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1355,8 +1355,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYSLIP,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter les bulletins de paie",
-    "Télécharger ou exporter un bulletin de paie en PDF/CSV",
+    "Export payslips",
+    "Download or export payslip as PDF/CSV",
     PermissionCategory.FINANCIAL
   ),
   // ================================================================
@@ -1366,7 +1366,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REMITTANCE,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses virements",
+    "View own transfers",
     "Consulter ses propres virements",
     PermissionCategory.FINANCIAL
   ),
@@ -1375,33 +1375,33 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.CREATE,
     PermissionScope.OWN,
     "Demander des virements",
-    "Créer des demandes de virement",
+    "Create transfer requests",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.REMITTANCE,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les virements",
-    "Lister tous les virements",
+    "View all transfers",
+    "List all transfers",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.REMITTANCE,
     Action.PROCESS,
     PermissionScope.GLOBAL,
-    "Traiter des virements",
-    "Traiter et finaliser des virements",
+    "Process transfers",
+    "Process and finalize transfers",
     PermissionCategory.FINANCIAL
   ),
 
-  // ⭐️ AJOUTÉS → nouvelles permissions admin
+  // ⭐️ ADDED → new admin permissions
   createPermission(
     Resource.REMITTANCE,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les détails des virements",
-    "Consulter les informations détaillées de toutes les remittances du tenant",
+    "View all transfer details",
+    "View detailed information of all tenant remittances",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1409,8 +1409,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REMITTANCE,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Mettre à jour un virement",
-    "Modifier une remittance : notes, statut, dates, etc.",
+    "Update a transfer",
+    "Edit a remittance: notes, status, dates, etc.",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1418,8 +1418,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REMITTANCE,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer un virement",
-    "Supprimer une remittance existante",
+    "Delete a transfer",
+    "Delete an existing remittance",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1431,7 +1431,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REFERRAL,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses parrainages",
+    "View own referrals",
     "Consulter ses propres parrainages",
     PermissionCategory.BUSINESS
   ),
@@ -1439,7 +1439,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REFERRAL,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer des parrainages",
+    "Create referrals",
     "Parrainer de nouveaux contractors",
     PermissionCategory.BUSINESS
   ),
@@ -1447,24 +1447,24 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REFERRAL,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir tous les parrainages",
-    "Lister tous les parrainages",
+    "View all referrals",
+    "List all referrals",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.REFERRAL,
     Action.APPROVE,
     PermissionScope.GLOBAL,
-    "Approuver des parrainages",
-    "Valider des parrainages",
+    "Approve referrals",
+    "Validate referrals",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.REFERRAL,
     Action.PAY,
     PermissionScope.GLOBAL,
-    "Payer les récompenses",
-    "Payer les récompenses de parrainage",
+    "Pay rewards",
+    "Pay referral rewards",
     PermissionCategory.BUSINESS
   ),
 
@@ -1475,56 +1475,56 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TASK,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses tâches",
-    "Consulter ses propres tâches",
+    "View own tasks",
+    "View own tasks",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TASK,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir toutes les tâches",
-    "Consulter toutes les tâches du tenant",
+    "View all tasks",
+    "View all tenant tasks",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TASK,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des tâches",
-    "Créer de nouvelles tâches",
+    "Create tasks",
+    "Create new tasks",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TASK,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses tâches",
-    "Mettre à jour ses tâches",
+    "Edit own tasks",
+    "Update own tasks",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TASK,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier toutes les tâches",
-    "Mettre à jour n'importe quelle tâche",
+    "Edit all tasks",
+    "Update any task",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TASK,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des tâches",
-    "Supprimer des tâches",
+    "Delete tasks",
+    "Delete tasks",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
     Resource.TASK,
     Action.ASSIGN,
     PermissionScope.GLOBAL,
-    "Assigner des tâches",
-    "Assigner des tâches à des utilisateurs",
+    "Assign tasks",
+    "Assign tasks to users",
     PermissionCategory.TIME_TRACKING
   ),
 
@@ -1535,32 +1535,32 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.LEAD,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les prospects",
-    "Lister tous les prospects",
+    "View leads",
+    "List all leads",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.LEAD,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des prospects",
-    "Ajouter de nouveaux prospects",
+    "Create leads",
+    "Add new leads",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.LEAD,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les prospects",
-    "Mettre à jour les prospects",
+    "Edit leads",
+    "Update leads",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.LEAD,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des prospects",
-    "Supprimer des prospects",
+    "Delete leads",
+    "Delete leads",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -1568,7 +1568,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.ASSIGN,
     PermissionScope.GLOBAL,
     "Assigner des prospects",
-    "Assigner des prospects à des commerciaux",
+    "Assign leads to sales reps",
     PermissionCategory.BUSINESS
   ),
 
@@ -1579,7 +1579,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.DOCUMENT,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses documents",
+    "View own documents",
     "Consulter ses propres documents",
     PermissionCategory.DOCUMENTS
   ),
@@ -1587,8 +1587,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.DOCUMENT,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les documents",
-    "Consulter les documents de toutes les entités du tenant",
+    "View all documents",
+    "View documents of all tenant entities",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -1596,7 +1596,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.UPLOAD,
     PermissionScope.OWN,
     "Uploader ses documents",
-    "Ajouter de nouveaux documents pour ses propres entités",
+    "Add new documents for own entities",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -1604,30 +1604,30 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.UPLOAD,
     PermissionScope.GLOBAL,
     "Uploader tous documents",
-    "Ajouter des documents pour n'importe quelle entité",
+    "Add documents for any entity",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
     Resource.DOCUMENT,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Mettre à jour tous documents",
-    "Mettre à jour (nouvelle version) n'importe quel document du tenant",
+    "Update all documents",
+    "Update (new version) any tenant document",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
     Resource.DOCUMENT,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses documents",
-    "Supprimer ses propres documents",
+    "Delete own documents",
+    "Delete own documents",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
     Resource.DOCUMENT,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer tous documents",
+    "Delete all documents",
     "Supprimer n'importe quel document",
     PermissionCategory.DOCUMENTS
   ),
@@ -1635,16 +1635,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.DOCUMENT,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Mettre à jour ses documents",
-    "Mettre à jour (nouvelle version) ses propres documents",
+    "Update own documents",
+    "Update (new version) own documents",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
     Resource.DOCUMENT,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Lister tous les documents",
-    "Permet de voir la liste de tous les documents du tenant",
+    "List all documents",
+    "Allows viewing list of all tenant documents",
     PermissionCategory.DOCUMENTS
   ),
 
@@ -1655,7 +1655,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.ONBOARDING_TEMPLATE,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les templates d'onboarding",
+    "View onboarding templates",
     "Lister les templates",
     PermissionCategory.ADMINISTRATION
   ),
@@ -1663,56 +1663,56 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.ONBOARDING_TEMPLATE,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des templates d'onboarding",
-    "Créer de nouveaux templates",
+    "Create onboarding templates",
+    "Create new templates",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ONBOARDING_TEMPLATE,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les templates d'onboarding",
-    "Mettre à jour les templates",
+    "Edit onboarding templates",
+    "Update templates",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ONBOARDING_TEMPLATE,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des templates d'onboarding",
-    "Supprimer des templates",
+    "Delete onboarding templates",
+    "Delete templates",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ONBOARDING_RESPONSE,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses réponses d'onboarding",
-    "Consulter ses réponses",
+    "View own onboarding responses",
+    "View own responses",
     PermissionCategory.CORE
   ),
   createPermission(
     Resource.ONBOARDING_RESPONSE,
     Action.SUBMIT,
     PermissionScope.OWN,
-    "Soumettre ses réponses",
-    "Soumettre les réponses d'onboarding",
+    "Submit own responses",
+    "Submit onboarding responses",
     PermissionCategory.CORE
   ),
   createPermission(
     Resource.ONBOARDING_RESPONSE,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les réponses d'onboarding",
-    "Lister toutes les réponses",
+    "View all onboarding responses",
+    "List all responses",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.ONBOARDING_RESPONSE,
     Action.REVIEW,
     PermissionScope.GLOBAL,
-    "Reviewer les réponses",
-    "Reviewer et approuver les réponses",
+    "Review responses",
+    "Review and approve responses",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1723,31 +1723,31 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.COMMENT,
     Action.CREATE,
     PermissionScope.OWN,
-    "Ajouter des commentaires",
-    "Commenter sur les ressources accessibles",
+    "Add comments",
+    "Comment on accessible resources",
     PermissionCategory.COMMUNICATION
   ),
   createPermission(
     Resource.COMMENT,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier ses commentaires",
-    "Modifier ses propres commentaires",
+    "Edit own comments",
+    "Edit own comments",
     PermissionCategory.COMMUNICATION
   ),
   createPermission(
     Resource.COMMENT,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses commentaires",
-    "Supprimer ses propres commentaires",
+    "Delete own comments",
+    "Delete own comments",
     PermissionCategory.COMMUNICATION
   ),
   createPermission(
     Resource.COMMENT,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer tous commentaires",
+    "Delete all comments",
     "Supprimer n'importe quel commentaire",
     PermissionCategory.COMMUNICATION
   ),
@@ -1759,7 +1759,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.APPROVAL_WORKFLOW,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les workflows d'approbation",
+    "View approval workflows",
     "Lister les workflows",
     PermissionCategory.ADMINISTRATION
   ),
@@ -1767,16 +1767,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.APPROVAL_WORKFLOW,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des workflows",
-    "Créer des workflows d'approbation",
+    "Create workflows",
+    "Create approval workflows",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.APPROVAL_WORKFLOW,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les workflows",
-    "Mettre à jour les workflows",
+    "Edit workflows",
+    "Update workflows",
     PermissionCategory.ADMINISTRATION
   ),
   // ================================================================
@@ -1786,16 +1786,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.BANK,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les banques",
-    "Lister toutes les banques du tenant",
+    "View all banks",
+    "List all tenant banks",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.BANK,
     Action.LIST,
     PermissionScope.OWN,
-    "Voir mes banques",
-    "Lister uniquement les banques créées par l'utilisateur",
+    "View my banks",
+    "List only banks created by user",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1803,16 +1803,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.BANK,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des banques (global)",
-    "Ajouter des banques visibles par tout le tenant",
+    "Create banks (global)",
+    "Add banks visible to entire tenant",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.BANK,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer des banques (own)",
-    "Ajouter des banques personnelles",
+    "Create banks (own)",
+    "Add personal banks",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1820,16 +1820,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.BANK,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier des banques (global)",
-    "Mettre à jour toutes les banques",
+    "Edit banks (global)",
+    "Update all banks",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.BANK,
     Action.UPDATE,
     PermissionScope.OWN,
-    "Modifier mes banques",
-    "Mettre à jour uniquement les banques créées par l'utilisateur",
+    "Edit my banks",
+    "Update only banks created by user",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1837,7 +1837,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.BANK,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des banques (global)",
+    "Delete banks (global)",
     "Supprimer n'importe quelle banque",
     PermissionCategory.ADMINISTRATION
   ),
@@ -1845,8 +1845,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.BANK,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer mes banques",
-    "Supprimer uniquement les banques créées par l'utilisateur",
+    "Delete my banks",
+    "Delete only banks created by user",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1857,15 +1857,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.WEBHOOK,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les webhooks",
-    "Lister tous les webhooks",
+    "View webhooks",
+    "List all webhooks",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.WEBHOOK,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des webhooks",
+    "Create webhooks",
     "Configurer de nouveaux webhooks",
     PermissionCategory.ADMINISTRATION
   ),
@@ -1873,16 +1873,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.WEBHOOK,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les webhooks",
-    "Mettre à jour les webhooks",
+    "Edit webhooks",
+    "Update webhooks",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.WEBHOOK,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des webhooks",
-    "Supprimer des webhooks",
+    "Delete webhooks",
+    "Delete webhooks",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1893,32 +1893,32 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.API_KEY,
     Action.LIST,
     PermissionScope.OWN,
-    "Voir ses clés API",
-    "Lister ses propres clés API",
+    "View own API keys",
+    "List own API keys",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.API_KEY,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer des clés API",
-    "Générer de nouvelles clés API",
+    "Create API keys",
+    "Generate new API keys",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.API_KEY,
     Action.DELETE,
     PermissionScope.OWN,
-    "Supprimer ses clés API",
-    "Révoquer ses clés API",
+    "Delete own API keys",
+    "Revoke own API keys",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.API_KEY,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les clés API",
-    "Lister toutes les clés API du tenant",
+    "View all API keys",
+    "List all tenant API keys",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1929,16 +1929,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TENANT,
     Action.READ,
     PermissionScope.TENANT,
-    "Voir les informations du tenant",
-    "Consulter les informations de l'organisation",
+    "View tenant information",
+    "View organization information",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.TENANT,
     Action.UPDATE,
     PermissionScope.TENANT,
-    "Modifier le tenant",
-    "Mettre à jour les paramètres de l'organisation",
+    "Edit tenant",
+    "Update organization settings",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -1946,7 +1946,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.CONFIGURE,
     PermissionScope.TENANT,
     "Configurer le tenant",
-    "Gérer les configurations avancées",
+    "Manage advanced configurations",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1957,16 +1957,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.SETTINGS,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir les paramètres",
-    "Consulter les paramètres système",
+    "View settings",
+    "View system settings",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.SETTINGS,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les paramètres",
-    "Mettre à jour les paramètres système",
+    "Edit settings",
+    "Update system settings",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -1977,32 +1977,32 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CUSTOM_FIELD,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les champs personnalisés",
-    "Lister les champs personnalisés",
+    "View custom fields",
+    "List custom fields",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.CUSTOM_FIELD,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des champs personnalisés",
-    "Ajouter de nouveaux champs",
+    "Create custom fields",
+    "Add new fields",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.CUSTOM_FIELD,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les champs personnalisés",
-    "Mettre à jour les champs",
+    "Edit custom fields",
+    "Update fields",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.CUSTOM_FIELD,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des champs personnalisés",
-    "Supprimer des champs",
+    "Delete custom fields",
+    "Delete fields",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2013,32 +2013,32 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TAG,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les tags",
-    "Lister tous les tags",
+    "View tags",
+    "List all tags",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.TAG,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des tags",
-    "Créer de nouveaux tags",
+    "Create tags",
+    "Create new tags",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.TAG,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les tags",
-    "Mettre à jour les tags",
+    "Edit tags",
+    "Update tags",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.TAG,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer des tags",
-    "Supprimer des tags",
+    "Delete tags",
+    "Delete tags",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2049,7 +2049,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REPORT,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses rapports",
+    "View own reports",
     "Consulter ses propres rapports",
     PermissionCategory.REPORTING
   ),
@@ -2057,24 +2057,24 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.REPORT,
     Action.READ,
     PermissionScope.GLOBAL,
-    "Voir tous les rapports",
-    "Accéder à tous les rapports",
+    "View all reports",
+    "Access all reports",
     PermissionCategory.REPORTING
   ),
   createPermission(
     Resource.REPORT,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des rapports",
-    "Générer de nouveaux rapports",
+    "Create reports",
+    "Generate new reports",
     PermissionCategory.REPORTING
   ),
   createPermission(
     Resource.REPORT,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter des rapports",
-    "Exporter les rapports en PDF/Excel",
+    "Export reports",
+    "Export reports as PDF/Excel",
     PermissionCategory.REPORTING
   ),
 
@@ -2085,24 +2085,24 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_PARTICIPANT,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les participants de contrat",
-    "Lister tous les participants des contrats",
+    "View contract participants",
+    "List all contract participants",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_PARTICIPANT,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Ajouter un participant",
-    "Associer un utilisateur à un contrat",
+    "Add a participant",
+    "Associate a user with a contract",
     PermissionCategory.BUSINESS
   ),
   createPermission(
     Resource.CONTRACT_PARTICIPANT,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les participants",
-    "Mettre à jour le rôle ou les informations d’un participant",
+    "Edit participants",
+    "Update le rôle ou les informations d’un participant",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -2117,8 +2117,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_PARTICIPANT,
     Action.READ,
     PermissionScope.OWN,
-    "Voir sa participation aux contrats",
-    "Voir sa propre relation avec les contrats",
+    "View own contract participation",
+    "View own relationship with contracts",
     PermissionCategory.BUSINESS
   ),
 
@@ -2130,16 +2130,16 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.AUDIT_LOG,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir les logs d'audit",
-    "Consulter l'historique des actions",
+    "View audit logs",
+    "View action history",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
     Resource.AUDIT_LOG,
     Action.EXPORT,
     PermissionScope.GLOBAL,
-    "Exporter les logs",
-    "Exporter les logs d'audit",
+    "Export logs",
+    "Export audit logs",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2150,15 +2150,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.EMAIL,
     Action.SEND,
     PermissionScope.GLOBAL,
-    "Envoyer des emails",
-    "Envoyer des emails aux utilisateurs",
+    "Send emails",
+    "Send emails to users",
     PermissionCategory.COMMUNICATION
   ),
   createPermission(
     Resource.EMAIL,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir l'historique des emails",
+    "View email history",
     "Consulter les logs d'envoi d'emails",
     PermissionCategory.COMMUNICATION
   ),
@@ -2166,58 +2166,58 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.EMAIL,
     Action.CREATE,
     PermissionScope.GLOBAL,
-    "Créer des templates d'email",
-    "Créer et gérer des templates d'email",
+    "Create email templates",
+    "Create and manage email templates",
     PermissionCategory.COMMUNICATION
   ),
 
   // ================================================================
   // PAGE ACCESS
   // ================================================================
-  createPermission(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
-  createPermission(Resource.AGENCY_INVOICE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Agency Invoices"),
-  createPermission(Resource.CONSTRUCTION, Action.ACCESS, PermissionScope.PAGE, "Accéder à Construction"),
-  createPermission(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE, "Accéder à Contracts"),
-  createPermission(Resource.EXPENSE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Expenses"),
-  createPermission(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Invoices"),
-  createPermission(Resource.LEAD, Action.ACCESS, PermissionScope.PAGE, "Accéder à Leads"),
-  createPermission(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE, "Accéder à Onboarding"),
-  createPermission(Resource.PAYMENT, Action.ACCESS, PermissionScope.PAGE, "Accéder à Payments"),
-  createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Accéder à Payslips"),
-  createPermission(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE, "Accéder à Profile"),
-  createPermission(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE, "Accéder à Referrals"),
-  createPermission(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE, "Accéder à Reports"),
-  createPermission(Resource.SETTINGS, Action.ACCESS, PermissionScope.PAGE, "Accéder à Settings"),
-  createPermission(Resource.SUPERADMIN, Action.ACCESS, PermissionScope.PAGE, "Accéder à Superadmin"),
-  createPermission(Resource.TASK, Action.ACCESS, PermissionScope.PAGE, "Accéder à Tasks"),
-  createPermission(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE, "Accéder à Timesheets"),
-  createPermission(Resource.USER, Action.ACCESS, PermissionScope.PAGE, "Accéder à Users"),
-  createPermission(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Templates"),
-  createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Payslips de Payments"),
-  createPermission(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Remittances"),
-  createPermission(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Activity Logs"),
-  createPermission(Resource.EMAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder à l'envoi d'emails"),
-  createPermission(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à Email Logs"),
-  createPermission(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE, "Accéder à SMS Logs"),
-  createPermission(Resource.USER_ACTIVITY, Action.ACCESS, PermissionScope.PAGE, "Accéder à User Activity"),
-  createPermission(Resource.BANK, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Banks"),
-  createPermission(Resource.BRANDING, Action.ACCESS, PermissionScope.PAGE, "Accéder à Branding"),
-  createPermission(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE, "Accéder à Branding Login"),
-  createPermission(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Companies"),
-  createPermission(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Countries"),
-  createPermission(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Currencies"),
-  createPermission(Resource.LEGAL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Legal"),
-  createPermission(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Permissions"),
-  createPermission(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Roles"),
-  createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant"),
-  createPermission(Resource.WEBHOOK, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Webhooks"),
-  createPermission(Resource.ANALYTIC, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Analytics"),
-  createPermission(Resource.IMPERSONATION, Action.ACCESS, PermissionScope.PAGE, "Accéder à Impersonations"),
-  createPermission(Resource.FEATURE, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Features"),
-  createPermission(Resource.SUBSCRIPTION, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Subscriptions"),
-  createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Tenants"),
-  createPermission(Resource.TENANT_DETAIL, Action.ACCESS, PermissionScope.PAGE, "Accéder au Tenant Details"),
-  createPermission(Resource.SUPERADMIN_USER, Action.ACCESS, PermissionScope.PAGE, "Accéder aux Superadmin Users"),
+  createPermission(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE, "Access Agency Invoices"),
+  createPermission(Resource.AGENCY_INVOICE, Action.ACCESS, PermissionScope.PAGE, "Access Agency Invoices"),
+  createPermission(Resource.CONSTRUCTION, Action.ACCESS, PermissionScope.PAGE, "Access Construction"),
+  createPermission(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE, "Access Contracts"),
+  createPermission(Resource.EXPENSE, Action.ACCESS, PermissionScope.PAGE, "Access Expenses"),
+  createPermission(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE, "Access Invoices"),
+  createPermission(Resource.LEAD, Action.ACCESS, PermissionScope.PAGE, "Access Leads"),
+  createPermission(Resource.ONBOARDING, Action.ACCESS, PermissionScope.PAGE, "Access Onboarding"),
+  createPermission(Resource.PAYMENT, Action.ACCESS, PermissionScope.PAGE, "Access Payments"),
+  createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Access Payslips"),
+  createPermission(Resource.PROFILE, Action.ACCESS, PermissionScope.PAGE, "Access Profile"),
+  createPermission(Resource.REFERRAL, Action.ACCESS, PermissionScope.PAGE, "Access Referrals"),
+  createPermission(Resource.REPORT, Action.ACCESS, PermissionScope.PAGE, "Access Reports"),
+  createPermission(Resource.SETTINGS, Action.ACCESS, PermissionScope.PAGE, "Access Settings"),
+  createPermission(Resource.SUPERADMIN, Action.ACCESS, PermissionScope.PAGE, "Access Superadmin"),
+  createPermission(Resource.TASK, Action.ACCESS, PermissionScope.PAGE, "Access Tasks"),
+  createPermission(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE, "Access Timesheets"),
+  createPermission(Resource.USER, Action.ACCESS, PermissionScope.PAGE, "Access Users"),
+  createPermission(Resource.ONBOARDING_TEMPLATE, Action.ACCESS, PermissionScope.PAGE, "Access Templates"),
+  createPermission(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE, "Access Payments Payslips"),
+  createPermission(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE, "Access Remittances"),
+  createPermission(Resource.ACTIVITY_LOG, Action.ACCESS, PermissionScope.PAGE, "Access Activity Logs"),
+  createPermission(Resource.EMAIL, Action.ACCESS, PermissionScope.PAGE, "Access email sending"),
+  createPermission(Resource.EMAIL_LOG, Action.ACCESS, PermissionScope.PAGE, "Access Email Logs"),
+  createPermission(Resource.SMS_LOG, Action.ACCESS, PermissionScope.PAGE, "Access SMS Logs"),
+  createPermission(Resource.USER_ACTIVITY, Action.ACCESS, PermissionScope.PAGE, "Access User Activity"),
+  createPermission(Resource.BANK, Action.ACCESS, PermissionScope.PAGE, "Access Banks"),
+  createPermission(Resource.BRANDING, Action.ACCESS, PermissionScope.PAGE, "Access Branding"),
+  createPermission(Resource.LOGIN, Action.ACCESS, PermissionScope.PAGE, "Access Branding Login"),
+  createPermission(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE, "Access Companies"),
+  createPermission(Resource.COUNTRY, Action.ACCESS, PermissionScope.PAGE, "Access Countries"),
+  createPermission(Resource.CURRENCY, Action.ACCESS, PermissionScope.PAGE, "Access Currencies"),
+  createPermission(Resource.LEGAL, Action.ACCESS, PermissionScope.PAGE, "Access Legal"),
+  createPermission(Resource.PERMISSION, Action.ACCESS, PermissionScope.PAGE, "Access Permissions"),
+  createPermission(Resource.ROLE, Action.ACCESS, PermissionScope.PAGE, "Access Roles"),
+  createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Access Tenant"),
+  createPermission(Resource.WEBHOOK, Action.ACCESS, PermissionScope.PAGE, "Access Webhooks"),
+  createPermission(Resource.ANALYTIC, Action.ACCESS, PermissionScope.PAGE, "Access Analytics"),
+  createPermission(Resource.IMPERSONATION, Action.ACCESS, PermissionScope.PAGE, "Access Impersonations"),
+  createPermission(Resource.FEATURE, Action.ACCESS, PermissionScope.PAGE, "Access Features"),
+  createPermission(Resource.SUBSCRIPTION, Action.ACCESS, PermissionScope.PAGE, "Access Subscriptions"),
+  createPermission(Resource.TENANT, Action.ACCESS, PermissionScope.PAGE, "Access Tenants"),
+  createPermission(Resource.TENANT_DETAIL, Action.ACCESS, PermissionScope.PAGE, "Access Tenant Details"),
+  createPermission(Resource.SUPERADMIN_USER, Action.ACCESS, PermissionScope.PAGE, "Access Superadmin Users"),
 
   // ================================================================
   // FEATURE REQUEST PERMISSIONS
@@ -2228,8 +2228,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.CREATE,
     PermissionScope.OWN,
-    "Créer une demande de fonctionnalité",
-    "Soumettre une nouvelle demande de fonctionnalité ou modification",
+    "Create a feature request",
+    "Submit a new feature request or modification",
     PermissionCategory.CORE
   ),
 
@@ -2238,8 +2238,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.READ,
     PermissionScope.OWN,
-    "Voir ses propres demandes",
-    "Consulter ses propres demandes de fonctionnalités",
+    "View own requests",
+    "View own feature requests",
     PermissionCategory.CORE
   ),
 
@@ -2249,7 +2249,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.LIST,
     PermissionScope.OWN,
     "Lister ses demandes",
-    "Voir la liste de ses demandes de fonctionnalités",
+    "View list of own feature requests",
     PermissionCategory.CORE
   ),
 
@@ -2258,8 +2258,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.LIST,
     PermissionScope.GLOBAL,
-    "Voir toutes les demandes",
-    "Voir toutes les demandes de fonctionnalités du tenant",
+    "View all requests",
+    "View all tenant feature requests",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2268,8 +2268,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PLATFORM,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Gérer la plateforme",
-    "Approuver, rejeter et gérer les demandes de fonctionnalités",
+    "Manage platform",
+    "Approve, reject and manage feature requests",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2278,8 +2278,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.UPDATE,
     PermissionScope.GLOBAL,
-    "Modifier les demandes",
-    "Modifier et gérer les demandes de fonctionnalités",
+    "Edit requests",
+    "Edit and manage feature requests",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2288,8 +2288,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.CONFIRM,
     PermissionScope.GLOBAL,
-    "Confirmer les demandes",
-    "Confirmer et valider les demandes de fonctionnalités",
+    "Confirm requests",
+    "Confirm and validate feature requests",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2298,8 +2298,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.REJECT,
     PermissionScope.GLOBAL,
-    "Rejeter les demandes",
-    "Rejeter les demandes de fonctionnalités avec raison",
+    "Reject requests",
+    "Reject feature requests with reason",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2308,8 +2308,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Supprimer les demandes",
-    "Supprimer les demandes de fonctionnalités",
+    "Delete requests",
+    "Delete feature requests",
     PermissionCategory.ADMINISTRATION
   ),
 
@@ -2318,8 +2318,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.ACCESS,
     PermissionScope.PAGE,
-    "Accéder aux Feature Requests",
-    "Accéder à la page des demandes de fonctionnalités"
+    "Access Feature Requests",
+    "Access feature requests page"
   ),
 
 ];
@@ -2329,14 +2329,14 @@ export const ALL_PERMISSIONS: Permission[] = [
 // ====================================================================
 
 /**
- * Map des permissions par clé
+ * Permission map by key
  */
 export const PERMISSION_MAP = new Map<string, Permission>(
   ALL_PERMISSIONS.map((p) => [p.key, p])
 );
 
 /**
- * Map des permissions par ressource
+ * Permission map by resource
  */
 export const PERMISSIONS_BY_RESOURCE = ALL_PERMISSIONS.reduce((acc, perm) => {
   if (!acc[perm.resource]) {
@@ -2347,7 +2347,7 @@ export const PERMISSIONS_BY_RESOURCE = ALL_PERMISSIONS.reduce((acc, perm) => {
 }, {} as Record<Resource, Permission[]>);
 
 /**
- * Map des permissions par catégorie
+ * Permission map by category
  */
 export const PERMISSIONS_BY_CATEGORY = ALL_PERMISSIONS.reduce((acc, perm) => {
   const category = perm.category || "Autre";
@@ -2359,36 +2359,36 @@ export const PERMISSIONS_BY_CATEGORY = ALL_PERMISSIONS.reduce((acc, perm) => {
 }, {} as Record<string, Permission[]>);
 
 // ====================================================================
-// HELPER FUNCTIONS POUR VÉRIFICATION DES PERMISSIONS
+// HELPER FUNCTIONS FOR PERMISSION VERIFICATION
 // ====================================================================
 
 /**
- * Type pour le contexte utilisateur
+ * Type for user context
  */
 export interface UserContext {
   userId: string;
   roleId: string;
-  permissions: string[]; // Liste des clés de permissions
+  permissions: string[]; // List of permission keys
   tenantId: string;
   agencyId?: string;
   companyId?: string;
 }
 
 /**
- * Type pour le contexte de la ressource
+ * Type for resource context
  */
 export interface ResourceContext {
   resourceType: Resource;
   resourceId: string;
-  ownerId?: string; // userId qui possède la ressource
-  createdBy?: string; // userId qui a créé la ressource
-  assignedTo?: string; // userId assigné à la ressource
-  agencyId?: string; // Si la ressource appartient à une agence
-  teamId?: string; // Si la ressource appartient à une équipe
+  ownerId?: string; // userId who owns the resource
+  createdBy?: string; // userId who created the resource
+  assignedTo?: string; // userId assigned to the resource
+  agencyId?: string; // If resource belongs to an agency
+  teamId?: string; // If resource belongs to a team
 }
 
 /**
- * Vérifie si un utilisateur a une permission
+ * Checks if a user has a permission
  */
 export function hasPermission(
   user: UserContext,
@@ -2401,7 +2401,7 @@ export function hasPermission(
 }
 
 /**
- * Vérifie si un utilisateur a une permission avec contexte (ownership)
+ * Checks if a user has a permission with context (ownership)
  */
 export function hasPermissionWithContext(
   user: UserContext,
@@ -2409,19 +2409,19 @@ export function hasPermissionWithContext(
   action: Action,
   resourceContext?: ResourceContext
 ): boolean {
-  // Vérifier permission globale
+  // Check global permission
   if (hasPermission(user, resource, action, PermissionScope.GLOBAL)) {
     return true;
   }
 
-  // Si pas de contexte de ressource, vérifier juste la permission
+  // If no resource context, just check permission
   if (!resourceContext) {
     return hasPermission(user, resource, action, PermissionScope.OWN);
   }
 
-  // Vérifier permission "own"
+  // Check "own" permission
   if (hasPermission(user, resource, action, PermissionScope.OWN)) {
-    // Vérifier ownership
+    // Check ownership
     if (
       resourceContext.ownerId === user.userId ||
       resourceContext.createdBy === user.userId ||
@@ -2435,7 +2435,7 @@ export function hasPermissionWithContext(
 }
 
 /**
- * Vérifie si un utilisateur peut effectuer une action sur une ressource spécifique
+ * Checks if a user can perform an action on a specific resource
  */
 export function canPerformAction(
   user: UserContext,
@@ -2451,7 +2451,7 @@ export function canPerformAction(
   if (!allowed) {
     return {
       allowed: false,
-      reason: `Permission refusée: ${resource}.${action}`,
+      reason: `Permission denied: ${resource}.${action}`,
     };
   }
 
@@ -2459,7 +2459,7 @@ export function canPerformAction(
 }
 
 /**
- * Filtre les ressources auxquelles un utilisateur a accès
+ * Filters resources a user has access to
  */
 export function filterResourcesByPermission<T extends { id: string; ownerId?: string; createdBy?: string }>(
   user: UserContext,
@@ -2472,7 +2472,7 @@ export function filterResourcesByPermission<T extends { id: string; ownerId?: st
     return resources;
   }
 
-  // Si permission "own", filtrer par ownership
+  // If "own" permission, filter by ownership
   if (hasPermission(user, resource, action, PermissionScope.OWN)) {
     return resources.filter(
       (r) => r.ownerId === user.userId || r.createdBy === user.userId
@@ -2483,7 +2483,7 @@ export function filterResourcesByPermission<T extends { id: string; ownerId?: st
 }
 
 /**
- * Obtient toutes les permissions d'un rôle
+ * Gets all permissions of a role
  */
 export function getPermissionsForRole(rolePermissions: string[]): Permission[] {
   return rolePermissions
@@ -2492,49 +2492,49 @@ export function getPermissionsForRole(rolePermissions: string[]): Permission[] {
 }
 
 /**
- * Vérifie si une permission existe
+ * Checks if a permission exists
  */
 export function isValidPermission(key: string): boolean {
   return PERMISSION_MAP.has(key);
 }
 
 /**
- * Obtient une permission par sa clé
+ * Gets a permission by its key
  */
 export function getPermissionByKey(key: string): Permission | undefined {
   return PERMISSION_MAP.get(key);
 }
 
 /**
- * Obtient toutes les permissions pour une ressource
+ * Gets all permissions for a resource
  */
 export function getPermissionsForResource(resource: Resource): Permission[] {
   return PERMISSIONS_BY_RESOURCE[resource] || [];
 }
 
 /**
- * Obtient toutes les clés de permissions
+ * Gets all permission keys
  */
 export function getAllPermissionKeys(): string[] {
   return ALL_PERMISSIONS.map((p) => p.key);
 }
 
 /**
- * Obtient toutes les ressources disponibles
+ * Gets all available resources
  */
 export function getAllResources(): Resource[] {
   return Object.values(Resource);
 }
 
 /**
- * Obtient toutes les actions disponibles
+ * Gets all available actions
  */
 export function getAllActions(): Action[] {
   return Object.values(Action);
 }
 
 /**
- * Obtient tous les scopes disponibles
+ * Gets all available scopes
  */
 export function getAllScopes(): PermissionScope[] {
   return Object.values(PermissionScope);

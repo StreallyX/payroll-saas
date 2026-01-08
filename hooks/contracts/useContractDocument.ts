@@ -5,12 +5,12 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 /**
- * Hook pour gérer les documents de contrats
+ * Hook for managing contract documents
  * 
- * Fonctionnalités:
- * - uploadSignedVersion: Upload une version signée du contrat
- * - convertFileToBase64: Convertit un fichier en base64
- * - validatePDF: Valide qu'un fichier est bien un PDF
+ * Features:
+ * - uploadSignedVersion: Upload a signed version of the contract
+ * - convertFileToBase64: Converts a file to base64
+ * - validatePDF: Validates that a file is a PDF
  */
 export function useContractDocument() {
   const utils = api.useUtils();
@@ -19,17 +19,17 @@ export function useContractDocument() {
   // Upload signed version
   const uploadSignedVersion = api.simpleContract.uploadSignedVersion.useMutation({
     onSuccess: (data) => {
-      toast.success("Version signée uploadée avec succès");
+      toast.success("Signed version uploaded successfully");
       utils.simpleContract.getSimpleContractById.invalidate({ id: data.contract.id });
       utils.simpleContract.listSimpleContracts.invalidate();
     },
     onError: (error) => {
-      toast.error(error.message || "Échec de l'upload");
+      toast.error(error.message || "Upload failed");
     },
   });
 
   /**
-   * Convertit un fichier en base64
+   * Converts a file to base64
    */
   const convertFileToBase64 = async (file: File): Promise<string> => {
     setIsConverting(true);
@@ -39,38 +39,38 @@ export function useContractDocument() {
       return base64;
     } catch (error) {
       console.error("[convertFileToBase64] Error:", error);
-      throw new Error("Erreur lors de la conversion du fichier");
+      throw new Error("Error converting file");
     } finally {
       setIsConverting(false);
     }
   };
 
   /**
-   * Valide qu'un fichier est un PDF
+   * Validates that a file is a PDF
    */
   const validatePDF = (file: File): { valid: boolean; error?: string } => {
-    // Vérifier le type MIME
+    // Check MIME type
     if (file.type !== "application/pdf") {
       return {
         valid: false,
-        error: "Le fichier doit être un PDF",
+        error: "File must be a PDF",
       };
     }
 
-    // Vérifier la taille (max 10MB)
+    // Check size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       return {
         valid: false,
-        error: "Le fichier ne doit pas dépasser 10MB",
+        error: "File must not exceed 10MB",
       };
     }
 
-    // Vérifier l'extension
+    // Check extension
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       return {
         valid: false,
-        error: "Le fichier doit avoir l'extension .pdf",
+        error: "File must have .pdf extension",
       };
     }
 
@@ -78,10 +78,10 @@ export function useContractDocument() {
   };
 
   /**
-   * Upload une version signée avec validation
+   * Upload a signed version with validation
    */
   const uploadSignedWithValidation = async (contractId: string, file: File) => {
-    // Valider le fichier
+    // Validate file
     const validation = validatePDF(file);
     if (!validation.valid) {
       toast.error(validation.error);
@@ -102,7 +102,7 @@ export function useContractDocument() {
       });
     } catch (error) {
       console.error("[uploadSignedWithValidation] Error:", error);
-      // L'erreur est déjà gérée par la mutation
+      // Error is already handled by the mutation
     }
   };
 

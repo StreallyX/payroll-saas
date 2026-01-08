@@ -12,7 +12,7 @@ import { generateRandomPassword } from "@/lib/utils";
 import { emailService } from "@/lib/email/emailService";
 
 // -----------------------------
-// Permissions (tes clés existantes)
+// Permissions (your existing keys)
 // -----------------------------
 const PERMS = {
   READ_OWN: "user.read.own",
@@ -26,13 +26,13 @@ const PERMS = {
 } as const;
 
 // -------------------------------------------
-// Ownership helper: récupère toute la subtree
+// Ownership helper: retrieves entire subtree
 // -------------------------------------------
 async function getSubtreeUserIds(prisma: any, rootUserId: string): Promise<string[]> {
   const owned: string[] = [];
   let frontier: string[] = [rootUserId];
 
-  // On ne veut PAS ré-inclure rootUserId dans owned, donc on part de ses enfants
+  // We do NOT want to re-include rootUserId in owned, so we start from its children
   while (frontier.length > 0) {
     const children = await prisma.user.findMany({
       where: { createdBy: { in: frontier } },
@@ -50,7 +50,7 @@ async function getSubtreeUserIds(prisma: any, rootUserId: string): Promise<strin
 export const userRouter = createTRPCRouter({
   // ---------------------------------------------------------
   // GET ALL USERS
-  // - global -> tout voir
+  // - global -> see everything
   // - own    -> self + subtree + delegated access
   // ---------------------------------------------------------
   getAll: tenantProcedure
@@ -102,7 +102,7 @@ export const userRouter = createTRPCRouter({
 
   // ---------------------------------------------------------
   // GET ONE USER
-  // - global -> tout voir
+  // - global -> see everything
   // - own    -> self + subtree
   // ---------------------------------------------------------
   getById: tenantProcedure
@@ -344,8 +344,8 @@ export const userRouter = createTRPCRouter({
 
   // ---------------------------------------------------------
   // UPDATE USER
-  // - global → peut tout modifier
-  // - own    → peut modifier self + subtree
+  // - global → can modify everything
+  // - own → can modify self + subtree
   // ---------------------------------------------------------
   update: tenantProcedure
     .use(hasAnyPermission([PERMS.UPDATE_GLOBAL, PERMS.UPDATE_OWN]))
@@ -475,7 +475,7 @@ export const userRouter = createTRPCRouter({
 
   // ---------------------------------------------------------
   // IMPERSONATE (squelette)
-  // - global only — à adapter selon ta stack auth
+  // - global only — to adapt according to your auth stack
   // ---------------------------------------------------------
   impersonate: tenantProcedure
     .use(hasPermission(PERMS.IMPERSONATE_GLOBAL))
@@ -502,7 +502,7 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      // TODO: génère un token d'impersonation/établit la session selon ton provider
+      // TODO: generate impersonation token/establish session according to your provider
       return { success: true, targetUserId: target.id };
     }),
 });

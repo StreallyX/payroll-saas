@@ -52,7 +52,7 @@ export default function AdminUsersPage() {
 
   const deleteMutation = api.user.delete.useMutation({
     onSuccess: () => {
-      toast.success("Utilisateur supprimé avec succès.")
+      toast.success("User deleted successfully.")
       utils.user.getAll.invalidate()
       setUserToDelete(null)
     },

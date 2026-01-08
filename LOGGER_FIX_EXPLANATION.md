@@ -1,39 +1,39 @@
-# Correction de l'Erreur de Création du Dossier 'logs'
+# Fix for 'logs' Folder Creation Error
 
-## 🔍 Analyse du Problème
+## 🔍 Problem Analysis
 
-### Erreur Rencontrée
+### Error Encountered
 ```
 Error: ENOENT: no such file or directory, mkdir 'logs'
     at Object.mkdirSync (node:fs:1363:26)
     at e.exports._createLogDirIfNotExist (/var/task/.next/server/app/api/trpc/[trpc]/route.js:8113:58885)
 ```
 
-### Localisation du Code Problématique
+### Location of Problematic Code
 - **Fichier**: `lib/logging/logger.ts`
-- **Problème**: Le logger Winston tentait d'écrire des logs dans des fichiers locaux (`logs/error.log`, `logs/combined.log`, `logs/exceptions.log`, `logs/rejections.log`) sans vérifier l'existence du dossier parent ni la compatibilité avec l'environnement d'exécution.
+- **Problem**: Le logger Winston tentait d'écrire des logs dans des fichiers locaux (`logs/error.log`, `logs/combined.log`, `logs/exceptions.log`, `logs/rejections.log`) sans vérifier l'existence du dossier parent ni la compatibilité avec l'environnement d'exécution.
 
-### Causes Identifiées
-1. **Environnement Serverless**: Le chemin `/var/task/` indique un environnement serverless (AWS Lambda, Vercel, etc.)
-2. **Système de Fichiers en Lecture Seule**: Dans un environnement serverless, le système de fichiers est généralement en lecture seule, sauf pour `/tmp`
-3. **Dossier 'logs' Non Existant**: Aucune vérification n'était faite pour créer le dossier avant d'y écrire
-4. **File Transports Inappropriés**: L'utilisation de file transports dans un environnement serverless est problématique car :
-   - Les fichiers sont éphémères et disparaissent après chaque exécution
-   - Le système de fichiers peut être en lecture seule
-   - Les logs ne sont pas persistés entre les invocations
+### Identified Causes
+1. **Serverless Environment**: The `/var/task/` path indicates a serverless environment (AWS Lambda, Vercel, etc.)
+2. **Read-Only File System**: In a serverless environment, the file system is generally read-only, except for `/tmp`
+3. **Non-Existent 'logs' Folder**: No check was made to create the folder before writing to it
+4. **Inappropriate File Transports**: Using file transports in a serverless environment is problematic because:
+   - Files are ephemeral and disappear after each execution
+   - The file system may be read-only
+   - Logs are not persisted between invocations
 
-## ✅ Solution Appliquée
+## ✅ Applied Solution
 
-### 1. Détection de l'Environnement Serverless
-Ajout de la détection automatique des environnements serverless :
+### 1. Serverless Environment Detection
+Added automatic detection of serverless environments:
 ```typescript
 const isServerless = process.env.VERCEL || 
                      process.env.AWS_LAMBDA_FUNCTION_NAME || 
                      process.env.LAMBDA_TASK_ROOT;
 ```
 
-### 2. Désactivation Conditionnelle des File Transports
-Les file transports sont maintenant **désactivés automatiquement** en environnement serverless :
+### 2. Conditional Disabling of File Transports
+File transports are now **automatically disabled** in serverless environment:
 ```typescript
 // File transports (only for local/non-serverless environments)
 const fileTransports = !isServerless ? [
@@ -51,8 +51,8 @@ const fileTransports = !isServerless ? [
 ] : [];
 ```
 
-### 3. Création Sécurisée du Dossier Logs
-Pour les environnements locaux/non-serverless, ajout d'une méthode sécurisée de création du dossier :
+### 3. Safe Creation of Logs Folder
+For local/non-serverless environments, added a safe method for folder creation:
 ```typescript
 private _createLogDirIfNotExist(): void {
   try {
@@ -67,14 +67,14 @@ private _createLogDirIfNotExist(): void {
 }
 ```
 
-**Points clés de cette méthode** :
-- ✅ Utilise `recursive: true` pour créer les dossiers parents si nécessaire
-- ✅ Vérifie l'existence avec `existsSync()` avant de créer
-- ✅ Entoure le code d'un `try-catch` pour gérer les erreurs gracieusement
-- ✅ En cas d'échec, le logger continue de fonctionner avec le console transport
+**Key points of this method** :
+- ✅ Uses `recursive: true` to create parent folders if needed
+- ✅ Checks existence with `existsSync()` before creating
+- ✅ Wraps code in `try-catch` to handle errors gracefully
+- ✅ On failure, logger continues to work with console transport
 
 ### 4. Gestion des Exception/Rejection Handlers
-Les handlers de fichiers pour les exceptions et rejections sont également désactivés en environnement serverless :
+File handlers for exceptions and rejections are also disabled in serverless environment:
 ```typescript
 ...((!isServerless) && {
   exceptionHandlers: [
@@ -86,59 +86,59 @@ Les handlers de fichiers pour les exceptions et rejections sont également désa
 })
 ```
 
-## 🎯 Comportement Après Correction
+## 🎯 Behavior After Fix
 
-### En Environnement Serverless (Production)
-- ✅ **Console Transport uniquement** : Les logs sont envoyés à la console
-- ✅ **Capture par le Service Cloud** : Les logs sont automatiquement capturés par CloudWatch (AWS), Vercel Logs, etc.
-- ✅ **Aucune Erreur** : Plus d'erreur ENOENT lors de la création du dossier
-- ✅ **Performance Optimale** : Pas d'opérations de fichiers inutiles
+### En Serverless Environment (Production)
+- ✅ **Console Transport only** : Logs are sent to console
+- ✅ **Capture by Cloud Service** : Logs are automatically captured by CloudWatch (AWS), Vercel Logs, etc.
+- ✅ **No Error** : No more ENOENT error when creating folder
+- ✅ **Optimal Performance** : No unnecessary file operations
 
-### En Environnement Local/Développement
-- ✅ **Console + File Transports** : Les logs sont à la fois affichés dans la console et sauvegardés dans des fichiers
-- ✅ **Création Automatique du Dossier** : Le dossier `logs/` est créé automatiquement s'il n'existe pas
-- ✅ **Rotation des Logs** : Les fichiers de logs sont automatiquement gérés avec rotation (10MB max par fichier)
+### In Local/Development Environment
+- ✅ **Console + File Transports** : Logs are both displayed in console and saved to files
+- ✅ **Automatic Folder Creation** : The `logs/` folder is automatically created if it doesn't exist
+- ✅ **Log Rotation** : Log files are automatically managed with rotation (10MB max per file)
 
-## 📋 Modifications Apportées
+## 📋 Changes Made
 
-### Fichier Modifié
+### Modified File
 - **`lib/logging/logger.ts`**
 
-### Changements Effectués
-1. Ajout des imports `fs` et `path` :
+### Changes Made
+1. Added `fs` and `path` imports:
    ```typescript
    import { mkdirSync, existsSync } from 'fs';
    import { resolve } from 'path';
    ```
 
-2. Ajout de la détection d'environnement serverless (ligne 29)
+2. Added serverless environment detection (line 29)
 
-3. Ajout de l'appel à `_createLogDirIfNotExist()` pour les environnements non-serverless (lignes 31-34)
+3. Added call to `_createLogDirIfNotExist()` for non-serverless environments (lines 31-34)
 
-4. Séparation des transports en `baseTransports` et `fileTransports` (lignes 36-65)
+4. Separated transports into `baseTransports` and `fileTransports` (lines 36-65)
 
-5. Ajout de la méthode privée `_createLogDirIfNotExist()` (lignes 92-106)
+5. Added private method `_createLogDirIfNotExist()` (lines 92-106)
 
-6. Désactivation conditionnelle des exception/rejection handlers (lignes 80-88)
+6. Conditional disabling of exception/rejection handlers (lines 80-88)
 
-## 🚀 Déploiement
+## 🚀 Deployment
 
-Après cette correction, l'application peut être déployée sans erreur dans les environnements suivants :
+After this fix, the application can be deployed without error in the following environments:
 - ✅ AWS Lambda
 - ✅ Vercel Serverless Functions
 - ✅ Netlify Functions
 - ✅ Google Cloud Functions
 - ✅ Azure Functions
-- ✅ Environnements locaux (développement)
+- ✅ Local environments (development)
 
-## 📝 Recommandations Supplémentaires
+## 📝 Additional Recommendations
 
-Pour une solution de logging en production plus robuste, considérez :
+For a more robust production logging solution, consider:
 1. **Services de Logging Externes** : Winston Cloud Transport, Loggly, Papertrail, Datadog
-2. **Structured Logging** : Le format JSON est déjà activé, facilitant l'analyse des logs
-3. **Log Aggregation** : Utiliser un service centralisé pour agréger les logs de toutes les instances
-4. **Monitoring** : Configurer des alertes sur les erreurs critiques
+2. **Structured Logging** : JSON format is already enabled, facilitating log analysis
+3. **Log Aggregation** : Use a centralized service to aggregate logs from all instances
+4. **Monitoring** : Configure alerts for critical errors
 
-## ✨ Résultat Final
+## ✨ Final Result
 
-L'application est maintenant compatible avec les environnements serverless tout en conservant la fonctionnalité de logging sur fichier en développement local. Le logger s'adapte automatiquement à son environnement d'exécution sans configuration supplémentaire requise.
+The application is now compatible with serverless environments while maintaining file logging functionality in local development. The logger automatically adapts to its environnement d'exécution sans configuration supplémentaire requise.

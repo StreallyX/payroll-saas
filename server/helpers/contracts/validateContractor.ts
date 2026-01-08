@@ -1,27 +1,27 @@
 /**
- * Helper pour valider qu'un utilisateur est bien un contractor
+ * Helper for validating that a user is a contractor
  * 
- * Utilisé lors de la création d'un contrat NORM pour s'assurer que
- * l'utilisateur sélectionné comme contractor a bien le rôle approprié.
+ * Used during NORM contract creation to ensure that
+ * the user selected as contractor has the appropriate role.
  */
 
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Valide qu'un utilisateur est bien un contractor actif du tenant
+ * Validates that a user is an active contractor of the tenant
  * 
- * Règles de validation :
- * - L'utilisateur doit exister
- * - L'utilisateur doit appartenir au même tenant
- * - L'utilisateur doit avoir un rôle nommé "CONTRACTOR" (ou similaire)
- * - L'utilisateur doit être actif (isActive=true)
+ * Validation rules:
+ * - User must exist
+ * - User must belong to the same tenant
+ * - User must have a role named "CONTRACTOR" (or similar)
+ * - User must be active (isActive=true)
  * 
  * @param prisma - Instance Prisma Client
- * @param userId - ID de l'utilisateur à valider
- * @param tenantId - ID du tenant (pour vérification de sécurité)
- * @returns Utilisateur contractor validé avec son rôle
- * @throws TRPCError si validation échoue
+ * @param userId - User ID to validate
+ * @param tenantId - Tenant ID (for security verification)
+ * @returns Validated contractor user with their role
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const contractor = await validateContractor(prisma, "clxxx123", "tenant_abc");
@@ -32,7 +32,7 @@ export async function validateContractor(
   userId: string,
   tenantId: string
 ) {
-  // 1. Récupérer l'utilisateur avec son rôle
+  // 1. Retrieve user with their role
   const user = await prisma.user.findFirst({
     where: {
       id: userId,
@@ -49,23 +49,23 @@ export async function validateContractor(
     },
   });
 
-  // 2. Vérifier que l'utilisateur existe
+  // 2. Verify user exists
   if (!user) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: "Utilisateur introuvable. Vérifiez que l'ID est correct et que vous avez accès à cet utilisateur.",
+      message: "User not found. Verify the ID is correct and you have access to this user.",
     });
   }
 
-  // 3. Vérifier que l'utilisateur est actif
+  // 3. Verify user is active
   if (!user.isActive) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `L'utilisateur "${user.name || user.email}" est inactif et ne peut pas être assigné comme contractor.`,
+      message: `The user "${user.name || user.email}" is inactive and cannot be assigned as contractor.`,
     });
   }
 
-  // 4. Vérifier que l'utilisateur a le rôle CONTRACTOR
+  // 4. Verify user has CONTRACTOR role
   const contractorRoleNames = [
     "CONTRACTOR",
     "contractor",
@@ -75,9 +75,9 @@ export async function validateContractor(
   if (!contractorRoleNames.includes(user.role.name)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `L'utilisateur "${user.name || user.email}" n'a pas le rôle CONTRACTOR. ` +
-               `Rôle actuel: ${user.role.displayName || user.role.name}. ` +
-               "Seuls les utilisateurs avec le rôle CONTRACTOR peuvent être assignés à un contrat NORM.",
+      message: `The user "${user.name || user.email}" does not have CONTRACTOR role. ` +
+               `Current role: ${user.role.displayName || user.role.name}. ` +
+               "Only users with CONTRACTOR role can be assigned to a NORM contract.",
     });
   }
 
@@ -85,14 +85,14 @@ export async function validateContractor(
 }
 
 /**
- * Récupère tous les contractors disponibles pour créer un contrat NORM
+ * Retrieves all contractors available for creating a NORM contract
  * 
- * Utile pour afficher une liste de contractors dans un sélecteur UI.
+ * Useful for displaying a list of contractors in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
  * @param tenantId - ID du tenant
- * @param activeOnly - Ne retourner que les contractors actifs (par défaut: true)
- * @returns Liste des contractors disponibles
+ * @param activeOnly - Only return active contractors (default: true)
+ * @returns List of available contractors
  * 
  * @example
  * const contractors = await getAvailableContractorsList(prisma, "tenant_abc");

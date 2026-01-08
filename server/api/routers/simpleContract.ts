@@ -106,14 +106,14 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
   
   /**
-   * Crée un MSA avec upload PDF en une seule étape
+   * Creates an MSA with PDF upload in one step
    * 
    * Workflow:
    * - Upload PDF vers S3
-   * - Génération automatique du titre depuis le nom du fichier
-   * - Création du contrat avec statut "draft"
-   * - Création du document lié
-   * - Création optionnelle d'un participant company
+   * - Automatic title generation from filename
+   * - Contract creation with status "draft"
+   * - Creation of linked document
+   * - Optional creation of company participant
    * 
    * @permission contracts.create
    */
@@ -124,10 +124,10 @@ export const simpleContractRouter = createTRPCRouter({
       const { pdfBuffer, fileName, mimeType, fileSize, companyId, additionalParticipants } = input;
 
       try {
-        // 1. Générer titre depuis filename
+        // 1. Generate title from filename
         const title = generateContractTitle(fileName);
 
-        // 2. Créer le contrat MSA (draft)
+        // 2. Create MSA contract (draft)
         const contract = await ctx.prisma.contract.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -147,7 +147,7 @@ export const simpleContractRouter = createTRPCRouter({
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
 
-        // 4. Créer le document lié
+        // 4. Create le document lié
         const document = await ctx.prisma.document.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -165,7 +165,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 4. Trouver la company du user (si existe)
+        // 4. Find user's company (if exists)
         const userCompany = await ctx.prisma.company.findFirst({
           where: {
             tenantId: ctx.tenantId!,
@@ -176,8 +176,8 @@ export const simpleContractRouter = createTRPCRouter({
           select: { id: true }
         });
 
-        // 5. Créer un seul participant pour représenter "la partie créatrice"
-        // - userId = le user connecté
+        // 5. Create a single participant to represent "the creating party"
+        // - userId = the connected user
         // - companyId = fourni ou null
         // - role = creator
         // - isPrimary = true toujours
@@ -189,7 +189,7 @@ export const simpleContractRouter = createTRPCRouter({
           isPrimary: true,
         });
 
-        // 5b. Créer les participants supplémentaires (si fournis)
+        // 5b. Create additional participants (if provided)
         if (additionalParticipants && additionalParticipants.length > 0) {
           await createAdditionalParticipants(ctx.prisma, contract.id, additionalParticipants);
         }
@@ -212,7 +212,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 7. Récupérer le contrat avec participants
+        // 7. Retrieve contract with participants
         const contractData = await ctx.prisma.contract.findUnique({
           where: { id: contract.id },
           include: {
@@ -225,7 +225,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 8. Récupérer les documents liés (relation manuelle)
+        // 8. Retrieve linked documents (manual relation)
         const documents = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -235,7 +235,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 9. Fusionner et retourner le contrat complet
+        // 9. Merge and return complete contract
         return {
           success: true,
           contract: {
@@ -247,7 +247,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[createSimpleMSA] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la création du MSA",
+          message: "Failed to create MSA",
           cause: error,
         });
       }
@@ -259,15 +259,15 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Crée un SOW lié à un MSA parent avec upload PDF
+   * Creates a SOW linked to a parent MSA with PDF upload
    * 
    * Workflow:
    * - Validation du MSA parent
    * - Upload PDF vers S3
    * - Génération automatique du titre
    * - Création du contrat SOW avec statut "draft"
-   * - Héritage des champs du MSA parent (currency, country, etc.)
-   * - Création du document lié
+   * - Inheritance of parent MSA fields (currency, country, etc.)
+   * - Creation of linked document
    * 
    * @permission contracts.create
    */
@@ -278,17 +278,17 @@ export const simpleContractRouter = createTRPCRouter({
     const { pdfBuffer, fileName, mimeType, fileSize, parentMSAId, companyId, additionalParticipants } = input;
 
     try {
-      // 1. Valider le MSA parent
+      // 1. Validate parent MSA
       const parentMSA = await validateParentMSA(
         ctx.prisma,
         parentMSAId,
         ctx.tenantId!
       );
 
-      // 2. Générer titre depuis filename
+      // 2. Generate title from filename
       const title = generateContractTitle(fileName);
 
-      // 3. Créer le contrat SOW (hériter du parent)
+      // 3. Create SOW contract (inherit from parent)
       const contract = await ctx.prisma.contract.create({
         data: {
           tenantId: ctx.tenantId!,
@@ -300,7 +300,7 @@ export const simpleContractRouter = createTRPCRouter({
           createdBy: ctx.session!.user.id,
           assignedTo: ctx.session!.user.id,
 
-          // Hériter du parent
+          // Inherit from parent
           currencyId: parentMSA.currencyId,
           contractCountryId: parentMSA.contractCountryId,
 
@@ -314,7 +314,7 @@ export const simpleContractRouter = createTRPCRouter({
       const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
       const s3Key = await uploadFile(buffer, s3FileName);
 
-      // 5. Créer le document lié
+      // 5. Create le document lié
       const document = await ctx.prisma.document.create({
         data: {
           tenantId: ctx.tenantId!,
@@ -332,7 +332,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 6. Créer participant company (optionnel)
+      // 6. Create company participant (optional)
       const targetCompanyId =
         companyId ||
         parentMSA.participants.find((p) => p.role === "client")?.companyId;
@@ -346,7 +346,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 6b. Créer les participants supplémentaires (si fournis)
+      // 6b. Create additional participants (if provided)
       if (additionalParticipants && additionalParticipants.length > 0) {
         await createAdditionalParticipants(ctx.prisma, contract.id, additionalParticipants);
       }
@@ -371,7 +371,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 8. Charger les infos du contrat (sans documents)
+      // 8. Load contract info (without documents)
       const contractData = await ctx.prisma.contract.findUnique({
         where: { id: contract.id },
         include: {
@@ -395,7 +395,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 10. Retourner le contrat complet fusionné
+      // 10. Return merged complete contract
       return {
         success: true,
         contract: {
@@ -408,7 +408,7 @@ export const simpleContractRouter = createTRPCRouter({
       console.error("[createSimpleSOW] Error:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Échec de la création du SOW",
+        message: "Failed to create SOW",
         cause: error,
       });
     }
@@ -436,7 +436,7 @@ export const simpleContractRouter = createTRPCRouter({
 
       const hasGlobal = userPermissions.includes(P.CONTRACT.UPDATE_GLOBAL);
 
-      // 1️⃣ Charger le contrat
+      // 1️⃣ Load contract
       const contract = await ctx.prisma.contract.findUnique({
         where: { id: contractId, tenantId: ctx.tenantId! },
         include: {
@@ -450,7 +450,7 @@ export const simpleContractRouter = createTRPCRouter({
         message: "Contrat introuvable",
       });
 
-      // 2️⃣ Vérification OWN
+      // 2️⃣ OWN verification
       if (!hasGlobal) {
         const isCreator = contract.createdBy === userId;
         const isParticipant = contract.participants.some(
@@ -475,7 +475,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 4️⃣ Vérifier statut
+      // 4️⃣ Check status
       if (!isDraft(contract)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -483,7 +483,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 5️⃣ Vérifier main document
+      // 5️⃣ Check main document
       const hasMainDocument = documents.some(
         (d) => d.category === "main_contract"
       );
@@ -491,11 +491,11 @@ export const simpleContractRouter = createTRPCRouter({
       if (!hasMainDocument) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Un document principal doit être uploadé avant soumission",
+          message: "A main document must be uploaded before submission",
         });
       }
 
-      // 6️⃣ Update du statut
+      // 6️⃣ Status update
       const updated = await ctx.prisma.contract.update({
         where: { id: contractId },
         data: {
@@ -521,7 +521,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 8️⃣ Créer historique
+      // 8️⃣ Create history
       await ctx.prisma.contractStatusHistory.create({
         data: {
           contractId: contract.id,
@@ -562,7 +562,7 @@ export const simpleContractRouter = createTRPCRouter({
       console.error("[submitForReview] Error:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Échec de la soumission pour review",
+        message: "Failed to submit for review",
         cause: error,
       });
     }
@@ -574,7 +574,7 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Approuve un contrat en attente de review
+   * Approves a contract awaiting review
    * 
    * Transition: pending_admin_review → completed
    * 
@@ -587,7 +587,7 @@ export const simpleContractRouter = createTRPCRouter({
       const { contractId, notes } = input;
 
       try {
-        // 1. Charger le contrat (sans documents)
+        // 1. Load contract (without documents)
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
           include: {
@@ -610,7 +610,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Mettre à jour → completed
+        // 2. Update → completed
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
           data: {
@@ -626,7 +626,7 @@ export const simpleContractRouter = createTRPCRouter({
           }
         });
 
-        // 3. Charger les documents séparément
+        // 3. Load documents separately
         const documents = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -636,7 +636,7 @@ export const simpleContractRouter = createTRPCRouter({
           }
         });
 
-        // 4. Notifier le créateur
+        // 4. Notify creator
         if (contract.createdBy) {
           await ctx.prisma.contractNotification.create({
             data: {
@@ -657,7 +657,7 @@ export const simpleContractRouter = createTRPCRouter({
             fromStatus: "pending_admin_review",
             toStatus: "completed",
             changedBy: ctx.session!.user.id,
-            reason: notes || "Approuvé par admin",
+            reason: notes || "Approved by admin",
           },
         });
 
@@ -691,7 +691,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[adminApprove] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de l'approbation",
+          message: "Approval failed",
           cause: error,
         });
       }
@@ -703,7 +703,7 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Rejette un contrat en attente de review et le remet en draft
+   * Rejects a contract awaiting review and returns it to draft
    * 
    * Transition: pending_admin_review → draft
    * 
@@ -716,7 +716,7 @@ export const simpleContractRouter = createTRPCRouter({
     const { contractId, reason } = input;
 
     try {
-      // 1. Récupérer le contrat
+      // 1. Retrieve contract
       const contract = await ctx.prisma.contract.findUnique({
         where: { id: contractId, tenantId: ctx.tenantId! },
       });
@@ -736,7 +736,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 3. Update → retour en draft
+      // 3. Update → return to draft
       const updated = await ctx.prisma.contract.update({
         where: { id: contractId },
         data: {
@@ -750,7 +750,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 4. Notification au créateur
+      // 4. Notification to creator
       if (contract.createdBy) {
         await ctx.prisma.contractNotification.create({
           data: {
@@ -763,15 +763,15 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 5. Historique statut (notes supprimé car n'existe pas)
+      // 5. Status history (notes removed as it doesn't exist)
       await ctx.prisma.contractStatusHistory.create({
         data: {
           contractId: contract.id,
           fromStatus: "pending_admin_review",
           toStatus: "draft",
           changedBy: ctx.session!.user.id,
-          reason: "Rejeté par admin",
-          // ❌ notes supprimé (n'existe pas dans ton modèle)
+          reason: "Rejected by admin",
+          // ❌ notes removed (doesn't exist in your model)
         },
       });
 
@@ -803,7 +803,7 @@ export const simpleContractRouter = createTRPCRouter({
       console.error("[adminReject] Error:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Échec du rejet",
+        message: "Rejection failed",
         cause: error,
       });
     }
@@ -819,7 +819,7 @@ export const simpleContractRouter = createTRPCRouter({
       const { contractId, pdfBuffer, fileName, mimeType, fileSize } = input;
 
       try {
-        // 1. Charger le contrat (sans include.documents, car la relation n'existe pas)
+        // 1. Load contract (sans include.documents, car la relation n'existe pas)
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
         });
@@ -831,15 +831,15 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Valider le statut
+        // 2. Validate status
         if (!["completed", "active"].includes(contract.status)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Seuls les contrats completed/active peuvent recevoir une version signée",
+            message: "Only completed/active contracts can receive a signed version",
           });
         }
 
-        // 3. Récupérer le document principal via findMany
+        // 3. Retrieve main document via findMany
         const docs = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -857,7 +857,7 @@ export const simpleContractRouter = createTRPCRouter({
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v${newVersion}/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
 
-        // 5. Ancienne version -> non latest
+        // 5. Old version -> not latest
         if (mainDoc) {
           await ctx.prisma.document.update({
             where: { id: mainDoc.id },
@@ -865,7 +865,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 6. Créer la nouvelle version signée
+        // 6. Create new signed version
         const signedDocument = await ctx.prisma.document.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -888,7 +888,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 7. Mettre à jour le contrat
+        // 7. Update contract
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
           data: { signedAt: new Date() },
@@ -923,7 +923,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[uploadSignedVersion] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de l'upload de la version signée",
+          message: "Upload failed de la version signée",
           cause: error,
         });
       }
@@ -935,7 +935,7 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Active un contrat completed
+   * Activates a completed contract
    * 
    * Transition: completed → active
    * 
@@ -948,7 +948,7 @@ export const simpleContractRouter = createTRPCRouter({
     const { contractId, notes } = input;
 
     try {
-      // 1. Charger le contrat (sans include.documents)
+      // 1. Load contract (sans include.documents)
       const contract = await ctx.prisma.contract.findUnique({
         where: { id: contractId, tenantId: ctx.tenantId! },
         include: {
@@ -967,11 +967,11 @@ export const simpleContractRouter = createTRPCRouter({
       if (contract.status !== "completed") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Seuls les contrats completed peuvent être activés",
+          message: "Only completed contracts can be activated",
         });
       }
 
-      // 3. Récupérer le(s) documents via findMany()
+      // 3. Retrieve document(s) via findMany()
       const documents = await ctx.prisma.document.findMany({
         where: {
           tenantId: ctx.tenantId!,
@@ -984,7 +984,7 @@ export const simpleContractRouter = createTRPCRouter({
 
       if (!hasSignedVersion) {
         console.warn(
-          `[activateContract] Warning: Activation du contrat ${contractId} sans version signée`
+          `[activateContract] Warning: Contract activation ${contractId} without signed version`
         );
       }
 
@@ -1016,8 +1016,8 @@ export const simpleContractRouter = createTRPCRouter({
             contractId: contract.id,
             recipientId,
             type: "activated",
-            title: "Contrat activé",
-            message: `Le contrat "${contract.title}" est maintenant actif`,
+            title: "Contract activated",
+            message: `The contract "${contract.title}" is now active`,
           })),
         });
       }
@@ -1029,7 +1029,7 @@ export const simpleContractRouter = createTRPCRouter({
           fromStatus: "completed",
           toStatus: "active",
           changedBy: ctx.session!.user.id,
-          reason: "Activé par admin",
+          reason: "Activated by admin",
         },
       });
 
@@ -1061,7 +1061,7 @@ export const simpleContractRouter = createTRPCRouter({
       console.error("[activateContract] Error:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Échec de l'activation",
+        message: "Activation failed",
         cause: error,
       });
     }
@@ -1070,7 +1070,7 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * 7B. UPDATE SIMPLE CONTRACT
    * 
-   * Permet de mettre à jour le titre et la description d'un contrat MSA/SOW/NORM
+   * Allows updating the title and description of an MSA/SOW/NORM contract
    * Requis: contract.update.global permission
    */
   updateSimpleContract: tenantProcedure
@@ -1080,7 +1080,7 @@ export const simpleContractRouter = createTRPCRouter({
       const { contractId, title, description } = input;
 
       try {
-        // 1. Charger le contrat
+        // 1. Load contract
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
         });
@@ -1092,12 +1092,12 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Construire les données de mise à jour
+        // 2. Build update data
         const updateData: any = {};
         if (title !== undefined) updateData.title = title;
         if (description !== undefined) updateData.description = description;
 
-        // Si rien à mettre à jour
+        // If nothing to update
         if (Object.keys(updateData).length === 0) {
           return {
             success: true,
@@ -1105,7 +1105,7 @@ export const simpleContractRouter = createTRPCRouter({
           };
         }
 
-        // 3. Mettre à jour le contrat
+        // 3. Update contract
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
           data: updateData,
@@ -1137,7 +1137,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[updateSimpleContract] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la mise à jour du contrat",
+          message: "Failed to update contract",
           cause: error,
         });
       }
@@ -1169,7 +1169,7 @@ export const simpleContractRouter = createTRPCRouter({
       tenantId: ctx.tenantId!,
     };
 
-    // 🧩 SI PAS LIST_GLOBAL → On limite aux contrats où l'user participe
+    // 🧩 IF NOT LIST_GLOBAL → We limit to contracts where user participates
     if (!hasGlobal) {
       where.participants = {
         some: {
@@ -1255,14 +1255,14 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Récupère un contrat par son ID avec toutes ses relations
+   * Retrieves a contract by its ID with all its relations
    * 
    * Inclut:
    * - Parent MSA (si SOW)
    * - Children SOWs (si MSA)
    * - Participants avec users/companies
    * - Documents (toutes versions)
-   * - Historique des statuts
+   * - Status history
    * 
    * @permission contracts.view
    */
@@ -1271,7 +1271,7 @@ export const simpleContractRouter = createTRPCRouter({
     .input(getSimpleContractByIdSchema)
     .query(async ({ ctx, input }) => {
       try {
-        // 1️⃣ Charger le contrat SANS documents
+        // 1️⃣ Load contract WITHOUT documents
         const contract = await ctx.prisma.contract.findUnique({
           where: {
             id: input.id,
@@ -1336,7 +1336,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 2b. Charger les documents partagés (ContractDocuments)
+        // 2b. Load shared documents (ContractDocuments)
         const sharedDocuments = await ctx.prisma.contractDocument.findMany({
           where: {
             contractId: contract.id,
@@ -1365,7 +1365,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 3️⃣ Enrichir le statusHistory pour matcher le front
+        // 3️⃣ Enrich statusHistory to match frontend
         const enrichedStatusHistory = await Promise.all(
           contract.statusHistory.map(async (h) => {
             const user = await ctx.prisma.user.findUnique({
@@ -1379,8 +1379,8 @@ export const simpleContractRouter = createTRPCRouter({
               toStatus: h.toStatus,
               createdAt: h.changedAt,     // ⬅️ FRONT REQUIERT createdAt
               reason: h.reason,
-              notes: null,                // ⬅️ champ requis par le front
-              changedByUser: user ?? null // ⬅️ ajout calculé
+              notes: null,                // ⬅️ field required by frontend
+              changedByUser: user ?? null // ⬅️ calculated addition
             };
           })
         );
@@ -1398,7 +1398,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[getSimpleContractById] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la récupération du contrat",
+          message: "Failed to retrieve contract",
           cause: error,
         });
       }
@@ -1409,12 +1409,12 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Supprime un contrat en draft uniquement
+   * Deletes a draft contract only
    * 
-   * Sécurités:
-   * - Seuls les contrats draft peuvent être supprimés
-   * - Les MSA avec SOWs liés ne peuvent pas être supprimés
-   * - Les documents S3 sont supprimés en cascade
+   * Security:
+   * - Only draft contracts can be deleted
+   * - MSAs with linked SOWs cannot be deleted
+   * - S3 documents are deleted in cascade
    * 
    * @permission contracts.delete
    */
@@ -1423,7 +1423,7 @@ export const simpleContractRouter = createTRPCRouter({
   .input(deleteDraftContractSchema)
   .mutation(async ({ ctx, input }) => {
     try {
-      // 1️⃣ Charger le contrat (sans include.documents)
+      // 1️⃣ Load contract (sans include.documents)
       const contract = await ctx.prisma.contract.findUnique({
         where: { id: input.id, tenantId: ctx.tenantId! },
         include: { children: true },
@@ -1436,7 +1436,7 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 2️⃣ Vérifier statut
+      // 2️⃣ Check status
       if (!isDraft(contract)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1444,15 +1444,15 @@ export const simpleContractRouter = createTRPCRouter({
         });
       }
 
-      // 3️⃣ Vérifier enfants SOW
+      // 3️⃣ Check SOW children
       if (contract.type === "msa" && contract.children.length > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Impossible de supprimer un MSA qui a des SOWs liés",
+          message: "Cannot delete an MSA that has linked SOWs",
         });
       }
 
-      // 4️⃣ Charger les documents associés
+      // 4️⃣ Load associated documents
       const documents = await ctx.prisma.document.findMany({
         where: {
           tenantId: ctx.tenantId!,
@@ -1461,7 +1461,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 5️⃣ Supprimer les fichiers S3 associés
+      // 5️⃣ Delete associated S3 files
       for (const doc of documents) {
         try {
           await deleteFile(doc.s3Key);
@@ -1473,12 +1473,12 @@ export const simpleContractRouter = createTRPCRouter({
         }
       }
 
-      // 6️⃣ Supprimer les documents de la DB
+      // 6️⃣ Delete documents from DB
       await ctx.prisma.document.deleteMany({
         where: { entityId: contract.id, entityType: "contract" },
       });
 
-      // 7️⃣ Supprimer le contrat
+      // 7️⃣ Delete contract
       await ctx.prisma.contract.delete({
         where: { id: input.id },
       });
@@ -1501,14 +1501,14 @@ export const simpleContractRouter = createTRPCRouter({
 
       return {
         success: true,
-        message: "Contrat supprimé avec succès",
+        message: "Contract deleted successfully",
       };
     } catch (error) {
       if (error instanceof TRPCError) throw error;
       console.error("[deleteDraftContract] Error:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Échec de la suppression",
+        message: "Deletion failed",
         cause: error,
       });
     }
@@ -1771,9 +1771,9 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Met à jour un contrat NORM en draft
+   * Updates a NORM contract in draft
    * 
-   * Seuls les contrats en draft peuvent être modifiés
+   * Only draft contracts can be modified
    * 
    * @permission contract_norm.update
    */
@@ -1784,7 +1784,7 @@ export const simpleContractRouter = createTRPCRouter({
       const { contractId, ...updateData } = input;
 
       try {
-        // 1. Charger le contrat
+        // 1. Load contract
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
         });
@@ -1796,30 +1796,30 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Vérifier que le contrat est en draft
+        // 2. Verify contract is in draft
         if (!isDraft(contract)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Seuls les contrats en draft peuvent être modifiés",
+            message: "Only draft contracts can be modified",
           });
         }
 
-        // 3. Vérifier que c'est un contrat NORM
+        // 3. Verify it's a NORM contract
         if (contract.type !== "norm") {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Seuls les contrats NORM peuvent être mis à jour via cet endpoint",
+            message: "Only NORM contracts can be updated via this endpoint",
           });
         }
 
-        // 4. Préparer les données de mise à jour
+        // 4. Prepare update data
         const dataToUpdate: any = {};
 
         // Dates
         if (updateData.startDate) dataToUpdate.startDate = updateData.startDate;
         if (updateData.endDate) dataToUpdate.endDate = updateData.endDate;
 
-        // Salary type et paiement
+        // Salary type and payment
         if (updateData.salaryType) dataToUpdate.salaryType = updateData.salaryType;
         if (updateData.payrollUserId !== undefined) dataToUpdate.payrollUserId = updateData.payrollUserId;
         if (updateData.userBankIds !== undefined) dataToUpdate.userBankIds = updateData.userBankIds;
@@ -1843,7 +1843,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (updateData.contractCountryId !== undefined) dataToUpdate.contractCountryId = updateData.contractCountryId;
         if (updateData.clientAgencySignDate !== undefined) dataToUpdate.signedAt = updateData.clientAgencySignDate;
 
-        // 5. Mettre à jour le contrat
+        // 5. Update contract
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
           data: dataToUpdate,
@@ -1857,9 +1857,9 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 5b. Gérer la mise à jour du participant payroll si nécessaire
+        // 5b. Handle payroll participant update if necessary
         if (updateData.payrollUserId !== undefined) {
-          // Supprimer l'ancien participant payroll
+          // Delete old payroll participant
           await ctx.prisma.contractParticipant.deleteMany({
             where: {
               contractId,
@@ -1867,7 +1867,7 @@ export const simpleContractRouter = createTRPCRouter({
             },
           });
 
-          // Créer un nouveau participant payroll si payrollUserId est fourni
+          // Create new payroll participant if payrollUserId is provided
           if (updateData.payrollUserId && (updated.salaryType === "payroll" || updated.salaryType === "payroll_we_pay")) {
             await createMinimalParticipant(ctx.prisma, {
               contractId,
@@ -1917,7 +1917,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[updateNormContract] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la mise à jour du contrat NORM",
+          message: "Failed to update NORM contract",
           cause: error,
         });
       }
@@ -1928,9 +1928,9 @@ export const simpleContractRouter = createTRPCRouter({
   // ==========================================================================
 
   /**
-   * Permet au contractor de signer son contrat NORM
+   * Allows contractor to sign their NORM contract
    * 
-   * Met à jour le champ contractorSignedAt
+   * Updates the contractorSignedAt field
    * 
    * @permission contract.sign.own
    */
@@ -1941,7 +1941,7 @@ export const simpleContractRouter = createTRPCRouter({
       const { contractId, signatureDate } = input;
 
       try {
-        // 1. Charger le contrat
+        // 1. Load contract
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
           include: {
@@ -1958,15 +1958,15 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Vérifier que c'est un contrat NORM
+        // 2. Verify it's a NORM contract
         if (contract.type !== "norm") {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Seuls les contrats NORM peuvent être signés via cet endpoint",
+            message: "Only NORM contracts can be signed via this endpoint",
           });
         }
 
-        // 3. Vérifier que l'utilisateur est le contractor
+        // 3. Verify user is the contractor
         const contractorParticipant = contract.participants.find(
           (p) => p.userId === ctx.session!.user.id
         );
@@ -1974,19 +1974,19 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contractorParticipant) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'êtes pas autorisé à signer ce contrat",
+            message: "You are not authorized to sign this contract",
           });
         }
 
-        // 4. Vérifier que le contrat n'est pas déjà signé
+        // 4. Verify contract is not already signed
         if (contract.contractorSignedAt) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Ce contrat a déjà été signé par le contractor",
+            message: "This contract has already been signed by the contractor",
           });
         }
 
-        // 5. Mettre à jour la date de signature
+        // 5. Update signature date
         const updated = await ctx.prisma.contract.update({
           where: { id: contractId },
           data: {
@@ -2041,7 +2041,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[contractorSignContract] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la signature du contrat",
+          message: "Failed to sign contract",
           cause: error,
         });
       }
@@ -2054,16 +2054,16 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * ADD PARTICIPANT
    * 
-   * Ajouter un participant supplémentaire à un contrat existant.
+   * Add an additional participant to an existing contract.
    * 
    * Permissions:
-   * - contract.update.global : peut ajouter à n'importe quel contrat
-   * - contract.update.own : peut ajouter à ses propres contrats
+   * - contract.update.global: can add to any contract
+   * - contract.update.own: can add to own contracts
    * 
    * Validation:
-   * - Le contrat doit être en draft ou pending
-   * - Au moins userId ou companyId doit être fourni
-   * - L'utilisateur/company doit exister
+   * - Contract must be in draft or pending
+   * - At least userId or companyId must be provided
+   * - User/company must exist
    */
   addParticipant: tenantProcedure
     .input(addParticipantSchema)
@@ -2072,7 +2072,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { contractId, userId, companyId, role } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Vérifier les permissions
+        // 1. Check permissions
         const canModify = await canModifyContract(
           ctx.prisma,
           contractId,
@@ -2083,14 +2083,14 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canModify) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission de modifier ce contrat",
+            message: "You do not have permission to modify this contract",
           });
         }
 
-        // 2. Valider l'ajout du participant
+        // 2. Validate participant addition
         await validateParticipantAddition(ctx.prisma, contractId, userId, companyId);
 
-        // 3. Vérifier si le participant existe déjà
+        // 3. Check if participant already exists
         const existingParticipant = await ctx.prisma.contractParticipant.findFirst({
           where: {
             contractId,
@@ -2103,11 +2103,11 @@ export const simpleContractRouter = createTRPCRouter({
         if (existingParticipant) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Ce participant existe déjà pour ce contrat",
+            message: "This participant already exists for this contract",
           });
         }
 
-        // 4. Créer le participant
+        // 4. Create participant
         const participant = await ctx.prisma.contractParticipant.create({
           data: {
             contractId,
@@ -2165,7 +2165,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[addParticipant] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de l'ajout du participant",
+          message: "Failed to add participant",
           cause: error,
         });
       }
@@ -2174,15 +2174,15 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * REMOVE PARTICIPANT
    * 
-   * Supprimer un participant d'un contrat.
+   * Remove a participant from a contract.
    * 
    * Permissions:
-   * - contract.update.global : peut supprimer de n'importe quel contrat
-   * - contract.update.own : peut supprimer de ses propres contrats
+   * - contract.update.global: can remove from any contract
+   * - contract.update.own: can remove from own contracts
    * 
    * Restrictions:
-   * - Les participants principaux (company_tenant, agency, contractor) ne peuvent pas être supprimés
-   * - Le contrat doit être en draft ou pending
+   * - Main participants (company_tenant, agency, contractor) cannot be removed
+   * - Contract must be in draft or pending
    */
   removeParticipant: tenantProcedure
     .input(removeParticipantSchema)
@@ -2191,7 +2191,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { participantId } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Récupérer le participant
+        // 1. Retrieve participant
         const participant = await ctx.prisma.contractParticipant.findUnique({
           where: { id: participantId },
           include: {
@@ -2211,7 +2211,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Vérifier les permissions
+        // 2. Check permissions
         const canModify = await canModifyContract(
           ctx.prisma,
           participant.contractId,
@@ -2222,30 +2222,30 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canModify) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission de modifier ce contrat",
+            message: "You do not have permission to modify this contract",
           });
         }
 
-        // 3. Vérifier que le contrat n'est pas completed/active
+        // 3. Verify contract is not completed/active
         if (
           participant.contract.workflowStatus === "completed" ||
           participant.contract.workflowStatus === "active"
         ) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Impossible de supprimer des participants d'un contrat complété ou actif",
+            message: "Cannot remove participants from a completed or active contract",
           });
         }
 
-        // 4. Vérifier que ce n'est pas un participant principal
+        // 4. Verify it's not a main participant
         if (!canRemoveParticipant(participant.role)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Impossible de supprimer un participant principal (company_tenant, agency, contractor)",
+            message: "Cannot remove a main participant (company_tenant, agency, contractor)",
           });
         }
 
-        // 5. Supprimer le participant
+        // 5. Remove participant
         await ctx.prisma.contractParticipant.delete({
           where: { id: participantId },
         });
@@ -2269,14 +2269,14 @@ export const simpleContractRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: "Participant supprimé avec succès",
+          message: "Participant removed successfully",
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         console.error("[removeParticipant] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la suppression du participant",
+          message: "Failed to remove participant",
           cause: error,
         });
       }
@@ -2285,11 +2285,11 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * LIST PARTICIPANTS
    * 
-   * Lister tous les participants d'un contrat.
+   * List all participants of a contract.
    * 
    * Permissions:
-   * - contract.read.global : peut lister les participants de tous les contrats
-   * - contract.read.own : peut lister les participants de ses contrats
+   * - contract.read.global: can list participants of all contracts
+   * - contract.read.own: can list participants of own contracts
    */
   listParticipants: tenantProcedure
     .input(listParticipantsSchema)
@@ -2298,7 +2298,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { contractId } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Vérifier que l'utilisateur peut voir ce contrat
+        // 1. Verify user can view this contract
         const canView = await canViewContract(
           ctx.prisma,
           contractId,
@@ -2309,11 +2309,11 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canView) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission de voir ce contrat",
+            message: "You do not have permission to view this contract",
           });
         }
 
-        // 2. Récupérer tous les participants
+        // 2. Retrieve all participants
         const participants = await ctx.prisma.contractParticipant.findMany({
           where: {
             contractId,
@@ -2352,7 +2352,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[listParticipants] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la récupération des participants",
+          message: "Failed to retrieve participants",
           cause: error,
         });
       }
@@ -2365,13 +2365,13 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * UPLOAD DOCUMENT
    * 
-   * Uploader un document partagé pour un contrat.
-   * Tous les participants peuvent uploader des documents.
+   * Upload a shared document for a contract.
+   * All participants can upload documents.
    * 
    * Permissions:
-   * - Être participant du contrat
-   * - Le contrat ne doit pas être "completed" ou "active"
-   * - Exception: contract.update.global peut toujours uploader
+   * - Be a participant of the contract
+   * - Contract must not be "completed" or "active"
+   * - Exception: contract.update.global can always upload
    */
   uploadDocument: tenantProcedure
     .input(uploadDocumentSchema)
@@ -2380,7 +2380,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { contractId, pdfBuffer, fileName, mimeType, fileSize, description, category, notes } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Vérifier que l'utilisateur peut uploader
+        // 1. Verify user can upload
         const canUpload = await canUploadDocument(
           ctx.prisma,
           contractId,
@@ -2391,11 +2391,11 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canUpload) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission d'uploader des documents pour ce contrat",
+            message: "You do not have permission to upload documents for this contract",
           });
         }
 
-        // 2. Vérifier que le contrat existe
+        // 2. Verify contract exists
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId },
           select: {
@@ -2412,13 +2412,13 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 3. Upload du fichier vers S3
+        // 3. Upload file to S3
         const buffer = Buffer.from(pdfBuffer, "base64");
         const s3FileName = `contracts/${contractId}/documents/${Date.now()}-${fileName}`;
         
         const s3Key = await uploadFile(buffer, s3FileName, mimeType);
 
-        // 4. Créer l'entrée Document
+        // 4. Create Document entry
         const document = await ctx.prisma.document.create({
           data: {
             tenantId: ctx.tenantId!,
@@ -2435,7 +2435,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 5. Créer l'entrée ContractDocument
+        // 5. Create ContractDocument entry
         const contractDocument = await ctx.prisma.contractDocument.create({
           data: {
             contractId,
@@ -2493,7 +2493,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[uploadDocument] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de l'upload du document",
+          message: "Failed to upload document",
           cause: error,
         });
       }
@@ -2502,11 +2502,11 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * LIST DOCUMENTS
    * 
-   * Lister tous les documents partagés d'un contrat.
-   * Tous les participants peuvent voir les documents.
+   * List all shared documents of a contract.
+   * All participants can view documents.
    * 
    * Permissions:
-   * - Être participant du contrat OU avoir contract.read.global
+   * - Be a participant of the contract OR have contract.read.global
    */
   listDocuments: tenantProcedure
     .input(listDocumentsSchema)
@@ -2515,7 +2515,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { contractId } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Vérifier que l'utilisateur peut voir ce contrat
+        // 1. Verify user can view this contract
         const canView = await canViewContract(
           ctx.prisma,
           contractId,
@@ -2526,11 +2526,11 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canView) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission de voir ce contrat",
+            message: "You do not have permission to view this contract",
           });
         }
 
-        // 2. Récupérer tous les documents
+        // 2. Retrieve all documents
         const documents = await ctx.prisma.contractDocument.findMany({
           where: {
             contractId,
@@ -2568,7 +2568,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[listDocuments] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la récupération des documents",
+          message: "Failed to retrieve documents",
           cause: error,
         });
       }
@@ -2577,12 +2577,12 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * DELETE DOCUMENT
    * 
-   * Supprimer un document partagé.
-   * Seul l'uploader ou un admin (contract.update.global) peut supprimer.
+   * Delete a shared document.
+   * Only the uploader or an admin (contract.update.global) can delete.
    * 
    * Permissions:
-   * - Être l'uploader du document OU avoir contract.update.global
-   * - Le contrat ne doit pas être "completed" ou "active"
+   * - Be the document uploader OR have contract.update.global
+   * - Contract must not be "completed" or "active"
    */
   deleteDocument: tenantProcedure
     .input(deleteDocumentSchema)
@@ -2591,7 +2591,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { documentId } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Récupérer le document
+        // 1. Retrieve document
         const contractDocument = await ctx.prisma.contractDocument.findUnique({
           where: { id: documentId },
           include: {
@@ -2618,7 +2618,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Vérifier les permissions
+        // 2. Check permissions
         const canDelete = await canDeleteDocument(
           ctx.prisma,
           documentId,
@@ -2633,19 +2633,19 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 3. Supprimer le fichier de S3
+        // 3. Delete file from S3
         try {
           await deleteFile(contractDocument.document.s3Key);
         } catch (s3Error) {
           console.error("[deleteDocument] S3 deletion error:", s3Error);
         }
 
-        // 4. Supprimer l'entrée Document en premier
+        // 4. Delete Document entry first
         await ctx.prisma.document.deleteMany({
           where: { id: contractDocument.documentId },
         });
 
-        // 5. Supprimer l'entrée ContractDocument ensuite
+        // 5. Delete ContractDocument entry next
         await ctx.prisma.contractDocument.deleteMany({
           where: { id: documentId },
         });
@@ -2671,14 +2671,14 @@ export const simpleContractRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: "Document supprimé avec succès",
+          message: "Document deleted successfully",
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         console.error("[deleteDocument] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la suppression du document",
+          message: "Failed to delete document",
           cause: error,
         });
       }
@@ -2687,11 +2687,11 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * DOWNLOAD DOCUMENT
    * 
-   * Obtenir l'URL signée pour télécharger un document.
-   * Tous les participants peuvent télécharger les documents.
+   * Get signed URL to download a document.
+   * All participants can download documents.
    * 
    * Permissions:
-   * - Être participant du contrat OU avoir contract.read.global
+   * - Be a participant of the contract OR have contract.read.global
    */
   downloadDocument: tenantProcedure
     .input(downloadDocumentSchema)
@@ -2700,7 +2700,7 @@ export const simpleContractRouter = createTRPCRouter({
         const { documentId } = input;
         const userPermissions = ctx.session!.user.permissions || [];
 
-        // 1. Récupérer le document
+        // 1. Retrieve document
         const contractDocument = await ctx.prisma.contractDocument.findUnique({
           where: { id: documentId },
           include: {
@@ -2722,7 +2722,7 @@ export const simpleContractRouter = createTRPCRouter({
           });
         }
 
-        // 2. Vérifier que l'utilisateur peut voir ce contrat
+        // 2. Verify user can view this contract
         const canView = await canViewContract(
           ctx.prisma,
           contractDocument.contractId,
@@ -2733,13 +2733,13 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canView) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission de télécharger ce document",
+            message: "You do not have permission to download this document",
           });
         }
 
-        // 3. Générer l'URL signée (utiliser la fonction existante ou générer manuellement)
-        // Pour l'instant, on retourne juste les infos du document
-        // Le frontend utilisera document.getSignedUrl avec l'ID du document
+        // 3. Generate signed URL (use existing function or generate manually)
+        // For now, we just return document info
+        // Frontend will use document.getSignedUrl with document ID
 
         return {
           success: true,
@@ -2755,7 +2755,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[downloadDocument] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la récupération du document",
+          message: "Failed to retrieve document",
           cause: error,
         });
       }
@@ -2768,11 +2768,11 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * GET USER COMPANY
    * 
-   * Récupère la company associée à un utilisateur.
-   * Utile pour la fonctionnalité "lier la company du user".
+   * Retrieves the company associated with a user.
+   * Useful for "link user's company" feature.
    * 
    * Permissions:
-   * - Accessible à tous les utilisateurs authentifiés
+   * - Accessible to all authenticated users
    */
   getUserCompany: tenantProcedure
     .input(z.object({
@@ -2782,7 +2782,7 @@ export const simpleContractRouter = createTRPCRouter({
       try {
         const { userId } = input;
 
-        // Chercher une CompanyUser active pour cet utilisateur
+        // Find an active CompanyUser for this user
         const companyUser = await ctx.prisma.companyUser.findFirst({
           where: {
             userId,
@@ -2799,7 +2799,7 @@ export const simpleContractRouter = createTRPCRouter({
             },
           },
           orderBy: {
-            createdAt: "desc", // Prendre la plus récente si plusieurs
+            createdAt: "desc", // Take the most recent if multiple
           },
         });
 
@@ -2811,7 +2811,7 @@ export const simpleContractRouter = createTRPCRouter({
         console.error("[getUserCompany] Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Échec de la récupération de la company",
+          message: "Failed to retrieve company",
           cause: error,
         });
       }

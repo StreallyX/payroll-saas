@@ -37,7 +37,7 @@ const { bucketName, folderPrefix } = getBucketConfig();
  * Build the final S3 key, with optional prefix (folder)
  */
 function buildKey(fileName: string) {
-  // si la key inclut déjà le préfixe → ne pas le rajouter
+  // if key already includes prefix → don't add it again
   if (fileName.startsWith(folderPrefix)) {
     return fileName;
   }

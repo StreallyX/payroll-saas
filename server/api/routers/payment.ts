@@ -180,7 +180,7 @@ export const paymentRouter = createTRPCRouter({
 
   // ---------------------------------------------------------
   // UPDATE PAYMENT (tenant)
-  // Quand status passe à "completed" → crée automatiquement une Task pour le payroll provider
+  // When status changes to "completed" → automatically creates a Task for payroll provider
   // ---------------------------------------------------------
   update: tenantProcedure
     .use(
@@ -229,7 +229,7 @@ export const paymentRouter = createTRPCRouter({
 
       if (!old) throw new TRPCError({ code: "NOT_FOUND" })
 
-      // Mettre à jour le paiement
+      // Update payment
       const updatedPayment = await ctx.prisma.payment.update({
         where: { id: input.id },
         data: {
@@ -257,7 +257,7 @@ export const paymentRouter = createTRPCRouter({
         },
       })
 
-      // ✨ TRIGGER AUTOMATIQUE : Si status passe à "completed" → créer Task pour payroll provider
+      // ✨ AUTOMATIC TRIGGER: If status changes to "completed" → create Task for payroll provider
       if (input.status === "completed" && old.status !== "completed") {
         const contract = updatedPayment.invoice?.contract
 
@@ -273,7 +273,7 @@ export const paymentRouter = createTRPCRouter({
           )
 
           if (payrollPartner && contractor && contractor.user && payrollPartner.user && payrollPartner.userId) {
-            // Créer une Task pour le payroll provider
+            // Create a Task for payroll provider
             await ctx.prisma.task.create({
               data: {
                 tenantId: ctx.tenantId,
@@ -292,7 +292,7 @@ Please ensure the contractor receives payment according to their contract terms 
                 assignedBy: ctx.session.user.id,
                 priority: "high",
                 status: "pending",
-                dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+                dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
               },
             })
 

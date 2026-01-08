@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession();
     if (!session?.user) {
       return NextResponse.json(
-        { error: "Non autorisé" },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     
     if (!allowedTypes.includes(fileType)) {
       return NextResponse.json(
-        { error: `Type de fichier non autorisé. Types acceptés: ${allowedTypes.join(", ")}` },
+        { error: `File type not allowed. Accepted types: ${allowedTypes.join(", ")}` },
         { status: 400 }
       );
     }
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: "Le fichier est trop volumineux (max 10MB)" },
+        { error: "File is too large (max 10MB)" },
         { status: 400 }
       );
     }
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Upload error:", error);
     return NextResponse.json(
-      { error: error.message || "Erreur lors de l'upload" },
+      { error: error.message || "Error during upload" },
       { status: 500 }
     );
   }

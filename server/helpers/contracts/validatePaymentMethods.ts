@@ -1,29 +1,29 @@
 /**
- * Helper pour valider que les PaymentMethods (UserBanks) existent
+ * Helper for validating that PaymentMethods (UserBanks) exist
  * 
- * Utilisé lors de la création d'un contrat NORM pour s'assurer que
- * les méthodes de paiement sélectionnées existent et sont actives.
+ * Used during NORM contract creation to ensure that
+ * selected payment methods exist and are active.
  */
 
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Valide qu'une méthode de paiement existe et est active
+ * Validates that a payment method exists and is active
  * 
- * Règles de validation :
- * - La méthode de paiement doit exister
- * - Elle doit appartenir au même tenant
- * - Elle doit être de type BANK_ACCOUNT
- * - Elle doit être active (isActive=true)
- * - Elle doit appartenir au contractor spécifié
+ * Validation rules:
+ * - Payment method must exist
+ * - It must belong to the same tenant
+ * - It must be of type BANK_ACCOUNT
+ * - It must be active (isActive=true)
+ * - It must belong to the specified contractor
  * 
  * @param prisma - Instance Prisma Client
- * @param paymentMethodId - ID de la méthode de paiement à valider
- * @param userId - ID du contractor propriétaire
- * @param tenantId - ID du tenant (pour vérification de sécurité)
- * @returns Méthode de paiement validée
- * @throws TRPCError si validation échoue
+ * @param paymentMethodId - Payment method ID to validate
+ * @param userId - Owner contractor ID
+ * @param tenantId - Tenant ID (for security verification)
+ * @returns Validated payment method
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const userBank = await validatePaymentMethod(prisma, "clxxx123", "cluser123", "tenant_abc");
@@ -34,7 +34,7 @@ export async function validatePaymentMethod(
   userId: string,
   tenantId: string
 ) {
-  // 1. Récupérer la méthode de paiement
+  // 1. Retrieve payment method
   const paymentMethod = await prisma.paymentMethod.findFirst({
     where: {
       id: paymentMethodId,
@@ -43,27 +43,27 @@ export async function validatePaymentMethod(
     },
   });
 
-  // 2. Vérifier que la méthode de paiement existe
+  // 2. Verify payment method exists
   if (!paymentMethod) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: "Méthode de paiement introuvable. Vérifiez que l'ID est correct et qu'elle appartient au contractor.",
+      message: "Payment method not found. Verify the ID is correct and it belongs to the contractor.",
     });
   }
 
-  // 3. Vérifier que la méthode de paiement est active
+  // 3. Verify payment method is active
   if (!paymentMethod.isActive) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "La méthode de paiement sélectionnée est inactive et ne peut pas être utilisée.",
+      message: "Selected payment method is inactive and cannot be used.",
     });
   }
 
-  // 4. Vérifier que c'est bien un compte bancaire
+  // 4. Verify it's a bank account
   if (paymentMethod.type !== "bank_account") {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `Seuls les comptes bancaires peuvent être utilisés pour les contrats NORM. Type actuel: ${paymentMethod.type}.`,
+      message: `Only bank accounts can be used for NORM contracts. Current type: ${paymentMethod.type}.`,
     });
   }
 
@@ -71,16 +71,16 @@ export async function validatePaymentMethod(
 }
 
 /**
- * Valide plusieurs méthodes de paiement (pour le mode Split)
+ * Validates multiple payment methods (for Split mode)
  * 
- * Utile pour valider un array de PaymentMethods.
+ * Useful for validating an array of PaymentMethods.
  * 
  * @param prisma - Instance Prisma Client
- * @param paymentMethodIds - Array d'IDs des méthodes de paiement
- * @param userId - ID du contractor propriétaire
+ * @param paymentMethodIds - Array of payment method IDs
+ * @param userId - Owner contractor ID
  * @param tenantId - ID du tenant
- * @returns Array des méthodes de paiement validées
- * @throws TRPCError si une validation échoue
+ * @returns Array of validated payment methods
+ * @throws TRPCError if validation fails
  * 
  * @example
  * const userBanks = await validateMultiplePaymentMethods(
@@ -96,27 +96,27 @@ export async function validateMultiplePaymentMethods(
   userId: string,
   tenantId: string
 ) {
-  // Vérifier qu'il y a au moins une méthode de paiement
+  // Verify there is at least one payment method
   if (!paymentMethodIds || paymentMethodIds.length === 0) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Au moins une méthode de paiement doit être fournie pour le mode Split.",
+      message: "At least one payment method must be provided for Split mode.",
     });
   }
 
-  // Valider toutes les méthodes de paiement en parallèle
+  // Validate all payment methods in parallel
   const paymentMethods = await Promise.all(
     paymentMethodIds.map((id) =>
       validatePaymentMethod(prisma, id, userId, tenantId)
     )
   );
 
-  // Vérifier qu'il n'y a pas de doublons
+  // Verify there are no duplicates
   const uniqueIds = new Set(paymentMethodIds);
   if (uniqueIds.size !== paymentMethodIds.length) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Les méthodes de paiement en double ne sont pas autorisées.",
+      message: "Duplicate payment methods are not allowed.",
     });
   }
 
@@ -124,15 +124,15 @@ export async function validateMultiplePaymentMethods(
 }
 
 /**
- * Récupère toutes les méthodes de paiement disponibles pour un contractor
+ * Retrieves all payment methods available for a contractor
  * 
- * Utile pour afficher une liste de comptes bancaires dans un sélecteur UI.
+ * Useful for displaying a list of bank accounts in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
  * @param userId - ID du contractor
  * @param tenantId - ID du tenant
- * @param activeOnly - Ne retourner que les méthodes actives (par défaut: true)
- * @returns Liste des méthodes de paiement disponibles
+ * @param activeOnly - Only return active methods (default: true)
+ * @returns List of available payment methods
  * 
  * @example
  * const userBanks = await getAvailablePaymentMethodsList(prisma, "cluser123", "tenant_abc");

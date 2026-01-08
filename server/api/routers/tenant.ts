@@ -248,7 +248,7 @@ export const tenantRouter = createTRPCRouter({
           entityType: AuditEntityType.TENANT,
           entityId: tenant.id,
           entityName: tenant.name,
-          description: `Tenant créé avec admin ${input.adminEmail}`,
+          description: `Tenant created with admin ${input.adminEmail}`,
           tenantId: tenant.id,
         })
 
@@ -566,7 +566,7 @@ export const tenantRouter = createTRPCRouter({
         featureKey: input.featureKey,
         isEnabled: input.enabled,             // ✔ correct
         metadata: {
-          expiresAt: input.expiresAt || null, // ✔ stocké dans metadata
+          expiresAt: input.expiresAt || null, // ✔ stored in metadata
         },
       },
       update: {
@@ -1070,7 +1070,7 @@ export const tenantRouter = createTRPCRouter({
         format: input.format,              // match Prisma
         fileUrl: null,
         fileSize: null,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         requestedBy: ctx.session!.user.id, // match Prisma
       },
     });

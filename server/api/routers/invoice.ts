@@ -172,12 +172,12 @@ export const invoiceRouter = createTRPCRouter({
 
   // ---------------------------------------------------------
   // 2️⃣.1 LIST AGENCY INVOICES (OWN)
-  // Pour les agences : voir les invoices des contrats où elles sont participantes
+  // For agencies: view invoices of contracts where they are participants
   // ---------------------------------------------------------
   getMyAgencyInvoices: tenantProcedure
     .use(hasPermission(P.READ_OWN))
     .query(async ({ ctx }) => {
-      // Trouver tous les contrats où l'utilisateur est une agence
+      // Find all contracts where user is an agency
       const agencyContracts = await ctx.prisma.contractParticipant.findMany({
         where: {
           userId: ctx.session.user.id,
@@ -189,7 +189,7 @@ export const invoiceRouter = createTRPCRouter({
 
       const contractIds = agencyContracts.map(c => c.contractId)
 
-      // Récupérer les invoices de ces contrats
+      // Retrieve invoices of these contracts
       return ctx.prisma.invoice.findMany({
         where: {
           tenantId: ctx.tenantId,
@@ -397,7 +397,7 @@ getById: tenantProcedure
     .mutation(async ({ ctx, input }) => {
       const isAdmin = ctx.session.user.permissions.includes(P.CREATE_GLOBAL)
 
-      // OWN → l'utilisateur doit être participant actif du contrat
+      // OWN → user must be active participant of the contract
       if (!isAdmin && input.contractId) {
         const contract = await ctx.prisma.contract.findFirst({
           where: {
@@ -599,8 +599,8 @@ getById: tenantProcedure
 
   // ---------------------------------------------------------
   // 7️⃣ MARK AS PAID (AGENCY)
-  // Permet à l'agence de marquer une invoice comme payée
-  // Crée automatiquement un Payment avec status "pending"
+  // Allows agency to mark an invoice as paid
+  // Automatically creates a Payment with status "pending"
   // ---------------------------------------------------------
   markAsPaid: tenantProcedure
     .use(hasAnyPermission([P.PAY_GLOBAL, "invoice.pay.own"]))
@@ -614,7 +614,7 @@ getById: tenantProcedure
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // 1. Récupérer l'invoice avec le contrat et les participants
+      // 1. Retrieve invoice with contract and participants
       const invoice = await ctx.prisma.invoice.findFirst({
         where: { id: input.id, tenantId: ctx.tenantId },
         include: {
@@ -631,11 +631,11 @@ getById: tenantProcedure
 
       if (!invoice) throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found" })
 
-      // 2. Vérifier les permissions (si pas admin, vérifier que l'utilisateur est l'agence du contrat)
+      // 2. Check permissions (if not admin, verify user is the agency of the contract)
       const isAdmin = ctx.session.user.permissions.includes(P.PAY_GLOBAL)
       
       if (!isAdmin) {
-        // Vérifier que l'utilisateur est une agence participant au contrat
+        // Verify user is an agency participating in the contract
         const isAgency = invoice.contract?.participants.some(
           p => p.userId === ctx.session.user.id && p.role === "AGENCY"
         )
@@ -648,7 +648,7 @@ getById: tenantProcedure
         }
       }
 
-      // 3. Vérifier que l'invoice n'est pas déjà payée
+      // 3. Verify invoice is not already paid
       if (invoice.status === "paid") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -656,14 +656,14 @@ getById: tenantProcedure
         })
       }
 
-      // 4. Créer un Payment avec status "pending" (sera confirmé par l'admin)
+      // 4. Create a Payment with status "pending" (will be confirmed by admin)
       const payment = await ctx.prisma.payment.create({
         data: {
           tenantId: ctx.tenantId,
           invoiceId: invoice.id,
           amount: invoice.totalAmount,
           currency: invoice.contract?.currency?.code || "USD",
-          status: "pending", // En attente de confirmation par l'admin
+          status: "pending", // Awaiting admin confirmation
           paymentMethod: input.paymentMethod,
           transactionId: input.transactionId,
           referenceNumber: input.referenceNumber,
@@ -679,7 +679,7 @@ getById: tenantProcedure
         },
       })
 
-      // 5. Mettre à jour l'invoice status à "paid"
+      // 5. Update invoice status to "paid"
       const updatedInvoice = await ctx.prisma.invoice.update({
         where: { id: input.id },
         data: {
@@ -693,7 +693,7 @@ getById: tenantProcedure
         }
       })
 
-      // 6. Créer un audit log
+      // 6. Create an audit log
       await createAuditLog({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name!,
