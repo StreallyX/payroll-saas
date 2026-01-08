@@ -5,6 +5,8 @@
  */
 
 import { createLogger, format, transports, Logger as WinstonLogger } from 'winston';
+import { mkdirSync, existsSync } from 'fs';
+import { resolve } from 'path';
 
 export enum LogLevel {
   ERROR = 'error',
@@ -23,6 +25,44 @@ class Logger {
 
   constructor() {
     const logLevel = process.env.LOG_LEVEL || 'info';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT;
+
+    // Create logs directory if needed (for local/non-serverless environments)
+    if (!isServerless) {
+      this._createLogDirIfNotExist();
+    }
+
+    // Base transports (always include console)
+    const baseTransports = [
+      new transports.Console({
+        format: format.combine(
+          format.colorize(),
+          format.printf(({ timestamp, level, message, ...metadata }) => {
+            let msg = `${timestamp} [${level}]: ${message}`;
+            if (Object.keys(metadata).length > 0) {
+              msg += ` ${JSON.stringify(metadata, null, 2)}`;
+            }
+            return msg;
+          })
+        ),
+      }),
+    ];
+
+    // File transports (only for local/non-serverless environments)
+    const fileTransports = !isServerless ? [
+      new transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+        maxsize: 10485760, // 10MB
+        maxFiles: 5,
+      }),
+      new transports.File({
+        filename: 'logs/combined.log',
+        maxsize: 10485760, // 10MB
+        maxFiles: 10,
+      }),
+    ] : [];
 
     this.logger = createLogger({
       level: logLevel,
@@ -36,41 +76,33 @@ class Logger {
         service: 'payroll-saas',
         environment: process.env.NODE_ENV || 'development',
       },
-      transports: [
-        // Console transport
-        new transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.printf(({ timestamp, level, message, ...metadata }) => {
-              let msg = `${timestamp} [${level}]: ${message}`;
-              if (Object.keys(metadata).length > 0) {
-                msg += ` ${JSON.stringify(metadata, null, 2)}`;
-              }
-              return msg;
-            })
-          ),
-        }),
-        // File transport for errors
-        new transports.File({
-          filename: 'logs/error.log',
-          level: 'error',
-          maxsize: 10485760, // 10MB
-          maxFiles: 5,
-        }),
-        // File transport for all logs
-        new transports.File({
-          filename: 'logs/combined.log',
-          maxsize: 10485760, // 10MB
-          maxFiles: 10,
-        }),
-      ],
-      exceptionHandlers: [
-        new transports.File({ filename: 'logs/exceptions.log' }),
-      ],
-      rejectionHandlers: [
-        new transports.File({ filename: 'logs/rejections.log' }),
-      ],
+      transports: [...baseTransports, ...fileTransports],
+      // Exception and rejection handlers only for non-serverless
+      ...((!isServerless) && {
+        exceptionHandlers: [
+          new transports.File({ filename: 'logs/exceptions.log' }),
+        ],
+        rejectionHandlers: [
+          new transports.File({ filename: 'logs/rejections.log' }),
+        ],
+      }),
     });
+  }
+
+  /**
+   * Creates the logs directory if it doesn't exist
+   * Uses recursive option and error handling for safety
+   */
+  private _createLogDirIfNotExist(): void {
+    try {
+      const logsDir = resolve(process.cwd(), 'logs');
+      if (!existsSync(logsDir)) {
+        mkdirSync(logsDir, { recursive: true });
+      }
+    } catch (error) {
+      // Silently fail - console transport will still work
+      console.warn('Warning: Could not create logs directory. File logging disabled.', error);
+    }
   }
 
   private log(level: LogLevel, message: string, metadata?: LogMetadata) {
