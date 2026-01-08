@@ -203,21 +203,20 @@ export default function TestTrackingPage() {
       <PageHeader
         title="Page Test Tracking"
         description="Track testing progress for all platform pages organized by user role"
-        actions={
-          <div className="flex gap-2">
-            {hasChanges && (
-              <Button variant="outline" onClick={handleReset} size="sm">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Reset
-              </Button>
-            )}
-            <Button onClick={handleSaveAll} disabled={!hasChanges} size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              Save All Changes
+      >
+        <div className="flex gap-2">
+          {hasChanges && (
+            <Button variant="outline" onClick={handleReset} size="sm">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset
             </Button>
-          </div>
-        }
-      />
+          )}
+          <Button onClick={handleSaveAll} disabled={!hasChanges} size="sm">
+            <Save className="mr-2 h-4 w-4" />
+            Save All Changes
+          </Button>
+        </div>
+      </PageHeader>
 
       {/* Statistics Card */}
       <Card>
