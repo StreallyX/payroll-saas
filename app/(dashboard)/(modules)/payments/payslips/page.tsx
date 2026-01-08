@@ -237,7 +237,7 @@ export default function PayslipsPage() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">En attente</p>
+            <p className="text-xs text-gray-500">Pending</p>
             <p className="text-2xl font-bold">{stats?.pending}</p>
           </CardContent>
         </Card>

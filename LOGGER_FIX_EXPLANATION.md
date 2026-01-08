@@ -10,7 +10,7 @@ Error: ENOENT: no such file or directory, mkdir 'logs'
 ```
 
 ### Location of Problematic Code
-- **Fichier**: `lib/logging/logger.ts`
+- **File**: `lib/logging/logger.ts`
 - **Problem**: The Winston logger was trying to write logs to local files (`logs/error.log`, `logs/combined.log`, `logs/exceptions.log`, `logs/rejections.log`) without checking the existence of the d
 
 ### Identified Causes

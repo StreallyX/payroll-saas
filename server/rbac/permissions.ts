@@ -458,7 +458,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PERMISSION,
     Action.ASSIGN,
     PermissionScope.GLOBAL,
-    "Assigner des permissions",
+    "Assign permissions",
     "Assign permissions to roles",
     PermissionCategory.ADMINISTRATION
   ),
@@ -1257,7 +1257,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.APPROVE,
     PermissionScope.GLOBAL,
     "Approve all timesheets",
-    "Approuver n'importe quelle timesheet",
+    "Approve any timesheet",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
@@ -1567,7 +1567,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.LEAD,
     Action.ASSIGN,
     PermissionScope.GLOBAL,
-    "Assigner des prospects",
+    "Assign prospects",
     "Assign leads to sales reps",
     PermissionCategory.BUSINESS
   ),
@@ -1628,7 +1628,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.DELETE,
     PermissionScope.GLOBAL,
     "Delete all documents",
-    "Supprimer n'importe quel document",
+    "Delete any document",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -1656,7 +1656,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.LIST,
     PermissionScope.GLOBAL,
     "View onboarding templates",
-    "Lister les templates",
+    "List templates",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -1748,7 +1748,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.DELETE,
     PermissionScope.GLOBAL,
     "Delete all comments",
-    "Supprimer n'importe quel commentaire",
+    "Delete any comment",
     PermissionCategory.COMMUNICATION
   ),
 
@@ -1760,7 +1760,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.LIST,
     PermissionScope.GLOBAL,
     "View approval workflows",
-    "Lister les workflows",
+    "List workflows",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -1838,7 +1838,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.DELETE,
     PermissionScope.GLOBAL,
     "Delete banks (global)",
-    "Supprimer n'importe quelle banque",
+    "Delete any bank",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -2248,7 +2248,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.FEATURE_REQUEST,
     Action.LIST,
     PermissionScope.OWN,
-    "Lister ses demandes",
+    "List own requests",
     "View list of own feature requests",
     PermissionCategory.CORE
   ),

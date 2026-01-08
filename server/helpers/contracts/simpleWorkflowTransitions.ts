@@ -298,7 +298,7 @@ export function getStatusLabel(status: ContractStatus): string {
     completed: "Completed",
     active: "Actif",
     cancelled: "Cancelled",
-    paused: "En pause",
+    paused: "Paused",
     terminated: "Terminated",
   };
 
@@ -317,8 +317,8 @@ export function getStatusLabel(status: ContractStatus): string {
 export function getActionLabel(action: WorkflowAction): string {
   const labels: Record<WorkflowAction, string> = {
     submit_for_review: "Submit for validation",
-    admin_approve: "Approuver",
-    admin_reject: "Rejeter",
+    admin_approve: "Approve",
+    admin_reject: "Reject",
     activate: "Activer",
     pause: "Pause",
     resume: "Reprendre",
