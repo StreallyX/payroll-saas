@@ -138,7 +138,13 @@ export const companyRouter = createTRPCRouter({
         alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
 
         vatNumber: z.string().optional(),
-        website: z.string().url().optional().or(z.literal("")),
+        website: z.string().optional().transform((val) => {
+          if (!val || val === "") return undefined;
+          if (!/^https?:\/\//i.test(val)) {
+            return `https://${val}`;
+          }
+          return val;
+        }),
 
         status: z.enum(["active", "inactive"]).default("active"),
       })
@@ -214,7 +220,13 @@ export const companyRouter = createTRPCRouter({
         alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
 
         vatNumber: z.string().optional(),
-        website: z.string().url().optional().or(z.literal("")),
+        website: z.string().optional().transform((val) => {
+          if (!val || val === "") return undefined;
+          if (!/^https?:\/\//i.test(val)) {
+            return `https://${val}`;
+          }
+          return val;
+        }),
 
         status: z.enum(["active", "inactive"]).optional(),
       })
