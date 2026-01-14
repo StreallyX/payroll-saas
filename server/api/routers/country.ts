@@ -38,11 +38,19 @@ export const countryRouter = createTRPCRouter({
     .use(hasPermission("country.create.global"))
     .input(
       z.object({
-        code: z.string().length(2, "Code must be 2 characters (e.g., US)"),
+        code: z.string().length(2, "Code must be 2 characters (e.g., US)").transform(val => val.toUpperCase()),
         name: z.string().min(1, "Country name is required"),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const existingCountry = await ctx.prisma.country.findUnique({
+        where: { code: input.code },
+      });
+
+      if (existingCountry) {
+        throw new Error(`Country with code ${input.code} already exists`);
+      }
+
       const country = await ctx.prisma.country.create({
         data: input,
       })
@@ -65,11 +73,11 @@ export const countryRouter = createTRPCRouter({
   // UPDATE COUNTRY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   update: protectedProcedure
-    .use(hasPermission("superadmin.countries.update"))
+    .use(hasPermission("country.update.global"))
     .input(
       z.object({
         id: z.string(),
-        code: z.string().length(2).optional(),
+        code: z.string().length(2).optional().transform(val => val?.toUpperCase()),
         name: z.string().min(1).optional(),
         isActive: z.boolean().optional(),
       })
@@ -100,7 +108,7 @@ export const countryRouter = createTRPCRouter({
   // DELETE COUNTRY (SUPERADMIN ONLY)
   // -------------------------------------------------------
   delete: protectedProcedure
-    .use(hasPermission("superadmin.countries.delete"))
+    .use(hasPermission("country.delete.global"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
 
