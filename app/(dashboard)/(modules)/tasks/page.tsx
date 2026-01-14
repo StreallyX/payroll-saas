@@ -146,7 +146,7 @@ export default function AdminTasksPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard title="Total Tasks" value={stats?.total || 0} icon={CheckCircle} />
         <StatsCard title="Pending" value={stats?.pending || 0} icon={Clock} />
-        <StatsCard title="Completedes" value={stats?.completed || 0} icon={CheckCircle} />
+        <StatsCard title="Completed" value={stats?.completed || 0} icon={CheckCircle} />
         <StatsCard title="Overdue" value={stats?.overdue || 0} icon={AlertCircle} />
       </div>
 
@@ -158,13 +158,13 @@ export default function AdminTasksPage() {
                 value="pending"
                 onClick={() => setActiveTab("pending")}
               >
-                En Attente
+                Pending
               </TabsTrigger>
               <TabsTrigger 
                 value="completed"
                 onClick={() => setActiveTab("completed")}
               >
-                Completedes
+                Completed
               </TabsTrigger>
             </TabsList>
 
