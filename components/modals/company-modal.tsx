@@ -476,7 +476,7 @@ export function CompanyModal({
 
               <InputBlock
                 label="Website"
-                type="url"
+                type="text"
                 value={formData.website}
                 onChange={(v) =>
                   setFormData({ ...formData, website: v || undefined })

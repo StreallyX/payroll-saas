@@ -220,13 +220,23 @@ export const companyRouter = createTRPCRouter({
         alternateInvoicingEmail: z.string().email().optional().or(z.literal("")),
 
         vatNumber: z.string().optional(),
-        website: z.string().optional().transform((val) => {
-          if (!val || val === "") return undefined;
-          if (!/^https?:\/\//i.test(val)) {
-            return `https://${val}`;
-          }
-          return val;
-        }),
+        website: z
+          .string()
+          .optional()
+          .transform((val) => {
+            if (!val || val.trim() === "") return undefined;
+
+            const withProtocol = /^https?:\/\//i.test(val)
+              ? val
+              : `https://${val}`;
+
+            return withProtocol;
+          })
+          .refine(
+            (val) => !val || /^https?:\/\/.+\..+/.test(val),
+            { message: "Invalid website URL" }
+          ),
+
 
         status: z.enum(["active", "inactive"]).optional(),
       })
