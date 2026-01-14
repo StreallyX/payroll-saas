@@ -28,15 +28,10 @@ import { toast } from "sonner";
 import { Loader2, Landmark, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-// ===========================================================
-// TYPES — IMPORTANT : UNIQUEMENT string | undefined
-// (full compatibility with Zod + Prisma)
-// ===========================================================
 type CompanyFormValues = {
   name: string;
   bankId?: string;
   
-  // 🔥 NEW — Tenant company flag
   tenantCompany: boolean;
 
   contactPerson?: string;
@@ -61,9 +56,6 @@ type CompanyFormValues = {
   status: "active" | "inactive";
 };
 
-// ===========================================================
-// SANITIZER — convertit "" en undefined
-// ===========================================================
 function sanitizeForm(form: CompanyFormValues): CompanyFormValues {
   const cleaned: any = {};
 
@@ -74,9 +66,6 @@ function sanitizeForm(form: CompanyFormValues): CompanyFormValues {
   return cleaned as CompanyFormValues;
 }
 
-// ===========================================================
-// PROPS
-// ===========================================================
 type CompanyModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,23 +73,16 @@ type CompanyModalProps = {
   onSuccess?: () => void;
 };
 
-// ===========================================================
-// COMPONENT
-// ===========================================================
 export function CompanyModal({
   open,
   onOpenChange,
   company,
   onSuccess,
 }: CompanyModalProps) {
-  // --------------------------------------------------------
-  // INITIAL STATE
-  // --------------------------------------------------------
   const initialState: CompanyFormValues = {
     name: "",
     bankId: undefined,
     
-    // 🔥 NEW — Tenant company flag
     tenantCompany: false,
 
     contactPerson: undefined,
@@ -137,17 +119,11 @@ export function CompanyModal({
   const canAssignTenantCompany = permissions.includes("company.create.global"); 
 
 
-  // --------------------------------------------------------
-  // REDIRECT TO BANKS
-  // --------------------------------------------------------
   const redirectToBankSettings = () => {
     onOpenChange(false);
     router.push("/settings/banks");
   };
 
-  // --------------------------------------------------------
-  // MUTATIONS
-  // --------------------------------------------------------
   const createMutation = api.company.create.useMutation({
     onSuccess: () => {
       toast.success("Company created!");
@@ -171,16 +147,12 @@ export function CompanyModal({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
-  // --------------------------------------------------------
-  // PREFILL WHEN EDITING
-  // --------------------------------------------------------
   useEffect(() => {
     if (company) {
       setFormData({
         name: company.name ?? "",
         bankId: company.bankId ?? undefined,
         
-        // 🔥 NEW — Tenant company flag
         tenantCompany: company.tenantCompany ?? false,
 
         contactPerson: company.contactPerson ?? undefined,
@@ -209,38 +181,38 @@ export function CompanyModal({
     }
   }, [company, open]);
 
-  // --------------------------------------------------------
-  // SUBMIT
-  // --------------------------------------------------------
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const sanitized = sanitizeForm(formData);
 
-    if (!canAssignTenantCompany) {
+    // 🔒 Sécurité : uniquement à la création
+    if (!company && !canAssignTenantCompany) {
       sanitized.tenantCompany = false;
     }
 
     if (company) {
-      updateMutation.mutate({ id: company.id, ...sanitized });
+      updateMutation.mutate({
+        id: company.id,
+        ...sanitized,
+      });
     } else {
       createMutation.mutate(sanitized);
     }
   };
 
-  // --------------------------------------------------------
-  // UI
-  // --------------------------------------------------------
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{company ? "Edit Company" : "Add Company"}</DialogTitle>
-          <DialogDescription>Fill the company details below.</DialogDescription>
+          <DialogDescription>
+            Only the company name and tenant status are required. All other fields are optional.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* BASIC INFORMATION */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Basic Information</h3>
 
@@ -250,12 +222,11 @@ export function CompanyModal({
               onChange={(v) => setFormData({ ...formData, name: v })}
             />
 
-            {/* 🔥 TENANT COMPANY TOGGLE — only visible if permission */}
-            {canAssignTenantCompany && (
+            {(canAssignTenantCompany || company) && (
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
                 <div className="flex-1">
                   <Label className="text-base font-semibold text-blue-900">
-                    Tenant Company
+                    Tenant Company *
                   </Label>
                   <p className="text-sm text-blue-700 mt-1">
                     Does this company belong to the platform (tenant)?
@@ -272,7 +243,6 @@ export function CompanyModal({
               </div>
             )}
 
-            {/* 🔒 If editing & no permission → show read-only info */}
             {!canAssignTenantCompany && company && (
               <div className="p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
                 <b>Tenant Company :</b> {company.tenantCompany ? "Yes" : "No"}
@@ -280,9 +250,8 @@ export function CompanyModal({
             )}
 
 
-            {/* BANK SELECT */}
             <div className="space-y-2">
-              <Label>Bank</Label>
+              <Label>Bank (Optional)</Label>
               <Select
                 value={formData.bankId ?? ""}
                 onValueChange={(value) =>
@@ -340,9 +309,8 @@ export function CompanyModal({
             </div>
           </div>
 
-          {/* CONTACT INFO */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium">Contact Info</h3>
+            <h3 className="text-sm font-medium text-gray-500">Contact Info (Optional)</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <InputBlock
@@ -370,9 +338,8 @@ export function CompanyModal({
             </div>
           </div>
 
-          {/* ADDRESS */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium">Address</h3>
+            <h3 className="text-sm font-medium text-gray-500">Address (Optional)</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InputBlock
@@ -407,7 +374,6 @@ export function CompanyModal({
                 }
               />
 
-              {/* COUNTRY */}
               <div className="space-y-2">
                 <Label>Country</Label>
                 <Select
@@ -450,9 +416,8 @@ export function CompanyModal({
             </div>
           </div>
 
-          {/* INVOICE INFO */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium">Invoicing</h3>
+            <h3 className="text-sm font-medium text-gray-500">Invoicing (Optional)</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InputBlock
@@ -520,7 +485,6 @@ export function CompanyModal({
             </div>
           </div>
 
-          {/* FOOTER */}
           <DialogFooter className="gap-2">
             <Button
               type="button"
@@ -543,9 +507,6 @@ export function CompanyModal({
   );
 }
 
-// ===========================================================
-// SMALL INPUT COMPONENT
-// ===========================================================
 function InputBlock({
   label,
   value,
