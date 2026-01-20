@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatsCard } from "@/components/shared/stats-card";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Search, Filter, Eye, CheckCircle, XCircle, Clock, AlertCircle, TrendingUp, ListTodo } from "lucide-react";
+import { Search, Filter, Eye, CheckCircle, XCircle, Clock, AlertCircle, TrendingUp, ListTodo, RefreshCw, ThumbsUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/trpc";
 import { format } from "date-fns";
@@ -24,7 +24,9 @@ const STATUS_COLORS: Record<string, string> = {
   SUBMITTED: "bg-blue-500",
   PENDING: "bg-yellow-500",
   WAITING_FOR_CONFIRMATION: "bg-orange-500",
-  CONFIRMED: "bg-green-500",
+  DEV_COMPLETED: "bg-purple-500",
+  NEEDS_REVISION: "bg-amber-500",
+  VALIDATED: "bg-green-500",
   REJECTED: "bg-red-500",
 };
 
@@ -32,7 +34,9 @@ const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "Submitted",
   PENDING: "Pending",
   WAITING_FOR_CONFIRMATION: "Awaiting Confirmation",
-  CONFIRMED: "Confirmed",
+  DEV_COMPLETED: "Awaiting Validation",
+  NEEDS_REVISION: "Needs Revision",
+  VALIDATED: "Validated",
   REJECTED: "Rejected",
 };
 
@@ -95,17 +99,18 @@ export default function ManageFeatureRequestsPage() {
   // Calculate stats
   const stats = {
     total: requests?.length || 0,
-    submitted: requests?.filter((r) => r.status === "SUBMITTED").length || 0,
-    pending: requests?.filter((r) => r.status === "PENDING").length || 0,
-    confirmed: requests?.filter((r) => r.status === "CONFIRMED").length || 0,
+    pending: requests?.filter((r) => ["SUBMITTED", "PENDING", "WAITING_FOR_CONFIRMATION"].includes(r.status)).length || 0,
+    devCompleted: requests?.filter((r) => r.status === "DEV_COMPLETED").length || 0,
+    needsRevision: requests?.filter((r) => r.status === "NEEDS_REVISION").length || 0,
+    validated: requests?.filter((r) => r.status === "VALIDATED").length || 0,
     rejected: requests?.filter((r) => r.status === "REJECTED").length || 0,
   };
 
   // Handlers
-  const handleConfirm = (id: string) => {
+  const handleMarkCompleted = (id: string) => {
     updateStatusMutation.mutate({
       id,
-      status: "CONFIRMED",
+      status: "DEV_COMPLETED",
     });
   };
 
@@ -164,27 +169,33 @@ export default function ManageFeatureRequestsPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-6">
         <StatsCard
           title="Total Requests"
           value={stats.total}
           icon={ListTodo}
         />
         <StatsCard
-          title="Submitted"
-          value={stats.submitted}
-          icon={Clock}
-          iconColor="text-blue-500"
-        />
-        <StatsCard
           title="Pending"
           value={stats.pending}
-          icon={AlertCircle}
+          icon={Clock}
           iconColor="text-yellow-500"
         />
         <StatsCard
-          title="Confirmed"
-          value={stats.confirmed}
+          title="Awaiting Validation"
+          value={stats.devCompleted}
+          icon={ThumbsUp}
+          iconColor="text-purple-500"
+        />
+        <StatsCard
+          title="Needs Revision"
+          value={stats.needsRevision}
+          icon={RefreshCw}
+          iconColor="text-amber-500"
+        />
+        <StatsCard
+          title="Validated"
+          value={stats.validated}
           icon={CheckCircle}
           iconColor="text-green-500"
         />
@@ -221,7 +232,9 @@ export default function ManageFeatureRequestsPage() {
                 <SelectItem value="SUBMITTED">Submitted</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="WAITING_FOR_CONFIRMATION">Awaiting Confirmation</SelectItem>
-                <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                <SelectItem value="DEV_COMPLETED">Awaiting Validation</SelectItem>
+                <SelectItem value="NEEDS_REVISION">Needs Revision</SelectItem>
+                <SelectItem value="VALIDATED">Validated</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
@@ -312,7 +325,7 @@ export default function ManageFeatureRequestsPage() {
                       {/* Metadata */}
                       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                         <span>
-                          <strong>Requester:</strong> {request.user.name || request.user.email}
+                          <strong>Requester:</strong> {request.user?.name || request.user?.email || "Unknown User"}
                         </span>
                         <span>
                           <strong>Role:</strong> {request.userRole}
@@ -334,6 +347,14 @@ export default function ManageFeatureRequestsPage() {
                           <p className="text-sm text-red-700 mt-1">{request.rejectionReason}</p>
                         </div>
                       )}
+
+                      {/* Revision Feedback */}
+                      {request.status === "NEEDS_REVISION" && request.revisionFeedback && (
+                        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-sm font-medium text-amber-900">Revision Feedback:</p>
+                          <p className="text-sm text-amber-700 mt-1">{request.revisionFeedback}</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -348,17 +369,18 @@ export default function ManageFeatureRequestsPage() {
                           View
                         </Button>
 
-                        {request.status !== "CONFIRMED" && request.status !== "REJECTED" && (
+                        {/* Show Mark as Completed for pending/needs revision requests */}
+                        {["SUBMITTED", "PENDING", "WAITING_FOR_CONFIRMATION", "NEEDS_REVISION"].includes(request.status) && (
                           <>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => handleConfirm(request.id)}
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              onClick={() => handleMarkCompleted(request.id)}
                               disabled={updateStatusMutation.isPending}
                             >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Confirm
+                              <Wrench className="h-4 w-4 mr-1" />
+                              Mark Completed
                             </Button>
                             <Button
                               variant="outline"
@@ -371,6 +393,13 @@ export default function ManageFeatureRequestsPage() {
                               Reject
                             </Button>
                           </>
+                        )}
+
+                        {/* Show status info for completed/validated */}
+                        {request.status === "DEV_COMPLETED" && (
+                          <Badge variant="outline" className="text-purple-600 border-purple-300">
+                            Awaiting Requester Validation
+                          </Badge>
                         )}
                       </div>
                     )}

@@ -33,6 +33,7 @@ type BankFormData = {
   accountNumber: string;
   swiftCode: string;
   iban: string;
+  routingNumber: string;
   address: string;
   status: "active" | "inactive";
 };
@@ -53,6 +54,7 @@ export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProp
     accountNumber: "",
     swiftCode: "",
     iban: "",
+    routingNumber: "",
     address: "",
     status: "active",
   };
@@ -103,6 +105,7 @@ export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProp
         accountNumber: bank.accountNumber ?? "",
         swiftCode: bank.swiftCode ?? "",
         iban: bank.iban ?? "",
+        routingNumber: bank.routingNumber ?? "",
         address: bank.address ?? "",
         status: (bank.status === "inactive" ? "inactive" : "active"),
       })
@@ -179,14 +182,28 @@ export function BankModal({ open, onOpenChange, bank, onSuccess }: BankModalProp
             </div>
           </div>
 
-          {/* IBAN */}
-          <div className="space-y-2">
-            <Label>IBAN</Label>
-            <Input
-              value={formData.iban}
-              onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-              placeholder="IBAN"
-            />
+          {/* IBAN + Routing Code */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>IBAN</Label>
+              <Input
+                value={formData.iban}
+                onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                placeholder="IBAN"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Routing Code</Label>
+              <Input
+                value={formData.routingNumber}
+                onChange={(e) => setFormData({ ...formData, routingNumber: e.target.value })}
+                placeholder="ABA, Sort Code, BSB..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional - Required for some countries (US, UK, AU...)
+              </p>
+            </div>
           </div>
 
           {/* Address */}

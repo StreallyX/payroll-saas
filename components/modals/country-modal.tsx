@@ -35,7 +35,13 @@ export function CountryModal({ open, onOpenChange, country, onSuccess }: Country
       resetForm()
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to create country")
+      console.error("Create country error:", error)
+      const message = error?.message || "Failed to create country"
+      if (message.includes("permission") || message.includes("UNAUTHORIZED")) {
+        toast.error("You don't have permission to create countries. Please contact an administrator.")
+      } else {
+        toast.error(message)
+      }
     }
   })
 
@@ -59,16 +65,32 @@ export function CountryModal({ open, onOpenChange, country, onSuccess }: Country
   }
 
   useEffect(() => {
-    if (country) {
-      setFormData({
-        code: country.code || "",
-        name: country.name || ""
-      })
+    if (open) {
+      if (country) {
+        setFormData({
+          code: country.code || "",
+          name: country.name || ""
+        })
+      } else {
+        // Reset form when opening for create
+        resetForm()
+      }
     }
-  }, [country])
+  }, [country, open])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate code length
+    if (formData.code.length !== 2) {
+      toast.error("Country code must be exactly 2 characters (e.g., US, GB, FR)")
+      return
+    }
+
+    if (!formData.name.trim()) {
+      toast.error("Country name is required")
+      return
+    }
 
     if (country) {
       updateMutation.mutate({ id: country.id, ...formData })
@@ -100,6 +122,9 @@ export function CountryModal({ open, onOpenChange, country, onSuccess }: Country
               maxLength={2}
               required
             />
+            {formData.code.length > 0 && formData.code.length < 2 && (
+              <p className="text-xs text-amber-600">Code must be exactly 2 characters</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -117,7 +142,7 @@ export function CountryModal({ open, onOpenChange, country, onSuccess }: Country
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.code || !formData.name}>
+            <Button type="submit" disabled={isLoading || formData.code.length !== 2 || !formData.name.trim()}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {country ? "Update" : "Create"}
             </Button>

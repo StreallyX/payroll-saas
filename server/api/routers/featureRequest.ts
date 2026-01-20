@@ -88,6 +88,13 @@ export const featureRequestRouter = createTRPCRouter({
               email: true,
             },
           },
+          validatedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
           attachments: true,
         },
         orderBy: { createdAt: "desc" },
@@ -121,6 +128,13 @@ export const featureRequestRouter = createTRPCRouter({
             },
           },
           rejectedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          validatedByUser: {
             select: {
               id: true,
               name: true,
@@ -163,6 +177,13 @@ export const featureRequestRouter = createTRPCRouter({
             },
           },
           rejectedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          validatedByUser: {
             select: {
               id: true,
               name: true,
@@ -303,7 +324,7 @@ export const featureRequestRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE STATUS (Confirm, Reject, etc.)
+  // UPDATE STATUS (Confirm, Reject, etc.) - For developers/admins
   // -------------------------------------------------------
   updateStatus: tenantProcedure
     .use(hasAny([MANAGE_PLATFORM, UPDATE_REQUEST]))
@@ -314,7 +335,9 @@ export const featureRequestRouter = createTRPCRouter({
           "SUBMITTED",
           "PENDING",
           "WAITING_FOR_CONFIRMATION",
-          "CONFIRMED",
+          "DEV_COMPLETED",
+          "NEEDS_REVISION",
+          "VALIDATED",
           "REJECTED",
         ]),
         rejectionReason: z.string().optional(),
@@ -348,7 +371,8 @@ export const featureRequestRouter = createTRPCRouter({
         status,
       };
 
-      if (status === "CONFIRMED") {
+      if (status === "DEV_COMPLETED") {
+        // Developer marks work as done
         updateData.confirmedBy = ctx.session!.user.id;
         updateData.confirmedAt = new Date();
       } else if (status === "REJECTED") {
@@ -377,6 +401,13 @@ export const featureRequestRouter = createTRPCRouter({
             },
           },
           rejectedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          validatedByUser: {
             select: {
               id: true,
               name: true,
@@ -500,5 +531,140 @@ export const featureRequestRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  // -------------------------------------------------------
+  // VALIDATE REQUEST (For requesters to validate completed work)
+  // -------------------------------------------------------
+  validateRequest: tenantProcedure
+    .use(hasPermission(VIEW_OWN))
+    .input(
+      z.object({
+        id: z.string(),
+        action: z.enum(["VALIDATE", "REQUEST_REVISION"]),
+        revisionFeedback: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, action, revisionFeedback } = input;
+
+      // Get existing request
+      const existingRequest = await ctx.prisma.featureRequest.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+      });
+
+      if (!existingRequest) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Feature request not found",
+        });
+      }
+
+      // Only the original requester can validate
+      if (existingRequest.userId !== ctx.session!.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only the original requester can validate this request",
+        });
+      }
+
+      // Can only validate when status is DEV_COMPLETED
+      if (existingRequest.status !== "DEV_COMPLETED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Can only validate requests that are marked as completed by developer",
+        });
+      }
+
+      // Validate revision feedback
+      if (action === "REQUEST_REVISION" && !revisionFeedback?.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please provide feedback when requesting revision",
+        });
+      }
+
+      // Prepare update data
+      const updateData: any = {};
+
+      if (action === "VALIDATE") {
+        updateData.status = "VALIDATED";
+        updateData.validatedBy = ctx.session!.user.id;
+        updateData.validatedAt = new Date();
+      } else {
+        // REQUEST_REVISION
+        updateData.status = "NEEDS_REVISION";
+        updateData.revisionFeedback = revisionFeedback;
+        // Reset confirmation since it needs rework
+        updateData.confirmedBy = null;
+        updateData.confirmedAt = null;
+      }
+
+      // Update the request
+      const updatedRequest = await ctx.prisma.featureRequest.update({
+        where: { id },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          confirmedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          rejectedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          validatedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          attachments: true,
+        },
+      });
+
+      // Create audit log
+      await createAuditLog({
+        userId: ctx.session!.user.id,
+        userName: ctx.session!.user.name ?? "Unknown",
+        userRole: ctx.session!.user.roleName,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.FEATURE_REQUEST,
+        entityId: updatedRequest.id,
+        entityName: updatedRequest.title,
+        metadata: {
+          oldStatus: existingRequest.status,
+          newStatus: updateData.status,
+          action,
+          revisionFeedback,
+        },
+        tenantId: ctx.tenantId,
+      });
+
+      // Send notification to requester about status change
+      await notifyRequesterOfStatusChange({
+        featureRequestId: updatedRequest.id,
+        requestTitle: updatedRequest.title,
+        status: updateData.status,
+        rejectionReason: undefined,
+        userId: updatedRequest.userId,
+        tenantId: ctx.tenantId,
+      });
+
+      return updatedRequest;
     }),
 });

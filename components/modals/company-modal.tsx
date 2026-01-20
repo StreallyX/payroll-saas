@@ -25,14 +25,14 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Loader2, Landmark, Plus } from "lucide-react";
+import { Loader2, Landmark, Plus, Building, Users } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 type CompanyFormValues = {
   name: string;
   bankId?: string;
-  
-  tenantCompany: boolean;
+
+  ownerType: "tenant" | "user";
 
   contactPerson?: string;
   contactEmail?: string;
@@ -82,8 +82,8 @@ export function CompanyModal({
   const initialState: CompanyFormValues = {
     name: "",
     bankId: undefined,
-    
-    tenantCompany: false,
+
+    ownerType: "user",
 
     contactPerson: undefined,
     contactEmail: undefined,
@@ -116,18 +116,23 @@ export function CompanyModal({
   const { data: banks = [] } = api.bank.getAll.useQuery();
   const { data: session } = useSession();
   const permissions = session?.user?.permissions || [];
-  const canAssignTenantCompany = permissions.includes("company.create.global"); 
+  const canAssignTenantCompany = permissions.includes("company.create.global");
 
+  const STORAGE_KEY = "company-form-draft";
 
   const redirectToBankSettings = () => {
+    // Save form data before leaving
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     onOpenChange(false);
-    router.push("/settings/banks");
+    // Pass returnTo parameter so banks page can redirect back after creation
+    router.push("/settings/banks?returnTo=/settings/companies&openModal=true");
   };
 
   const createMutation = api.company.create.useMutation({
     onSuccess: () => {
       toast.success("Company created!");
       utils.company.getAll.invalidate();
+      sessionStorage.removeItem(STORAGE_KEY); // Clear draft
       onSuccess?.();
       onOpenChange(false);
       setFormData(initialState);
@@ -149,11 +154,12 @@ export function CompanyModal({
 
   useEffect(() => {
     if (company) {
+      // Editing existing company
       setFormData({
         name: company.name ?? "",
         bankId: company.bankId ?? undefined,
-        
-        tenantCompany: company.tenantCompany ?? false,
+
+        ownerType: company.ownerType ?? "user",
 
         contactPerson: company.contactPerson ?? undefined,
         contactEmail: company.contactEmail ?? undefined,
@@ -176,7 +182,19 @@ export function CompanyModal({
 
         status: (company.status as "active" | "inactive") ?? "active",
       });
-    } else {
+    } else if (open) {
+      // Creating new company - check for saved draft first
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setFormData(parsed);
+          sessionStorage.removeItem(STORAGE_KEY);
+          return; // Don't reset to initial state
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
       setFormData(initialState);
     }
   }, [company, open]);
@@ -186,9 +204,9 @@ export function CompanyModal({
 
     const sanitized = sanitizeForm(formData);
 
-    // 🔒 Sécurité : uniquement à la création
+    // Security: only users with permission can set ownerType to "tenant"
     if (!company && !canAssignTenantCompany) {
-      sanitized.tenantCompany = false;
+      sanitized.ownerType = "user";
     }
 
     if (company) {
@@ -223,29 +241,84 @@ export function CompanyModal({
             />
 
             {(canAssignTenantCompany || company) && (
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                <div className="flex-1">
-                  <Label className="text-base font-semibold text-blue-900">
-                    Tenant Company *
-                  </Label>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Does this company belong to the platform (tenant)?
-                  </p>
+              <div className={`p-4 rounded-lg border-2 transition-all ${
+                formData.ownerType === "tenant"
+                  ? "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300"
+                  : "bg-gradient-to-r from-slate-50 to-gray-50 border-slate-200"
+              }`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      formData.ownerType === "tenant"
+                        ? "bg-indigo-100"
+                        : "bg-slate-100"
+                    }`}>
+                      {formData.ownerType === "tenant" ? (
+                        <Building className="h-5 w-5 text-indigo-600" />
+                      ) : (
+                        <Users className="h-5 w-5 text-slate-600" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <Label className={`text-base font-semibold ${
+                        formData.ownerType === "tenant" ? "text-indigo-900" : "text-slate-900"
+                      }`}>
+                        {formData.ownerType === "tenant" ? "Platform Entity" : "Client Company"}
+                      </Label>
+                      <p className={`text-sm mt-1 ${
+                        formData.ownerType === "tenant" ? "text-indigo-700" : "text-slate-600"
+                      }`}>
+                        {formData.ownerType === "tenant"
+                          ? "This is one of your own business entities. It will appear as an option when creating contracts, invoices, and other platform operations."
+                          : "This is a client company. It can be assigned to users but won't appear in platform entity selections."
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  <Switch
+                    checked={formData.ownerType === "tenant"}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, ownerType: checked ? "tenant" : "user" })
+                    }
+                    className="data-[state=checked]:bg-indigo-600 flex-shrink-0"
+                  />
                 </div>
 
-                <Switch
-                  checked={formData.tenantCompany}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, tenantCompany: checked })
-                  }
-                  className="data-[state=checked]:bg-blue-600"
-                />
+                {formData.ownerType === "tenant" && (
+                  <div className="mt-3 pt-3 border-t border-indigo-200">
+                    <p className="text-xs text-indigo-600 font-medium">
+                      Platform entities are used for: Contract signatories, Invoice issuers, Payroll processing
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {!canAssignTenantCompany && company && (
-              <div className="p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
-                <b>Tenant Company :</b> {company.tenantCompany ? "Yes" : "No"}
+              <div className={`p-4 rounded-lg border ${
+                company.ownerType === "tenant"
+                  ? "bg-indigo-50 border-indigo-200"
+                  : "bg-slate-50 border-slate-200"
+              }`}>
+                <div className="flex items-center gap-3">
+                  {company.ownerType === "tenant" ? (
+                    <Building className="h-5 w-5 text-indigo-600" />
+                  ) : (
+                    <Users className="h-5 w-5 text-slate-600" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">
+                      {company.ownerType === "tenant" ? "Platform Entity" : "Client Company"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {company.ownerType === "tenant"
+                        ? "This company is one of your business entities"
+                        : "This is a client company"
+                      }
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 

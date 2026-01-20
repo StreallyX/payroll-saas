@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +20,8 @@ import {
   Search,
   Edit,
   Trash2,
-  Landmark
+  Landmark,
+  ArrowLeft
 } from "lucide-react"
 
 import { api } from "@/lib/trpc"
@@ -30,6 +32,10 @@ import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
 import { useSession } from "next-auth/react"
 
 export default function BanksPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get("returnTo")
+  const openModalParam = searchParams.get("openModal")
   const [searchTerm, setSearchTerm] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedBank, setSelectedBank] = useState<any>(null)
@@ -37,6 +43,25 @@ export default function BanksPage() {
 
   const { data: session } = useSession()
   const utils = api.useUtils()
+
+  // Auto-open modal if coming from company creation flow
+  useEffect(() => {
+    if (returnTo && openModalParam === "true") {
+      setIsModalOpen(true)
+    }
+  }, [returnTo, openModalParam])
+
+  // Handle successful bank creation - redirect back if returnTo exists
+  const handleBankCreated = () => {
+    setSelectedBank(null)
+    if (returnTo) {
+      toast.success("Bank created! Redirecting back...")
+      // Small delay to show the success message
+      setTimeout(() => {
+        router.push(returnTo + (openModalParam ? `?openModal=${openModalParam}` : ""))
+      }, 500)
+    }
+  }
 
   // -------------------------------------------------------
   // Permissions
@@ -86,6 +111,23 @@ export default function BanksPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back button when coming from company creation */}
+      {returnTo && (
+        <div className="flex items-center gap-2 text-sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(returnTo)}
+            className="text-muted-foreground"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Companies
+          </Button>
+          <span className="text-muted-foreground">|</span>
+          <span className="text-muted-foreground">Create a bank account, then you'll be redirected back</span>
+        </div>
+      )}
+
       <PageHeader
         title="Banks"
         description="Manage bank accounts"
@@ -164,12 +206,15 @@ export default function BanksPage() {
                   <TableCell>{bank.accountNumber || "-"}</TableCell>
 
                   <TableCell>
-                    <div className="text-sm">
+                    <div className="text-sm space-y-0.5">
                       {bank.swiftCode && <div>SWIFT: {bank.swiftCode}</div>}
                       {bank.iban && (
                         <div className="text-gray-500">IBAN: {bank.iban}</div>
                       )}
-                      {!bank.swiftCode && !bank.iban && "-"}
+                      {bank.routingNumber && (
+                        <div className="text-gray-500">Routing: {bank.routingNumber}</div>
+                      )}
+                      {!bank.swiftCode && !bank.iban && !bank.routingNumber && "-"}
                     </div>
                   </TableCell>
 
@@ -224,9 +269,7 @@ export default function BanksPage() {
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
           bank={selectedBank}
-          onSuccess={() => {
-            setSelectedBank(null)
-          }}
+          onSuccess={handleBankCreated}
         />
       ) : null}
 

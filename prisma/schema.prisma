@@ -295,6 +295,7 @@ model User {
   contractParticipants ContractParticipant[]
   contractDocuments    ContractDocument[]    @relation("ContractDocumentsUploaded")
   companyUsers         CompanyUser[]
+  ownedCompanies       Company[]             @relation("CompanyOwner")
 
   accounts            Account[]
   sessions            Session[]
@@ -341,6 +342,7 @@ model User {
   featureRequests          FeatureRequest[] @relation
   featureRequestsConfirmed FeatureRequest[] @relation("FeatureRequestConfirmedBy")
   featureRequestsRejected  FeatureRequest[] @relation("FeatureRequestRejectedBy")
+  featureRequestsValidated FeatureRequest[] @relation("FeatureRequestValidatedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -386,8 +388,9 @@ model Company {
   name     String
 
   // Ownership
-  ownerType String  @default("tenant")
+  ownerType String  @default("tenant") // "tenant" = platform entity, "user" = client company
   ownerId   String?
+  owner     User?   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   createdBy String?
 
   bankId String?
@@ -2510,8 +2513,8 @@ model TenantWorkflowConfig {
 model FeatureRequest {
   id          String   @id @default(cuid())
   tenantId    String
-  userId      String
-  userRole    String   // Role name of the requester
+  userId      String?
+  userRole    String?   // Role name of the requester
   
   // Request details
   pageUrl     String   // URL where the request was made
@@ -2523,14 +2526,20 @@ model FeatureRequest {
   priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
   
   // Status tracking
-  status            String   @default("PENDING") // PENDING, SUBMITTED, WAITING_FOR_CONFIRMATION, CONFIRMED, REJECTED
+  // PENDING, SUBMITTED, WAITING_FOR_CONFIRMATION, DEV_COMPLETED, NEEDS_REVISION, VALIDATED, REJECTED
+  status            String   @default("PENDING")
   rejectionReason   String?  @db.Text
-  
-  // Approval tracking
+  revisionFeedback  String?  @db.Text // Feedback when requester requests revision
+
+  // Approval tracking (developer confirms work is done)
   confirmedBy       String?
   confirmedAt       DateTime?
   rejectedBy        String?
   rejectedAt        DateTime?
+
+  // Validation tracking (requester validates completed work)
+  validatedBy       String?
+  validatedAt       DateTime?
   
   // Timestamps
   createdAt   DateTime @default(now())
@@ -2538,9 +2547,10 @@ model FeatureRequest {
   
   // Relations
   tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   confirmedByUser   User?                      @relation("FeatureRequestConfirmedBy", fields: [confirmedBy], references: [id])
   rejectedByUser    User?                      @relation("FeatureRequestRejectedBy", fields: [rejectedBy], references: [id])
+  validatedByUser   User?                      @relation("FeatureRequestValidatedBy", fields: [validatedBy], references: [id])
   attachments       FeatureRequestAttachment[]
   
   @@index([tenantId])
