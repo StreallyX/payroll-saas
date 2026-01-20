@@ -2,7 +2,7 @@
  * Zod validators for simplified MSA/SOW contract system
  * 
  * This file contains all validation schemas for endpoints
- * du router simpleContract.
+ * in the simpleContract router.
  */
 
 import { z } from "zod";
@@ -282,7 +282,7 @@ export type DeleteDraftContractInput = z.infer<typeof deleteDraftContractSchema>
  * Base schema for common NORM contract fields
  */
 const normContractBaseFields = {
-  // Champs essentiels (parties)
+  // Essential fields (parties)
   companyTenantId: z.string()
     .cuid("Tenant company ID must be a valid CUID"),
   agencyId: z.string()
@@ -290,7 +290,7 @@ const normContractBaseFields = {
   contractorId: z.string()
     .cuid("Contractor ID must be a valid CUID"),
   
-  // Dates (essentielles)
+  // Dates (essential)
   startDate: z.string()
     .or(z.date())
     .transform((val) => (typeof val === "string" ? new Date(val) : val)),
@@ -298,19 +298,19 @@ const normContractBaseFields = {
     .or(z.date())
     .transform((val) => (typeof val === "string" ? new Date(val) : val)),
   
-  // Salary Type (essentiel)
+  // Salary Type (essential)
   salaryType: z.enum(["gross", "payroll", "payroll_we_pay", "split"], {
     errorMap: () => ({ 
       message: "Salary type must be: gross, payroll, payroll_we_pay or split" 
     }),
   }),
   
-  // Champs conditionnels selon salaryType
-  userBankId: z.string().cuid().optional(), // Pour Gross
+  // Conditional fields based on salaryType
+  userBankId: z.string().cuid().optional(), // For Gross
   payrollUserId: z.string().cuid().optional(), // For Payroll and Payroll We Pay
-  userBankIds: z.array(z.string().cuid()).optional(), // Pour Split
-  
-  // Champs optionnels - Tarification
+  userBankIds: z.array(z.string().cuid()).optional(), // For Split
+
+  // Optional fields - Pricing
   rateAmount: z.number()
     .positive("Rate amount must be positive")
     .optional(),
@@ -324,7 +324,7 @@ const normContractBaseFields = {
     }),
   }).optional(),
   
-  // Champs optionnels - Marge
+  // Optional fields - Margin
   marginAmount: z.number()
     .positive("Margin amount must be positive")
     .optional(),
@@ -346,10 +346,10 @@ const normContractBaseFields = {
     "30_days",
     "45_days",
   ], {
-    errorMap: () => ({ message: "Invoice Due Term invalide" }),
+    errorMap: () => ({ message: "Invalid Invoice Due Term" }),
   }).optional(),
 
-  // Champs optionnels - Autres
+  // Optional fields - Other
   invoiceDueDays: z.number()
     .int("Number of days must be an integer")
     .positive("Number of days must be positive")
@@ -369,7 +369,7 @@ const normContractBaseFields = {
     .cuid("Country ID must be a valid CUID")
     .optional(),
   
-  // Dates de signature (optionnelles)
+  // Signature dates (optional)
   clientAgencySignDate: z.string()
     .or(z.date())
     .transform((val) => (typeof val === "string" ? new Date(val) : val))
@@ -388,7 +388,7 @@ export const createNormContractSchema = pdfFileSchema
   })
   .refine(
     (data) => {
-      // Validation des dates
+      // Date validation
       if (data.startDate >= data.endDate) {
         return false;
       }
@@ -401,7 +401,7 @@ export const createNormContractSchema = pdfFileSchema
   )
   .refine(
     (data) => {
-      // Validation conditionnelle selon salaryType
+      // Conditional validation based on salaryType
       if (data.salaryType === "gross") {
         return true;
       }

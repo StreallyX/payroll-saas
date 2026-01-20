@@ -82,8 +82,8 @@ export async function validateCompany(
  * 
  * @param prisma - Instance Prisma Client
  * @param companyTenantId - Tenant company ID
- * @param agencyId - ID de l'agency
- * @param tenantId - ID du tenant
+ * @param agencyId - Agency ID
+ * @param tenantId - Tenant ID
  * @returns Object containing both validated companies
  * @throws TRPCError if validation fails
  * 
@@ -127,7 +127,7 @@ export async function validateCompanies(
  * Useful for displaying a list of companies in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
- * @param tenantId - ID du tenant
+ * @param tenantId - Tenant ID
  * @param activeOnly - Only return active companies (default: true)
  * @returns List of available companies
  * 

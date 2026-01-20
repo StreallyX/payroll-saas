@@ -109,7 +109,7 @@ export const simpleContractRouter = createTRPCRouter({
    * Creates an MSA with PDF upload in one step
    * 
    * Workflow:
-   * - Upload PDF vers S3
+   * - Upload PDF to S3
    * - Automatic title generation from filename
    * - Contract creation with status "draft"
    * - Creation of linked document
@@ -142,7 +142,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 3. Upload PDF vers S3
+        // 3. Upload PDF to S3
         const buffer = Buffer.from(pdfBuffer, "base64");
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
@@ -178,9 +178,9 @@ export const simpleContractRouter = createTRPCRouter({
 
         // 5. Create a single participant to represent "the creating party"
         // - userId = the connected user
-        // - companyId = fourni ou null
+        // - companyId = provided or null
         // - role = creator
-        // - isPrimary = true toujours
+        // - isPrimary = always true
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
           userId: ctx.session!.user.id,
@@ -262,8 +262,8 @@ export const simpleContractRouter = createTRPCRouter({
    * Creates a SOW linked to a parent MSA with PDF upload
    * 
    * Workflow:
-   * - Validation du MSA parent
-   * - Upload PDF vers S3
+   * - Parent MSA validation
+   * - Upload PDF to S3
    * - Automatic title generation
    * - Creation of SOW contract with "draft" status
    * - Inheritance of parent MSA fields (currency, country, etc.)
@@ -309,7 +309,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 4. Upload PDF vers S3
+      // 4. Upload PDF to S3
       const buffer = Buffer.from(pdfBuffer, "base64");
       const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
       const s3Key = await uploadFile(buffer, s3FileName);
@@ -385,7 +385,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 9. Charger les documents (relation manuelle)
+      // 9. Load documents (manual relation)
       const documents = await ctx.prisma.document.findMany({
         where: {
           tenantId: ctx.tenantId!,
@@ -447,7 +447,7 @@ export const simpleContractRouter = createTRPCRouter({
 
       if (!contract) throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Contrat introuvable",
+        message: "Contract not found",
       });
 
       // 2️⃣ OWN verification
@@ -465,7 +465,7 @@ export const simpleContractRouter = createTRPCRouter({
         }
       }
 
-      // 3️⃣ Charger les documents
+      // 3️⃣ Load documents
       const documents = await ctx.prisma.document.findMany({
         where: {
           tenantId: ctx.tenantId!,
@@ -511,7 +511,7 @@ export const simpleContractRouter = createTRPCRouter({
         },
       });
 
-      // 7️⃣ Recharger les documents
+      // 7️⃣ Reload documents
       const updatedDocuments = await ctx.prisma.document.findMany({
         where: {
           tenantId: ctx.tenantId!,
@@ -528,7 +528,7 @@ export const simpleContractRouter = createTRPCRouter({
           fromStatus: "draft",
           toStatus: "pending_admin_review",
           changedBy: userId,
-          reason: notes || "Soumis pour review admin",
+          reason: notes || "Submitted for admin review",
         },
       });
 
@@ -599,7 +599,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
@@ -724,7 +724,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (!contract) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Contrat introuvable",
+          message: "Contract not found",
         });
       }
 
@@ -819,7 +819,7 @@ export const simpleContractRouter = createTRPCRouter({
       const { contractId, pdfBuffer, fileName, mimeType, fileSize } = input;
 
       try {
-        // 1. Load contract (sans include.documents, car la relation n'existe pas)
+        // 1. Load contract (without include.documents, as the relation doesn't exist)
         const contract = await ctx.prisma.contract.findUnique({
           where: { id: contractId, tenantId: ctx.tenantId! },
         });
@@ -827,7 +827,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
@@ -852,7 +852,7 @@ export const simpleContractRouter = createTRPCRouter({
         const mainDoc = docs.find((d) => d.isLatestVersion);
         const newVersion = mainDoc ? mainDoc.version + 1 : 1;
 
-        // 4. Upload du PDF
+        // 4. Upload the PDF
         const buffer = Buffer.from(pdfBuffer, "base64");
         const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v${newVersion}/${fileName}`;
         const s3Key = await uploadFile(buffer, s3FileName);
@@ -948,7 +948,7 @@ export const simpleContractRouter = createTRPCRouter({
     const { contractId, notes } = input;
 
     try {
-      // 1. Load contract (sans include.documents)
+      // 1. Load contract (without include.documents)
       const contract = await ctx.prisma.contract.findUnique({
         where: { id: contractId, tenantId: ctx.tenantId! },
         include: {
@@ -959,7 +959,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (!contract) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Contrat introuvable",
+          message: "Contract not found",
         });
       }
 
@@ -1071,7 +1071,7 @@ export const simpleContractRouter = createTRPCRouter({
    * 7B. UPDATE SIMPLE CONTRACT
    * 
    * Allows updating the title and description of an MSA/SOW/NORM contract
-   * Requis: contract.update.global permission
+   * Required: contract.update.global permission
    */
   updateSimpleContract: tenantProcedure
     .use(hasPermission(P.CONTRACT.UPDATE_GLOBAL))
@@ -1088,7 +1088,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
@@ -1257,11 +1257,11 @@ export const simpleContractRouter = createTRPCRouter({
   /**
    * Retrieves a contract by its ID with all its relations
    * 
-   * Inclut:
-   * - Parent MSA (si SOW)
-   * - Children SOWs (si MSA)
-   * - Participants avec users/companies
-   * - Documents (toutes versions)
+   * Includes:
+   * - Parent MSA (if SOW)
+   * - Children SOWs (if MSA)
+   * - Participants with users/companies
+   * - Documents (all versions)
    * - Status history
    * 
    * @permission contracts.view
@@ -1317,11 +1317,11 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
-        // 2️⃣ Charger documents (toutes versions)
+        // 2️⃣ Load documents (all versions)
         const documents = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -1385,7 +1385,7 @@ export const simpleContractRouter = createTRPCRouter({
           })
         );
 
-        // 4️⃣ Fusionner + retourner
+        // 4️⃣ Merge + return
         return {
           ...contract,
           statusHistory: enrichedStatusHistory,
@@ -1423,7 +1423,7 @@ export const simpleContractRouter = createTRPCRouter({
   .input(deleteDraftContractSchema)
   .mutation(async ({ ctx, input }) => {
     try {
-      // 1️⃣ Load contract (sans include.documents)
+      // 1️⃣ Load contract (without include.documents)
       const contract = await ctx.prisma.contract.findUnique({
         where: { id: input.id, tenantId: ctx.tenantId! },
         include: { children: true },
@@ -1432,7 +1432,7 @@ export const simpleContractRouter = createTRPCRouter({
       if (!contract) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Contrat introuvable",
+          message: "Contract not found",
         });
       }
 
@@ -1792,7 +1792,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
@@ -1835,7 +1835,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (updateData.marginType !== undefined) dataToUpdate.marginType = updateData.marginType;
         if (updateData.marginPaidBy !== undefined) dataToUpdate.marginPaidBy = updateData.marginPaidBy;
 
-        // Autres
+        // Others
         if (updateData.invoiceDueDays !== undefined) dataToUpdate.invoiceDueDays = updateData.invoiceDueDays;
         if (updateData.notes !== undefined) dataToUpdate.notes = updateData.notes;
         if (updateData.contractReference !== undefined) dataToUpdate.contractReference = updateData.contractReference;
@@ -1878,7 +1878,7 @@ export const simpleContractRouter = createTRPCRouter({
           }
         }
 
-        // 6. Charger les documents
+        // 6. Load documents
         const documents = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -1954,7 +1954,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
@@ -2002,7 +2002,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 6. Charger les documents
+        // 6. Load documents
         const documents = await ctx.prisma.document.findMany({
           where: {
             tenantId: ctx.tenantId!,
@@ -2207,7 +2207,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!participant) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Participant introuvable",
+            message: "Participant not found",
           });
         }
 
@@ -2408,7 +2408,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contract) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Contrat introuvable",
+            message: "Contract not found",
           });
         }
 
@@ -2614,7 +2614,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contractDocument) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Document introuvable",
+            message: "Document not found",
           });
         }
 
@@ -2629,7 +2629,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!canDelete) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Vous n'avez pas la permission de supprimer ce document",
+            message: "You don't have permission to delete this document",
           });
         }
 
@@ -2718,7 +2718,7 @@ export const simpleContractRouter = createTRPCRouter({
         if (!contractDocument) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Document introuvable",
+            message: "Document not found",
           });
         }
 

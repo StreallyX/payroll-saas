@@ -1,13 +1,13 @@
 // ====
 // DEEL-LIKE PLATFORM - RBAC v4 REFACTORED SCHEMA
 // ====
-// Architecture RBAC professionnelle et multi-tenant
-// - Tout le monde est un User avec un rôle (RBAC pur)
-// - Pas de modèles séparés Contractor/Agency/PayrollPartner
-// - Tables de jonction pour relations many-to-many (ContractParticipant)
-// - Champs optionnels partout pour flexibilité maximale
-// - Système de permissions granulaires
-// - Architecture inspirée de Deel et Rippling
+// Professional multi-tenant RBAC architecture
+// - Everyone is a User with a role (pure RBAC)
+// - No separate Contractor/Agency/PayrollPartner models
+// - Junction tables for many-to-many relations (ContractParticipant)
+// - Optional fields everywhere for maximum flexibility
+// - Granular permission system
+// - Architecture inspired by Deel and Rippling
 // ====
 
 generator client {
@@ -24,8 +24,8 @@ datasource db {
 // CORE RBAC MODELS
 // ====
 
-/// Table Role - Rôles dynamiques avec hiérarchie
-/// Exemples: SUPER_ADMIN, ADMIN, CONTRACTOR, CLIENT, AGENCY_OWNER, PAYROLL_PARTNER, ACCOUNTANT
+/// Role Table - Dynamic roles with hierarchy
+/// Examples: SUPER_ADMIN, ADMIN, CONTRACTOR, CLIENT, AGENCY_OWNER, PAYROLL_PARTNER, ACCOUNTANT
 model Role {
   id          String  @id @default(cuid())
   tenantId    String
@@ -45,7 +45,7 @@ model Role {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // 🔥 NOUVEAU : l'utilisateur qui a créé ce rôle (pour OWN scopes)
+  // 🔥 NEW: the user who created this role (for OWN scopes)
   createdBy String?
   creator   User?   @relation("RoleCreatedBy", fields: [createdBy], references: [id])
 
@@ -58,11 +58,11 @@ model Role {
   @@index([tenantId])
   @@index([isActive])
   @@index([level])
-  @@index([createdBy]) // 🔥 important pour role.own lookups
+  @@index([createdBy]) // 🔥 important for role.own lookups
   @@map("roles")
 }
 
-/// Table Permission - Permissions granulaires avec resource + action
+/// Permission Table - Granular permissions with resource + action
 model Permission {
   id String @id @default(cuid())
 
@@ -70,15 +70,15 @@ model Permission {
   resource String // Ex: "contract", "invoice", "user", "payment"
   action   String // Ex: "create", "read", "update", "delete", "approve", "export"
 
-  // Clé unique combinée (ex: "contract.create")
+  // Combined unique key (e.g.: "contract.create")
   key String @unique
 
-  // Métadonnées
-  displayName String // Ex: "Créer un contrat"
+  // Metadata
+  displayName String // E.g.: "Create a contract"
   description String? @db.Text
-  category    String? // Ex: "Gestion", "Finance", "Administration"
+  category    String? // E.g.: "Management", "Finance", "Administration"
 
-  // Scope pour permissions contextuelles
+  // Scope for contextual permissions
   scope String @default("global") // "global", "own", "team", "tenant"
 
   // Status
@@ -99,12 +99,12 @@ model Permission {
   @@map("permissions")
 }
 
-/// Table RolePermission - Relation many-to-many entre Role et Permission
+/// RolePermission table - Many-to-many relationship between Role and Permission
 model RolePermission {
   roleId       String
   permissionId String
 
-  // Conditions additionnelles (optionnel)
+  // Additional conditions (optional)
   conditions Json? // Ex: { "maxAmount": 10000, "requiresApproval": true }
 
   createdAt DateTime @default(now())
@@ -244,7 +244,7 @@ model User {
   timezone          String?   @default("UTC")
   language          String?   @default("en")
 
-  // 🔥 Ownership (comme Deel)
+  // 🔥 Ownership (like Deel)
   createdBy     String? // userId
   createdUsers  User[]  @relation("UserCreatedUsers")
   createdByUser User?   @relation("UserCreatedUsers", fields: [createdBy], references: [id])
@@ -430,11 +430,11 @@ model Company {
 
   @@index([tenantId])
   @@index([createdBy])
-  @@index([bankId]) // 👈 recommandé
+  @@index([bankId]) // 👈 recommended
   @@map("companies")
 }
 
-// 🔥 NEW: Table de jonction pour lier Users et Companies (pour les clients internes)
+// 🔥 NEW: Junction table to link Users and Companies (for internal clients)
 model CompanyUser {
   id        String   @id @default(cuid())
   companyId String
@@ -461,7 +461,7 @@ model Contract {
 
   // 🔥 NEW — MSA / SOW system
   type     String  @default("sow") // "msa" | "sow"
-  parentId String? // null si MSA, sinon id du parent MSA
+  parentId String? // null if MSA, otherwise id of parent MSA
 
   parent   Contract?  @relation("ContractParent", fields: [parentId], references: [id])
   children Contract[] @relation("ContractParent")
@@ -497,9 +497,9 @@ model Contract {
   // ============================
   // NORM Contract Fields
   // ============================
-  payrollUserId      String? // Pour Payroll et Payroll We Pay
-  contractorSignedAt DateTime? // Date de signature du contractor
-  userBankIds        String[]  @default([]) // Pour Split mode (plusieurs UserBanks/PaymentMethods)
+  payrollUserId      String? // For Payroll and Payroll We Pay
+  contractorSignedAt DateTime? // Contractor signature date
+  userBankIds        String[]  @default([]) // For Split mode (multiple UserBanks/PaymentMethods)
 
   contractReference String?  @unique
   contractCountryId String?
@@ -565,10 +565,10 @@ model ContractParticipant {
   userId     String?
   companyId  String?
 
-  // Type de participant
+  // Participant type
   role String
 
-  // Approbation
+  // Approval
   approved Boolean @default(false)
 
   // Signature
@@ -601,8 +601,8 @@ model ContractParticipant {
   @@map("contract_participants")
 }
 
-/// Table ContractDocument - Documents partagés entre participants
-/// Permet aux participants d'uploader et partager des documents (factures, pièces d'identité, signatures, etc.)
+/// ContractDocument Table - Documents shared between participants
+/// Allows participants to upload and share documents (invoices, ID documents, signatures, etc.)
 model ContractDocument {
   id         String @id @default(cuid())
   contractId String
@@ -610,7 +610,7 @@ model ContractDocument {
   uploadedByUserId String
   documentId       String
 
-  description String // Texte libre décrivant le document
+  description String // Free text describing the document
   category    String // "Contract", "Invoice", "ID Document", "Signature", "Other"
   notes       String? @db.Text // Instructions optionnelles (ex: "please sign and return the attached")
 
@@ -664,12 +664,12 @@ model ContractNotification {
 }
 
 // ====
-// INVOICE (Avec ownership)
+// INVOICE (With ownership)
 // ====
 model Invoice {
   id            String  @id @default(cuid())
   tenantId      String
-  contractId    String? // 🔥 Optionnel - une facture peut ne pas être liée à un contrat
+  contractId    String? // 🔥 Optional - an invoice may not be linked to a contract
   timesheetId   String? @unique
   invoiceNumber String? @unique
 
@@ -679,7 +679,7 @@ model Invoice {
   childInvoices   Invoice[] @relation("InvoiceChildren")
 
   // Ownership
-  createdBy String? // userId qui a créé
+  createdBy String? // userId who created
 
   // 🔥 NEW: Sender and Receiver
   senderId   String? // userId - the sender of the invoice
@@ -847,16 +847,16 @@ model Margin {
 }
 
 // ====
-// EXPENSE MANAGEMENT (Avec ownership)
+// EXPENSE MANAGEMENT (With ownership)
 // ====
 model Expense {
   id       String @id @default(cuid())
   tenantId String
 
-  // 🔥 Ownership - qui a soumis la dépense (un User)
+  // 🔥 Ownership - who submitted the expense (a User)
   submittedBy String // userId
 
-  // 🔥 Context - contrat lié (optionnel)
+  // 🔥 Context - linked contract (optional)
   contractId String?
 
   // 🔥 NEW: Link to timesheet
@@ -869,7 +869,7 @@ model Expense {
   currency    String
   category    String // travel, meals, equipment, software, etc.
 
-  // 🔥 Receipt (optionnel) - Link to document
+  // 🔥 Receipt (optional) - Link to document
   documentId      String? // Link to Document table
   receiptUrl      String? // Legacy field, kept for backward compatibility
   receiptFileName String? // Legacy field
@@ -878,10 +878,10 @@ model Expense {
   expenseDate DateTime
   submittedAt DateTime @default(now())
 
-  // 🔥 Approval (optionnel)
+  // 🔥 Approval (optional)
   status             String    @default("draft") // draft, submitted, approved, rejected, paid
   approvalWorkflowId String?
-  approvedBy         String? // userId (optionnel)
+  approvedBy         String? // userId (optional)
   approvedAt         DateTime?
   rejectionReason    String?   @db.Text
   paidAt             DateTime?
@@ -912,7 +912,7 @@ model Expense {
 }
 
 // ====
-// TIME TRACKING (Avec ownership)
+// TIME TRACKING (With ownership)
 // ====
 model Timesheet {
   id       String @id @default(cuid())
@@ -1038,7 +1038,7 @@ model TimesheetDocument {
 }
 
 // ====
-// PAYMENT SYSTEM (Avec ownership)
+// PAYMENT SYSTEM (With ownership)
 // ====
 enum PaymentMethodType {
   bank_account @map("BANK_ACCOUNT")
@@ -1160,7 +1160,7 @@ model PaymentMethod {
   id       String @id @default(cuid())
   tenantId String
 
-  // 🔥 Owner (simplifié - toujours un userId maintenant)
+  // 🔥 Owner (simplified - always a userId now)
   userId String
 
   // Method details
@@ -1260,7 +1260,7 @@ model ApprovalStep {
   stepOrder Int
   stepName  String
 
-  // 🔥 Approver (simplifié - toujours un userId)
+  // 🔥 Approver (simplified - always a userId)
   approverId String
 
   // Status
@@ -1739,7 +1739,7 @@ model OnboardingQuestion {
 model OnboardingResponse {
   id               String  @id @default(cuid())
   tenantId         String
-  userId           String // 🔥 Remplacé contractorId par userId
+  userId           String // 🔥 Replaced contractorId with userId
   questionId       String
   responseText     String? @db.Text
   responseFilePath String?
@@ -1771,7 +1771,7 @@ model OnboardingResponse {
 model Payslip {
   id            String    @id @default(cuid())
   tenantId      String
-  userId        String // 🔥 Remplacé contractorId par userId
+  userId        String // 🔥 Replaced contractorId with userId
   contractId    String?
   month         Int
   year          Int
@@ -1865,8 +1865,8 @@ model Remittance {
 model Referral {
   id             String  @id @default(cuid())
   tenantId       String
-  referrerUserId String // 🔥 Remplacé referrerContractorId par referrerUserId
-  referredUserId String? // 🔥 Remplacé referredContractorId par referredUserId
+  referrerUserId String // 🔥 Replaced referrerContractorId with referrerUserId
+  referredUserId String? // 🔥 Replaced referredContractorId with referredUserId
 
   // Referral details
   referredEmail String

@@ -138,7 +138,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
             {/* Name */}
             <div className="grid gap-2">
-              <Label htmlFor="name">Nom complet *</Label>
+              <Label htmlFor="name">Full name *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -221,7 +221,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
-              Annuler
+              Cancel
             </Button>
 
             <Button type="submit" disabled={isLoading}>

@@ -89,7 +89,7 @@ export function useContractDocument() {
     }
 
     try {
-      // Convertir en base64
+      // Convert to base64
       const base64 = await convertFileToBase64(file);
 
       // Upload

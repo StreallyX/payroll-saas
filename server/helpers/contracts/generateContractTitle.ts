@@ -38,7 +38,7 @@ export function generateContractTitle(fileName: string): string {
   // 3. Capitalize first letter of each word
   const capitalized = cleaned
     .split(/\s+/)
-    .filter(word => word.length > 0) // Enlever les espaces multiples
+    .filter(word => word.length > 0) // Remove multiple spaces
     .map(word => {
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })

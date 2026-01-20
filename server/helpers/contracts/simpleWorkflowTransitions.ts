@@ -108,7 +108,7 @@ export const SIMPLE_WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
 ];
 
 // ============================================================================
-// FONCTIONS DE VALIDATION
+// VALIDATION FUNCTIONS
 // ============================================================================
 
 /**
@@ -256,7 +256,7 @@ export function isCompleted(contract: { status: string }): boolean {
 }
 
 // ============================================================================
-// HELPERS UI (pour badges, couleurs, labels)
+// UI HELPERS (for badges, colors, labels)
 // ============================================================================
 
 /**
@@ -308,7 +308,7 @@ export function getStatusLabel(status: ContractStatus): string {
 /**
  * Gets action description (for UI)
  * 
- * @param action - Action du workflow
+ * @param action - Workflow action
  * @returns Description
  * 
  * @example
@@ -319,11 +319,11 @@ export function getActionLabel(action: WorkflowAction): string {
     submit_for_review: "Submit for validation",
     admin_approve: "Approve",
     admin_reject: "Reject",
-    activate: "Activer",
+    activate: "Activate",
     pause: "Pause",
-    resume: "Reprendre",
-    terminate: "Terminer",
-    cancel: "Annuler",
+    resume: "Resume",
+    terminate: "Terminate",
+    cancel: "Cancel",
   };
 
   return labels[action] || action;

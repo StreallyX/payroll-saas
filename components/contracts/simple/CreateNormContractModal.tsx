@@ -134,7 +134,7 @@ export function CreateNormContractModal({
     if (!formData.salaryType) errors.push("Missing: Salary Type");
 
     // SalaryType conditional validation
-    // GROSS → account optional → donc rien ici
+    // GROSS → account optional → nothing here
 
 
     if (

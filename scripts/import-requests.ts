@@ -14,14 +14,14 @@ import * as path from "path";
 const prisma = new PrismaClient();
 
 // ===================================================================
-// 🔧 CONFIGURATION OBLIGATOIRE
+// 🔧 REQUIRED CONFIGURATION
 // ===================================================================
 
-// ⚠️ DOIT exister dans la DB
+// ⚠️ MUST exist in the DB
 const DEFAULT_TENANT_ID = "cmkml6jjc0000j6ewq5v9uyvy";
 
-// OPTIONNEL : user qui sera considéré comme créateur
-// ➜ null = pas de user par défaut
+// OPTIONAL: user who will be considered as creator
+// ➜ null = no default user
 const DEFAULT_USER_ID: string | null = null;
 
 // ===================================================================
@@ -140,7 +140,7 @@ async function importFeatureRequests() {
             : new Date(),
         };
 
-        // ➜ FK ajoutés UNIQUEMENT s’ils sont valides
+        // ➜ FK added ONLY if they are valid
         if (userId) data.userId = userId;
         if (confirmedBy) data.confirmedBy = confirmedBy;
         if (rejectedBy) data.rejectedBy = rejectedBy;

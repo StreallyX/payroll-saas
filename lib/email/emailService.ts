@@ -238,7 +238,7 @@ class EmailService {
 
       logger.debug('Sending email with SendGrid', { from, to: options.to });
 
-      // 🔥 NORMALISATION DES ATTACHMENTS POUR SENDGRID
+      // 🔥 ATTACHMENT NORMALIZATION FOR SENDGRID
       const attachments = options.attachments
         ? options.attachments.map(att => {
             let contentString = '';

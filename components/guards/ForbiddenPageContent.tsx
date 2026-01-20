@@ -22,7 +22,7 @@ export function ForbiddenPageContent() {
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" className="flex-1" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
             <Button className="flex-1" onClick={() => router.push("/dashboard")}>
               <Home className="mr-2 h-4 w-4" /> Dashboard

@@ -51,7 +51,7 @@ export const onboardingTemplateRouter = createTRPCRouter({
         include: { questions: { orderBy: { order: "asc" } } },
       });
       if (!tpl) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Template introuvable" });
+        throw new TRPCError({ code: "NOT_FOUND", message: "Template not found" });
       }
       return tpl;
     }),
@@ -125,7 +125,7 @@ export const onboardingTemplateRouter = createTRPCRouter({
         select: { id: true },
       });
       if (!exists) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Template introuvable" });
+        throw new TRPCError({ code: "NOT_FOUND", message: "Template not found" });
       }
 
       // Remplacement atomique via transaction

@@ -178,7 +178,7 @@ export const payslipRouter = createTRPCRouter({
     .use(hasPermission(CREATE))
     .input(
       z.object({
-        userId: z.string(), // on utilise userId, plus contractorId
+        userId: z.string(), // using userId, no longer contractorId
         contractId: z.string().optional(),
         month: z.number().min(1).max(12),
         year: z.number().min(2020).max(2100),

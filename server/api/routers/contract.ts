@@ -114,7 +114,7 @@ const baseContractSchema = z.object({
   // ============================
   // 🔥 MSA-SPECIFIC FIELDS
   // ============================
-  feePayer: z.string().optional().nullable(),                // "client" | "worker" (libre pour l’instant)
+  feePayer: z.string().optional().nullable(),                // "client" | "worker" (flexible for now)
   payrollModes: z.array(z.string()).optional().default([]),  // ["employed","gross","split"]
   extraFees: z.array(z.string()).optional().default([]),     // ["visa","annual_tax","onboarding"]
 
@@ -293,7 +293,7 @@ export const contractRouter = createTRPCRouter({
           where: { id: input.parentId, tenantId: ctx.tenantId },
           select: { id: true, type: true },
         })
-        assert(parent, "Parent MSA introuvable", "BAD_REQUEST")
+        assert(parent, "Parent MSA not found", "BAD_REQUEST")
         assert(parent!.type === "msa", "Parent must be an MSA", "BAD_REQUEST")
       }
       if (input.type === "msa") {
@@ -368,7 +368,7 @@ export const contractRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // UPDATE — GLOBAL or OWN (OWN seulement si draft)
+  // UPDATE — GLOBAL or OWN (OWN only for draft)
   // -------------------------------------------------------
   update: tenantProcedure
     .use(hasAnyPermission([P.CONTRACT.UPDATE_GLOBAL, P.CONTRACT.UPDATE_OWN, P.MSA.UPDATE_GLOBAL]))
@@ -384,10 +384,10 @@ export const contractRouter = createTRPCRouter({
       })
       if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found" })
 
-      // permission par type
+      // permission by type
       const isMSA = current.type === "msa"
       if (isMSA) {
-        // MSA → update global seulement
+        // MSA → update global only
         if (!user.permissions.includes(P.MSA.UPDATE_GLOBAL)) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Missing contract_msa.update.global" })
         }
@@ -396,7 +396,7 @@ export const contractRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message: "An MSA cannot have a parent" })
         }
       } else {
-        // SOW → update global ou own (draft-only)
+        // SOW → update global or own (draft-only)
         const canGlobal = user.permissions.includes(P.CONTRACT.UPDATE_GLOBAL)
         if (!canGlobal) {
           if (!user.permissions.includes(P.CONTRACT.UPDATE_OWN)) {
@@ -411,7 +411,7 @@ export const contractRouter = createTRPCRouter({
             where: { id: updates.parentId, tenantId },
             select: { id: true, type: true },
           })
-          assert(parent, "Parent MSA introuvable", "BAD_REQUEST")
+          assert(parent, "Parent MSA not found", "BAD_REQUEST")
           assert(parent!.type === "msa", "Parent must be an MSA", "BAD_REQUEST")
         }
       }

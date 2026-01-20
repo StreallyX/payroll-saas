@@ -135,7 +135,7 @@ export function canRemoveParticipant(role: string): boolean {
  * 
  * Verifies that:
  * - Contract exists and is in a modifiable status (draft or pending)
- * - Au moins userId ou companyId est fourni
+ * - At least userId or companyId is provided
  * - User or company exist if provided
  * 
  * @param prisma - Instance Prisma Client
@@ -173,7 +173,7 @@ export async function validateParticipantAddition(
   if (!contract) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: "Contrat introuvable",
+      message: "Contract not found",
     });
   }
 
@@ -195,7 +195,7 @@ export async function validateParticipantAddition(
     if (!user) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Utilisateur introuvable",
+        message: "User not found",
       });
     }
   }
@@ -210,7 +210,7 @@ export async function validateParticipantAddition(
     if (!company) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Company introuvable",
+        message: "Company not found",
       });
     }
   }

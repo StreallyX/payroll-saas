@@ -78,7 +78,7 @@ export async function validatePaymentMethod(
  * @param prisma - Instance Prisma Client
  * @param paymentMethodIds - Array of payment method IDs
  * @param userId - Owner contractor ID
- * @param tenantId - ID du tenant
+ * @param tenantId - Tenant ID
  * @returns Array of validated payment methods
  * @throws TRPCError if validation fails
  * 
@@ -129,8 +129,8 @@ export async function validateMultiplePaymentMethods(
  * Useful for displaying a list of bank accounts in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
- * @param userId - ID du contractor
- * @param tenantId - ID du tenant
+ * @param userId - Contractor ID
+ * @param tenantId - Tenant ID
  * @param activeOnly - Only return active methods (default: true)
  * @returns List of available payment methods
  * 

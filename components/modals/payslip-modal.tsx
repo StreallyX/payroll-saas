@@ -212,7 +212,7 @@ export function PayslipModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* USER */}
           <div className="space-y-2">
-            <Label>Utilisateur *</Label>
+            <Label>User *</Label>
             <Select
               value={formData.userId}
               onValueChange={(v) => setFormData({ ...formData, userId: v })}
@@ -232,7 +232,7 @@ export function PayslipModal({
 
           {/* CONTRACT */}
           <div className="space-y-2">
-            <Label>Contrat (optionnel)</Label>
+            <Label>Contract (optional)</Label>
             <Select
               value={formData.contractId}
               onValueChange={(v) =>
@@ -243,7 +243,7 @@ export function PayslipModal({
                 <SelectValue placeholder="Select a contract" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Aucun</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {contracts.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.title || c.contractReference || c.id}
@@ -412,7 +412,7 @@ export function PayslipModal({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+              Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && (

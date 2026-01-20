@@ -110,7 +110,7 @@ export async function validateParentMSA(
  * Useful for displaying a list of MSAs in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
- * @param tenantId - ID du tenant
+ * @param tenantId - Tenant ID
  * @param activeOnly - Only return active MSAs (default: false)
  * @returns List of available MSAs
  * 

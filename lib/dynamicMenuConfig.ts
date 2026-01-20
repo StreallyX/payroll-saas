@@ -25,7 +25,7 @@ const P = (resource: Resource, action: Action, scope: PermissionScope) =>
   buildPermissionKey(resource, action, scope)
 
 /**
- * MENU V3 ● Compatible avec permissions: "resource.action.scope"
+ * MENU V3 ● Compatible with permissions: "resource.action.scope"
  *
  * ORDER:
  * 1. Dashboard
