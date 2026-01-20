@@ -77,7 +77,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           "border-r border-border transition-all duration-300",
           collapsed ? "w-16" : "w-64 lg:w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          "overflow-x-hidden max-w-full"      // 💛 FIX Scroll horizontal
+          "overflow-x-hidden max-w-full",
+          "h-screen lg:h-full flex-shrink-0"  // Fix height
         )}
       >
 

@@ -11,18 +11,21 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ArrowLeft, CheckCircle, XCircle, FileIcon, Calendar, User, MapPin, AlertCircle, Download, Eye, X } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, FileIcon, Calendar, User, MapPin, AlertCircle, Download, Eye, X, ThumbsUp, RefreshCw, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/trpc";
 import { format } from "date-fns";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useSession } from "next-auth/react";
 import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions";
 
 const STATUS_COLORS: Record<string, string> = {
   SUBMITTED: "bg-blue-500",
   PENDING: "bg-yellow-500",
   WAITING_FOR_CONFIRMATION: "bg-orange-500",
-  CONFIRMED: "bg-green-500",
+  DEV_COMPLETED: "bg-purple-500",
+  NEEDS_REVISION: "bg-amber-500",
+  VALIDATED: "bg-green-500",
   REJECTED: "bg-red-500",
 };
 
@@ -30,7 +33,9 @@ const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "Submitted",
   PENDING: "Pending",
   WAITING_FOR_CONFIRMATION: "Awaiting Confirmation",
-  CONFIRMED: "Confirmed",
+  DEV_COMPLETED: "Awaiting Your Validation",
+  NEEDS_REVISION: "Needs Revision",
+  VALIDATED: "Validated",
   REJECTED: "Rejected",
 };
 
@@ -55,11 +60,14 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
   const { id } = params;
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
+  const [revisionFeedback, setRevisionFeedback] = useState("");
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState<{ url: string; name: string; type: string } | null>(null);
 
   // Permission checks
   const { hasPermission, hasAnyPermission, isSuperAdmin } = usePermissions();
+  const { data: session } = useSession();
   const VIEW_ALL = buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL);
   const READ_OWN = buildPermissionKey(Resource.FEATURE_REQUEST, Action.READ, PermissionScope.OWN);
   const MANAGE_PLATFORM = buildPermissionKey(Resource.PLATFORM, Action.UPDATE, PermissionScope.GLOBAL);
@@ -74,7 +82,7 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
     { enabled: canView }
   );
 
-  // Update status mutation
+  // Update status mutation (for admins/developers)
   const updateStatusMutation = api.featureRequest.updateStatus.useMutation({
     onSuccess: () => {
       toast.success("Request status updated successfully!");
@@ -87,12 +95,32 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
     },
   });
 
+  // Validate request mutation (for requesters)
+  const validateRequestMutation = api.featureRequest.validateRequest.useMutation({
+    onSuccess: (_, variables) => {
+      if (variables.action === "VALIDATE") {
+        toast.success("Request validated successfully! Thank you for your feedback.");
+      } else {
+        toast.success("Revision requested. The developer will review your feedback.");
+      }
+      refetch();
+      setRevisionDialogOpen(false);
+      setRevisionFeedback("");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to update request");
+    },
+  });
+
+  // Check if current user is the requester
+  const isRequester = request?.userId === session?.user?.id;
+
   // Handlers
-  const handleConfirm = () => {
+  const handleMarkCompleted = () => {
     if (!request) return;
     updateStatusMutation.mutate({
       id: request.id,
-      status: "CONFIRMED",
+      status: "DEV_COMPLETED",
     });
   };
 
@@ -111,6 +139,33 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
       id: request.id,
       status: "REJECTED",
       rejectionReason: rejectionReason.trim(),
+    });
+  };
+
+  // Requester validation handlers
+  const handleValidate = () => {
+    if (!request) return;
+    validateRequestMutation.mutate({
+      id: request.id,
+      action: "VALIDATE",
+    });
+  };
+
+  const handleRequestRevision = () => {
+    setRevisionDialogOpen(true);
+  };
+
+  const confirmRequestRevision = () => {
+    if (!request) return;
+    if (!revisionFeedback.trim()) {
+      toast.error("Please provide feedback for the revision");
+      return;
+    }
+
+    validateRequestMutation.mutate({
+      id: request.id,
+      action: "REQUEST_REVISION",
+      revisionFeedback: revisionFeedback.trim(),
     });
   };
 
@@ -232,16 +287,17 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
               </Badge>
             </div>
 
-            {canManage && request.status !== "CONFIRMED" && request.status !== "REJECTED" && (
+            {/* Admin/Developer Actions */}
+            {canManage && ["SUBMITTED", "PENDING", "WAITING_FOR_CONFIRMATION", "NEEDS_REVISION"].includes(request.status) && (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                  onClick={handleConfirm}
+                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                  onClick={handleMarkCompleted}
                   disabled={updateStatusMutation.isPending}
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Confirm Request
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Mark as Completed
                 </Button>
                 <Button
                   variant="outline"
@@ -251,6 +307,30 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject Request
+                </Button>
+              </div>
+            )}
+
+            {/* Requester Validation Actions */}
+            {isRequester && request.status === "DEV_COMPLETED" && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  onClick={handleValidate}
+                  disabled={validateRequestMutation.isPending}
+                >
+                  <ThumbsUp className="h-4 w-4 mr-2" />
+                  Validate
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                  onClick={handleRequestRevision}
+                  disabled={validateRequestMutation.isPending}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Request Revision
                 </Button>
               </div>
             )}
@@ -363,6 +443,38 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* Revision Feedback */}
+          {request.status === "NEEDS_REVISION" && request.revisionFeedback && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardHeader>
+                <CardTitle className="text-amber-900">Revision Requested</CardTitle>
+                <CardDescription className="text-amber-700">
+                  The requester has requested changes to the implementation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-amber-800 whitespace-pre-wrap">
+                  {request.revisionFeedback}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Awaiting Validation Banner for Requester */}
+          {isRequester && request.status === "DEV_COMPLETED" && (
+            <Card className="border-purple-200 bg-purple-50">
+              <CardHeader>
+                <CardTitle className="text-purple-900">Your Validation Required</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-purple-700">
+                  The developer has marked this request as completed. Please review the implementation
+                  and either validate it or request revisions using the buttons above.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -376,8 +488,8 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
               <div className="flex items-start gap-3">
                 <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">{request.user.name || "Unknown"}</p>
-                  <p className="text-xs text-muted-foreground">{request.user.email}</p>
+                  <p className="text-sm font-medium">{request.user?.name || "Unknown"}</p>
+                  <p className="text-xs text-muted-foreground">{request.user?.email || "Unknown"}</p>
                   <Badge variant="outline" className="mt-1">
                     {request.userRole}
                   </Badge>
@@ -402,13 +514,14 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
                 </div>
               </div>
 
-              {request.status === "CONFIRMED" && request.confirmedAt && (
+              {/* Dev Completed */}
+              {(request.status === "DEV_COMPLETED" || request.status === "VALIDATED" || request.status === "NEEDS_REVISION") && request.confirmedAt && (
                 <>
                   <Separator />
                   <div className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                    <Wrench className="h-5 w-5 text-purple-500 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium">Confirmed</p>
+                      <p className="text-sm font-medium">Marked as Completed</p>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(request.confirmedAt), "PPpp")}
                       </p>
@@ -417,6 +530,43 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
                           By: {request.confirmedByUser.name || request.confirmedByUser.email}
                         </p>
                       )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Validated */}
+              {request.status === "VALIDATED" && request.validatedAt && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <ThumbsUp className="h-5 w-5 text-green-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Validated</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(request.validatedAt), "PPpp")}
+                      </p>
+                      {request.validatedByUser && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          By: {request.validatedByUser.name || request.validatedByUser.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Needs Revision */}
+              {request.status === "NEEDS_REVISION" && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <RefreshCw className="h-5 w-5 text-amber-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Revision Requested</p>
+                      <p className="text-xs text-muted-foreground">
+                        Requester has requested changes
+                      </p>
                     </div>
                   </div>
                 </>
@@ -517,7 +667,7 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
               </Button>
             </div>
           </DialogHeader>
-          
+
           <div className="relative w-full max-h-[70vh] overflow-auto flex items-center justify-center bg-muted/30 rounded-lg">
             {currentFile && (
               <img
@@ -535,6 +685,47 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
             >
               <Download className="h-4 w-4 mr-2" />
               Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request Revision Dialog */}
+      <Dialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Revision</DialogTitle>
+            <DialogDescription>
+              Please provide feedback on what needs to be changed. The developer will review your feedback and work on the revisions.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <Textarea
+              placeholder="Describe what needs to be changed or improved..."
+              value={revisionFeedback}
+              onChange={(e) => setRevisionFeedback(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRevisionDialogOpen(false);
+                setRevisionFeedback("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={confirmRequestRevision}
+              disabled={validateRequestMutation.isPending || !revisionFeedback.trim()}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Request Revision
             </Button>
           </DialogFooter>
         </DialogContent>

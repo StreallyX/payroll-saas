@@ -1,14 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { UserSelect } from "./UserSelect";
 import { CompanySelect } from "./CompanySelect";
-import { Plus, X, User, Building2 } from "lucide-react";
+import { CONTRACT_ROLES } from "./ParticipantSelector";
+import { Plus, X, User, Building2, Info } from "lucide-react";
 import { useUserCompany } from "@/hooks/contracts/useUserCompany";
 import { toast } from "sonner";
 
@@ -41,7 +49,7 @@ export function ParticipantPreSelector({
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [linkUserCompany, setLinkUserCompany] = useState(false);
-  const [role, setRole] = useState("additional");
+  const [role, setRole] = useState<string>("");
 
   const { company: userCompany } = useUserCompany(selectedUserId);
 
@@ -57,15 +65,15 @@ export function ParticipantPreSelector({
       return;
     }
 
-    if (!role.trim()) {
-      toast.error("Please specify a role");
+    if (!role) {
+      toast.error("Please select a contract role");
       return;
     }
 
     const newParticipant: ParticipantPreSelection = {
       userId: selectedUserId || undefined,
       companyId: effectiveCompanyId || undefined,
-      role: role.trim(),
+      role: role,
       _tempId: Date.now().toString(),
     };
 
@@ -75,7 +83,7 @@ export function ParticipantPreSelector({
     setSelectedUserId("");
     setSelectedCompanyId("");
     setLinkUserCompany(false);
-    setRole("additional");
+    setRole("");
 
     toast.success("Participant added");
   };
@@ -90,10 +98,13 @@ export function ParticipantPreSelector({
       {/* Add participant form */}
       {showAddButton && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-base">
               Add additional participants
             </CardTitle>
+            <CardDescription className="text-xs">
+              Select users and assign their role on this contract
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -103,6 +114,9 @@ export function ParticipantPreSelector({
                 onChange={setSelectedUserId}
                 placeholder="Select a user"
               />
+              <p className="text-xs text-muted-foreground">
+                User&apos;s system role (Admin, Agency, etc.) is shown for reference
+              </p>
             </div>
 
             {selectedUserId && userCompany?.company && (
@@ -134,18 +148,43 @@ export function ParticipantPreSelector({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="role-input">Role</Label>
-              <Input
-                id="role-input"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="e.g. additional, observer, etc."
-              />
+              <Label htmlFor="role-select">Contract Role *</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a contract role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRACT_ROLES.map((contractRole) => {
+                    const Icon = contractRole.icon;
+                    return (
+                      <SelectItem key={contractRole.value} value={contractRole.value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={`h-4 w-4 ${contractRole.color}`} />
+                          <span className="font-medium">{contractRole.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            - {contractRole.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              {/* Role description helper */}
+              {role && (
+                <div className="flex items-start gap-2 p-2 rounded-md bg-muted/50 text-xs">
+                  <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">
+                    {CONTRACT_ROLES.find(r => r.value === role)?.description}
+                  </span>
+                </div>
+              )}
             </div>
 
             <Button
               onClick={handleAddParticipant}
-              disabled={!selectedUserId && !selectedCompanyId}
+              disabled={(!selectedUserId && !selectedCompanyId) || !role}
               className="w-full"
               type="button"
             >
@@ -163,50 +202,66 @@ export function ParticipantPreSelector({
             Additional participants ({participants.length})
           </Label>
           <div className="space-y-2">
-            {participants.map((participant) => (
-              <div
-                key={participant._tempId}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30"
-              >
-                {participant.userId ? (
-                  <>
-                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        User ID: {participant.userId}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        Role: {participant.role}
-                      </p>
-                    </div>
-                  </>
-                ) : participant.companyId ? (
-                  <>
-                    <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        Company ID: {participant.companyId}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        Role: {participant.role}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
+            {participants.map((participant) => {
+              const roleConfig = CONTRACT_ROLES.find(r => r.value === participant.role);
+              const RoleIcon = roleConfig?.icon || User;
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    handleRemoveParticipant(participant._tempId!)
-                  }
-                  className="flex-shrink-0"
-                  type="button"
+              return (
+                <div
+                  key={participant._tempId}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  {participant.userId ? (
+                    <>
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {participant._userName || `User: ${participant.userId.slice(0, 8)}...`}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${roleConfig?.badge || ""}`}>
+                            <RoleIcon className="h-3 w-3 mr-1" />
+                            {roleConfig?.label || participant.role}
+                          </Badge>
+                          {participant.companyId && (
+                            <span className="text-xs text-muted-foreground">
+                              + Company linked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  ) : participant.companyId ? (
+                    <>
+                      <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {participant._companyName || `Company: ${participant.companyId.slice(0, 8)}...`}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${roleConfig?.badge || ""}`}>
+                            <RoleIcon className="h-3 w-3 mr-1" />
+                            {roleConfig?.label || participant.role}
+                          </Badge>
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      handleRemoveParticipant(participant._tempId!)
+                    }
+                    className="flex-shrink-0"
+                    type="button"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -2,12 +2,9 @@
  * ====================================================================
  * IMPORT FEATURE REQUESTS - Import feature requests from JSON
  * ====================================================================
- * 
- * Usage: npx ts-node scripts/import-requests.ts <input-file>
- * Example: npx ts-node scripts/import-requests.ts feature-requests-backup.json
- * 
- * This script imports feature requests from a JSON file.
- * WARNING: This will create new records, not update existing ones.
+ *
+ * Usage: npx tsx scripts/import-requests.ts <input-file>
+ * Example: npx tsx scripts/import-requests.ts feature-requests-export.json
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -16,141 +13,183 @@ import * as path from "path";
 
 const prisma = new PrismaClient();
 
+// ===================================================================
+// 🔧 CONFIGURATION OBLIGATOIRE
+// ===================================================================
+
+// ⚠️ DOIT exister dans la DB
+const DEFAULT_TENANT_ID = "cmkml6jjc0000j6ewq5v9uyvy";
+
+// OPTIONNEL : user qui sera considéré comme créateur
+// ➜ null = pas de user par défaut
+const DEFAULT_USER_ID: string | null = null;
+
+// ===================================================================
+
 interface ImportData {
   exportDate: string;
   totalRequests: number;
   featureRequests: any[];
 }
 
+// -------------------------------------------------------------------
+// SAFE USER FK CHECK
+// -------------------------------------------------------------------
+async function safeUserId(
+  id?: string | null
+): Promise<string | undefined> {
+  if (!id) return undefined;
+
+  const exists = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  return exists ? id : undefined;
+}
+
+// -------------------------------------------------------------------
+// MAIN
+// -------------------------------------------------------------------
 async function importFeatureRequests() {
   try {
-    // Check if input file is provided
+    // --------------------------------------------------
+    // ARGUMENT CHECK
+    // --------------------------------------------------
     const inputFile = process.argv[2];
     if (!inputFile) {
-      console.error("❌ Error: Please provide an input file path");
-      console.log("Usage: npx ts-node scripts/import-requests.ts <input-file>");
+      console.error("❌ Please provide an input file");
       process.exit(1);
     }
 
     const inputPath = path.resolve(process.cwd(), inputFile);
-
-    // Check if file exists
     if (!fs.existsSync(inputPath)) {
-      console.error(`❌ Error: File not found: ${inputPath}`);
+      console.error(`❌ File not found: ${inputPath}`);
       process.exit(1);
     }
 
     console.log("🚀 Starting feature requests import...");
     console.log(`📁 Reading from: ${inputPath}`);
 
-    // Read and parse JSON file
-    const fileContent = fs.readFileSync(inputPath, "utf-8");
-    const importData: ImportData = JSON.parse(fileContent);
+    // --------------------------------------------------
+    // LOAD FILE
+    // --------------------------------------------------
+    const importData: ImportData = JSON.parse(
+      fs.readFileSync(inputPath, "utf-8")
+    );
 
-    console.log(`📦 Total requests to import: ${importData.totalRequests}`);
+    console.log(`📦 Total requests: ${importData.totalRequests}`);
     console.log(`📅 Export date: ${importData.exportDate}`);
 
-    let successCount = 0;
-    let errorCount = 0;
-    const errors: Array<{ request: any; error: string }> = [];
+    let success = 0;
+    let failed = 0;
 
-    // Import each feature request
+    // --------------------------------------------------
+    // IMPORT LOOP
+    // --------------------------------------------------
     for (const request of importData.featureRequests) {
       try {
-        // Check if user exists
-        const user = await prisma.user.findUnique({
-          where: { id: request.userId },
+        // ---------------- TENANT ----------------
+        let tenantId = request.tenantId;
+
+        const tenantExists = await prisma.tenant.findUnique({
+          where: { id: tenantId },
         });
 
-        if (!user) {
-          throw new Error(`User not found: ${request.userId}`);
+        if (!tenantExists) {
+          console.warn(
+            `⚠️ Tenant not found for "${request.title}", using DEFAULT_TENANT_ID`
+          );
+          tenantId = DEFAULT_TENANT_ID;
         }
 
-        // Check if tenant exists
-        const tenant = await prisma.tenant.findUnique({
-          where: { id: request.tenantId },
+        // ---------------- USERS (SAFE FK) ----------------
+        const userId =
+          (await safeUserId(request.userId)) ??
+          (DEFAULT_USER_ID
+            ? await safeUserId(DEFAULT_USER_ID)
+            : undefined);
+
+        const confirmedBy = await safeUserId(request.confirmedBy);
+        const rejectedBy = await safeUserId(request.rejectedBy);
+
+        // ---------------- BUILD DATA ----------------
+        const data: any = {
+          tenantId,
+          userRole: request.userRole,
+          pageUrl: request.pageUrl,
+          pageName: request.pageName,
+          actionType: request.actionType,
+          title: request.title,
+          description: request.description,
+          conditions: request.conditions,
+          priority: request.priority,
+          status: request.status,
+          rejectionReason: request.rejectionReason,
+          confirmedAt: request.confirmedAt
+            ? new Date(request.confirmedAt)
+            : null,
+          rejectedAt: request.rejectedAt
+            ? new Date(request.rejectedAt)
+            : null,
+          createdAt: request.createdAt
+            ? new Date(request.createdAt)
+            : new Date(),
+          updatedAt: request.updatedAt
+            ? new Date(request.updatedAt)
+            : new Date(),
+        };
+
+        // ➜ FK ajoutés UNIQUEMENT s’ils sont valides
+        if (userId) data.userId = userId;
+        if (confirmedBy) data.confirmedBy = confirmedBy;
+        if (rejectedBy) data.rejectedBy = rejectedBy;
+
+        // ---------------- CREATE ----------------
+        const created = await prisma.featureRequest.create({
+          data,
         });
 
-        if (!tenant) {
-          throw new Error(`Tenant not found: ${request.tenantId}`);
-        }
-
-        // Create feature request (without attachments for now)
-        const createdRequest = await prisma.featureRequest.create({
-          data: {
-            tenantId: request.tenantId,
-            userId: request.userId,
-            userRole: request.userRole,
-            pageUrl: request.pageUrl,
-            pageName: request.pageName,
-            actionType: request.actionType,
-            title: request.title,
-            description: request.description,
-            conditions: request.conditions,
-            priority: request.priority,
-            status: request.status,
-            rejectionReason: request.rejectionReason,
-            confirmedBy: request.confirmedBy,
-            confirmedAt: request.confirmedAt ? new Date(request.confirmedAt) : null,
-            rejectedBy: request.rejectedBy,
-            rejectedAt: request.rejectedAt ? new Date(request.rejectedAt) : null,
-            createdAt: request.createdAt ? new Date(request.createdAt) : new Date(),
-            updatedAt: request.updatedAt ? new Date(request.updatedAt) : new Date(),
-          },
-        });
-
-        // Create attachments if any
-        if (request.attachments && request.attachments.length > 0) {
+        // ---------------- ATTACHMENTS ----------------
+        if (request.attachments?.length) {
           for (const attachment of request.attachments) {
             await prisma.featureRequestAttachment.create({
               data: {
-                featureRequestId: createdRequest.id,
+                featureRequestId: created.id,
                 fileUrl: attachment.fileUrl,
                 fileName: attachment.fileName,
                 fileSize: attachment.fileSize,
                 fileType: attachment.fileType,
-                uploadedAt: attachment.uploadedAt ? new Date(attachment.uploadedAt) : new Date(),
+                uploadedAt: attachment.uploadedAt
+                  ? new Date(attachment.uploadedAt)
+                  : new Date(),
               },
             });
           }
         }
 
-        successCount++;
-        console.log(`✅ Imported: ${request.title} (${request.status})`);
-      } catch (error: any) {
-        errorCount++;
-        errors.push({
-          request: request.title || "Unknown",
-          error: error.message,
-        });
-        console.error(`❌ Failed to import: ${request.title} - ${error.message}`);
+        success++;
+        console.log(`✅ Imported: ${request.title}`);
+      } catch (err: any) {
+        failed++;
+        console.error(
+          `❌ Failed to import "${request.title}": ${err.message}`
+        );
       }
     }
 
-    console.log("\n📊 Import Summary:");
-    console.log(`   ✅ Successfully imported: ${successCount}`);
-    console.log(`   ❌ Failed: ${errorCount}`);
+    // --------------------------------------------------
+    // SUMMARY
+    // --------------------------------------------------
+    console.log("\n📊 Import Summary");
+    console.log(`   ✅ Imported: ${success}`);
+    console.log(`   ❌ Failed: ${failed}`);
+    console.log("\n✨ Import completed!");
 
-    if (errors.length > 0) {
-      console.log("\n⚠️  Errors:");
-      errors.forEach((err) => {
-        console.log(`   - ${err.request}: ${err.error}`);
-      });
-    }
-
-    console.log("\n✨ Import process completed!");
-
-  } catch (error) {
-    console.error("❌ Fatal error during import:", error);
-    throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Run the import
-importFeatureRequests()
-  .catch((error) => {
-    console.error("❌ Fatal error:", error);
-    process.exit(1);
-  });
+// -------------------------------------------------------------------
+importFeatureRequests().catch(() => process.exit(1));

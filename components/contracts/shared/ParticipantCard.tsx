@@ -1,7 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building2, User, X } from "lucide-react";
+import { Building2, User, X, PenTool, Eye, CheckCircle, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Contract participant roles configuration
+const CONTRACT_ROLES_CONFIG: Record<string, { label: string; icon: typeof User; badge: string }> = {
+  signer: { label: "Signer", icon: PenTool, badge: "bg-blue-100 text-blue-700 border-blue-200" },
+  approver: { label: "Approver", icon: CheckCircle, badge: "bg-green-100 text-green-700 border-green-200" },
+  viewer: { label: "Viewer", icon: Eye, badge: "bg-gray-100 text-gray-700 border-gray-200" },
+  stakeholder: { label: "Stakeholder", icon: Users, badge: "bg-purple-100 text-purple-700 border-purple-200" },
+};
 
 interface ParticipantCardProps {
   participant: {
@@ -50,6 +59,10 @@ export function ParticipantCard({
 
   const isUser = !!participant.user;
 
+  // Get role configuration
+  const roleConfig = CONTRACT_ROLES_CONFIG[participant.role.toLowerCase()];
+  const RoleIcon = roleConfig?.icon || User;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -72,8 +85,15 @@ export function ParticipantCard({
               </Badge>
             )}
 
-            <Badge variant="outline" className="text-xs">
-              {participant.role}
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs",
+                roleConfig?.badge
+              )}
+            >
+              <RoleIcon className="h-3 w-3 mr-1" />
+              {roleConfig?.label || participant.role}
             </Badge>
 
             {canRemove && onRemove && (

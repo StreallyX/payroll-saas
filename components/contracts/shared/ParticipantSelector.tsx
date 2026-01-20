@@ -1,18 +1,60 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { UserSelect } from "./UserSelect";
 import { CompanySelect } from "./CompanySelect";
 import { ParticipantCard } from "./ParticipantCard";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Info, PenTool, Eye, CheckCircle, Users } from "lucide-react";
 import { useParticipants } from "@/hooks/contracts/useParticipants";
 import { useUserCompany } from "@/hooks/contracts/useUserCompany";
 import { toast } from "sonner";
+
+// Contract participant roles with descriptions
+export const CONTRACT_ROLES = [
+  {
+    value: "signer",
+    label: "Signer",
+    description: "Must sign the contract for it to be valid",
+    icon: PenTool,
+    color: "text-blue-600",
+    badge: "bg-blue-100 text-blue-700",
+  },
+  {
+    value: "approver",
+    label: "Approver",
+    description: "Must approve the contract before it can proceed",
+    icon: CheckCircle,
+    color: "text-green-600",
+    badge: "bg-green-100 text-green-700",
+  },
+  {
+    value: "viewer",
+    label: "Viewer",
+    description: "Can view the contract but cannot modify or sign",
+    icon: Eye,
+    color: "text-gray-600",
+    badge: "bg-gray-100 text-gray-700",
+  },
+  {
+    value: "stakeholder",
+    label: "Stakeholder",
+    description: "Receives notifications about contract changes",
+    icon: Users,
+    color: "text-purple-600",
+    badge: "bg-purple-100 text-purple-700",
+  },
+] as const;
 
 interface ParticipantSelectorProps {
   contractId: string;
@@ -35,7 +77,7 @@ export function ParticipantSelector({
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [linkUserCompany, setLinkUserCompany] = useState(false);
-  const [role, setRole] = useState("additional");
+  const [role, setRole] = useState<string>("");
 
   const { company: userCompany } = useUserCompany(selectedUserId);
 
@@ -45,11 +87,16 @@ export function ParticipantSelector({
       return;
     }
 
+    if (!role) {
+      toast.error("Please select a contract role");
+      return;
+    }
+
     addParticipant(
       {
         contractId,
         userId: selectedUserId || undefined,
-        companyId: selectedCompanyId || undefined,
+        companyId: effectiveCompanyId || undefined,
         role,
       },
       {
@@ -58,6 +105,7 @@ export function ParticipantSelector({
           setSelectedUserId("");
           setSelectedCompanyId("");
           setLinkUserCompany(false);
+          setRole("");
         },
         onError: (error: any) => {
           toast.error(error.message || "Failed to add participant");
@@ -91,8 +139,11 @@ export function ParticipantSelector({
       {/* Add participant form */}
       {canModify && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-lg">Add participant</CardTitle>
+            <CardDescription className="text-xs">
+              Select users and assign their role on this contract
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -102,6 +153,9 @@ export function ParticipantSelector({
                 onChange={setSelectedUserId}
                 placeholder="Select a user"
               />
+              <p className="text-xs text-muted-foreground">
+                User&apos;s system role (Admin, Agency, etc.) is shown for reference
+              </p>
             </div>
 
             {selectedUserId && userCompany?.company && (
@@ -133,18 +187,43 @@ export function ParticipantSelector({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="role-input">Role</Label>
-              <Input
-                id="role-input"
-                value={role}
-                onChange={(e: any) => setRole(e.target.value)}
-                placeholder="e.g. additional, observer, etc."
-              />
+              <Label htmlFor="role-select">Contract Role *</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a contract role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRACT_ROLES.map((contractRole) => {
+                    const Icon = contractRole.icon;
+                    return (
+                      <SelectItem key={contractRole.value} value={contractRole.value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={`h-4 w-4 ${contractRole.color}`} />
+                          <span className="font-medium">{contractRole.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            - {contractRole.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              {/* Role description helper */}
+              {role && (
+                <div className="flex items-start gap-2 p-2 rounded-md bg-muted/50 text-xs">
+                  <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">
+                    {CONTRACT_ROLES.find(r => r.value === role)?.description}
+                  </span>
+                </div>
+              )}
             </div>
 
             <Button
               onClick={handleAddParticipant}
-              disabled={isAdding || (!selectedUserId && !selectedCompanyId)}
+              disabled={isAdding || (!selectedUserId && !selectedCompanyId) || !role}
               className="w-full"
             >
               {isAdding ? (

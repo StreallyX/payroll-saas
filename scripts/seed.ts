@@ -94,6 +94,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.USER, Action.UPDATE, PermissionScope.OWN),
 
+    // TASKS (own)
+    buildPermissionKey(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN),
+
     buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.READ, PermissionScope.OWN),
     buildPermissionKey(Resource.ONBOARDING_RESPONSE, Action.SUBMIT, PermissionScope.OWN),
 
@@ -208,6 +213,15 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.DASHBOARD, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.DASHBOARD, Action.READ, PermissionScope.OWN),
 
+    // NEW: Access to entity pages (contractors they manage)
+    buildPermissionKey(Resource.CONTRACTOR, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.CONTRACTOR, Action.LIST, PermissionScope.GLOBAL),
+
+    // TASKS (own)
+    buildPermissionKey(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.TASK, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.TASK, Action.UPDATE, PermissionScope.OWN),
+
     // USER MANAGEMENT (own agency scope)
     buildPermissionKey(Resource.USER, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.USER, Action.READ, PermissionScope.OWN),
@@ -232,10 +246,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 
     buildPermissionKey(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
-    //(Resource.COMPANY, Action.CREATE, PermissionScope.OWN),
-    //buildPermissionKey(Resource.COMPANY, Action.DELETE, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.DELETE, PermissionScope.OWN),
     buildPermissionKey(Resource.COMPANY, Action.LIST, PermissionScope.OWN),
-    //buildPermissionKey(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN),
 
     buildPermissionKey(Resource.DOCUMENT, Action.UPDATE, PermissionScope.OWN),
     buildPermissionKey(Resource.DOCUMENT, Action.UPLOAD, PermissionScope.OWN),

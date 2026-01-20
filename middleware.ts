@@ -79,28 +79,19 @@ export default withAuth(
     // ====================================================================
     // PHASE 3: Route Redirections (Old routes → New functional routes)
     // ====================================================================
-    // Comprehensive mapping from old role-based routes to new functional routes
     const ROUTE_REDIRECTS: Record<string, string> = {
-      "/referrals": "/construction",
-      // ==================== OLD MANAGEMENT ROUTES ====================
-      "/contractors": "/team/contractors",
-      "/agencies": "/team/agencies",
-      "/payroll-partners": "/team/payroll-partners",
+      // Add any route redirects here if needed
     };
 
     // Check if current pathname matches any old route (exact match or starts with)
     for (const [oldRoute, newRoute] of Object.entries(ROUTE_REDIRECTS)) {
       if (pathname === oldRoute || pathname.startsWith(oldRoute + "/")) {
-        // Preserve query parameters and handle sub-paths
         const url = new URL(newRoute, req.url);
         url.search = req.nextUrl.search;
-        
-        // Handle sub-paths (e.g., /contractor/invoices/123 → /invoices/123)
         const subPath = pathname.slice(oldRoute.length);
         if (subPath && subPath !== "/" && !pathname.endsWith(oldRoute)) {
           url.pathname = newRoute + subPath;
         }
-        
         return NextResponse.redirect(url);
       }
     }

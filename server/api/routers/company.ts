@@ -46,6 +46,14 @@ export const companyRouter = createTRPCRouter({
             country: true,
             bank: true,
             companyUsers: { include: { user: true } },
+            // Include owner info for user-owned companies
+            owner: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
           orderBy: { createdAt: "desc" },
         })
@@ -68,6 +76,13 @@ export const companyRouter = createTRPCRouter({
           country: true,
           bank: true,
           companyUsers: { include: { user: true } },
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       })
@@ -119,6 +134,7 @@ export const companyRouter = createTRPCRouter({
       z.object({
         name: z.string().min(1),
         bankId: z.string().nullable().optional(),
+        ownerType: z.enum(["tenant", "user"]).default("user"),
 
         contactPerson: z.string().optional(),
         contactEmail: z.string().email().optional().or(z.literal("")),
@@ -153,16 +169,22 @@ export const companyRouter = createTRPCRouter({
       const user = ctx.session.user
       const tenantId = ctx.tenantId!
 
-      const isGlobal = user.permissions.includes(P.CREATE_GLOBAL)
+      const canCreateGlobal = user.permissions.includes(P.CREATE_GLOBAL)
+
+      // Only users with global permission can create tenant companies
+      // Otherwise, force ownerType to "user"
+      const finalOwnerType = canCreateGlobal ? input.ownerType : "user"
+      const finalOwnerId = finalOwnerType === "tenant" ? null : user.id
+
+      const { ownerType: _, ...restInput } = input
 
       const company = await ctx.prisma.company.create({
         data: {
-          ...input,
+          ...restInput,
           tenantId,
           createdBy: user.id,
-
-          ownerType: isGlobal ? "tenant" : "user",
-          ownerId: isGlobal ? null : user.id,
+          ownerType: finalOwnerType,
+          ownerId: finalOwnerId,
         },
       })
 
