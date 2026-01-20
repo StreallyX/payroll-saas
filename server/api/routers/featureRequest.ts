@@ -435,15 +435,17 @@ export const featureRequestRouter = createTRPCRouter({
         tenantId: ctx.tenantId,
       });
 
-      // Send notification to requester
-      await notifyRequesterOfStatusChange({
-        featureRequestId: updatedRequest.id,
-        requestTitle: updatedRequest.title,
-        status,
-        rejectionReason,
-        userId: updatedRequest.userId,
-        tenantId: ctx.tenantId,
-      });
+      // Send notification to requester (only if userId exists)
+      if (updatedRequest.userId) {
+        await notifyRequesterOfStatusChange({
+          featureRequestId: updatedRequest.id,
+          requestTitle: updatedRequest.title,
+          status,
+          rejectionReason,
+          userId: updatedRequest.userId,
+          tenantId: ctx.tenantId,
+        });
+      }
 
       return updatedRequest;
     }),
@@ -655,15 +657,17 @@ export const featureRequestRouter = createTRPCRouter({
         tenantId: ctx.tenantId,
       });
 
-      // Send notification to requester about status change
-      await notifyRequesterOfStatusChange({
-        featureRequestId: updatedRequest.id,
-        requestTitle: updatedRequest.title,
-        status: updateData.status,
-        rejectionReason: undefined,
-        userId: updatedRequest.userId,
-        tenantId: ctx.tenantId,
-      });
+      // Send notification to requester about status change (only if userId exists)
+      if (updatedRequest.userId) {
+        await notifyRequesterOfStatusChange({
+          featureRequestId: updatedRequest.id,
+          requestTitle: updatedRequest.title,
+          status: updateData.status,
+          rejectionReason: undefined,
+          userId: updatedRequest.userId,
+          tenantId: ctx.tenantId,
+        });
+      }
 
       return updatedRequest;
     }),
