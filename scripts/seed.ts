@@ -346,7 +346,7 @@ export async function seedRBAC(prisma: PrismaClient, tenantId: string) {
 }
 
 // ====================================================================
-// SEED UTILISATEURS DE TEST
+// SEED TEST USERS
 // ====================================================================
 
 export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
@@ -416,7 +416,7 @@ export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
 async function seedBaseData(prisma: PrismaClient) {
   console.log("🌍 Seed currency + country…");
 
-  // 1 currency de base → USD
+  // 1 base currency → USD
   await prisma.currency.upsert({
     where: { code: "USD" },
     update: {},
@@ -427,7 +427,7 @@ async function seedBaseData(prisma: PrismaClient) {
     },
   });
 
-  // 1 country de base → United States
+  // 1 base country → United States
   await prisma.country.upsert({
     where: { code: "US" },        // ✔ uses YOUR "code" field
     update: {},
@@ -601,7 +601,7 @@ async function seedCompanyBankContracts(prisma: PrismaClient, tenantId: string) 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🚀 Lancement du seed…");
+  console.log("🚀 Starting seed...");
 
   let tenant = await prisma.tenant.findFirst();
 
@@ -632,5 +632,5 @@ async function main() {
 
 
 main()
-  .catch((err) => console.error("❌ ERREUR :", err))
+  .catch((err) => console.error("❌ ERROR:", err))
   .finally(() => prisma.$disconnect());

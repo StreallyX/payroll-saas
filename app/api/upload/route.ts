@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { error: "Aucun fichier fourni" },
+        { error: "No file provided" },
         { status: 400 }
       );
     }

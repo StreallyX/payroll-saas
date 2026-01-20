@@ -90,7 +90,7 @@ export async function validateContractor(
  * Useful for displaying a list of contractors in a UI selector.
  * 
  * @param prisma - Instance Prisma Client
- * @param tenantId - ID du tenant
+ * @param tenantId - Tenant ID
  * @param activeOnly - Only return active contractors (default: true)
  * @returns List of available contractors
  * 

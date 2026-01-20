@@ -116,10 +116,10 @@ export enum Resource {
 
 
 /**
- * Actions disponibles
+ * Available actions
  */
 export enum Action {
-  // CRUD de base
+  // Base CRUD
   CREATE = "create",
   READ = "read",
   UPDATE = "update",
@@ -202,14 +202,14 @@ export interface Permission {
  * Permission categories for UI
  */
 export enum PermissionCategory {
-  CORE = "Gestion de base",
+  CORE = "Core management",
   BUSINESS = "Business management",
   FINANCIAL = "Finance",
-  TIME_TRACKING = "Temps et travail",
+  TIME_TRACKING = "Time and work",
   DOCUMENTS = "Documents",
   COMMUNICATION = "Communication",
   ADMINISTRATION = "Administration",
-  REPORTING = "Rapports et analyses",
+  REPORTING = "Reports and analytics",
 }
 
 // ====================================================================
@@ -561,7 +561,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own contracts",
-    "Consulter ses propres contrats",
+    "View own contracts",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -624,7 +624,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT,
     Action.SIGN,
     PermissionScope.OWN,
-    "Signer ses contrats",
+    "Sign own contracts",
     "Electronically sign own contracts",
     PermissionCategory.BUSINESS
   ),
@@ -716,8 +716,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   createPermission(
     Resource.CONTRACT_MSA,
     Action.SIGN,
-    PermissionScope.GLOBAL, // pas OWN — signature par managers/clients
-    "Signer un MSA",
+    PermissionScope.GLOBAL, // not OWN — signature by managers/clients
+    "Sign an MSA",
     "Sign a Master Service Agreement",
     PermissionCategory.BUSINESS
   ),
@@ -822,8 +822,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_SOW,
     Action.SIGN,
     PermissionScope.OWN,
-    "Signer un SOW",
-    "Signer un Statement of Work",
+    "Sign a SOW",
+    "Sign a Statement of Work",
     PermissionCategory.BUSINESS
   ),
 
@@ -877,7 +877,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_DOCUMENT,
     Action.UPLOAD,
     PermissionScope.OWN,
-    "Uploader des documents",
+    "Upload documents",
     "Add documents to own contracts",
     PermissionCategory.DOCUMENTS
   ),
@@ -885,7 +885,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_DOCUMENT,
     Action.UPLOAD,
     PermissionScope.GLOBAL,
-    "Uploader tous documents",
+    "Upload all documents",
     "Add documents to any contract",
     PermissionCategory.DOCUMENTS
   ),
@@ -906,7 +906,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own invoices",
-    "Consulter ses propres factures",
+    "View own invoices",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
@@ -1054,7 +1054,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own payments",
-    "Consulter ses propres paiements",
+    "View own payments",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
@@ -1109,7 +1109,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.PAYMENT,
     Action.REFUND,
     PermissionScope.GLOBAL,
-    "Rembourser des paiements",
+    "Refund payments",
     "Issue refunds",
     PermissionCategory.FINANCIAL
   ),
@@ -1206,7 +1206,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own timesheets",
-    "Consulter ses propres timesheets",
+    "View own timesheets",
     PermissionCategory.TIME_TRACKING
   ),
   createPermission(
@@ -1298,7 +1298,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own payslips",
-    "Consulter uniquement ses propres bulletins",
+    "View only own payslips",
     PermissionCategory.FINANCIAL
   ),
 
@@ -1372,14 +1372,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own transfers",
-    "Consulter ses propres virements",
+    "View own transfers",
     PermissionCategory.FINANCIAL
   ),
   createPermission(
     Resource.REMITTANCE,
     Action.CREATE,
     PermissionScope.OWN,
-    "Demander des virements",
+    "Request transfers",
     "Create transfer requests",
     PermissionCategory.FINANCIAL
   ),
@@ -1437,7 +1437,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own referrals",
-    "Consulter ses propres parrainages",
+    "View own referrals",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -1445,7 +1445,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.CREATE,
     PermissionScope.OWN,
     "Create referrals",
-    "Parrainer de nouveaux contractors",
+    "Refer new contractors",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -1585,7 +1585,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own documents",
-    "Consulter ses propres documents",
+    "View own documents",
     PermissionCategory.DOCUMENTS
   ),
   createPermission(
@@ -1600,7 +1600,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.DOCUMENT,
     Action.UPLOAD,
     PermissionScope.OWN,
-    "Uploader ses documents",
+    "Upload own documents",
     "Add new documents for own entities",
     PermissionCategory.DOCUMENTS
   ),
@@ -1608,7 +1608,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.DOCUMENT,
     Action.UPLOAD,
     PermissionScope.GLOBAL,
-    "Uploader tous documents",
+    "Upload all documents",
     "Add documents for any entity",
     PermissionCategory.DOCUMENTS
   ),
@@ -1871,7 +1871,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.CREATE,
     PermissionScope.GLOBAL,
     "Create webhooks",
-    "Configurer de nouveaux webhooks",
+    "Configure new webhooks",
     PermissionCategory.ADMINISTRATION
   ),
   createPermission(
@@ -1950,7 +1950,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.TENANT,
     Action.CONFIGURE,
     PermissionScope.TENANT,
-    "Configurer le tenant",
+    "Configure tenant",
     "Manage advanced configurations",
     PermissionCategory.ADMINISTRATION
   ),
@@ -2055,7 +2055,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.READ,
     PermissionScope.OWN,
     "View own reports",
-    "Consulter ses propres rapports",
+    "View own reports",
     PermissionCategory.REPORTING
   ),
   createPermission(
@@ -2114,8 +2114,8 @@ export const ALL_PERMISSIONS: Permission[] = [
     Resource.CONTRACT_PARTICIPANT,
     Action.DELETE,
     PermissionScope.GLOBAL,
-    "Retirer un participant",
-    "Retirer un utilisateur d’un contrat",
+    "Remove a participant",
+    "Remove a user from a contract",
     PermissionCategory.BUSINESS
   ),
   createPermission(
@@ -2164,7 +2164,7 @@ export const ALL_PERMISSIONS: Permission[] = [
     Action.LIST,
     PermissionScope.GLOBAL,
     "View email history",
-    "Consulter les logs d'envoi d'emails",
+    "View email sending logs",
     PermissionCategory.COMMUNICATION
   ),
   createPermission(
@@ -2352,7 +2352,7 @@ export const ALL_PERMISSIONS: Permission[] = [
 ];
 
 // ====================================================================
-// PERMISSION MAPS (Pour recherche rapide)
+// PERMISSION MAPS (For fast lookup)
 // ====================================================================
 
 /**
@@ -2377,7 +2377,7 @@ export const PERMISSIONS_BY_RESOURCE = ALL_PERMISSIONS.reduce((acc, perm) => {
  * Permission map by category
  */
 export const PERMISSIONS_BY_CATEGORY = ALL_PERMISSIONS.reduce((acc, perm) => {
-  const category = perm.category || "Autre";
+  const category = perm.category || "Other";
   if (!acc[category]) {
     acc[category] = [];
   }
@@ -2494,7 +2494,7 @@ export function filterResourcesByPermission<T extends { id: string; ownerId?: st
   resource: Resource,
   action: Action
 ): T[] {
-  // Si permission globale, retourner tout
+  // If global permission, return all
   if (hasPermission(user, resource, action, PermissionScope.GLOBAL)) {
     return resources;
   }

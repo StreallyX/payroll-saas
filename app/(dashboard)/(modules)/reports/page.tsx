@@ -66,7 +66,7 @@ export default function ReportPage() {
   // ===========================
   // FINANCIAL CHART DATA
   // ===========================
-  // Ton router renvoie :
+  // Your router returns:
   // {
   //   monthly: [ { month, revenue, invoices, paid, pending } ],
   //   statusBreakdown: [...],

@@ -60,7 +60,7 @@ export default function PayslipsPage() {
   const payslipQuery = canListAll
     ? api.payslip.getAll.useQuery()
     : canReadOwn
-    ? api.payslip.getAll.useQuery() // TRPC auto-scope → OWN seulement
+    ? api.payslip.getAll.useQuery() // TRPC auto-scope → OWN only
     : emptyQuery;
 
   const { data: payslips = [], isLoading, refetch } = payslipQuery;
@@ -249,7 +249,7 @@ export default function PayslipsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Rechercher..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -261,7 +261,7 @@ export default function PayslipsPage() {
       {/* List */}
       {filteredPayslips.length === 0 ? (
         <EmptyState
-          title="Aucun bulletin"
+          title="No payslips"
           description="Create a payslip to get started."
           actionLabel={canCreate ? "Create a payslip" : undefined}
           onAction={() => {

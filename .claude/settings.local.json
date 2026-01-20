@@ -4,7 +4,9 @@
       "Bash(ls:*)",
       "Bash(npx prisma generate:*)",
       "Bash(npx prisma db push:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(find:*)",
+      "Bash(done)"
     ]
   }
 }

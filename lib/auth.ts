@@ -115,7 +115,7 @@ export const authOptions: NextAuthOptions = {
         if (dbUser) {
           token.mustChangePassword = dbUser.mustChangePassword;
 
-          // 🔥 FIX CRUCIAL : reset le token si mustChangePassword = false
+          // 🔥 CRUCIAL FIX: reset token if mustChangePassword = false
           if (!dbUser.mustChangePassword) {
             token.passwordResetToken = null;
           }

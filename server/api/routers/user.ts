@@ -242,7 +242,7 @@ export const userRouter = createTRPCRouter({
         email: z.string().email(),
         password: z.string().min(6).optional(),
         roleId: z.string(),
-        // tu peux ajouter d’autres champs optionnels si besoin
+        // you can add other optional fields if needed
       })
     )
     .mutation(async ({ ctx, input }) => {

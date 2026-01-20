@@ -381,7 +381,7 @@ const jobs = rawJobs.filter((job): job is Job => job !== null);
 
     // Create a QueueEvents instance (required for waiting)
     const queueEvents = new QueueEvents(QueueNames.WEBHOOK, {
-      connection: queue.opts.connection, // <-- LA BONNE CONNECTION
+      connection: queue.opts.connection, // <-- THE CORRECT CONNECTION
     });
 
     await queueEvents.waitUntilReady();

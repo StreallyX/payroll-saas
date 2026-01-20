@@ -100,7 +100,7 @@ export async function canModifyContract(
   userPermissions: string[]
 ): Promise<boolean> {
   try {
-    // Permission globale permet tout
+    // Global permission allows everything
     if (userPermissions.includes("contract.update.global")) {
       return true;
     }
@@ -174,7 +174,7 @@ export async function canUploadDocument(
   userPermissions: string[]
 ): Promise<boolean> {
   try {
-    // Permission globale permet tout
+    // Global permission allows everything
     if (userPermissions.includes("contract.update.global")) {
       return true;
     }
@@ -217,7 +217,7 @@ export async function canUploadDocument(
  * (except for contract.update.global)
  * 
  * @param prisma - Instance Prisma Client
- * @param contractDocumentId - ID du ContractDocument
+ * @param contractDocumentId - ContractDocument ID
  * @param userId - User ID
  * @param userPermissions - User permissions (permission keys)
  * @returns true if user can delete, false otherwise
@@ -237,7 +237,7 @@ export async function canDeleteDocument(
   userPermissions: string[]
 ): Promise<boolean> {
   try {
-    // Permission globale permet tout
+    // Global permission allows everything
     if (userPermissions.includes("contract.update.global")) {
       return true;
     }
@@ -305,7 +305,7 @@ export async function canViewContract(
   userPermissions: string[]
 ): Promise<boolean> {
   try {
-    // Permission globale permet tout
+    // Global permission allows everything
     if (userPermissions.includes("contract.read.global")) {
       return true;
     }
