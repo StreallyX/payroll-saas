@@ -107,6 +107,11 @@ export enum Resource {
   // Feature Request System
   FEATURE_REQUEST = "feature_request",
   PLATFORM = "platform",
+
+  // Entity Type Pages (filtered user views)
+  AGENCY = "agency",
+  CONTRACTOR = "contractor",
+  PAYROLL_PARTNER = "payroll_partner",
 }
 
 
@@ -2324,6 +2329,25 @@ export const ALL_PERMISSIONS: Permission[] = [
     "Access Feature Requests",
     "Access feature requests page"
   ),
+
+  // Entity Type Pages (filtered user views)
+  createPermission(Resource.AGENCY, Action.ACCESS, PermissionScope.PAGE, "Access Agencies Page"),
+  createPermission(Resource.AGENCY, Action.LIST, PermissionScope.GLOBAL, "List all agencies", "View all agency users", PermissionCategory.BUSINESS),
+  createPermission(Resource.AGENCY, Action.CREATE, PermissionScope.GLOBAL, "Create agency users", "Create new agency users", PermissionCategory.BUSINESS),
+  createPermission(Resource.AGENCY, Action.UPDATE, PermissionScope.GLOBAL, "Edit agency users", "Update agency users", PermissionCategory.BUSINESS),
+  createPermission(Resource.AGENCY, Action.DELETE, PermissionScope.GLOBAL, "Delete agency users", "Delete agency users", PermissionCategory.BUSINESS),
+
+  createPermission(Resource.CONTRACTOR, Action.ACCESS, PermissionScope.PAGE, "Access Contractors Page"),
+  createPermission(Resource.CONTRACTOR, Action.LIST, PermissionScope.GLOBAL, "List all contractors", "View all contractor users", PermissionCategory.BUSINESS),
+  createPermission(Resource.CONTRACTOR, Action.CREATE, PermissionScope.GLOBAL, "Create contractor users", "Create new contractor users", PermissionCategory.BUSINESS),
+  createPermission(Resource.CONTRACTOR, Action.UPDATE, PermissionScope.GLOBAL, "Edit contractor users", "Update contractor users", PermissionCategory.BUSINESS),
+  createPermission(Resource.CONTRACTOR, Action.DELETE, PermissionScope.GLOBAL, "Delete contractor users", "Delete contractor users", PermissionCategory.BUSINESS),
+
+  createPermission(Resource.PAYROLL_PARTNER, Action.ACCESS, PermissionScope.PAGE, "Access Payroll Partners Page"),
+  createPermission(Resource.PAYROLL_PARTNER, Action.LIST, PermissionScope.GLOBAL, "List all payroll partners", "View all payroll partner users", PermissionCategory.BUSINESS),
+  createPermission(Resource.PAYROLL_PARTNER, Action.CREATE, PermissionScope.GLOBAL, "Create payroll partner users", "Create new payroll partner users", PermissionCategory.BUSINESS),
+  createPermission(Resource.PAYROLL_PARTNER, Action.UPDATE, PermissionScope.GLOBAL, "Edit payroll partner users", "Update payroll partner users", PermissionCategory.BUSINESS),
+  createPermission(Resource.PAYROLL_PARTNER, Action.DELETE, PermissionScope.GLOBAL, "Delete payroll partner users", "Delete payroll partner users", PermissionCategory.BUSINESS),
 
 ];
 

@@ -505,4 +505,79 @@ export const userRouter = createTRPCRouter({
       // TODO: generate impersonation token/establish session according to your provider
       return { success: true, targetUserId: target.id };
     }),
+
+  // ---------------------------------------------------------
+  // GET USERS BY ROLE TYPE
+  // Filter users by role name pattern (AGENCY, CONTRACTOR, PAYROLL)
+  // ---------------------------------------------------------
+  getByRoleType: tenantProcedure
+    .use(hasAnyPermission([PERMS.LIST_GLOBAL, PERMS.READ_OWN]))
+    .input(z.object({
+      roleType: z.enum(["AGENCY", "CONTRACTOR", "PAYROLL"]),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { prisma, session, tenantId } = ctx;
+      const userId = session.user.id;
+      const perms = session.user.permissions || [];
+      const hasGlobal = perms.includes(PERMS.LIST_GLOBAL);
+
+      // Map role type to role name patterns
+      const rolePatterns: Record<string, string[]> = {
+        AGENCY: ["AGENCY", "AGENCY_OWNER", "AGENCY_ADMIN", "AGENCY_MANAGER"],
+        CONTRACTOR: ["CONTRACTOR", "WORKER"],
+        PAYROLL: ["PAYROLL", "PAYROLL_PARTNER", "PAYROLL_ADMIN"],
+      };
+
+      const patterns = rolePatterns[input.roleType] || [input.roleType];
+
+      if (hasGlobal) {
+        return prisma.user.findMany({
+          where: {
+            tenantId,
+            role: {
+              name: { in: patterns }
+            }
+          },
+          include: {
+            role: true,
+            country: true,
+            createdByUser: { select: { id: true, name: true, email: true } }
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      // For OWN permission, filter by ownership
+      const subtree = await getSubtreeUserIds(prisma, userId);
+      const delegatedGrants = await prisma.delegatedAccess.findMany({
+        where: {
+          tenantId,
+          grantedToUserId: userId,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: new Date() } }
+          ]
+        },
+        select: { grantedForUserId: true }
+      });
+
+      const delegatedUserIds = delegatedGrants.map(g => g.grantedForUserId);
+      const accessibleIds = [userId, ...subtree, ...delegatedUserIds];
+
+      return prisma.user.findMany({
+        where: {
+          tenantId,
+          id: { in: accessibleIds },
+          role: {
+            name: { in: patterns }
+          }
+        },
+        include: {
+          role: true,
+          country: true,
+          createdByUser: { select: { id: true, name: true, email: true } }
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }),
 });

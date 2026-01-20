@@ -1,10 +1,11 @@
-import { 
-  LayoutDashboard, Users, Building2, UserCheck, DollarSign, 
-  Settings, FileText, Receipt, Clock, Upload, UserPlus, 
+import {
+  LayoutDashboard, Users, Building2, UserCheck, DollarSign,
+  Settings, FileText, Receipt, Clock, Upload, UserPlus,
   Briefcase, PieChart, CheckSquare, TrendingUp, ClipboardList,
   UserCog, FileType, ListChecks, Layers, Globe, BarChart3, Palette,
-  Landmark, Coins, Webhook, Mail, MessageSquare, Activity, 
-  CreditCard, Scale, FileSignature, UserCircle, MessageSquarePlus
+  Landmark, Coins, Webhook, Mail, MessageSquare, Activity,
+  CreditCard, Scale, FileSignature, UserCircle, MessageSquarePlus,
+  HardHat, Wallet,
 } from "lucide-react"
 
 import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions"
@@ -25,9 +26,31 @@ const P = (resource: Resource, action: Action, scope: PermissionScope) =>
 
 /**
  * MENU V3 ● Compatible avec permissions: "resource.action.scope"
+ *
+ * ORDER:
+ * 1. Dashboard
+ * 2. My Profile
+ * 3. My Tasks
+ * 4. Agency / Clients
+ * 5. Contracts
+ * 6. Contractors / Workers
+ * 7. On Boarding
+ * 8. Payroll Partners
+ * 9. Timesheets
+ * 10. Invoices
+ * 11. Payslips
+ * 12. Remits
+ * 13. Referrals
+ * 14. Leads
+ * 15. Reports
+ * 16. Feature Requests
+ * 17. Settings
  */
 export const dynamicMenuConfig: MenuItem[] = [
 
+  // ===========================
+  // SUPERADMIN SECTION (hidden for regular users)
+  // ===========================
   {
     label: "SuperadminDashboard",
     href: "/superadmin",
@@ -115,7 +138,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // DASHBOARD
+  // 1. DASHBOARD
   // ===========================
   {
     label: "Dashboard",
@@ -128,7 +151,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // PROFILE
+  // 2. MY PROFILE
   // ===========================
   {
     label: "My Profile",
@@ -141,7 +164,32 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // CONTRACTS
+  // 3. MY TASKS
+  // ===========================
+  {
+    label: "My Tasks",
+    href: "/tasks",
+    icon: CheckSquare,
+    permissions: [
+      P(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // 4. AGENCY / CLIENTS
+  // ===========================
+  {
+    label: "Agency / Clients",
+    href: "/agencies",
+    icon: Building2,
+    description: "Manage agencies and clients",
+    permissions: [
+      P(Resource.AGENCY, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // 5. CONTRACTS
   // ===========================
   {
     label: "Contracts",
@@ -153,97 +201,20 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // TIMESHEETS
+  // 6. CONTRACTORS / WORKERS
   // ===========================
   {
-    label: "Timesheets",
-    href: "/timesheets",
-    icon: Clock,
+    label: "Contractors / Workers",
+    href: "/contractors",
+    icon: HardHat,
+    description: "Manage contractors and workers",
     permissions: [
-      P(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
+      P(Resource.CONTRACTOR, Action.ACCESS, PermissionScope.PAGE),
     ],
   },
 
   // ===========================
-  // INVOICES
-  // ===========================
-  {
-    label: "Invoices",
-    href: "/invoices",
-    icon: Receipt,
-    permissions: [
-      P(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
-    ],
-  },
-
-  
-
-  // ===========================
-  // EXPENSES
-  // ===========================
-  /*{
-    label: "Expenses",
-    href: "/expenses",
-    icon: Upload,
-    permissions: [
-      P(Resource.EXPENSE, Action.READ, PermissionScope.OWN),
-      P(Resource.EXPENSE, Action.LIST, PermissionScope.GLOBAL),
-    ],
-  },*/
-  {
-    label: "Payslips",
-    href: "/payments/payslips",
-    icon: FileText,
-    permissions: [
-      P(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
-    ]
-  },
-  {
-    label: "Remits",
-    href: "/payments/remits",
-    icon: DollarSign,
-    permissions: [
-      P(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
-    ]
-  },
-
-  // ===========================
-  // PAYMENTS
-  // ===========================
-  /*{
-    label: "Payments",
-    href: "/payments",
-    icon: DollarSign,
-    permissions: [
-      P(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
-      P(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
-      P(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
-      P(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL),
-    ],
-    submenu: [
-      {
-        label: "Payslips",
-        href: "/payments/payslips",
-        icon: FileText,
-        permissions: [
-          P(Resource.PAYSLIP, Action.READ, PermissionScope.OWN),
-          P(Resource.PAYSLIP, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      },
-      {
-        label: "Remits",
-        href: "/payments/remits",
-        icon: DollarSign,
-        permissions: [
-          P(Resource.REMITTANCE, Action.READ, PermissionScope.OWN),
-          P(Resource.REMITTANCE, Action.LIST, PermissionScope.GLOBAL),
-        ]
-      }
-    ]
-  },*/
-
-  // ===========================
-  // ONBOARDING
+  // 7. ONBOARDING
   // ===========================
   {
     label: "Onboarding",
@@ -286,7 +257,68 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // REFERRALS
+  // 8. PAYROLL PARTNERS
+  // ===========================
+  {
+    label: "Payroll Partners",
+    href: "/payroll-partners",
+    icon: Wallet,
+    description: "Manage payroll partners",
+    permissions: [
+      P(Resource.PAYROLL_PARTNER, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // 9. TIMESHEETS
+  // ===========================
+  {
+    label: "Timesheets",
+    href: "/timesheets",
+    icon: Clock,
+    permissions: [
+      P(Resource.TIMESHEET, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // 10. INVOICES
+  // ===========================
+  {
+    label: "Invoices",
+    href: "/invoices",
+    icon: Receipt,
+    permissions: [
+      P(Resource.INVOICE, Action.ACCESS, PermissionScope.PAGE),
+    ],
+  },
+
+  // ===========================
+  // 11. PAYSLIPS
+  // ===========================
+  {
+    label: "Payslips",
+    href: "/payments/payslips",
+    icon: FileText,
+    permissions: [
+      P(Resource.PAYSLIP, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // 12. REMITS
+  // ===========================
+  {
+    label: "Remits",
+    href: "/payments/remits",
+    icon: DollarSign,
+    permissions: [
+      P(Resource.REMITTANCE, Action.ACCESS, PermissionScope.PAGE),
+    ]
+  },
+
+  // ===========================
+  // 13. REFERRALS
   // ===========================
   {
     label: "Referrals",
@@ -298,19 +330,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // TASKS
-  // ===========================
-  {
-    label: "My Tasks",
-    href: "/tasks",
-    icon: CheckSquare,
-    permissions: [
-      P(Resource.TASK, Action.ACCESS, PermissionScope.PAGE),
-    ]
-  },
-
-  // ===========================
-  // LEADS
+  // 14. LEADS
   // ===========================
   {
     label: "Leads",
@@ -322,7 +342,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // REPORTS
+  // 15. REPORTS
   // ===========================
   {
     label: "Reports",
@@ -379,7 +399,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // FEATURE REQUESTS
+  // 16. FEATURE REQUESTS
   // ===========================
   {
     label: "Feature Requests",
@@ -418,7 +438,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // SETTINGS (HUGE SECTION)
+  // 17. SETTINGS
   // ===========================
   {
     label: "Settings",
@@ -521,6 +541,7 @@ export const dynamicMenuConfig: MenuItem[] = [
   }
 
 ]
+
 /**
  * Filter menu by permissions (RBAC-only)
  */
