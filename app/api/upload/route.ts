@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
         "image/jpg",
         "image/png",
         "image/gif",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ],
       contracts: [
         "application/pdf",

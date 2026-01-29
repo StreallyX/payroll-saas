@@ -636,6 +636,79 @@ This email was sent by {{ companyName }}.`,
       `,
       text: 'Your payslip for {{ period }} is available. View: {{ payslipUrl }}',
     });
+
+    // Account invitation (setup link instead of password)
+    this.registerTemplate({
+      name: 'account-invitation',
+      subject: 'You have been invited to join {{ companyName }}',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #3b82f6; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+            .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
+            .info-box { background-color: #ffffff; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6; border-radius: 4px; }
+            .button { display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+            .note { background-color: #dbeafe; padding: 15px; margin: 20px 0; border-radius: 4px; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Welcome to {{ companyName }}!</h1>
+            </div>
+            <div class="content">
+              <p>Hello {{ userName }},</p>
+              <p>You have been invited to join <strong>{{ companyName }}</strong> platform.</p>
+
+              <div class="info-box">
+                <h3 style="margin-top: 0;">Your Account Details</h3>
+                <p><strong>Email:</strong> {{ userEmail }}</p>
+                <p><strong>Role:</strong> Portal User</p>
+              </div>
+
+              <div style="text-align: center;">
+                <a href="{{ setupUrl }}" class="button">Set Up Your Password</a>
+              </div>
+
+              <div class="note">
+                <strong>Note:</strong> This link will expire in 7 days. If you need a new link, please contact your administrator.
+              </div>
+
+              <p style="margin-top: 30px;">Once you set up your password, you can log in at:</p>
+              <p><a href="{{ loginUrl }}">{{ loginUrl }}</a></p>
+            </div>
+            <div class="footer">
+              <p>This email was sent by {{ companyName }}.<br>
+              Please do not reply to this email.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Welcome to {{ companyName }}!
+
+Hello {{ userName }},
+
+You have been invited to join {{ companyName }} platform.
+
+Your Account Details:
+Email: {{ userEmail }}
+
+Please click the link below to set up your password:
+{{ setupUrl }}
+
+This link will expire in 7 days.
+
+Once you set up your password, you can log in at:
+{{ loginUrl }}
+
+This email was sent by {{ companyName }}.`,
+    });
   }
 }
 
