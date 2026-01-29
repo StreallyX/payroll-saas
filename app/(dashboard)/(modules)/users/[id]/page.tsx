@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   User,
   Mail,
@@ -24,33 +25,39 @@ import {
   Phone,
   MapPin,
   AlertCircle,
+  Edit,
+  Send,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { EditProfileModal } from "@/components/modals/edit-profile-modal";
+import { toast } from "sonner";
 
 export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
   const [impersonating, setImpersonating] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const { data: user, isLoading, error } = api.user.getDetails.useQuery({ id: userId });
+  const { data: user, isLoading, error, refetch } = api.user.getDetails.useQuery({ id: userId });
   const impersonateMutation = api.user.impersonate.useMutation();
+  const resendInvitationMutation = api.user.resendInvitation.useMutation({
+    onSuccess: () => {
+      toast.success("Invitation email sent successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to send invitation");
+    },
+  });
 
   const handleImpersonate = async () => {
     try {
       setImpersonating(true);
       const result = await impersonateMutation.mutateAsync({ targetUserId: userId });
-      
+
       if (result.success) {
-        // Log out current user and log in as target user
-        // This would require custom NextAuth implementation
         alert("Impersonation feature requires custom NextAuth session handling. For now, this logs the action.");
-        // In a real implementation, you would:
-        // 1. End current session
-        // 2. Create new session as target user
-        // 3. Store original user ID for "exit impersonation"
       }
     } catch (error) {
       console.error("Impersonation failed:", error);
@@ -60,12 +67,43 @@ export default function UserDetailPage() {
     }
   };
 
+  // Loading skeleton
   if (isLoading) {
     return (
       <RouteGuard permission="user.list.global">
-        <PageHeader title="User Profile" description="Loading..." />
-        <div className="flex items-center justify-center py-20">
-          <div className="text-muted-foreground">Loading user details...</div>
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-9 w-32" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-5 w-32" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-5 w-48" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </RouteGuard>
     );
@@ -94,15 +132,30 @@ export default function UserDetailPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/users")}
+              onClick={() => router.back()}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Users
+              Back
             </Button>
           </div>
           <div className="flex gap-2">
             {user.canViewFullDetails && (
               <>
+                <Button
+                  variant="outline"
+                  onClick={() => resendInvitationMutation.mutate({ userId })}
+                  disabled={resendInvitationMutation.isPending}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {resendInvitationMutation.isPending ? "Sending..." : "Resend Invitation"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => router.push(`/users/${userId}/delegated-access`)}
@@ -116,7 +169,7 @@ export default function UserDetailPage() {
                   disabled={impersonating}
                 >
                   <UserCog className="h-4 w-4 mr-2" />
-                  {impersonating ? "Impersonating..." : "Impersonate User"}
+                  {impersonating ? "Impersonating..." : "Impersonate"}
                 </Button>
               </>
             )}
@@ -329,6 +382,18 @@ export default function UserDetailPage() {
           </Alert>
         )}
       </div>
+
+      {/* Edit Profile Modal */}
+      {user.canViewFullDetails && (
+        <EditProfileModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          user={user}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
     </RouteGuard>
   );
 }
