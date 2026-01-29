@@ -161,6 +161,7 @@ export const userRouter = createTRPCRouter({
           role: true,
           country: true,
           createdByUser: { select: { id: true, name: true, email: true } },
+          banks: true,
           onboardingTemplate: {
             include: {
               questions: {
@@ -203,30 +204,12 @@ export const userRouter = createTRPCRouter({
         }
       }
 
-      // Return data based on permissions
-      const basicInfo = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        onboardingProgress,
-      };
-
-      // If user has global permissions, return all details
-      if (hasGlobal) {
-        return {
-          ...user,
-          onboardingProgress,
-          canViewFullDetails: true,
-        };
-      }
-
-      // Return basic info for non-global users
+      // Always return full user data with permission flag
+      // This ensures consistent TypeScript types
       return {
-        ...basicInfo,
-        canViewFullDetails: false,
+        ...user,
+        onboardingProgress,
+        canViewFullDetails: hasGlobal,
       };
     }),
 
@@ -240,14 +223,19 @@ export const userRouter = createTRPCRouter({
       z.object({
         name: z.string().min(2),
         email: z.string().email(),
+        phone: z.string().optional(),
         password: z.string().min(6).optional(),
         roleId: z.string(),
-        // you can add other optional fields if needed
+        isContact: z.boolean().default(false), // Contact only = no portal access
+        sendInvitation: z.boolean().default(true), // Send invitation email
       })
     )
     .mutation(async ({ ctx, input }) => {
       const passwordToUse = input.password || generateRandomPassword(12);
       const passwordHash = await bcrypt.hash(passwordToUse, 10);
+
+      // If creating a contact, they should be inactive (no portal access)
+      const isActive = !input.isContact;
 
       const newUser = await ctx.prisma.user.create({
         data: {
@@ -255,8 +243,10 @@ export const userRouter = createTRPCRouter({
           roleId: input.roleId,
           name: input.name,
           email: input.email,
+          phone: input.phone,
           passwordHash,
-          mustChangePassword: true,
+          isActive,
+          mustChangePassword: !input.isContact, // Contacts don't need to change password
           createdBy: ctx.session.user.id, // 🔥 ownership
         },
       });
@@ -288,58 +278,60 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      // 🔥 NEW: Send account creation email with credentials
-      try {
-        const tenant = await ctx.prisma.tenant.findUnique({
-          where: { id: ctx.tenantId! },
-          select: { name: true },
-        });
+      // 🔥 Send account creation email - only if sendInvitation is true and not a contact
+      if (input.sendInvitation && !input.isContact) {
+        try {
+          const tenant = await ctx.prisma.tenant.findUnique({
+            where: { id: ctx.tenantId! },
+            select: { name: true },
+          });
 
-        // Send email with password
-        await emailService.sendWithTemplate(
-          'account-created',
-          {
-            userName: input.name,
-            userEmail: input.email,
-            password: passwordToUse, // Send plain text password
-            companyName: tenant?.name || 'Your Company',
-            loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
-          },
-          {
-            to: input.email,
-          },
-          'high' // High priority for account creation emails
-        );
+          // Send email with password
+          await emailService.sendWithTemplate(
+            'account-created',
+            {
+              userName: input.name,
+              userEmail: input.email,
+              password: passwordToUse, // Send plain text password
+              companyName: tenant?.name || 'Your Company',
+              loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
+            },
+            {
+              to: input.email,
+            },
+            'high' // High priority for account creation emails
+          );
 
-        // Log email
-        await ctx.prisma.emailLog.create({
-          data: {
-            tenantId: ctx.tenantId,
-            to: input.email,
-            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
-            subject: 'Your Account Has Been Created',
-            template: 'account-created',
-            status: 'SENT',
-            sentAt: new Date(),
-          },
-        });
-      } catch (emailError) {
-        console.error('Failed to send account creation email:', emailError);
-        // Log failed email
-        await ctx.prisma.emailLog.create({
-          data: {
-            tenantId: ctx.tenantId,
-            to: input.email,
-            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
-            subject: 'Your Account Has Been Created',
-            template: 'account-created',
-            status: 'FAILED',
-            error: emailError instanceof Error ? emailError.message : 'Unknown error',
-          },
-        });
+          // Log email
+          await ctx.prisma.emailLog.create({
+            data: {
+              tenantId: ctx.tenantId,
+              to: input.email,
+              from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+              subject: 'Your Account Has Been Created',
+              template: 'account-created',
+              status: 'SENT',
+              sentAt: new Date(),
+            },
+          });
+        } catch (emailError) {
+          console.error('Failed to send account creation email:', emailError);
+          // Log failed email
+          await ctx.prisma.emailLog.create({
+            data: {
+              tenantId: ctx.tenantId,
+              to: input.email,
+              from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+              subject: 'Your Account Has Been Created',
+              template: 'account-created',
+              status: 'FAILED',
+              error: emailError instanceof Error ? emailError.message : 'Unknown error',
+            },
+          });
+        }
       }
 
-      return { success: true, id: newUser.id };
+      return { success: true, id: newUser.id, isContact: input.isContact };
     }),
 
   // ---------------------------------------------------------
@@ -356,6 +348,16 @@ export const userRouter = createTRPCRouter({
         email: z.string().email(),
         roleId: z.string(),
         isActive: z.boolean(),
+        // Extended profile fields
+        phone: z.string().optional(),
+        dateOfBirth: z.string().optional(),
+        countryId: z.string().optional(),
+        city: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        postCode: z.string().optional(),
+        companyName: z.string().optional(),
+        vatNumber: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -386,6 +388,15 @@ export const userRouter = createTRPCRouter({
           email: input.email,
           roleId: input.roleId,
           isActive: input.isActive,
+          phone: input.phone,
+          dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
+          countryId: input.countryId || undefined,
+          city: input.city,
+          address1: input.address1,
+          address2: input.address2,
+          postCode: input.postCode,
+          companyName: input.companyName,
+          vatNumber: input.vatNumber,
         },
       });
 
@@ -471,6 +482,86 @@ export const userRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  // ---------------------------------------------------------
+  // RESEND INVITATION
+  // - Creates new password reset token and sends invitation email
+  // ---------------------------------------------------------
+  resendInvitation: tenantProcedure
+    .use(hasPermission(PERMS.UPDATE_GLOBAL))
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId!
+
+      const targetUser = await ctx.prisma.user.findFirst({
+        where: { id: input.userId, tenantId },
+      })
+
+      if (!targetUser) throw new Error("User not found.")
+
+      // Delete any existing tokens
+      await ctx.prisma.passwordResetToken.deleteMany({
+        where: { userId: targetUser.id },
+      })
+
+      // Create new token
+      const token = crypto.randomBytes(48).toString("hex")
+      await ctx.prisma.passwordResetToken.create({
+        data: {
+          userId: targetUser.id,
+          token,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      })
+
+      const tenant = await ctx.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      })
+
+      const setupUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/set-password?token=${token}`
+
+      await emailService.sendWithTemplate(
+        'account-invitation',
+        {
+          userName: targetUser.name || 'User',
+          userEmail: targetUser.email,
+          companyName: tenant?.name || 'Your Company',
+          setupUrl,
+          loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
+        },
+        { to: targetUser.email },
+        'high'
+      )
+
+      await ctx.prisma.emailLog.create({
+        data: {
+          tenantId,
+          to: targetUser.email,
+          from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+          subject: 'Invitation Resent - Set Up Your Account',
+          template: 'account-invitation',
+          status: 'SENT',
+          sentAt: new Date(),
+        },
+      })
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          tenantId,
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name ?? "Unknown",
+          userRole: ctx.session.user.roleName,
+          action: "INVITATION_RESENT",
+          entityType: "user",
+          entityId: targetUser.id,
+          entityName: targetUser.name,
+          description: `Resent invitation to ${targetUser.name} (${targetUser.email})`,
+        },
+      })
+
+      return { success: true }
     }),
 
   // ---------------------------------------------------------

@@ -1,5 +1,7 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
+import bcrypt from "bcryptjs"
+import crypto from "crypto"
 
 import {
   createTRPCRouter,
@@ -10,6 +12,11 @@ import {
 
 import { createAuditLog } from "@/lib/audit"
 import { AuditAction, AuditEntityType } from "@/lib/types"
+import { emailService } from "@/lib/email/emailService"
+
+function generateRandomPassword(length: number = 16): string {
+  return crypto.randomBytes(length).toString("base64").slice(0, length)
+}
 
 const P = {
   LIST_GLOBAL: "company.list.global",
@@ -126,6 +133,30 @@ export const companyRouter = createTRPCRouter({
 
 
   // ============================================================
+  // GET COMPANIES BY OWNER (for contractor company management)
+  // ============================================================
+  getByOwner: tenantProcedure
+    .use(hasAnyPermission([P.LIST_GLOBAL, P.LIST_OWN]))
+    .input(z.object({ ownerId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId!
+
+      return ctx.prisma.company.findMany({
+        where: {
+          tenantId,
+          ownerId: input.ownerId,
+          ownerType: "user",
+        },
+        include: {
+          country: true,
+          bank: true,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    }),
+
+
+  // ============================================================
   // CREATE COMPANY (GLOBAL or OWN)
   // ============================================================
   create: tenantProcedure
@@ -135,6 +166,7 @@ export const companyRouter = createTRPCRouter({
         name: z.string().min(1),
         bankId: z.string().nullable().optional(),
         ownerType: z.enum(["tenant", "user"]).default("user"),
+        ownerId: z.string().optional(), // Allow specifying owner (for admin creating company for contractor)
 
         contactPerson: z.string().optional(),
         contactEmail: z.string().email().optional().or(z.literal("")),
@@ -171,12 +203,14 @@ export const companyRouter = createTRPCRouter({
 
       const canCreateGlobal = user.permissions.includes(P.CREATE_GLOBAL)
 
-      // Only users with global permission can create tenant companies
-      // Otherwise, force ownerType to "user"
+      // Only users with global permission can create tenant companies or set custom ownerId
+      // Otherwise, force ownerType to "user" and ownerId to current user
       const finalOwnerType = canCreateGlobal ? input.ownerType : "user"
-      const finalOwnerId = finalOwnerType === "tenant" ? null : user.id
+      const finalOwnerId = finalOwnerType === "tenant"
+        ? null
+        : (canCreateGlobal && input.ownerId) ? input.ownerId : user.id
 
-      const { ownerType: _, ...restInput } = input
+      const { ownerType: _, ownerId: __, ...restInput } = input
 
       const company = await ctx.prisma.company.create({
         data: {
@@ -188,14 +222,16 @@ export const companyRouter = createTRPCRouter({
         },
       })
 
-      // ALWAYS register creator as CompanyUser
-      await ctx.prisma.companyUser.create({
-        data: {
-          userId: user.id,
-          companyId: company.id,
-          role: "owner",
-        },
-      })
+      // Register owner as CompanyUser (the actual owner, not necessarily the creator)
+      if (finalOwnerId) {
+        await ctx.prisma.companyUser.create({
+          data: {
+            userId: finalOwnerId,
+            companyId: company.id,
+            role: "owner",
+          },
+        })
+      }
 
       await createAuditLog({
         userId: user.id,
@@ -343,6 +379,254 @@ export const companyRouter = createTRPCRouter({
         action: AuditAction.DELETE,
         entityType: AuditEntityType.COMPANY,
         tenantId,
+      })
+
+      return { success: true }
+    }),
+
+  // ============================================================
+  // ADD CONTACT/USER TO COMPANY
+  // ============================================================
+  addContact: tenantProcedure
+    .use(hasAnyPermission([P.UPDATE_GLOBAL, P.UPDATE_OWN]))
+    .input(
+      z.object({
+        companyId: z.string(),
+        name: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        role: z.enum(["contact", "billing_contact", "member", "admin"]).default("contact"),
+        hasPortalAccess: z.boolean().default(false),
+        // Note: Portal role is ALWAYS "agency" for agency company users - no choice
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+
+      // Verify company exists and user has access
+      const company = await ctx.prisma.company.findFirst({
+        where: { id: input.companyId, tenantId },
+      })
+
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" })
+
+      const canUpdateGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
+      if (!canUpdateGlobal) {
+        const membership = await ctx.prisma.companyUser.findFirst({
+          where: { companyId: input.companyId, userId: user.id },
+        })
+        if (!membership) throw new TRPCError({ code: "UNAUTHORIZED" })
+      }
+
+      // Check if user with this email already exists
+      let contactUser = await ctx.prisma.user.findFirst({
+        where: { email: input.email, tenantId },
+      })
+
+      if (!contactUser) {
+        // Find the best role for agency users
+        // Priority: AGENCY > agency > Agency > any role with "agency" in name > any non-admin role
+        let userRole = await ctx.prisma.role.findFirst({
+          where: { tenantId, name: { in: ["AGENCY", "agency", "Agency"] } },
+        })
+
+        if (!userRole) {
+          // Try to find any role with "agency" in the name (case insensitive)
+          userRole = await ctx.prisma.role.findFirst({
+            where: {
+              tenantId,
+              OR: [
+                { name: { contains: "agency", mode: "insensitive" } },
+                { displayName: { contains: "agency", mode: "insensitive" } },
+              ]
+            },
+          })
+        }
+
+        if (!userRole) {
+          // Fallback: any role that's not admin/superadmin
+          userRole = await ctx.prisma.role.findFirst({
+            where: {
+              tenantId,
+              name: { notIn: ["admin", "Admin", "ADMIN", "superadmin", "Superadmin", "SUPERADMIN", "Super Admin"] }
+            },
+          })
+        }
+
+        if (!userRole) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No suitable role found for agency users. Please create a role first."
+          })
+        }
+
+        // Generate a random password (user can reset it later if needed)
+        const tempPassword = generateRandomPassword(16)
+        const passwordHash = await bcrypt.hash(tempPassword, 10)
+
+        contactUser = await ctx.prisma.user.create({
+          data: {
+            name: input.name,
+            email: input.email,
+            phone: input.phone,
+            tenantId,
+            roleId: userRole.id,
+            passwordHash,
+            isActive: input.hasPortalAccess, // Only active if they have portal access
+            mustChangePassword: true,
+          },
+        })
+      }
+
+      // Check if already linked to company
+      const existingLink = await ctx.prisma.companyUser.findFirst({
+        where: { companyId: input.companyId, userId: contactUser.id },
+      })
+
+      if (existingLink) {
+        throw new TRPCError({ code: "CONFLICT", message: "This person is already linked to this company" })
+      }
+
+      // Create the company-user link
+      await ctx.prisma.companyUser.create({
+        data: {
+          companyId: input.companyId,
+          userId: contactUser.id,
+          role: input.role,
+        },
+      })
+
+      // Send invitation email if user has portal access
+      if (input.hasPortalAccess) {
+        try {
+          // Create password reset token for account setup
+          const token = crypto.randomBytes(48).toString("hex")
+          await ctx.prisma.passwordResetToken.create({
+            data: {
+              userId: contactUser.id,
+              token,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            },
+          })
+
+          const tenant = await ctx.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { name: true },
+          })
+
+          const setupUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/set-password?token=${token}`
+
+          await emailService.sendWithTemplate(
+            'account-invitation',
+            {
+              userName: input.name,
+              userEmail: input.email,
+              companyName: tenant?.name || 'Your Company',
+              setupUrl,
+              loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
+            },
+            { to: input.email },
+            'high'
+          )
+
+          await ctx.prisma.emailLog.create({
+            data: {
+              tenantId,
+              to: input.email,
+              from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+              subject: 'You have been invited to join the platform',
+              template: 'account-invitation',
+              status: 'SENT',
+              sentAt: new Date(),
+            },
+          })
+        } catch (emailError) {
+          console.error('Failed to send invitation email:', emailError)
+          // Don't fail the whole operation if email fails
+        }
+      }
+
+      return { success: true, userId: contactUser.id }
+    }),
+
+  // ============================================================
+  // REMOVE CONTACT/USER FROM COMPANY
+  // ============================================================
+  removeContact: tenantProcedure
+    .use(hasAnyPermission([P.UPDATE_GLOBAL, P.UPDATE_OWN]))
+    .input(
+      z.object({
+        companyId: z.string(),
+        userId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+
+      // Verify company exists and user has access
+      const company = await ctx.prisma.company.findFirst({
+        where: { id: input.companyId, tenantId },
+      })
+
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" })
+
+      const canUpdateGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
+      if (!canUpdateGlobal) {
+        const membership = await ctx.prisma.companyUser.findFirst({
+          where: { companyId: input.companyId, userId: user.id },
+        })
+        if (!membership) throw new TRPCError({ code: "UNAUTHORIZED" })
+      }
+
+      // Delete the company-user link
+      await ctx.prisma.companyUser.deleteMany({
+        where: {
+          companyId: input.companyId,
+          userId: input.userId,
+        },
+      })
+
+      return { success: true }
+    }),
+
+  // ============================================================
+  // UPDATE CONTACT ROLE
+  // ============================================================
+  updateContactRole: tenantProcedure
+    .use(hasAnyPermission([P.UPDATE_GLOBAL, P.UPDATE_OWN]))
+    .input(
+      z.object({
+        companyId: z.string(),
+        userId: z.string(),
+        role: z.enum(["contact", "billing_contact", "member", "admin", "owner"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+
+      const company = await ctx.prisma.company.findFirst({
+        where: { id: input.companyId, tenantId },
+      })
+
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" })
+
+      const canUpdateGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
+      if (!canUpdateGlobal) {
+        const membership = await ctx.prisma.companyUser.findFirst({
+          where: { companyId: input.companyId, userId: user.id },
+        })
+        if (!membership) throw new TRPCError({ code: "UNAUTHORIZED" })
+      }
+
+      await ctx.prisma.companyUser.updateMany({
+        where: {
+          companyId: input.companyId,
+          userId: input.userId,
+        },
+        data: { role: input.role },
       })
 
       return { success: true }
