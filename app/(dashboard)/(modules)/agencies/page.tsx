@@ -20,13 +20,13 @@ import {
   Search,
   Edit,
   Trash2,
-  Filter,
   MoreHorizontal,
-  UserCheck,
-  UserX,
-  UserCircle,
   Eye,
   Building2,
+  Mail,
+  Phone,
+  Globe,
+  Users,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
@@ -36,45 +36,46 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { UserModal } from "@/components/modals/user-modal"
+import { CompanyModal } from "@/components/modals/company-modal"
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
 import { toast } from "sonner"
 
 export default function AgenciesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<any>(null)
-  const [userToDelete, setUserToDelete] = useState<any>(null)
+  const [selectedCompany, setSelectedCompany] = useState<any>(null)
+  const [companyToDelete, setCompanyToDelete] = useState<any>(null)
   const router = useRouter()
 
-  // Fetch agency users
-  const { data: users = [], isLoading } = api.user.getByRoleType.useQuery({
-    roleType: "AGENCY"
-  })
+  // Fetch companies that are NOT platform entities (i.e., client companies / agencies)
+  const { data: allCompanies = [], isLoading } = api.company.getAll.useQuery()
   const utils = api.useUtils()
 
-  const deleteMutation = api.user.delete.useMutation({
+  // Filter to show only client/agency companies (ownerType !== "tenant")
+  const companies = allCompanies.filter((c: any) => c.ownerType !== "tenant")
+
+  const deleteMutation = api.company.delete.useMutation({
     onSuccess: () => {
-      toast.success("Agency user deleted successfully.")
-      utils.user.getByRoleType.invalidate()
-      setUserToDelete(null)
+      toast.success("Agency/Client deleted successfully.")
+      utils.company.getAll.invalidate()
+      setCompanyToDelete(null)
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to delete agency user.")
+      toast.error(error?.message || "Failed to delete agency/client.")
     }
   })
 
-  const handleEdit = (user: any) => {
-    setSelectedUser(user)
+  const handleEdit = (company: any) => {
+    setSelectedCompany(company)
     setIsModalOpen(true)
   }
 
-  const handleDelete = (user: any) => {
-    setUserToDelete(user)
+  const handleDelete = (company: any) => {
+    setCompanyToDelete(company)
   }
 
-  const handleAddUser = () => {
-    setSelectedUser(null)
+  const handleAddCompany = () => {
+    setSelectedCompany(null)
     setIsModalOpen(true)
   }
 
@@ -82,112 +83,140 @@ export default function AgenciesPage() {
     return <LoadingPage />
   }
 
-  const filteredUsers = users?.filter(user =>
-    (user?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user?.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user?.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user?.country?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCompanies = companies?.filter((company: any) =>
+    (company?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (company?.contactPerson || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (company?.contactEmail || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (company?.country?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Agencies / Clients"
-        description="Manage agency users and client relationships."
+        title="Agency / Clients"
+        description="Manage your agency and client companies with their contacts."
       >
         <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
-              placeholder="Search agencies..."
+              placeholder="Search agencies/clients..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-64"
             />
           </div>
 
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-
-          <Button size="sm" onClick={handleAddUser}>
+          <Button size="sm" onClick={handleAddCompany}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Agency
+            Add Agency / Client
           </Button>
         </div>
       </PageHeader>
 
-      {/* Agencies Table */}
+      {/* Companies Table */}
       <div className="bg-white rounded-lg border border-gray-200">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Company</TableHead>
+              <TableHead>Company Name</TableHead>
+              <TableHead>Contact Person</TableHead>
+              <TableHead>Contact Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead>Country</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
-            {filteredUsers?.length === 0 ? (
+            {filteredCompanies?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="text-gray-500">
-                    {searchTerm ? "No agencies match your search." : "No agencies found."}
-                  </div>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <Building2 className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No agencies/clients</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {searchTerm ? "No results match your search." : "Get started by adding your first agency or client."}
+                  </p>
+                  {!searchTerm && (
+                    <div className="mt-6">
+                      <Button onClick={handleAddCompany}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Agency / Client
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers?.map((user) => (
-                <TableRow key={user?.id} className="hover:bg-gray-50">
-                  {/* Name */}
+              filteredCompanies?.map((company: any) => (
+                <TableRow key={company?.id} className="hover:bg-gray-50">
+                  {/* Company Name */}
                   <TableCell className="font-medium">
                     <div className="flex items-center space-x-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-700 font-medium">
-                        <Building2 className="h-4 w-4" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                        <Building2 className="h-5 w-5" />
                       </div>
-                      <span>{user?.name || "Unnamed Agency"}</span>
+                      <div>
+                        <div className="font-medium">{company?.name || "Unnamed Company"}</div>
+                        {company?.website && (
+                          <div className="text-xs text-gray-500 flex items-center gap-1">
+                            <Globe className="h-3 w-3" />
+                            {company.website}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
 
-                  {/* Email */}
-                  <TableCell>{user?.email}</TableCell>
-
-                  {/* Company */}
+                  {/* Contact Person */}
                   <TableCell>
-                    {user?.companyName || <span className="text-gray-400">-</span>}
+                    {company?.contactPerson ? (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-gray-400" />
+                        {company.contactPerson}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">No contact</span>
+                    )}
+                  </TableCell>
+
+                  {/* Contact Email */}
+                  <TableCell>
+                    {company?.contactEmail ? (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                        <a href={`mailto:${company.contactEmail}`} className="text-blue-600 hover:underline">
+                          {company.contactEmail}
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </TableCell>
+
+                  {/* Phone */}
+                  <TableCell>
+                    {company?.contactPhone ? (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        {company.contactPhone}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </TableCell>
 
                   {/* Country */}
                   <TableCell>
-                    {user?.country?.name || <span className="text-gray-400">-</span>}
+                    {company?.country?.name || <span className="text-gray-400">-</span>}
                   </TableCell>
 
                   {/* Status */}
                   <TableCell>
-                    <Badge variant={user?.isActive ? "default" : "secondary"}>
-                      {user?.isActive ? (
-                        <>
-                          <UserCheck className="h-3 w-3 mr-1" />
-                          Active
-                        </>
-                      ) : (
-                        <>
-                          <UserX className="h-3 w-3 mr-1" />
-                          Inactive
-                        </>
-                      )}
+                    <Badge variant={company?.status === "active" ? "default" : "secondary"}>
+                      {company?.status || "active"}
                     </Badge>
-                  </TableCell>
-
-                  {/* Created date */}
-                  <TableCell className="text-gray-500">
-                    {new Date(user?.createdAt || "").toLocaleDateString()}
                   </TableCell>
 
                   {/* Actions */}
@@ -200,24 +229,24 @@ export default function AgenciesPage() {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/users/${user.id}`)}>
+                        <DropdownMenuItem onClick={() => router.push(`/agencies/${company.id}`)}>
                           <Eye className="h-4 w-4 mr-2" />
                           View Details
                         </DropdownMenuItem>
 
-                        <DropdownMenuItem onClick={() => handleEdit(user)}>
+                        <DropdownMenuItem onClick={() => handleEdit(company)}>
                           <Edit className="h-4 w-4 mr-2" />
-                          Edit Agency
+                          Edit Company
                         </DropdownMenuItem>
 
                         <DropdownMenuSeparator />
 
                         <DropdownMenuItem
                           className="text-red-600"
-                          onClick={() => handleDelete(user)}
+                          onClick={() => handleDelete(company)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Agency
+                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -229,27 +258,27 @@ export default function AgenciesPage() {
         </Table>
       </div>
 
-      {/* User Modal */}
-      <UserModal
+      {/* Company Modal */}
+      <CompanyModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        user={selectedUser}
+        company={selectedCompany}
         onSuccess={() => {
           setIsModalOpen(false)
-          setSelectedUser(null)
-          utils.user.getByRoleType.invalidate()
+          setSelectedCompany(null)
+          utils.company.getAll.invalidate()
         }}
       />
 
       {/* Delete Confirmation */}
       <DeleteConfirmDialog
-        open={!!userToDelete}
-        onOpenChange={(open) => !open && setUserToDelete(null)}
+        open={!!companyToDelete}
+        onOpenChange={(open) => !open && setCompanyToDelete(null)}
         onConfirm={() => {
-          if (userToDelete) deleteMutation.mutate({ id: userToDelete.id })
+          if (companyToDelete) deleteMutation.mutate({ id: companyToDelete.id })
         }}
-        title="Delete Agency"
-        description={`Are you sure you want to delete "${userToDelete?.name || userToDelete?.email}"? This action cannot be undone.`}
+        title="Delete Agency/Client"
+        description={`Are you sure you want to delete "${companyToDelete?.name}"? This action cannot be undone.`}
         isLoading={deleteMutation.isPending}
       />
     </div>
