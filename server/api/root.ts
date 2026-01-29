@@ -28,10 +28,7 @@ import { onboardingTemplateRouter } from "./routers/onboarding-template"
 import { paymentRouter } from "./routers/payment";
 import { expenseRouter } from "./routers/expense";
 import { timesheetRouter } from "./routers/timesheet";
-import { approvalWorkflowRouter } from "./routers/approvalWorkflow";
 import { documentRouter } from "./routers/document";
-import { tagRouter } from "./routers/tag";
-import { customFieldRouter } from "./routers/customField";
 import { userActivityRouter } from "./routers/userActivity";
 import { apiKeyRouter } from "./routers/apiKey";
 import { remittanceRouter } from "./routers/remittance";
@@ -79,10 +76,7 @@ export const appRouter = createTRPCRouter({
   payment: paymentRouter,
   expense: expenseRouter,
   timesheet: timesheetRouter,
-  approvalWorkflow: approvalWorkflowRouter,
   document: documentRouter,
-  tag: tagRouter,
-  customField: customFieldRouter,
   userActivity: userActivityRouter,
   apiKey: apiKeyRouter,
   remittance: remittanceRouter,
