@@ -631,4 +631,76 @@ export const companyRouter = createTRPCRouter({
 
       return { success: true }
     }),
+
+  // ============================================================
+  // TRANSFER OWNERSHIP
+  // ============================================================
+  transferOwnership: tenantProcedure
+    .use(hasAnyPermission([P.UPDATE_GLOBAL, P.UPDATE_OWN]))
+    .input(
+      z.object({
+        companyId: z.string(),
+        newOwnerId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user
+      const tenantId = ctx.tenantId!
+
+      const company = await ctx.prisma.company.findFirst({
+        where: { id: input.companyId, tenantId },
+      })
+
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" })
+
+      // Only the current owner or global admin can transfer ownership
+      const canUpdateGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
+      const isOwner = company.ownerId === user.id
+
+      if (!canUpdateGlobal && !isOwner) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Only the owner can transfer ownership" })
+      }
+
+      // Verify the new owner is a member of the company
+      const newOwnerMembership = await ctx.prisma.companyUser.findFirst({
+        where: { companyId: input.companyId, userId: input.newOwnerId },
+      })
+
+      if (!newOwnerMembership) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "New owner must be a member of the company" })
+      }
+
+      // Update company owner
+      await ctx.prisma.company.update({
+        where: { id: input.companyId },
+        data: { ownerId: input.newOwnerId },
+      })
+
+      // Update roles: new owner becomes "owner", old owner becomes "admin"
+      await ctx.prisma.companyUser.updateMany({
+        where: { companyId: input.companyId, userId: input.newOwnerId },
+        data: { role: "owner" },
+      })
+
+      if (company.ownerId) {
+        await ctx.prisma.companyUser.updateMany({
+          where: { companyId: input.companyId, userId: company.ownerId },
+          data: { role: "admin" },
+        })
+      }
+
+      await createAuditLog({
+        userId: user.id,
+        userName: user.name ?? "Unknown",
+        userRole: user.roleName,
+        entityId: company.id,
+        entityName: company.name,
+        action: AuditAction.UPDATE,
+        entityType: AuditEntityType.COMPANY,
+        tenantId,
+        metadata: { action: "ownership_transfer", newOwnerId: input.newOwnerId },
+      })
+
+      return { success: true }
+    }),
 })

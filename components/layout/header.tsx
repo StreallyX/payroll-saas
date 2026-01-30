@@ -3,8 +3,9 @@
 import { useSession, signOut } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { Menu, User, Settings, LogOut, ChevronDown } from "lucide-react"
+import { Menu, User, Settings, LogOut, ChevronDown, Building2, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +71,30 @@ export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
                 <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
               </div>
             </DropdownMenuLabel>
+
+            {/* Company info for agency users */}
+            {session?.user?.companyName && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{session.user.companyName}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {session.user.companyRole || "Member"}
+                        </span>
+                        {session.user.isCompanyOwner && (
+                          <Crown className="h-3 w-3 text-yellow-500" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+              </>
+            )}
+
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/profile" className="flex items-center cursor-pointer">
@@ -77,6 +102,14 @@ export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
                 <span>My Profile</span>
               </Link>
             </DropdownMenuItem>
+            {session?.user?.companyId && (
+              <DropdownMenuItem asChild>
+                <Link href="/my-company" className="flex items-center cursor-pointer">
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <span>My Company</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href="/settings" className="flex items-center cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />

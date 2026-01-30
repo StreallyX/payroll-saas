@@ -95,6 +95,17 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
+  // 1.5 MY COMPANY (for agency users)
+  // ===========================
+  {
+    label: "My Company",
+    href: "/my-company",
+    icon: Building2,
+    description: "Manage your company",
+    permissions: [P(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN)]
+  },
+
+  // ===========================
   // 2. AGENCY / CLIENTS
   // ===========================
   {

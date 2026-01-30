@@ -1,6 +1,14 @@
 import "next-auth";
 import "next-auth/jwt";
 
+// Company membership info
+interface CompanyMembership {
+  id: string;
+  name: string;
+  role: string | null;
+  isOwner: boolean;
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -16,6 +24,12 @@ declare module "next-auth" {
       homePath: string;
       passwordResetToken: string | null;
       permissions: string[];
+      // Company info
+      companyId: string | null;
+      companyName: string | null;
+      companyRole: string | null;
+      isCompanyOwner: boolean;
+      companies: CompanyMembership[];
     };
   }
 
@@ -47,5 +61,11 @@ declare module "next-auth/jwt" {
     homePath: string;
     passwordResetToken: string | null;
     permissions: string[];
+    // Company info
+    companyId: string | null;
+    companyName: string | null;
+    companyRole: string | null;
+    isCompanyOwner: boolean;
+    companies: CompanyMembership[];
   }
 }

@@ -108,6 +108,20 @@ export const authOptions: NextAuthOptions = {
               include: {
                 rolePermissions: { include: { permission: true } }
               }
+            },
+            // 🔥 Include user's company memberships
+            companyUsers: {
+              where: { isActive: true },
+              include: {
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                    ownerType: true,
+                    ownerId: true,
+                  }
+                }
+              }
             }
           }
         });
@@ -122,6 +136,21 @@ export const authOptions: NextAuthOptions = {
 
           token.permissions =
             dbUser.role?.rolePermissions?.map(rp => rp.permission.key) ?? [];
+
+          // 🔥 Add company info to token
+          token.companies = dbUser.companyUsers?.map(cu => ({
+            id: cu.company.id,
+            name: cu.company.name,
+            role: cu.role,
+            isOwner: cu.company.ownerId === dbUser.id,
+          })) ?? [];
+
+          // Set primary company (first one where user is owner, or just first one)
+          const primaryCompany = token.companies.find((c: any) => c.isOwner) || token.companies[0];
+          token.companyId = primaryCompany?.id ?? null;
+          token.companyName = primaryCompany?.name ?? null;
+          token.companyRole = primaryCompany?.role ?? null;
+          token.isCompanyOwner = primaryCompany?.isOwner ?? false;
         }
       }
 
@@ -144,6 +173,13 @@ export const authOptions: NextAuthOptions = {
 
         // 🔥 IMPORTANT
         session.user.permissions = token.permissions ?? [];
+
+        // 🔥 Company info for agency users
+        session.user.companyId = token.companyId as string | null;
+        session.user.companyName = token.companyName as string | null;
+        session.user.companyRole = token.companyRole as string | null;
+        session.user.isCompanyOwner = token.isCompanyOwner as boolean;
+        session.user.companies = token.companies ?? [];
       }
 
       return session;
