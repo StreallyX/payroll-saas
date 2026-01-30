@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -59,8 +60,15 @@ export function CreateNormContractModal({
   onSuccess,
 }: CreateNormContractModalProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const { createNormContract, isCreating } = useNormContract();
   const { data: currencies } = api.currency.getAll.useQuery();
+
+  // Check if user is agency or contractor for auto-fill
+  const userRole = session?.user?.roleName?.toLowerCase();
+  const isAgencyUser = userRole === "agency";
+  const isContractor = userRole === "contractor";
+  const userCompanyId = session?.user?.companyId;
 
   // Form State
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -106,6 +114,20 @@ export function CreateNormContractModal({
 
   const updateField = (field: string, value: any) =>
     setFormData((p) => ({ ...p, [field]: value }));
+
+  // Auto-fill based on user role
+  useEffect(() => {
+    if (open && session?.user?.id) {
+      // If user is an agency user, auto-fill the agency field with their user ID
+      if (isAgencyUser) {
+        setFormData(prev => ({ ...prev, agencyId: session.user.id }));
+      }
+      // If user is a contractor, auto-fill the contractor field
+      if (isContractor) {
+        setFormData(prev => ({ ...prev, contractorId: session.user.id }));
+      }
+    }
+  }, [open, isAgencyUser, isContractor, session?.user?.id]);
 
   // Currency lookup
   const getCurrencyCode = (currencyId: string): string | undefined => {
@@ -320,13 +342,16 @@ export function CreateNormContractModal({
               label="Company Tenant"
               required
               roleFilter="tenant"
+              allowCreate
             />
             <UserSelect
               value={formData.agencyId}
               onChange={(v) => updateField("agencyId", v)}
-              label="Agency"
+              label="Agency User"
               required
               roleFilter="agency"
+              allowCreate
+              disabled={isAgencyUser}
             />
             <UserSelect
               value={formData.contractorId}
@@ -334,6 +359,8 @@ export function CreateNormContractModal({
               label="Contractor"
               required
               roleFilter="contractor"
+              allowCreate
+              disabled={isContractor}
             />
           </div>
 

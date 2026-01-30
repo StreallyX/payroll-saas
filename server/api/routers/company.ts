@@ -30,6 +30,9 @@ const P = {
 
   DELETE_GLOBAL: "company.delete.global",
   DELETE_OWN:    "company.delete.own",
+
+  TRANSFER_GLOBAL: "company.transfer.global",
+  TRANSFER_OWN:    "company.transfer.own",
 }
 
 export const companyRouter = createTRPCRouter({
@@ -636,7 +639,7 @@ export const companyRouter = createTRPCRouter({
   // TRANSFER OWNERSHIP
   // ============================================================
   transferOwnership: tenantProcedure
-    .use(hasAnyPermission([P.UPDATE_GLOBAL, P.UPDATE_OWN]))
+    .use(hasAnyPermission([P.TRANSFER_GLOBAL, P.TRANSFER_OWN]))
     .input(
       z.object({
         companyId: z.string(),
@@ -653,12 +656,12 @@ export const companyRouter = createTRPCRouter({
 
       if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" })
 
-      // Only the current owner or global admin can transfer ownership
-      const canUpdateGlobal = user.permissions.includes(P.UPDATE_GLOBAL)
+      // Check permissions: TRANSFER_GLOBAL can transfer any, TRANSFER_OWN only if owner
+      const canTransferGlobal = user.permissions.includes(P.TRANSFER_GLOBAL)
       const isOwner = company.ownerId === user.id
 
-      if (!canUpdateGlobal && !isOwner) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Only the owner can transfer ownership" })
+      if (!canTransferGlobal && !isOwner) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Only the owner or admin can transfer ownership" })
       }
 
       // Verify the new owner is a member of the company

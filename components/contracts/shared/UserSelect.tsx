@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -9,9 +10,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { User, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { User, Loader2, Plus } from "lucide-react";
 import { api } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
+import { QuickUserCreateDialog } from "./QuickUserCreateDialog";
 
 // Role badge configuration
 const ROLE_BADGES: Record<string, { label: string; className: string }> = {
@@ -30,6 +33,7 @@ interface UserSelectProps {
   placeholder?: string;
   roleFilter?: "contractor" | "payroll" | "admin" | "agency";
   className?: string;
+  allowCreate?: boolean;
 }
 
 /**
@@ -37,6 +41,7 @@ interface UserSelectProps {
  *
  * Uses the tRPC API to fetch the list of users
  * Supports role filtering (contractor, payroll, admin, agency)
+ * Supports inline creation with allowCreate prop
  */
 export function UserSelect({
   value,
@@ -47,7 +52,11 @@ export function UserSelect({
   placeholder = "Select a user...",
   roleFilter,
   className,
+  allowCreate = false,
 }: UserSelectProps) {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const utils = api.useUtils();
+
   // Fetch the list of users
   const { data: allUsers = [], isLoading } = api.user.getAll.useQuery(
     undefined,
@@ -70,14 +79,42 @@ export function UserSelect({
       })
     : allUsers;
 
+  const handleUserCreated = (userId: string) => {
+    // Refresh user list and select the new user
+    utils.user.getAll.invalidate();
+    onChange(userId);
+    setShowCreateDialog(false);
+  };
+
+  const getRoleLabel = () => {
+    if (roleFilter === "contractor") return "Contractor";
+    if (roleFilter === "agency") return "Agency User";
+    if (roleFilter === "payroll") return "Payroll User";
+    return "User";
+  };
+
   return (
     <div className={cn("space-y-2", className)}>
       {label && (
-        <Label className={cn(required && "required")}>
-          <User className="h-4 w-4 inline mr-1" />
-          {label}
-          {required && " *"}
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className={cn(required && "required")}>
+            <User className="h-4 w-4 inline mr-1" />
+            {label}
+            {required && " *"}
+          </Label>
+          {allowCreate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => setShowCreateDialog(true)}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              New {getRoleLabel()}
+            </Button>
+          )}
+        </div>
       )}
       <Select
         value={value}
@@ -125,6 +162,16 @@ export function UserSelect({
           )}
         </SelectContent>
       </Select>
+
+      {/* Quick Create Dialog */}
+      {allowCreate && (
+        <QuickUserCreateDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          roleFilter={roleFilter}
+          onSuccess={handleUserCreated}
+        />
+      )}
     </div>
   );
 }
