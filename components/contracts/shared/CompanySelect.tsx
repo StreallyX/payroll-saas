@@ -55,8 +55,16 @@ export function CompanySelect({
     });
 
   // Filter by role if needed
+  // Note: "agency" filter shows user-owned companies (agencies are user-owned companies)
+  // "tenant" filter shows platform companies
   const filteredCompanies = roleFilter
-    ? companies.filter((c: any) => c.ownerType === roleFilter)
+    ? companies.filter((c: any) => {
+        if (roleFilter === "agency") {
+          // Agencies are user-owned companies
+          return c.ownerType === "user";
+        }
+        return c.ownerType === roleFilter;
+      })
     : companies;
 
   const handleCompanyCreated = (companyId: string) => {

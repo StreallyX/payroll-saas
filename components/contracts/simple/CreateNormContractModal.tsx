@@ -118,16 +118,16 @@ export function CreateNormContractModal({
   // Auto-fill based on user role
   useEffect(() => {
     if (open && session?.user?.id) {
-      // If user is an agency user, auto-fill the agency field with their user ID
-      if (isAgencyUser) {
-        setFormData(prev => ({ ...prev, agencyId: session.user.id }));
+      // If user is from an agency company, auto-fill the agency field with their company ID
+      if (isAgencyUser && userCompanyId) {
+        setFormData(prev => ({ ...prev, agencyId: userCompanyId }));
       }
       // If user is a contractor, auto-fill the contractor field
       if (isContractor) {
         setFormData(prev => ({ ...prev, contractorId: session.user.id }));
       }
     }
-  }, [open, isAgencyUser, isContractor, session?.user?.id]);
+  }, [open, isAgencyUser, isContractor, userCompanyId, session?.user?.id]);
 
   // Currency lookup
   const getCurrencyCode = (currencyId: string): string | undefined => {
@@ -339,19 +339,19 @@ export function CreateNormContractModal({
             <CompanySelect
               value={formData.companyTenantId}
               onChange={(v) => updateField("companyTenantId", v)}
-              label="Company Tenant"
+              label="Client Company"
               required
               roleFilter="tenant"
               allowCreate
             />
-            <UserSelect
+            <CompanySelect
               value={formData.agencyId}
               onChange={(v) => updateField("agencyId", v)}
-              label="Agency User"
+              label="Agency"
               required
               roleFilter="agency"
               allowCreate
-              disabled={isAgencyUser}
+              disabled={isAgencyUser && !!userCompanyId}
             />
             <UserSelect
               value={formData.contractorId}

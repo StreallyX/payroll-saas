@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { api } from "@/lib/trpc"
 import { toast } from "sonner"
+import { usePermissions } from "@/hooks/use-permissions"
 import {
   Building2,
   Users,
@@ -61,9 +62,13 @@ export default function MyCompanyPage() {
   const companyId = session?.user?.companyId
   const isOwner = session?.user?.isCompanyOwner
   const companyRole = session?.user?.companyRole
+  const { hasPermission, isSuperAdmin } = usePermissions()
 
   // Can manage if owner or admin role in company
   const canManage = isOwner || companyRole === "admin" || companyRole === "owner"
+
+  // Can transfer ownership if owner OR has global transfer permission
+  const canTransferOwnership = isOwner || hasPermission("company.transfer.global") || isSuperAdmin
 
   const { data: company, isLoading, refetch } = api.company.getById.useQuery(
     { id: companyId! },
@@ -473,13 +478,13 @@ export default function MyCompanyPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {isOwner && (
+                                {canTransferOwnership && (
                                   <DropdownMenuItem onClick={() => setUserToMakeOwner(cu)}>
                                     <Crown className="h-4 w-4 mr-2" />
                                     Make Owner
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuSeparator />
+                                {canTransferOwnership && <DropdownMenuSeparator />}
                                 <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => setUserToDelete(cu)}
