@@ -45,7 +45,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
   const userPermissions = session.user.permissions ?? []
   const isSuperAdmin = session.user.isSuperAdmin ?? false
-  const menuItems = getDynamicMenu(userPermissions)
+  const userRole = session.user.roleName ?? null
+  const menuItems = getDynamicMenu(userPermissions, userRole)
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({

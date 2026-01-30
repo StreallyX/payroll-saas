@@ -16,6 +16,7 @@ export interface MenuItem {
   description?: string
   permissions?: string[]
   requireAll?: boolean
+  excludeRoles?: string[] // Roles that should NOT see this menu item
   submenu?: MenuItem[]
 }
 
@@ -95,14 +96,15 @@ export const dynamicMenuConfig: MenuItem[] = [
   },
 
   // ===========================
-  // 1.5 MY COMPANY (for agency users)
+  // 1.5 MY COMPANY (for agency users - NOT for admins who manage the platform)
   // ===========================
   {
     label: "My Company",
     href: "/my-company",
     icon: Building2,
     description: "Manage your company",
-    permissions: [P(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN)]
+    permissions: [P(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN)],
+    excludeRoles: ["admin", "super_admin", "superadmin"]
   },
 
   // ===========================
@@ -393,14 +395,23 @@ export const dynamicMenuConfig: MenuItem[] = [
 ]
 
 /**
- * Filter menu by permissions (RBAC-only)
+ * Filter menu by permissions and role exclusions (RBAC)
  */
 export function filterMenuByPermissions(
   menuItems: MenuItem[],
-  userPermissions: string[]
+  userPermissions: string[],
+  userRole?: string | null
 ): MenuItem[] {
   return menuItems
     .map(item => {
+      // Check if user's role is excluded from this menu item
+      if (item.excludeRoles && userRole) {
+        const roleLower = userRole.toLowerCase()
+        if (item.excludeRoles.some(r => roleLower.includes(r.toLowerCase()))) {
+          return null
+        }
+      }
+
       const hasAccess = item.permissions
         ? item.permissions.some(p => userPermissions.includes(p))
         : true;
@@ -408,7 +419,7 @@ export function filterMenuByPermissions(
       if (!hasAccess) return null;
 
       if (item.submenu) {
-        const filteredSubmenu = filterMenuByPermissions(item.submenu, userPermissions);
+        const filteredSubmenu = filterMenuByPermissions(item.submenu, userPermissions, userRole);
         if (filteredSubmenu.length === 0) return null;
         return { ...item, submenu: filteredSubmenu };
       }
@@ -418,6 +429,6 @@ export function filterMenuByPermissions(
     .filter(Boolean) as MenuItem[];
 }
 
-export function getDynamicMenu(userPermissions: string[]) {
-  return filterMenuByPermissions(dynamicMenuConfig, userPermissions);
+export function getDynamicMenu(userPermissions: string[], userRole?: string | null) {
+  return filterMenuByPermissions(dynamicMenuConfig, userPermissions, userRole);
 }

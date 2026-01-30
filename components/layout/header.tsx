@@ -102,7 +102,9 @@ export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
                 <span>My Profile</span>
               </Link>
             </DropdownMenuItem>
-            {session?.user?.companyId && (
+            {/* Only show My Company for non-admin users who have a company */}
+            {session?.user?.companyId &&
+             !session?.user?.roleName?.toLowerCase().includes("admin") && (
               <DropdownMenuItem asChild>
                 <Link href="/my-company" className="flex items-center cursor-pointer">
                   <Building2 className="mr-2 h-4 w-4" />

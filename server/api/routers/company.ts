@@ -207,11 +207,22 @@ export const companyRouter = createTRPCRouter({
       const canCreateGlobal = user.permissions.includes(P.CREATE_GLOBAL)
 
       // Only users with global permission can create tenant companies or set custom ownerId
-      // Otherwise, force ownerType to "user" and ownerId to current user
+      // Admin (with CREATE_GLOBAL) can create companies for others - ownerId should be specified
+      // Non-admin (CREATE_OWN only) creates company for themselves
       const finalOwnerType = canCreateGlobal ? input.ownerType : "user"
-      const finalOwnerId = finalOwnerType === "tenant"
-        ? null
-        : (canCreateGlobal && input.ownerId) ? input.ownerId : user.id
+
+      let finalOwnerId: string | null = null
+      if (finalOwnerType === "tenant") {
+        // Tenant-owned companies have no individual owner
+        finalOwnerId = null
+      } else if (canCreateGlobal) {
+        // Admin creating company: use provided ownerId, or null if not specified
+        // Admin should NOT become owner of companies they create for others
+        finalOwnerId = input.ownerId || null
+      } else {
+        // User creating their own company
+        finalOwnerId = user.id
+      }
 
       const { ownerType: _, ownerId: __, ...restInput } = input
 

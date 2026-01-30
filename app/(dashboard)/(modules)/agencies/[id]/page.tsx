@@ -21,6 +21,7 @@ import {
   UserPlus,
   Trash2,
   MoreHorizontal,
+  Crown,
 } from "lucide-react"
 import {
   Table,
@@ -34,8 +35,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { usePermissions } from "@/hooks/use-permissions"
 import { CompanyModal } from "@/components/modals/company-modal"
 import { AddContactModal } from "@/components/modals/add-contact-modal"
 import { DeleteConfirmDialog } from "@/components/shared/delete-confirm-dialog"
@@ -48,6 +51,10 @@ export default function AgencyDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isAddContactOpen, setIsAddContactOpen] = useState(false)
   const [contactToRemove, setContactToRemove] = useState<any>(null)
+  const [userToMakeOwner, setUserToMakeOwner] = useState<any>(null)
+
+  const { hasPermission, isSuperAdmin } = usePermissions()
+  const canTransferOwnership = hasPermission("company.transfer.global") || isSuperAdmin
 
   const { data: company, isLoading, refetch } = api.company.getById.useQuery({ id: companyId })
   const utils = api.useUtils()
@@ -61,6 +68,18 @@ export default function AgencyDetailPage() {
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to remove contact")
+    },
+  })
+
+  const transferOwnershipMutation = api.company.transferOwnership.useMutation({
+    onSuccess: () => {
+      toast.success("Ownership transferred successfully")
+      refetch()
+      utils.company.getAll.invalidate()
+      setUserToMakeOwner(null)
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to transfer ownership")
     },
   })
 
@@ -296,9 +315,16 @@ export default function AgencyDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {contacts.map((cu: any) => (
+                {contacts.map((cu: any) => {
+                  const isOwner = company.ownerId === cu.user?.id
+                  return (
                   <TableRow key={cu.user?.id}>
-                    <TableCell className="font-medium">{cu.user?.name || "Unnamed"}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {cu.user?.name || "Unnamed"}
+                        {isOwner && <Crown className="h-4 w-4 text-yellow-500" />}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {cu.user?.email ? (
                         <a href={`mailto:${cu.user.email}`} className="text-blue-600 hover:underline">
@@ -320,25 +346,41 @@ export default function AgencyDetailPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => setContactToRemove(cu)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove from Company
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {(() => {
+                        const isCurrentOwner = company.ownerId === cu.user?.id
+                        return (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {/* Make Owner option - only for admin with transfer permission, and not for current owner */}
+                              {canTransferOwnership && !isCurrentOwner && (
+                                <>
+                                  <DropdownMenuItem onClick={() => setUserToMakeOwner(cu)}>
+                                    <Crown className="h-4 w-4 mr-2" />
+                                    Make Owner
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => setContactToRemove(cu)}
+                                disabled={isCurrentOwner}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove from Company
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )
+                      })()}
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           )}
@@ -383,6 +425,25 @@ export default function AgencyDetailPage() {
         title="Remove Contact"
         description={`Are you sure you want to remove "${contactToRemove?.user?.name}" from this company? They will no longer be associated with this company.`}
         isLoading={removeContactMutation.isPending}
+      />
+
+      {/* Transfer Ownership Confirmation */}
+      <DeleteConfirmDialog
+        open={!!userToMakeOwner}
+        onOpenChange={(open) => !open && setUserToMakeOwner(null)}
+        onConfirm={() => {
+          if (userToMakeOwner) {
+            transferOwnershipMutation.mutate({
+              companyId,
+              newOwnerId: userToMakeOwner.user?.id,
+            })
+          }
+        }}
+        title="Transfer Ownership"
+        description={`Are you sure you want to make "${userToMakeOwner?.user?.name || userToMakeOwner?.user?.email}" the owner of this company? The current owner will become an admin.`}
+        isLoading={transferOwnershipMutation.isPending}
+        confirmText="Transfer"
+        variant="default"
       />
     </div>
   )
