@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
+import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { getDynamicMenu } from "@/lib/dynamicMenuConfig"
 import { useTenant } from "@/lib/hooks/useTenant"
@@ -11,17 +11,10 @@ import { api } from "@/lib/trpc"
 import {
   ChevronLeft,
   ChevronRight,
-  LogOut,
   X,
   ChevronDown
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 
 interface SidebarProps {
   mobileOpen?: boolean
@@ -52,7 +45,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
   const userPermissions = session.user.permissions ?? []
   const isSuperAdmin = session.user.isSuperAdmin ?? false
-  const menuItems = getDynamicMenu(userPermissions)
+  const userRole = session.user.roleName ?? null
+  const menuItems = getDynamicMenu(userPermissions, userRole)
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({
@@ -62,7 +56,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   }
 
   return (
-    <TooltipProvider>
+    <>
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -205,29 +199,16 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           })}
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER - Branding */}
         <div className="flex-shrink-0 border-t border-border p-3 bg-[hsl(var(--sidebar-bg))]">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="lg"
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className={cn(
-                  "w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50",
-                  collapsed && "justify-center px-2"
-                )}
-              >
-                <LogOut className={cn("h-5 w-5", !collapsed && "mr-2")} />
-                {!collapsed && "Sign out"}
-              </Button>
-            </TooltipTrigger>
-            {collapsed && <TooltipContent side="right"><p>Sign out</p></TooltipContent>}
-          </Tooltip>
+          {!collapsed && (
+            <p className="text-xs text-center opacity-50">
+              Powered by Payroll Platform
+            </p>
+          )}
         </div>
 
       </div>
-
-    </TooltipProvider>
+    </>
   )
 }

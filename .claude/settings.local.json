@@ -1,12 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls:*)",
-      "Bash(npx prisma generate:*)",
-      "Bash(npx prisma db push:*)",
+      "Bash(npx ts-node:*)",
       "Bash(npx tsx:*)",
-      "Bash(find:*)",
-      "Bash(done)"
+      "Bash(npx prisma db push:*)",
+      "Bash(yarn seed)",
+      "Bash(npx prisma studio)"
     ]
   }
 }

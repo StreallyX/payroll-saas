@@ -1676,10 +1676,10 @@ export const simpleContractRouter = createTRPCRouter({
           isPrimary: true,
         });
 
-        // Agency
+        // Agency (now a Company, not a User)
         await createMinimalParticipant(ctx.prisma, {
           contractId: contract.id,
-          userId: agencyId,
+          companyId: agencyId,
           role: "agency",
           isPrimary: false,
         });

@@ -539,13 +539,29 @@ export function CompanyModal({
                 }
               />
 
-              <InputBlock
-                label="VAT Number"
-                value={formData.vatNumber}
-                onChange={(v) =>
-                  setFormData({ ...formData, vatNumber: v || undefined })
-                }
-              />
+              {/* Dynamic Tax ID field based on country */}
+              {(() => {
+                const selectedCountry = countries.find((c: any) => c.id === formData.countryId);
+                const isUS = selectedCountry?.code === "US";
+                const taxLabel = isUS ? "EIN (Employer ID Number)" : "VAT Number";
+                const taxPlaceholder = isUS ? "XX-XXXXXXX" : "VAT Number";
+
+                return (
+                  <div className="space-y-2">
+                    <Label>{taxLabel}</Label>
+                    <Input
+                      value={formData.vatNumber ?? ""}
+                      onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value || undefined })}
+                      placeholder={taxPlaceholder}
+                    />
+                    {isUS && (
+                      <p className="text-xs text-muted-foreground">
+                        For US entities, enter your federal EIN
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <InputBlock
                 label="Website"

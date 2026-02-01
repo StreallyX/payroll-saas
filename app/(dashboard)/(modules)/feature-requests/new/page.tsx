@@ -95,17 +95,17 @@ export default function NewFeatureRequestPage() {
         // Use the origin page URL from query parameter
         const fullUrl = `${window.location.origin}${fromParam}`;
         setCurrentPageUrl(fullUrl);
-        
+
         // Generate a friendly page name from the path
         const pageName = getPageNameFromPath(fromParam);
         setCurrentPageName(pageName);
-        
+
         // Set the form default value for pageName
         form.setValue('pageName', pageName);
       } else {
         // Fall back to current URL if no query parameter
         setCurrentPageUrl(window.location.href);
-        
+
         // Generate page name from current path
         const pageName = getPageNameFromPath(window.location.pathname);
         setCurrentPageName(pageName);
@@ -207,7 +207,7 @@ export default function NewFeatureRequestPage() {
 
   if (!canCreate) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
@@ -221,13 +221,13 @@ export default function NewFeatureRequestPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="space-y-6">
       <PageHeader
         title="Submit Feature Request"
         description="Request new features, modifications, or report issues with the platform"
       />
 
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle>Feature Request Details</CardTitle>
           <CardDescription>

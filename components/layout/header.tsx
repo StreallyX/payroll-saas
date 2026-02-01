@@ -1,11 +1,19 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
-import { Menu, MessageSquarePlus } from "lucide-react"
+import Link from "next/link"
+import { Menu, User, Settings, LogOut, ChevronDown, Building2, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { usePermissions } from "@/hooks/use-permissions"
-import { Resource, Action, PermissionScope, buildPermissionKey } from "@/server/rbac/permissions"
+import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface HeaderProps {
   title?: string
@@ -16,18 +24,9 @@ interface HeaderProps {
 export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
   const { data: session } = useSession() || {}
   const router = useRouter()
-  const pathname = usePathname()
-  const { hasPermission } = usePermissions()
 
-  // Check permission to create feature requests
-  const CREATE_PERMISSION = buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN)
-  const canCreateRequest = hasPermission(CREATE_PERMISSION)
-
-  const handleFeatureRequest = () => {
-    // Capture current page URL and pass it as a query parameter
-    // Use pathname for a clean URL without query params
-    const fromUrl = pathname || window.location.pathname
-    router.push(`/feature-requests/new?from=${encodeURIComponent(fromUrl)}`)
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/login" })
   }
 
   return (
@@ -49,43 +48,86 @@ export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
       </div>
 
       <div className="flex items-center space-x-2 lg:space-x-4">
-        {/* Feature Request Button */}
-        {canCreateRequest && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFeatureRequest}
-            className="hidden md:flex items-center gap-2"
-          >
-            <MessageSquarePlus className="h-4 w-4" />
-            <span>Feature Request</span>
-          </Button>
-        )}
+        {/* User Profile Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center space-x-2 px-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary font-medium">
+                {session?.user?.name?.[0]?.toUpperCase() || "U"}
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="text-sm font-medium truncate">{session?.user?.name}</p>
+                <p className="text-xs opacity-70 capitalize truncate">
+                  {session?.user?.roleName?.replace("_", " ")}
+                </p>
+              </div>
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium">{session?.user?.name}</p>
+                <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+              </div>
+            </DropdownMenuLabel>
 
-        {/* Mobile Feature Request Button */}
-        {canCreateRequest && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleFeatureRequest}
-            className="md:hidden"
-          >
-            <MessageSquarePlus className="h-5 w-5" />
-          </Button>
-        )}
+            {/* Company info for agency users */}
+            {session?.user?.companyName && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{session.user.companyName}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {session.user.companyRole || "Member"}
+                        </span>
+                        {session.user.isCompanyOwner && (
+                          <Crown className="h-3 w-3 text-yellow-500" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+              </>
+            )}
 
-        {/* User Profile */}
-        <div className="flex items-center space-x-2 px-3 border-l border-border">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary font-medium">
-            {session?.user?.name?.[0]?.toUpperCase() || "U"}
-          </div>
-          <div className="hidden md:block text-left">
-            <p className="text-sm font-medium truncate">{session?.user?.name}</p>
-            <p className="text-xs opacity-70 capitalize truncate">
-              {session?.user?.roleName?.replace("_", " ")}
-            </p>
-          </div>
-        </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="flex items-center cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                <span>My Profile</span>
+              </Link>
+            </DropdownMenuItem>
+            {/* Only show My Company for non-admin users who have a company */}
+            {session?.user?.companyId &&
+             !session?.user?.roleName?.toLowerCase().includes("admin") && (
+              <DropdownMenuItem asChild>
+                <Link href="/my-company" className="flex items-center cursor-pointer">
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <span>My Company</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex items-center cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="text-red-600 focus:text-red-600 cursor-pointer"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Sign out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )

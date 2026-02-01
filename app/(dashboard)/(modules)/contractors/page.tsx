@@ -26,6 +26,7 @@ import {
   UserX,
   Eye,
   HardHat,
+  Send,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
@@ -60,6 +61,15 @@ export default function ContractorsPage() {
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to delete contractor.")
+    }
+  })
+
+  const resendInvitationMutation = api.user.resendInvitation.useMutation({
+    onSuccess: () => {
+      toast.success("Invitation email sent!")
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to send invitation.")
     }
   })
 
@@ -207,14 +217,17 @@ export default function ContractorsPage() {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/users/${user.id}`)}>
+                        <DropdownMenuItem onClick={() => router.push(`/contractors/${user.id}`)}>
                           <Eye className="h-4 w-4 mr-2" />
-                          View Details
+                          View / Edit
                         </DropdownMenuItem>
 
-                        <DropdownMenuItem onClick={() => handleEdit(user)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Contractor
+                        <DropdownMenuItem
+                          onClick={() => resendInvitationMutation.mutate({ userId: user.id })}
+                          disabled={resendInvitationMutation.isPending}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Resend Invitation
                         </DropdownMenuItem>
 
                         <DropdownMenuSeparator />

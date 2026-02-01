@@ -179,10 +179,13 @@ export enum Action {
   // Administration
   MANAGE = "manage",
   CONFIGURE = "configure",
-  
+
   // Impersonation & Access
   IMPERSONATE = "impersonate",
   VIEW_ALL = "view_all",
+
+  // Ownership
+  TRANSFER = "transfer",
 }
 
 /**
@@ -549,6 +552,24 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionScope.OWN,
     "Delete own companies",
     "Delete only companies belonging to user",
+    PermissionCategory.BUSINESS
+  ),
+
+  // -------- TRANSFER OWNERSHIP --------
+  createPermission(
+    Resource.COMPANY,
+    Action.TRANSFER,
+    PermissionScope.GLOBAL,
+    "Transfer any company ownership",
+    "Transfer ownership of any tenant company to another user",
+    PermissionCategory.BUSINESS
+  ),
+  createPermission(
+    Resource.COMPANY,
+    Action.TRANSFER,
+    PermissionScope.OWN,
+    "Transfer own company ownership",
+    "Transfer ownership of user's own company to another member",
     PermissionCategory.BUSINESS
   ),
 

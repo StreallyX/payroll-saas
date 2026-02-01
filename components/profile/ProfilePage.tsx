@@ -4,6 +4,9 @@ import { useState } from "react";
 import { RouteGuard } from "@/components/guards/RouteGuard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   AlertCircle,
   User,
@@ -29,43 +32,76 @@ const MENU = [
   { key: "documents", label: "Documents", icon: FileText },
 ];
 
+function ProfileSkeleton() {
+  return (
+    <div className="flex gap-6 mt-6">
+      {/* Sidebar Skeleton */}
+      <div className="w-56 space-y-2">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+
+      {/* Content Skeleton */}
+      <div className="flex-1">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-60" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const {
     data,
     isLoading,
     error,
-
-    // forms
     userForm,
     setUserForm,
     companyForm,
     setCompanyForm,
     bankForm,
     setBankForm,
-
-    // flags
     isEditingUser,
     setIsEditingUser,
     isEditingCompany,
     setIsEditingCompany,
     isEditingBank,
     setIsEditingBank,
-
-    // handlers
     handleSaveUser,
     handleCancelUser,
     handleSaveCompany,
     handleCancelCompany,
     handleSaveBank,
     handleCancelBank,
-
-    // db entities
     user,
     company,
     bank,
     documents,
-
-    // loading states
     savingUser,
     savingCompany,
     savingBank,
@@ -77,10 +113,8 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <RouteGuard permission="user.read.own">
-        <PageHeader title="My Profile" description="Loading..." />
-        <div className="flex items-center justify-center py-10 text-muted-foreground">
-          Loading profile...
-        </div>
+        <PageHeader title="My Profile" description="Manage your personal information" />
+        <ProfileSkeleton />
       </RouteGuard>
     );
   }
@@ -100,14 +134,25 @@ export default function ProfilePage() {
     );
   }
 
+  // Get initials for avatar
+  const initials = user?.name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U";
+
   // CHOOSE SECTION
   const renderSection = () => {
-    if (!userForm || !companyForm)
+    if (!userForm || !companyForm) {
       return (
-        <div className="flex items-center justify-center py-10 text-muted-foreground">
-          Loading profile…
-        </div>
+        <Card>
+          <CardContent className="py-10">
+            <ProfileSkeleton />
+          </CardContent>
+        </Card>
       );
+    }
 
     switch (active) {
       case "user":
@@ -160,30 +205,50 @@ export default function ProfilePage() {
     <RouteGuard permission="user.read.own">
       <PageHeader
         title="My Profile"
-        description="Manage your personal data, company, bank accounts and security"
+        description="Manage your personal information and settings"
       />
 
-      <div className="flex gap-8 mt-6">
-        {/* LEFT MENU */}
-        <nav className="w-64 rounded-xl border bg-card p-4 flex flex-col gap-1">
-          {MENU.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${
-                active === key
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-accent"
-              }`}
-              onClick={() => setActive(key)}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
+      <div className="flex gap-6 mt-6">
+        {/* LEFT SIDEBAR */}
+        <div className="w-56 space-y-4">
+          {/* User Card */}
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="overflow-hidden">
+                <p className="font-medium text-sm truncate">{user?.name || "User"}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Navigation */}
+          <Card className="p-2">
+            <nav className="flex flex-col gap-1">
+              {MENU.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    active === key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setActive(key)}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </nav>
+          </Card>
+        </div>
 
         {/* MAIN CONTENT */}
-        <div className="flex-1">{renderSection()}</div>
+        <div className="flex-1 min-w-0">{renderSection()}</div>
       </div>
     </RouteGuard>
   );
