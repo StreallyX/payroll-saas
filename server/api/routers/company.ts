@@ -594,6 +594,32 @@ export const companyRouter = createTRPCRouter({
         if (!membership) throw new TRPCError({ code: "UNAUTHORIZED" })
       }
 
+      // Check if the user being removed is the owner
+      const isRemovingOwner = company.ownerId === input.userId
+
+      if (isRemovingOwner) {
+        // Count remaining members (excluding the one being removed)
+        const remainingMembers = await ctx.prisma.companyUser.count({
+          where: {
+            companyId: input.companyId,
+            userId: { not: input.userId },
+          },
+        })
+
+        if (remainingMembers > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Cannot remove the owner. Transfer ownership to another member first.",
+          })
+        }
+
+        // If no remaining members, clear the owner
+        await ctx.prisma.company.update({
+          where: { id: input.companyId },
+          data: { ownerId: null },
+        })
+      }
+
       // Delete the company-user link
       await ctx.prisma.companyUser.deleteMany({
         where: {
@@ -633,6 +659,34 @@ export const companyRouter = createTRPCRouter({
           where: { companyId: input.companyId, userId: user.id },
         })
         if (!membership) throw new TRPCError({ code: "UNAUTHORIZED" })
+      }
+
+      // If setting someone as owner, use transferOwnership logic
+      if (input.role === "owner") {
+        // Check if user has transfer permission
+        const canTransferGlobal = user.permissions.includes(P.TRANSFER_GLOBAL)
+        const isCurrentOwner = company.ownerId === user.id
+
+        if (!canTransferGlobal && !isCurrentOwner) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Only the owner or admin with transfer permission can set a new owner",
+          })
+        }
+
+        // Update company owner
+        await ctx.prisma.company.update({
+          where: { id: input.companyId },
+          data: { ownerId: input.userId },
+        })
+
+        // Demote old owner to admin if exists
+        if (company.ownerId && company.ownerId !== input.userId) {
+          await ctx.prisma.companyUser.updateMany({
+            where: { companyId: input.companyId, userId: company.ownerId },
+            data: { role: "admin" },
+          })
+        }
       }
 
       await ctx.prisma.companyUser.updateMany({

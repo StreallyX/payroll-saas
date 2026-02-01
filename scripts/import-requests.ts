@@ -18,7 +18,7 @@ const prisma = new PrismaClient();
 // ===================================================================
 
 // ⚠️ MUST exist in the DB
-const DEFAULT_TENANT_ID = "cmkml6jjc0000j6ewq5v9uyvy";
+const DEFAULT_TENANT_ID = "cml3jx6sj0000j64gc5e20gn3";
 
 // OPTIONAL: user who will be considered as creator
 // ➜ null = no default user
