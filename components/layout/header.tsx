@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { Menu, User, Settings, LogOut, ChevronDown, Building2, Crown } from "lucide-react"
+import { Menu, User, Settings, LogOut, ChevronDown, Building2, Crown, MessageSquarePlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,9 +24,15 @@ interface HeaderProps {
 export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
   const { data: session } = useSession() || {}
   const router = useRouter()
+  const pathname = usePathname()
 
   const handleSignOut = () => {
     signOut({ callbackUrl: "/login" })
+  }
+
+  const handleQuickRequest = () => {
+    const encodedPath = encodeURIComponent(pathname || "/")
+    router.push(`/feature-requests/new?from=${encodedPath}`)
   }
 
   return (
@@ -48,6 +54,17 @@ export function Header({ title, description, onMobileMenuOpen }: HeaderProps) {
       </div>
 
       <div className="flex items-center space-x-2 lg:space-x-4">
+        {/* Quick Request Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleQuickRequest}
+          className="flex items-center gap-2"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          <span className="hidden md:inline">Quick Request</span>
+        </Button>
+
         {/* User Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
