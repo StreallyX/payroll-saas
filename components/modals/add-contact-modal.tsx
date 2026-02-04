@@ -22,7 +22,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api } from "@/lib/trpc"
 import { toast } from "sonner"
+import { getErrorMessage } from "@/lib/error-utils"
 import { Loader2, User, UserCheck, Mail, Info } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 
 type AddContactModalProps = {
   open: boolean
@@ -40,11 +42,15 @@ export function AddContactModal({
   onSuccess,
 }: AddContactModalProps) {
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     role: "contact",
     accessType: "contact",
+    jobTitle: "",
+    department: "",
+    notes: "",
   })
 
   const addContactMutation = api.company.addContact.useMutation({
@@ -54,28 +60,54 @@ export function AddContactModal({
       onOpenChange(false)
       resetForm()
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Failed to add")
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error))
     },
   })
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "", role: "contact", accessType: "contact" })
+    setFormData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      role: "contact",
+      accessType: "contact",
+      jobTitle: "",
+      department: "",
+      notes: "",
+    })
+  }
+
+  // Helper to capitalize names properly (e.g., "phil roebuck" -> "Phil Roebuck")
+  const formatName = (name: string) => {
+    return name
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name) return toast.error("Name is required")
+    if (!formData.firstName) return toast.error("First name is required")
+    if (!formData.lastName) return toast.error("Last name is required")
     if (!formData.email) return toast.error("Email is required")
+
+    // Combine and format name
+    const fullName = formatName(`${formData.firstName} ${formData.lastName}`)
 
     addContactMutation.mutate({
       companyId,
-      name: formData.name,
+      name: fullName,
       email: formData.email,
       phone: formData.phone || undefined,
       role: formData.role as any,
       hasPortalAccess: formData.accessType === "user",
-      // No portalRoleId - server will force "agency" role
+      jobTitle: formData.jobTitle || undefined,
+      department: formData.department || undefined,
+      notes: formData.notes || undefined,
     })
   }
 
@@ -126,14 +158,39 @@ export function AddContactModal({
             </div>
           )}
 
-          {/* Name & Phone in row */}
+          {/* First Name & Last Name */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-xs">Name *</Label>
+              <Label className="text-xs">First Name *</Label>
               <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="John Doe"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                placeholder="John"
+                disabled={isLoading}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Last Name *</Label>
+              <Input
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                placeholder="Doe"
+                disabled={isLoading}
+                className="h-8 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Email & Phone */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Email *</Label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="john@company.com"
                 disabled={isLoading}
                 className="h-8 text-sm"
               />
@@ -150,17 +207,28 @@ export function AddContactModal({
             </div>
           </div>
 
-          {/* Email */}
-          <div className="space-y-1">
-            <Label className="text-xs">Email *</Label>
-            <Input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="john@company.com"
-              disabled={isLoading}
-              className="h-8 text-sm"
-            />
+          {/* Job Title & Department */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Job Title</Label>
+              <Input
+                value={formData.jobTitle}
+                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                placeholder="e.g. HR Manager"
+                disabled={isLoading}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Department</Label>
+              <Input
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                placeholder="e.g. Human Resources"
+                disabled={isLoading}
+                className="h-8 text-sm"
+              />
+            </div>
           </div>
 
           {/* Company Role */}
@@ -180,6 +248,18 @@ export function AddContactModal({
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1">
+            <Label className="text-xs">Notes</Label>
+            <Textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="e.g. In charge of all contract recruitment in USA and Canada"
+              disabled={isLoading}
+              className="text-sm min-h-[60px] resize-none"
+            />
           </div>
 
           <DialogFooter className="pt-2 gap-2">

@@ -179,10 +179,12 @@ export default function FeatureRequestDetailPage({ params }: PageProps) {
         // Check if it's an image or PDF (can be viewed inline)
         const isImage = fileType.startsWith('image/');
         const isPDF = fileType === 'application/pdf';
+        // HEIC/HEIF images are not supported by most browsers (except Safari)
+        const isHEIC = fileType === 'image/heic' || fileType === 'image/heif';
 
         if (isImage || isPDF) {
-          // Open in modal for images, new tab for PDFs
-          if (isImage) {
+          // Open in modal for images (except HEIC), new tab for PDFs
+          if (isImage && !isHEIC) {
             setCurrentFile({ url: data.url, name: fileName, type: fileType });
             setViewerOpen(true);
           } else {
