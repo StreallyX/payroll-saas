@@ -89,6 +89,8 @@ function getContentTypeFromKey(key: string): string {
     'gif': 'image/gif',
     'webp': 'image/webp',
     'svg': 'image/svg+xml',
+    'heic': 'image/heic',
+    'heif': 'image/heif',
     
     // Documents
     'pdf': 'application/pdf',

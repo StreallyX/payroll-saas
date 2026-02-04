@@ -21,7 +21,6 @@ import {
   Edit,
   Trash2,
   MoreHorizontal,
-  Eye,
   Building2,
   Mail,
   Phone,
@@ -230,8 +229,8 @@ export default function AgenciesPage() {
 
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => router.push(`/agencies/${company.id}`)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
+                          <Users className="h-4 w-4 mr-2" />
+                          View / Add Contacts
                         </DropdownMenuItem>
 
                         <DropdownMenuItem onClick={() => handleEdit(company)}>
@@ -263,6 +262,7 @@ export default function AgenciesPage() {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         company={selectedCompany}
+        agencyMode={true}
         onSuccess={() => {
           setIsModalOpen(false)
           setSelectedCompany(null)

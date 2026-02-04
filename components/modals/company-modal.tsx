@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-utils";
 import { Loader2, Landmark, Plus, Building, Users } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -71,6 +72,8 @@ type CompanyModalProps = {
   onOpenChange: (open: boolean) => void;
   company?: any;
   onSuccess?: () => void;
+  /** When true, hides the tenant toggle and forces ownerType to "user" (agency/client only) */
+  agencyMode?: boolean;
 };
 
 export function CompanyModal({
@@ -78,6 +81,7 @@ export function CompanyModal({
   onOpenChange,
   company,
   onSuccess,
+  agencyMode = false,
 }: CompanyModalProps) {
   const initialState: CompanyFormValues = {
     name: "",
@@ -137,7 +141,7 @@ export function CompanyModal({
       onOpenChange(false);
       setFormData(initialState);
     },
-    onError: (err) => toast.error(err.message || "Failed to create company"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const updateMutation = api.company.update.useMutation({
@@ -147,7 +151,7 @@ export function CompanyModal({
       onSuccess?.();
       onOpenChange(false);
     },
-    onError: (err) => toast.error(err.message || "Failed to update company"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
@@ -204,8 +208,12 @@ export function CompanyModal({
 
     const sanitized = sanitizeForm(formData);
 
+    // In agency mode, always force ownerType to "user" (no platform companies)
+    if (agencyMode) {
+      sanitized.ownerType = "user";
+    }
     // Security: only users with permission can set ownerType to "tenant"
-    if (!company && !canAssignTenantCompany) {
+    else if (!company && !canAssignTenantCompany) {
       sanitized.ownerType = "user";
     }
 
@@ -240,7 +248,7 @@ export function CompanyModal({
               onChange={(v) => setFormData({ ...formData, name: v })}
             />
 
-            {(canAssignTenantCompany || company) && (
+            {!agencyMode && (canAssignTenantCompany || company) && (
               <div className={`p-4 rounded-lg border-2 transition-all ${
                 formData.ownerType === "tenant"
                   ? "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300"
@@ -295,7 +303,7 @@ export function CompanyModal({
               </div>
             )}
 
-            {!canAssignTenantCompany && company && (
+            {!agencyMode && !canAssignTenantCompany && company && (
               <div className={`p-4 rounded-lg border ${
                 company.ownerType === "tenant"
                   ? "bg-indigo-50 border-indigo-200"

@@ -307,6 +307,7 @@ export default function AgencyDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Job Title / Dept</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Role</TableHead>
@@ -324,6 +325,21 @@ export default function AgencyDetailPage() {
                         {cu.user?.name || "Unnamed"}
                         {isOwner && <Crown className="h-4 w-4 text-yellow-500" />}
                       </div>
+                      {cu.notes && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1" title={cu.notes}>
+                          {cu.notes}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {cu.jobTitle || cu.department ? (
+                        <div className="text-sm">
+                          {cu.jobTitle && <div>{cu.jobTitle}</div>}
+                          {cu.department && <div className="text-muted-foreground text-xs">{cu.department}</div>}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {cu.user?.email ? (

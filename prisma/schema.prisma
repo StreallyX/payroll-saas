@@ -443,6 +443,11 @@ model CompanyUser {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  // Additional contact info
+  jobTitle   String?
+  department String?
+  notes      String? @db.Text
+
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 

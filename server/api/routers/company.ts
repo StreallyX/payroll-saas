@@ -273,6 +273,7 @@ export const companyRouter = createTRPCRouter({
         id: z.string(),
         name: z.string().optional(),
         bankId: z.string().nullable().optional(),
+        ownerType: z.enum(["tenant", "user"]).optional(),
 
         contactPerson: z.string().optional(),
         contactEmail: z.string().email().optional().or(z.literal("")),
@@ -336,9 +337,14 @@ export const companyRouter = createTRPCRouter({
         }
       }
 
+      // Security: only users with company.create.global can change ownerType
+      const canChangeOwnerType = user.permissions.includes(P.CREATE_GLOBAL)
+      const { ownerType, ...restInput } = input
+      const dataToUpdate = canChangeOwnerType ? input : restInput
+
       const updated = await ctx.prisma.company.update({
         where: { id: input.id },
-        data: input,
+        data: dataToUpdate,
       })
 
       await createAuditLog({
@@ -411,6 +417,10 @@ export const companyRouter = createTRPCRouter({
         phone: z.string().optional(),
         role: z.enum(["contact", "billing_contact", "member", "admin"]).default("contact"),
         hasPortalAccess: z.boolean().default(false),
+        // Additional contact info
+        jobTitle: z.string().optional(),
+        department: z.string().optional(),
+        notes: z.string().optional(),
         // Note: Portal role is ALWAYS "agency" for agency company users - no choice
       })
     )
@@ -508,6 +518,9 @@ export const companyRouter = createTRPCRouter({
           companyId: input.companyId,
           userId: contactUser.id,
           role: input.role,
+          jobTitle: input.jobTitle,
+          department: input.department,
+          notes: input.notes,
         },
       })
 
