@@ -344,7 +344,6 @@ model User {
   featureRequestsRejected  FeatureRequest[] @relation("FeatureRequestRejectedBy")
   featureRequestsValidated FeatureRequest[] @relation("FeatureRequestValidatedBy")
 
-  @@unique([tenantId, email])
   @@index([tenantId])
   @@index([email])
   @@index([roleId])
@@ -2531,7 +2530,7 @@ model FeatureRequest {
   priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
   
   // Status tracking
-  // PENDING, SUBMITTED, WAITING_FOR_CONFIRMATION, DEV_COMPLETED, NEEDS_REVISION, VALIDATED, REJECTED
+  // PENDING, SUBMITTED, WAITING_FOR_CONFIRMATION, DEV_COMPLETED, NEEDS_REVISION, VALIDATED, COMPLETED, REJECTED
   status            String   @default("PENDING")
   rejectionReason   String?  @db.Text
   revisionFeedback  String?  @db.Text // Feedback when requester requests revision

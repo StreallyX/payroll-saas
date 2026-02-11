@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api } from "@/lib/trpc"
 import { toast } from "sonner"
 import {
@@ -28,6 +29,8 @@ import {
   Send,
   Plus,
   Globe,
+  Edit,
+  Trash2,
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 
@@ -42,9 +45,28 @@ export default function ContractorDetailPage() {
   const [formData, setFormData] = useState<any>({})
   const [companyFormData, setCompanyFormData] = useState<any>({})
 
+  // Bank modal state
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false)
+  const [selectedBank, setSelectedBank] = useState<any>(null)
+  const [bankFormData, setBankFormData] = useState({
+    bankName: "",
+    accountHolder: "",
+    accountNumber: "",
+    iban: "",
+    swiftCode: "",
+    routingNumber: "",
+    sortCode: "",
+    currency: "",
+    isPrimary: false,
+  })
+
   const { data: contractor, isLoading, refetch } = api.user.getDetails.useQuery({ id: contractorId })
   const { data: contractorCompanies = [], refetch: refetchCompanies } = api.company.getByOwner.useQuery(
     { ownerId: contractorId },
+    { enabled: !!contractorId }
+  )
+  const { data: contractorBanks = [], refetch: refetchBanks } = api.bank.getByUserId.useQuery(
+    { userId: contractorId },
     { enabled: !!contractorId }
   )
   const { data: countries = [] } = api.country.getAll.useQuery()
@@ -92,11 +114,53 @@ export default function ContractorDetailPage() {
     onError: (error: any) => toast.error(error?.message || "Failed to send"),
   })
 
+  // Bank mutations
+  const createBankMutation = api.bank.createForUser.useMutation({
+    onSuccess: () => {
+      toast.success("Bank account added successfully")
+      refetchBanks()
+      refetch()
+      closeBankModal()
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to add bank account")
+    },
+  })
+
+  const updateBankMutation = api.bank.update.useMutation({
+    onSuccess: () => {
+      toast.success("Bank account updated successfully")
+      refetchBanks()
+      refetch()
+      closeBankModal()
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to update bank account")
+    },
+  })
+
+  const deleteBankMutation = api.bank.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Bank account deleted")
+      refetchBanks()
+      refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to delete bank account")
+    },
+  })
+
   // Initialize form when contractor loads
   const initForm = () => {
     if (contractor) {
+      // Split name into firstName and surname
+      const nameParts = (contractor.name || "").split(" ")
+      const firstName = nameParts[0] || ""
+      const surname = nameParts.slice(1).join(" ") || ""
+
       setFormData({
-        name: contractor.name || "",
+        firstName,
+        surname,
         email: contractor.email || "",
         phone: contractor.phone || "",
         dateOfBirth: contractor.dateOfBirth ? new Date(contractor.dateOfBirth).toISOString().split('T')[0] : "",
@@ -155,12 +219,17 @@ export default function ContractorDetailPage() {
   }
 
   const handleSave = () => {
-    if (!formData.name) return toast.error("Name is required")
+    if (!formData.firstName) return toast.error("First name is required")
     if (!formData.email) return toast.error("Email is required")
+
+    // Combine firstName and surname into name
+    const fullName = formData.surname
+      ? `${formData.firstName} ${formData.surname}`.trim()
+      : formData.firstName.trim()
 
     updateMutation.mutate({
       id: contractorId,
-      name: formData.name,
+      name: fullName,
       email: formData.email,
       roleId: formData.roleId || contractor?.role?.id,
       isActive: formData.isActive,
@@ -221,6 +290,96 @@ export default function ContractorDetailPage() {
     setCompanyFormData({})
   }
 
+  // Bank modal functions
+  const openBankModal = (bank?: any) => {
+    if (bank) {
+      setSelectedBank(bank)
+      setBankFormData({
+        bankName: bank.bankName || "",
+        accountHolder: bank.accountHolder || "",
+        accountNumber: bank.accountNumber || "",
+        iban: bank.iban || "",
+        swiftCode: bank.swiftCode || "",
+        routingNumber: bank.routingNumber || "",
+        sortCode: bank.sortCode || "",
+        currency: bank.currency || "",
+        isPrimary: bank.isPrimary || false,
+      })
+    } else {
+      setSelectedBank(null)
+      setBankFormData({
+        bankName: "",
+        accountHolder: contractor?.name || "",
+        accountNumber: "",
+        iban: "",
+        swiftCode: "",
+        routingNumber: "",
+        sortCode: "",
+        currency: "",
+        isPrimary: false,
+      })
+    }
+    setIsBankModalOpen(true)
+  }
+
+  const closeBankModal = () => {
+    setIsBankModalOpen(false)
+    setSelectedBank(null)
+    setBankFormData({
+      bankName: "",
+      accountHolder: "",
+      accountNumber: "",
+      iban: "",
+      swiftCode: "",
+      routingNumber: "",
+      sortCode: "",
+      currency: "",
+      isPrimary: false,
+    })
+  }
+
+  const handleSaveBank = () => {
+    if (!bankFormData.bankName) return toast.error("Bank name is required")
+
+    if (selectedBank) {
+      // Update existing bank
+      updateBankMutation.mutate({
+        id: selectedBank.id,
+        bankName: bankFormData.bankName,
+        accountHolder: bankFormData.accountHolder || undefined,
+        accountNumber: bankFormData.accountNumber || undefined,
+        iban: bankFormData.iban || undefined,
+        swiftCode: bankFormData.swiftCode || undefined,
+        routingNumber: bankFormData.routingNumber || undefined,
+        sortCode: bankFormData.sortCode || undefined,
+        currency: bankFormData.currency || undefined,
+        isPrimary: bankFormData.isPrimary,
+      })
+    } else {
+      // Create new bank for contractor
+      createBankMutation.mutate({
+        userId: contractorId,
+        bankName: bankFormData.bankName,
+        accountHolder: bankFormData.accountHolder || undefined,
+        accountNumber: bankFormData.accountNumber || undefined,
+        iban: bankFormData.iban || undefined,
+        swiftCode: bankFormData.swiftCode || undefined,
+        routingNumber: bankFormData.routingNumber || undefined,
+        sortCode: bankFormData.sortCode || undefined,
+        currency: bankFormData.currency || undefined,
+        isPrimary: bankFormData.isPrimary,
+      })
+    }
+  }
+
+  const handleDeleteBank = (bankId: string) => {
+    if (confirm("Are you sure you want to delete this bank account?")) {
+      deleteBankMutation.mutate({ id: bankId })
+    }
+  }
+
+  const isSavingBank = createBankMutation.isPending || updateBankMutation.isPending
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -257,8 +416,14 @@ export default function ContractorDetailPage() {
     )
   }
 
+  // Split contractor name for display
+  const contractorNameParts = (contractor.name || "").split(" ")
+  const contractorFirstName = contractorNameParts[0] || ""
+  const contractorSurname = contractorNameParts.slice(1).join(" ") || ""
+
   const displayData = isEditing ? formData : {
-    name: contractor.name,
+    firstName: contractorFirstName,
+    surname: contractorSurname,
     email: contractor.email,
     phone: contractor.phone,
     dateOfBirth: contractor.dateOfBirth ? new Date(contractor.dateOfBirth).toISOString().split('T')[0] : "",
@@ -400,11 +565,21 @@ export default function ContractorDetailPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Full Name</Label>
+                  <Label>First Name</Label>
                   <Input
-                    value={displayData.name || ""}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={displayData.firstName || ""}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     disabled={!isEditing}
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Surname</Label>
+                  <Input
+                    value={displayData.surname || ""}
+                    onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder="Surname"
                   />
                 </div>
                 <div className="space-y-2">
@@ -693,15 +868,21 @@ export default function ContractorDetailPage() {
         {/* Bank Tab */}
         <TabsContent value="bank" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Bank Accounts</CardTitle>
-              <CardDescription>Payment information for this contractor</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Bank Accounts</CardTitle>
+                <CardDescription>Payment information for this contractor</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => openBankModal()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Bank
+              </Button>
             </CardHeader>
             <CardContent>
-              {contractor.banks && contractor.banks.length > 0 ? (
+              {(contractorBanks.length > 0 || (contractor.banks && contractor.banks.length > 0)) ? (
                 <div className="space-y-3">
-                  {contractor.banks.map((account: any, index: number) => (
-                    <div key={index} className="p-4 border rounded-lg">
+                  {(contractorBanks.length > 0 ? contractorBanks : contractor.banks).map((account: any) => (
+                    <div key={account.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Landmark className="h-5 w-5 text-muted-foreground" />
@@ -709,12 +890,30 @@ export default function ContractorDetailPage() {
                             <p className="font-medium">{account.bankName || "Bank Account"}</p>
                             <p className="text-sm text-muted-foreground">
                               {account.accountNumber ? `****${account.accountNumber.slice(-4)}` : "No account number"}
+                              {account.iban && ` • IBAN: ****${account.iban.slice(-4)}`}
                             </p>
+                            {account.accountHolder && (
+                              <p className="text-xs text-muted-foreground">{account.accountHolder}</p>
+                            )}
                           </div>
                         </div>
-                        {account.isPrimary && (
-                          <Badge variant="secondary">Primary</Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {account.isPrimary && (
+                            <Badge variant="secondary">Primary</Badge>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => openBankModal(account)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteBank(account.id)}
+                            disabled={deleteBankMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -723,7 +922,11 @@ export default function ContractorDetailPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Landmark className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No bank accounts registered</p>
-                  <p className="text-sm">The contractor can add bank accounts from their profile.</p>
+                  <p className="text-sm mb-4">Add a bank account for payment processing.</p>
+                  <Button variant="outline" onClick={() => openBankModal()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Bank Account
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -755,6 +958,107 @@ export default function ContractorDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Bank Modal */}
+      <Dialog open={isBankModalOpen} onOpenChange={(open) => !open && closeBankModal()}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>{selectedBank ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
+            <DialogDescription>
+              {selectedBank
+                ? "Update the bank account details."
+                : "Add a new bank account for this contractor."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Bank Name *</Label>
+                <Input
+                  value={bankFormData.bankName}
+                  onChange={(e) => setBankFormData({ ...bankFormData, bankName: e.target.value })}
+                  placeholder="e.g. HSBC, Emirates NBD"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Account Holder</Label>
+                <Input
+                  value={bankFormData.accountHolder}
+                  onChange={(e) => setBankFormData({ ...bankFormData, accountHolder: e.target.value })}
+                  placeholder="Account holder name"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Account Number</Label>
+                <Input
+                  value={bankFormData.accountNumber}
+                  onChange={(e) => setBankFormData({ ...bankFormData, accountNumber: e.target.value })}
+                  placeholder="Account number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>IBAN</Label>
+                <Input
+                  value={bankFormData.iban}
+                  onChange={(e) => setBankFormData({ ...bankFormData, iban: e.target.value })}
+                  placeholder="IBAN"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>SWIFT Code</Label>
+                <Input
+                  value={bankFormData.swiftCode}
+                  onChange={(e) => setBankFormData({ ...bankFormData, swiftCode: e.target.value })}
+                  placeholder="SWIFT / BIC"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Routing / Sort Code</Label>
+                <Input
+                  value={bankFormData.routingNumber || bankFormData.sortCode}
+                  onChange={(e) => setBankFormData({ ...bankFormData, routingNumber: e.target.value, sortCode: e.target.value })}
+                  placeholder="Routing number or sort code"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Input
+                  value={bankFormData.currency}
+                  onChange={(e) => setBankFormData({ ...bankFormData, currency: e.target.value })}
+                  placeholder="e.g. USD, EUR, GBP"
+                />
+              </div>
+              <div className="flex items-center space-x-2 pt-6">
+                <Switch
+                  checked={bankFormData.isPrimary}
+                  onCheckedChange={(checked) => setBankFormData({ ...bankFormData, isPrimary: checked })}
+                />
+                <Label>Primary Account</Label>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeBankModal} disabled={isSavingBank}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveBank} disabled={isSavingBank || !bankFormData.bankName}>
+              {isSavingBank && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {selectedBank ? "Update" : "Add"} Bank Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

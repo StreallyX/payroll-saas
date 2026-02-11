@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +47,6 @@ export function CurrencySelect({
     <div className={cn("space-y-2", className)}>
       {label && (
         <Label className={cn(required && "required")}>
-          <DollarSign className="h-4 w-4 inline mr-1" />
           {label}
           {required && " *"}
         </Label>

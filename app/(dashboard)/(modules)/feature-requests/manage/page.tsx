@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatsCard } from "@/components/shared/stats-card";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Search, Filter, Eye, CheckCircle, XCircle, Clock, AlertCircle, TrendingUp, ListTodo, RefreshCw, ThumbsUp, Wrench } from "lucide-react";
+import { Search, Filter, Eye, CheckCircle, CheckCircle2, XCircle, Clock, AlertCircle, TrendingUp, ListTodo, RefreshCw, ThumbsUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/trpc";
 import { format } from "date-fns";
@@ -27,6 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
   DEV_COMPLETED: "bg-purple-500",
   NEEDS_REVISION: "bg-amber-500",
   VALIDATED: "bg-green-500",
+  COMPLETED: "bg-emerald-600",
   REJECTED: "bg-red-500",
 };
 
@@ -37,6 +38,7 @@ const STATUS_LABELS: Record<string, string> = {
   DEV_COMPLETED: "Awaiting Validation",
   NEEDS_REVISION: "Needs Revision",
   VALIDATED: "Validated",
+  COMPLETED: "Completed",
   REJECTED: "Rejected",
 };
 
@@ -103,14 +105,22 @@ export default function ManageFeatureRequestsPage() {
     devCompleted: requests?.filter((r) => r.status === "DEV_COMPLETED").length || 0,
     needsRevision: requests?.filter((r) => r.status === "NEEDS_REVISION").length || 0,
     validated: requests?.filter((r) => r.status === "VALIDATED").length || 0,
+    completed: requests?.filter((r) => r.status === "COMPLETED").length || 0,
     rejected: requests?.filter((r) => r.status === "REJECTED").length || 0,
   };
 
   // Handlers
-  const handleMarkCompleted = (id: string) => {
+  const handleMarkDevCompleted = (id: string) => {
     updateStatusMutation.mutate({
       id,
       status: "DEV_COMPLETED",
+    });
+  };
+
+  const handleMarkCompleted = (id: string) => {
+    updateStatusMutation.mutate({
+      id,
+      status: "COMPLETED",
     });
   };
 
@@ -169,7 +179,7 @@ export default function ManageFeatureRequestsPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-6">
         <StatsCard
           title="Total Requests"
           value={stats.total}
@@ -198,6 +208,12 @@ export default function ManageFeatureRequestsPage() {
           value={stats.validated}
           icon={CheckCircle}
           iconColor="text-green-500"
+        />
+        <StatsCard
+          title="Completed"
+          value={stats.completed}
+          icon={CheckCircle2}
+          iconColor="text-emerald-600"
         />
         <StatsCard
           title="Rejected"
@@ -235,6 +251,7 @@ export default function ManageFeatureRequestsPage() {
                 <SelectItem value="DEV_COMPLETED">Awaiting Validation</SelectItem>
                 <SelectItem value="NEEDS_REVISION">Needs Revision</SelectItem>
                 <SelectItem value="VALIDATED">Validated</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
@@ -369,18 +386,18 @@ export default function ManageFeatureRequestsPage() {
                           View
                         </Button>
 
-                        {/* Show Mark as Completed for pending/needs revision requests */}
+                        {/* Show Mark as Dev Completed for pending/needs revision requests */}
                         {["SUBMITTED", "PENDING", "WAITING_FOR_CONFIRMATION", "NEEDS_REVISION"].includes(request.status) && (
                           <>
                             <Button
                               variant="outline"
                               size="sm"
                               className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                              onClick={() => handleMarkCompleted(request.id)}
+                              onClick={() => handleMarkDevCompleted(request.id)}
                               disabled={updateStatusMutation.isPending}
                             >
                               <Wrench className="h-4 w-4 mr-1" />
-                              Mark Completed
+                              Dev Completed
                             </Button>
                             <Button
                               variant="outline"
@@ -395,10 +412,50 @@ export default function ManageFeatureRequestsPage() {
                           </>
                         )}
 
-                        {/* Show status info for completed/validated */}
+                        {/* Show Validate & Complete + Reject for dev completed requests */}
                         {request.status === "DEV_COMPLETED" && (
-                          <Badge variant="outline" className="text-purple-600 border-purple-300">
-                            Awaiting Requester Validation
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              onClick={() => handleMarkCompleted(request.id)}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              Validate & Complete
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleReject(request.id)}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+
+                        {/* Show Mark Completed for validated requests */}
+                        {request.status === "VALIDATED" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            onClick={() => handleMarkCompleted(request.id)}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Mark Completed
+                          </Button>
+                        )}
+
+                        {/* Show status info for completed */}
+                        {request.status === "COMPLETED" && (
+                          <Badge variant="outline" className="text-emerald-600 border-emerald-300">
+                            Completed
                           </Badge>
                         )}
                       </div>

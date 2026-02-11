@@ -338,6 +338,7 @@ export const featureRequestRouter = createTRPCRouter({
           "DEV_COMPLETED",
           "NEEDS_REVISION",
           "VALIDATED",
+          "COMPLETED",
           "REJECTED",
         ]),
         rejectionReason: z.string().optional(),
