@@ -34,7 +34,8 @@ type UserModalProps = {
 
 export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProps) {
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    surname: "",
     email: "",
     phone: "",
     password: "",
@@ -52,8 +53,14 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
   useEffect(() => {
     if (user) {
+      // Split name into firstName and surname
+      const nameParts = (user.name || "").split(" ")
+      const firstName = nameParts[0] || ""
+      const surname = nameParts.slice(1).join(" ") || ""
+
       setFormData({
-        name: user.name || "",
+        firstName,
+        surname,
         email: user.email,
         phone: "",
         password: "",
@@ -105,7 +112,8 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
   const resetForm = () => {
     setFormData({
-      name: "",
+      firstName: "",
+      surname: "",
       email: "",
       phone: "",
       password: "",
@@ -125,7 +133,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name) return toast.error("Name is required.")
+    if (!formData.firstName) return toast.error("First name is required.")
     if (!formData.email) return toast.error("Email is required.")
     if (!formData.roleId) return toast.error("Role is required.")
 
@@ -139,17 +147,22 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
       }
     }
 
+    // Combine firstName and surname into full name
+    const fullName = formData.surname
+      ? `${formData.firstName} ${formData.surname}`.trim()
+      : formData.firstName.trim()
+
     if (user) {
       updateMutation.mutate({
         id: user.id,
-        name: formData.name,
+        name: fullName,
         email: formData.email,
         roleId: formData.roleId,
         isActive: formData.isActive,
       })
     } else {
       createMutation.mutate({
-        name: formData.name,
+        name: fullName,
         email: formData.email,
         phone: formData.phone || undefined,
         password: useManualPassword ? formData.password || undefined : undefined,
@@ -257,16 +270,28 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
               </div>
             )}
 
-            {/* Name */}
-            <div className="grid gap-2">
-              <Label htmlFor="name">Full Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                disabled={isLoading}
-                placeholder="John Doe"
-              />
+            {/* First Name & Surname */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">First Name *</Label>
+                <Input
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  disabled={isLoading}
+                  placeholder="John"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="surname">Surname</Label>
+                <Input
+                  id="surname"
+                  value={formData.surname}
+                  onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                  disabled={isLoading}
+                  placeholder="Doe"
+                />
+              </div>
             </div>
 
             {/* Email */}

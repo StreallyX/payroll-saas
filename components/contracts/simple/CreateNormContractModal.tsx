@@ -28,7 +28,6 @@ import {
   FileText,
   Info,
   Calendar,
-  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -140,8 +139,8 @@ export function CreateNormContractModal({
     const errors: string[] = [];
 
     if (!pdfFile) errors.push("Missing: Contract PDF file");
-    if (!formData.companyTenantId) errors.push("Missing: Company Tenant");
-    if (!formData.agencyId) errors.push("Missing: Agency");
+    if (!formData.companyTenantId) errors.push("Missing: Aspirock Company");
+    if (!formData.agencyId) errors.push("Missing: Agency / Client");
     if (!formData.contractorId) errors.push("Missing: Contractor");
 
     if (!formData.startDate) errors.push("Missing: Start Date");
@@ -317,10 +316,10 @@ export function CreateNormContractModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Create NORM Contract
+            Add Contract
           </DialogTitle>
           <DialogDescription>
-            Create a new normal contract with all required information.
+            Create a new contract with all required information.
           </DialogDescription>
         </DialogHeader>
 
@@ -339,7 +338,7 @@ export function CreateNormContractModal({
             <CompanySelect
               value={formData.companyTenantId}
               onChange={(v) => updateField("companyTenantId", v)}
-              label="Client Company"
+              label="Aspirock Company"
               required
               roleFilter="tenant"
               allowCreate
@@ -347,7 +346,7 @@ export function CreateNormContractModal({
             <CompanySelect
               value={formData.agencyId}
               onChange={(v) => updateField("agencyId", v)}
-              label="Agency"
+              label="Agency / Client"
               required
               roleFilter="agency"
               allowCreate
@@ -483,10 +482,7 @@ export function CreateNormContractModal({
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>
-                  <DollarSign className="h-4 w-4 inline mr-1" />
-                  Rate Amount
-                </Label>
+                <Label>Rate Amount</Label>
                 <Input
                   type="number"
                   step="0.01"

@@ -313,4 +313,92 @@ export const bankRouter = createTRPCRouter({
         })
       }),
 
+    // -------------------------------------------------------
+    // GET BANKS FOR A SPECIFIC USER — GLOBAL ONLY
+    // -------------------------------------------------------
+    getByUserId: tenantProcedure
+      .use(hasPermission(P.LIST_GLOBAL))
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const tenantId = ctx.tenantId!
+
+        return ctx.prisma.bank.findMany({
+          where: {
+            tenantId,
+            userId: input.userId,
+          },
+          orderBy: [
+            { isPrimary: "desc" },
+            { createdAt: "desc" },
+          ],
+        })
+      }),
+
+    // -------------------------------------------------------
+    // CREATE BANK FOR A SPECIFIC USER — GLOBAL ONLY
+    // -------------------------------------------------------
+    createForUser: tenantProcedure
+      .use(hasPermission(P.CREATE_GLOBAL))
+      .input(
+        z.object({
+          userId: z.string(),
+
+          // Account identification
+          accountName: z.string().optional(),
+          accountNumber: z.string().optional(),
+          accountHolder: z.string().optional(),
+
+          // Bank information
+          bankName: z.string().min(1, "Bank name is required"),
+          swiftCode: z.string().optional(),
+          intermediarySwiftCode: z.string().optional(),
+          routingNumber: z.string().optional(),
+          sortCode: z.string().optional(),
+          branchCode: z.string().optional(),
+          iban: z.string().optional(),
+
+          // Bank address
+          bankAddress: z.string().optional(),
+          bankCity: z.string().optional(),
+          country: z.string().optional(),
+          state: z.string().optional(),
+          postCode: z.string().optional(),
+
+          // Account details
+          currency: z.string().optional(),
+
+          // Flags
+          isPrimary: z.boolean().default(false),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenantId = ctx.tenantId!
+        const user = ctx.session.user
+        const { userId, ...data } = input
+
+        const bank = await ctx.prisma.bank.create({
+          data: {
+            ...data,
+            tenantId,
+            createdBy: user.id,
+            userId, // Associate with specified user
+            status: "active",
+          },
+        })
+
+        await createAuditLog({
+          tenantId,
+          userId: user.id,
+          userName: user.name ?? "Unknown",
+          userRole: user.roleName,
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.BANK,
+          entityId: bank.id,
+          entityName: bank.bankName || bank.accountName || "Bank Account",
+          metadata: { forUserId: userId },
+        })
+
+        return bank
+      }),
+
 })

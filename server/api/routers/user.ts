@@ -521,31 +521,50 @@ export const userRouter = createTRPCRouter({
       })
 
       const setupUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/set-password?token=${token}`
+      const emailSubject = `You have been invited to join ${tenant?.name || 'Your Company'}`
 
-      await emailService.sendWithTemplate(
-        'account-invitation',
-        {
-          userName: targetUser.name || 'User',
-          userEmail: targetUser.email,
-          companyName: tenant?.name || 'Your Company',
-          setupUrl,
-          loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
-        },
-        { to: targetUser.email },
-        'high'
-      )
+      try {
+        await emailService.sendWithTemplate(
+          'account-invitation',
+          {
+            userName: targetUser.name || 'User',
+            userEmail: targetUser.email,
+            companyName: tenant?.name || 'Your Company',
+            setupUrl,
+            loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/login`,
+          },
+          { to: targetUser.email },
+          'high'
+        )
 
-      await ctx.prisma.emailLog.create({
-        data: {
-          tenantId,
-          to: targetUser.email,
-          from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
-          subject: 'Invitation Resent - Set Up Your Account',
-          template: 'account-invitation',
-          status: 'SENT',
-          sentAt: new Date(),
-        },
-      })
+        await ctx.prisma.emailLog.create({
+          data: {
+            tenantId,
+            to: targetUser.email,
+            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+            subject: emailSubject,
+            template: 'account-invitation',
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        })
+      } catch (emailError) {
+        // Log failed email
+        await ctx.prisma.emailLog.create({
+          data: {
+            tenantId,
+            to: targetUser.email,
+            from: process.env.EMAIL_FROM || 'noreply@payroll-saas.com',
+            subject: emailSubject,
+            template: 'account-invitation',
+            status: 'FAILED',
+            error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          },
+        })
+
+        console.error('Failed to send invitation email:', emailError)
+        throw new Error('Failed to send invitation email. Please check email logs for details.')
+      }
 
       await ctx.prisma.auditLog.create({
         data: {

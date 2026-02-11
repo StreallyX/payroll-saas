@@ -391,19 +391,23 @@ export async function seedTestUsers(prisma: PrismaClient, tenantId: string) {
       where: { tenantId, name: u.role },
     });
 
-    await prisma.user.upsert({
-      where: { tenantId_email: { tenantId, email: u.email } },
-      update: {},
-      create: {
-        tenantId,
-        email: u.email,
-        name: u.name,
-        passwordHash: await bcrypt.hash(u.pass, 10),
-        roleId: role!.id,
-        mustChangePassword: false,
-        emailVerified: true,
-      },
+    const existingUser = await prisma.user.findFirst({
+      where: { tenantId, email: u.email },
     });
+
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          tenantId,
+          email: u.email,
+          name: u.name,
+          passwordHash: await bcrypt.hash(u.pass, 10),
+          roleId: role!.id,
+          mustChangePassword: false,
+          emailVerified: true,
+        },
+      });
+    }
   }
 
   console.log("✨ Accounts created!");

@@ -13,12 +13,14 @@ import { Search, Mail, CheckCircle2, XCircle, Clock, RefreshCw, Eye } from "luci
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 
 export default function EmailLogsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
+  const [selectedEmail, setSelectedEmail] = useState<any>(null)
 
   const { data: logsData, isLoading } = api.emailLog.getAll.useQuery({
     recipient: searchTerm || undefined,
@@ -123,7 +125,7 @@ export default function EmailLogsPage() {
                 <TableBody>
                   {logs.map((log: any) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-medium">{log.recipient}</TableCell>
+                      <TableCell className="font-medium">{log.to || log.recipient}</TableCell>
                       <TableCell className="max-w-md truncate">{log.subject}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -136,7 +138,9 @@ export default function EmailLogsPage() {
                       <TableCell className="text-sm text-gray-600">{log.sentAt ? format(new Date(log.sentAt), 'MMM dd, yyyy HH:mm') : '-'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost"><Eye className="h-3 w-3" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedEmail(log)}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
                           {log.status === 'FAILED' && (
                             <Button size="sm" variant="ghost" onClick={() => resendMutation.mutate({ id: log.id })} disabled={resendMutation.isPending}>
                               <RefreshCw className="h-3 w-3" />
@@ -161,6 +165,83 @@ export default function EmailLogsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Email Details Dialog */}
+      <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && setSelectedEmail(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Email Details
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedEmail && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Recipient</p>
+                  <p className="text-sm">{selectedEmail.to || selectedEmail.recipient}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(selectedEmail.status)}
+                    <Badge variant={selectedEmail.status === 'SENT' ? 'default' : selectedEmail.status === 'FAILED' ? 'destructive' : 'secondary'}>
+                      {selectedEmail.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Sent At</p>
+                  <p className="text-sm">{selectedEmail.sentAt ? format(new Date(selectedEmail.sentAt), 'MMM dd, yyyy HH:mm:ss') : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Created At</p>
+                  <p className="text-sm">{selectedEmail.createdAt ? format(new Date(selectedEmail.createdAt), 'MMM dd, yyyy HH:mm:ss') : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">From</p>
+                  <p className="text-sm">{selectedEmail.from || '-'}</p>
+                </div>
+                {selectedEmail.template && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Template</p>
+                    <p className="text-sm">{selectedEmail.template}</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Subject</p>
+                <p className="text-sm bg-muted p-2 rounded">{selectedEmail.subject}</p>
+              </div>
+
+              {selectedEmail.error && (
+                <div>
+                  <p className="text-sm font-medium text-red-600 mb-1">Error</p>
+                  <p className="text-sm bg-red-50 text-red-700 p-2 rounded whitespace-pre-wrap">{selectedEmail.error}</p>
+                </div>
+              )}
+
+              {selectedEmail.status === 'FAILED' && (
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      resendMutation.mutate({ id: selectedEmail.id })
+                      setSelectedEmail(null)
+                    }}
+                    disabled={resendMutation.isPending}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Resend Email
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
