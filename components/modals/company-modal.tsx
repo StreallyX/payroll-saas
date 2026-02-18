@@ -208,12 +208,13 @@ export function CompanyModal({
 
     const sanitized = sanitizeForm(formData);
 
-    // In agency mode, always force ownerType to "user" (no platform companies)
-    if (agencyMode) {
+    // In agency mode when CREATING (not editing), force ownerType to "user"
+    // When editing, allow changing ownerType if user has permission
+    if (agencyMode && !company) {
       sanitized.ownerType = "user";
     }
     // Security: only users with permission can set ownerType to "tenant"
-    else if (!company && !canAssignTenantCompany) {
+    else if (!canAssignTenantCompany && sanitized.ownerType === "tenant") {
       sanitized.ownerType = "user";
     }
 
@@ -248,7 +249,11 @@ export function CompanyModal({
               onChange={(v) => setFormData({ ...formData, name: v })}
             />
 
-            {!agencyMode && (canAssignTenantCompany || company) && (
+            {/* Show tenant toggle when user has permission AND either:
+                - Not in agencyMode (creating from Settings > Companies)
+                - OR editing an existing company (even from Agencies page)
+            */}
+            {canAssignTenantCompany && (!agencyMode || company) && (
               <div className={`p-4 rounded-lg border-2 transition-all ${
                 formData.ownerType === "tenant"
                   ? "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300"
