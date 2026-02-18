@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-import { UploadCloud, FileIcon } from "lucide-react";
+import { UploadCloud, FileIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface DocumentUploadButtonProps {
@@ -38,7 +38,11 @@ export function DocumentUploadButton({
   const uploadMutation = api.document.upload.useMutation();
   const updateVersionMutation = api.document.updateVersion.useMutation();
 
+  const isUploading = uploadMutation.isPending || updateVersionMutation.isPending;
+
   async function handleUpload() {
+    // Prevent double-clicks
+    if (isUploading) return;
     if (!file) {
       toast.error("Please select a file.");
       return;
@@ -89,7 +93,7 @@ export function DocumentUploadButton({
         Upload Document
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(newOpen) => !isUploading && setOpen(newOpen)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{parentDocumentId ? "Upload New Version" : "Upload Document"}</DialogTitle>
@@ -99,8 +103,8 @@ export function DocumentUploadButton({
           </DialogHeader>
 
           <div
-            className="border border-dashed rounded-md p-6 text-center cursor-pointer"
-            onClick={() => document.getElementById("file-input")?.click()}
+            className={`border border-dashed rounded-md p-6 text-center ${isUploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            onClick={() => !isUploading && document.getElementById("file-input")?.click()}
           >
             {file ? (
               <div className="flex items-center justify-center gap-2">
@@ -116,13 +120,23 @@ export function DocumentUploadButton({
             id="file-input"
             type="file"
             className="hidden"
+            disabled={isUploading}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
 
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpload} disabled={!file}>
-              Upload
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={!file || isUploading}>
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

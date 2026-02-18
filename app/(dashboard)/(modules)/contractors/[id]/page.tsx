@@ -31,7 +31,9 @@ import {
   Globe,
   Edit,
   Trash2,
+  FileText,
 } from "lucide-react"
+import { DocumentList } from "@/components/documents/DocumentList"
 import { formatDate } from "@/lib/utils"
 
 export default function ContractorDetailPage() {
@@ -553,6 +555,10 @@ export default function ContractorDetailPage() {
             <Landmark className="h-4 w-4 mr-2" />
             Bank
           </TabsTrigger>
+          <TabsTrigger value="documents">
+            <FileText className="h-4 w-4 mr-2" />
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         {/* Personal Info Tab */}
@@ -954,6 +960,21 @@ export default function ContractorDetailPage() {
                   <span>{contractor.createdByUser.name || contractor.createdByUser.email}</span>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Contractor Documents</CardTitle>
+              <CardDescription>
+                Upload and manage documents for this contractor such as contracts, visas, certifications, and other files.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DocumentList entityType="contractor" entityId={contractorId} />
             </CardContent>
           </Card>
         </TabsContent>
