@@ -342,10 +342,11 @@ export const featureRequestRouter = createTRPCRouter({
           "REJECTED",
         ]),
         rejectionReason: z.string().optional(),
+        revisionFeedback: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, status, rejectionReason } = input;
+      const { id, status, rejectionReason, revisionFeedback } = input;
 
       // Get existing request
       const existingRequest = await ctx.prisma.featureRequest.findFirst({
@@ -367,6 +368,13 @@ export const featureRequestRouter = createTRPCRouter({
         });
       }
 
+      if (status === "NEEDS_REVISION" && !revisionFeedback) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Feedback is required when requesting revision",
+        });
+      }
+
       // Prepare update data
       const updateData: any = {
         status,
@@ -380,6 +388,9 @@ export const featureRequestRouter = createTRPCRouter({
         updateData.rejectedBy = ctx.session!.user.id;
         updateData.rejectedAt = new Date();
         updateData.rejectionReason = rejectionReason;
+      } else if (status === "NEEDS_REVISION") {
+        // User requests changes
+        updateData.revisionFeedback = revisionFeedback;
       }
 
       // Update the request

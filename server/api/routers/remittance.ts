@@ -19,6 +19,14 @@ const CREATE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.CREATE, Per
 const UPDATE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.UPDATE, PermissionScope.GLOBAL);
 const DELETE_GLOBAL = buildPermissionKey(Resource.REMITTANCE, Action.DELETE, PermissionScope.GLOBAL);
 
+// Helper to convert Decimal to number safely
+const toNumber = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val;
+  if (val.toNumber) return val.toNumber();
+  return parseFloat(val.toString()) || 0;
+};
+
 
 // ==========================================================================
 // 🔥 Helper to convert Decimal to number
@@ -170,6 +178,154 @@ export const remittanceRouter = createTRPCRouter({
 
 
   // ============================================================
+  // GET CONTRACT FINANCIAL SUMMARY (for remittance creation)
+  // ============================================================
+  getContractFinancialSummary: tenantProcedure
+    .use(hasPermission(CREATE_GLOBAL))
+    .input(z.object({ contractId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Get contract with basic info
+      const contract = await ctx.prisma.contract.findFirst({
+        where: {
+          id: input.contractId,
+          tenantId: ctx.tenantId,
+        },
+        include: {
+          currency: true,
+        },
+      });
+
+      if (!contract) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found" });
+      }
+
+      // Get participants separately
+      const participants = await ctx.prisma.contractParticipant.findMany({
+        where: {
+          contractId: input.contractId,
+          isActive: true,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      // Get contractor participant
+      const contractorParticipant = participants.find(
+        (p: any) => p.role === "contractor" || p.role === "worker"
+      );
+
+      // Get contractor's default payment method if contractor exists
+      let contractorBankAccount = null;
+      if (contractorParticipant?.userId) {
+        const paymentMethod = await ctx.prisma.paymentMethod.findFirst({
+          where: {
+            userId: contractorParticipant.userId,
+            isDefault: true,
+          },
+        });
+        contractorBankAccount = paymentMethod;
+      }
+
+      // Get all invoices for this contract
+      const invoices = await ctx.prisma.invoice.findMany({
+        where: {
+          contractId: input.contractId,
+          tenantId: ctx.tenantId,
+        },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          status: true,
+          amount: true,
+          totalAmount: true,
+          marginAmount: true,
+          baseAmount: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // Get existing remittances for this contract
+      const existingRemittances = await ctx.prisma.remittance.findMany({
+        where: {
+          contractId: input.contractId,
+          tenantId: ctx.tenantId,
+        },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          completedAt: true,
+        },
+      });
+
+      // Calculate totals
+      const totalInvoiced = invoices.reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount), 0);
+      const paidInvoices = invoices.filter(inv => inv.status === "paid");
+      const totalReceived = paidInvoices.reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount), 0);
+      const totalMargin = invoices.reduce((sum, inv) => sum + toNumber(inv.marginAmount), 0);
+
+      // Calculate already remitted amount
+      const completedRemittances = existingRemittances.filter(r => r.status === "completed");
+      const totalRemitted = completedRemittances.reduce((sum, r) => sum + toNumber(r.amount), 0);
+
+      // Calculate suggested remittance amount (received - margin - already remitted)
+      const suggestedAmount = Math.max(0, totalReceived - totalMargin - totalRemitted);
+
+      return {
+        contract: {
+          id: contract.id,
+          title: contract.title,
+          reference: contract.contractReference,
+          rate: toNumber(contract.rate),
+          rateType: contract.rateType,
+          margin: toNumber(contract.margin),
+          marginType: contract.marginType,
+          currency: contract.currency?.code || "USD",
+        },
+        contractor: contractorParticipant?.user ? {
+          id: contractorParticipant.user.id,
+          name: contractorParticipant.user.name,
+          email: contractorParticipant.user.email,
+        } : null,
+        bankAccount: contractorBankAccount ? {
+          bankName: contractorBankAccount.bankName,
+          accountHolderName: contractorBankAccount.accountHolderName,
+          accountNumber: contractorBankAccount.accountNumber
+            ? `****${contractorBankAccount.accountNumber.slice(-4)}`
+            : null,
+          iban: contractorBankAccount.iban
+            ? `****${contractorBankAccount.iban.slice(-4)}`
+            : null,
+        } : null,
+        financials: {
+          totalInvoiced,
+          totalReceived,
+          totalMargin,
+          totalRemitted,
+          pendingAmount: totalInvoiced - totalReceived,
+          suggestedAmount,
+        },
+        invoices: invoices.map(inv => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          status: inv.status,
+          amount: toNumber(inv.amount),
+          totalAmount: toNumber(inv.totalAmount || inv.amount),
+          marginAmount: toNumber(inv.marginAmount),
+          createdAt: inv.createdAt,
+        })),
+        existingRemittances: existingRemittances.map(r => ({
+          id: r.id,
+          amount: toNumber(r.amount),
+          status: r.status,
+          completedAt: r.completedAt,
+        })),
+      };
+    }),
+
+  // ============================================================
   // ADMIN: CREATE REMITTANCE
   // ============================================================
   createRemittance: tenantProcedure
@@ -183,9 +339,25 @@ export const remittanceRouter = createTRPCRouter({
         currency: z.string().default("USD"),
         description: z.string().optional(),
         notes: z.string().optional(),
+        // New fields for detailed remittance
+        amountInvoiced: z.number().optional(),
+        amountReceived: z.number().optional(),
+        feeAmount: z.number().optional(),
+        netAmount: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Build description with breakdown if detailed data provided
+      let description = input.description || "";
+      if (input.amountInvoiced && input.amountReceived && input.feeAmount !== undefined) {
+        const breakdown = [
+          `Amount Invoiced: $${input.amountInvoiced.toFixed(2)}`,
+          `Amount Received: $${input.amountReceived.toFixed(2)}`,
+          `Fee: $${input.feeAmount.toFixed(2)}`,
+          `Net Payment: $${input.amount.toFixed(2)}`,
+        ].join("\n");
+        description = description ? `${description}\n\n${breakdown}` : breakdown;
+      }
 
       const result = await ctx.prisma.remittance.create({
         data: {
@@ -198,7 +370,7 @@ export const remittanceRouter = createTRPCRouter({
           recipientType: "contractor",
           recipientId: input.userId,
           senderId: ctx.session.user.id,
-          description: input.description || "",
+          description,
           notes: input.notes || "",
           status: "pending",
         }

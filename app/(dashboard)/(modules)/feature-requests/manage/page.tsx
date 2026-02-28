@@ -33,9 +33,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "Submitted",
-  PENDING: "Pending",
+  PENDING: "In Development",
   WAITING_FOR_CONFIRMATION: "Awaiting Confirmation",
-  DEV_COMPLETED: "Awaiting Validation",
+  DEV_COMPLETED: "Ready for Your Review",
   NEEDS_REVISION: "Needs Revision",
   VALIDATED: "Validated",
   COMPLETED: "Completed",
@@ -63,6 +63,7 @@ export default function ManageFeatureRequestsPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [isRequestingChanges, setIsRequestingChanges] = useState(false);
 
   // Permission checks
   const { hasPermission, hasAnyPermission, isSuperAdmin } = usePermissions();
@@ -124,22 +125,24 @@ export default function ManageFeatureRequestsPage() {
     });
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = (id: string, requestChanges: boolean = false) => {
     setSelectedRequestId(id);
+    setIsRequestingChanges(requestChanges);
     setRejectDialogOpen(true);
   };
 
   const confirmReject = () => {
     if (!selectedRequestId) return;
     if (!rejectionReason.trim()) {
-      toast.error("Please provide a rejection reason");
+      toast.error(isRequestingChanges ? "Please describe what changes are needed" : "Please provide a rejection reason");
       return;
     }
 
     updateStatusMutation.mutate({
       id: selectedRequestId,
-      status: "REJECTED",
-      rejectionReason: rejectionReason.trim(),
+      status: isRequestingChanges ? "NEEDS_REVISION" : "REJECTED",
+      rejectionReason: isRequestingChanges ? undefined : rejectionReason.trim(),
+      revisionFeedback: isRequestingChanges ? rejectionReason.trim() : undefined,
     });
   };
 
@@ -178,8 +181,39 @@ export default function ManageFeatureRequestsPage() {
         description="Review and manage all feature requests from users"
       />
 
+      {/* Workflow Explanation */}
+      <Card className="mt-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold">1</div>
+              <div>
+                <p className="font-medium">Submitted</p>
+                <p className="text-xs text-muted-foreground">User submits request</p>
+              </div>
+            </div>
+            <div className="text-muted-foreground">→</div>
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">2</div>
+              <div>
+                <p className="font-medium">Dev Submits for Review</p>
+                <p className="text-xs text-muted-foreground">Developer marks as done</p>
+              </div>
+            </div>
+            <div className="text-muted-foreground">→</div>
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold">3</div>
+              <div>
+                <p className="font-medium">User Validates</p>
+                <p className="text-xs text-muted-foreground">User tests & approves</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-4">
         <StatsCard
           title="Total Requests"
           value={stats.total}
@@ -192,7 +226,7 @@ export default function ManageFeatureRequestsPage() {
           iconColor="text-yellow-500"
         />
         <StatsCard
-          title="Awaiting Validation"
+          title="Ready for Review"
           value={stats.devCompleted}
           icon={ThumbsUp}
           iconColor="text-purple-500"
@@ -372,6 +406,21 @@ export default function ManageFeatureRequestsPage() {
                           <p className="text-sm text-amber-700 mt-1">{request.revisionFeedback}</p>
                         </div>
                       )}
+
+                      {/* Dev Completed - Awaiting User Review */}
+                      {request.status === "DEV_COMPLETED" && (
+                        <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                          <p className="text-sm font-medium text-purple-900 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            Development Complete - Awaiting Your Review
+                          </p>
+                          <p className="text-sm text-purple-700 mt-1">
+                            The developer has finished implementing this feature. Please test it and click
+                            <strong> "Validate & Complete"</strong> if everything works correctly, or
+                            <strong> "Request Changes"</strong> if adjustments are needed.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -386,7 +435,7 @@ export default function ManageFeatureRequestsPage() {
                           View
                         </Button>
 
-                        {/* Show Mark as Dev Completed for pending/needs revision requests */}
+                        {/* FOR DEVELOPERS: Mark development as complete */}
                         {["SUBMITTED", "PENDING", "WAITING_FOR_CONFIRMATION", "NEEDS_REVISION"].includes(request.status) && (
                           <>
                             <Button
@@ -395,9 +444,10 @@ export default function ManageFeatureRequestsPage() {
                               className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                               onClick={() => handleMarkDevCompleted(request.id)}
                               disabled={updateStatusMutation.isPending}
+                              title="Click when development is done - sends to user for review"
                             >
                               <Wrench className="h-4 w-4 mr-1" />
-                              Dev Completed
+                              Submit for Review
                             </Button>
                             <Button
                               variant="outline"
@@ -412,13 +462,12 @@ export default function ManageFeatureRequestsPage() {
                           </>
                         )}
 
-                        {/* Show Validate & Complete + Reject for dev completed requests */}
+                        {/* FOR USERS: Validate the completed development */}
                         {request.status === "DEV_COMPLETED" && (
                           <>
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
                               onClick={() => handleMarkCompleted(request.id)}
                               disabled={updateStatusMutation.isPending}
                             >
@@ -428,12 +477,12 @@ export default function ManageFeatureRequestsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleReject(request.id)}
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              onClick={() => handleReject(request.id, true)}
                               disabled={updateStatusMutation.isPending}
                             >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
+                              <RefreshCw className="h-4 w-4 mr-1" />
+                              Request Changes
                             </Button>
                           </>
                         )}
@@ -468,19 +517,23 @@ export default function ManageFeatureRequestsPage() {
         )}
       </div>
 
-      {/* Reject Dialog */}
+      {/* Reject / Request Changes Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Feature Request</DialogTitle>
+            <DialogTitle>
+              {isRequestingChanges ? "Request Changes" : "Reject Feature Request"}
+            </DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting this request. This will be visible to the requester.
+              {isRequestingChanges
+                ? "Please describe what changes or adjustments are needed. The developer will be notified and can make the necessary updates."
+                : "Please provide a reason for rejecting this request. This will be visible to the requester."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4">
             <Textarea
-              placeholder="Enter rejection reason..."
+              placeholder={isRequestingChanges ? "Describe what needs to be changed..." : "Enter rejection reason..."}
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               className="min-h-[100px]"
@@ -494,16 +547,18 @@ export default function ManageFeatureRequestsPage() {
                 setRejectDialogOpen(false);
                 setRejectionReason("");
                 setSelectedRequestId(null);
+                setIsRequestingChanges(false);
               }}
             >
               Cancel
             </Button>
             <Button
-              variant="destructive"
+              variant={isRequestingChanges ? "default" : "destructive"}
+              className={isRequestingChanges ? "bg-amber-600 hover:bg-amber-700" : ""}
               onClick={confirmReject}
               disabled={updateStatusMutation.isPending || !rejectionReason.trim()}
             >
-              Reject Request
+              {isRequestingChanges ? "Submit Feedback" : "Reject Request"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -30,9 +30,13 @@ type UserModalProps = {
     isActive: boolean
   }
   onSuccess?: () => void
+  /** When set, auto-selects the role by roleType and hides the role dropdown */
+  roleType?: "CONTRACTOR" | "AGENCY" | "PAYROLL" | "ADMIN"
+  /** Custom title for the modal (e.g., "Contractor / Worker") */
+  customTitle?: string
 }
 
-export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProps) {
+export function UserModal({ open, onOpenChange, user, onSuccess, roleType, customTitle }: UserModalProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     surname: "",
@@ -50,6 +54,11 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
   const utils = api.useUtils()
   const { data: roles = [] } = api.role.getAll.useQuery()
+
+  // Find the role ID for the specified roleType
+  const autoSelectedRoleId = roleType
+    ? roles?.find((r: any) => r.roleType === roleType)?.id
+    : undefined
 
   useEffect(() => {
     if (user) {
@@ -72,10 +81,14 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
       })
     } else {
       resetForm()
+      // Auto-select role if roleType is specified
+      if (autoSelectedRoleId) {
+        setFormData(prev => ({ ...prev, roleId: autoSelectedRoleId }))
+      }
     }
     setShowPassword(false)
     setShowConfirmPassword(false)
-  }, [user, open])
+  }, [user, open, autoSelectedRoleId])
 
   const createMutation = api.user.create.useMutation({
     onSuccess: (data) => {
@@ -135,7 +148,10 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
 
     if (!formData.firstName) return toast.error("First name is required.")
     if (!formData.email) return toast.error("Email is required.")
-    if (!formData.roleId) return toast.error("Role is required.")
+
+    // Use auto-selected role if roleType is specified, otherwise require manual selection
+    const effectiveRoleId = roleType ? autoSelectedRoleId : formData.roleId
+    if (!effectiveRoleId) return toast.error("Role is required.")
 
     // Validate password match when setting manual password
     if (!user && useManualPassword && hasPassword) {
@@ -157,7 +173,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
         id: user.id,
         name: fullName,
         email: formData.email,
-        roleId: formData.roleId,
+        roleId: effectiveRoleId,
         isActive: formData.isActive,
       })
     } else {
@@ -166,7 +182,7 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
         email: formData.email,
         phone: formData.phone || undefined,
         password: useManualPassword ? formData.password || undefined : undefined,
-        roleId: formData.roleId,
+        roleId: effectiveRoleId,
         isContact: isContact,
         sendInvitation: formData.personType === "user" && formData.accessMethod === "invitation",
       })
@@ -186,11 +202,15 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{user ? "Edit Person" : "Add New Person"}</DialogTitle>
+          <DialogTitle>
+            {user ? "Edit Person" : customTitle || "Add New Person"}
+          </DialogTitle>
           <DialogDescription>
             {user
               ? "Update this person's information."
-              : "Add a contact for record-keeping or a user with portal access."}
+              : customTitle
+                ? `Add a new ${customTitle.toLowerCase()} to the system.`
+                : "Add a contact for record-keeping or a user with portal access."}
           </DialogDescription>
         </DialogHeader>
 
@@ -319,26 +339,28 @@ export function UserModal({ open, onOpenChange, user, onSuccess }: UserModalProp
               />
             </div>
 
-            {/* Role */}
-            <div className="grid gap-2">
-              <Label>Role *</Label>
-              <Select
-                value={formData.roleId}
-                onValueChange={(value) => setFormData({ ...formData, roleId: value })}
-                disabled={isLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles?.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.displayName || role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Role - Hidden when roleType is auto-selected */}
+            {!roleType && (
+              <div className="grid gap-2">
+                <Label>Role *</Label>
+                <Select
+                  value={formData.roleId}
+                  onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles?.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.displayName || role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Access Method Selection - Only for users (not contacts) */}
             {!user && !isContact && (

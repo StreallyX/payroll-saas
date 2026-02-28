@@ -512,16 +512,29 @@ export const contractRouter = createTRPCRouter({
     }),
 
   // -------------------------------------------------------
-  // GET MY CONTRACTS (OWN by participant)
+  // GET MY CONTRACTS (OWN by participant - user OR user's company)
   // -------------------------------------------------------
   getMyContracts: tenantProcedure
     .use(hasPermission(P.CONTRACT.READ_OWN))
     .query(async ({ ctx }) => {
       const userId = ctx.session.user.id
+      const userCompanyId = ctx.session.user.companyId
+
+      // Build the participant filter - include contracts where:
+      // 1. User is directly a participant, OR
+      // 2. User's company is a participant (for agency/payroll users)
+      const participantFilter: any[] = [
+        { userId, isActive: true }
+      ]
+
+      if (userCompanyId) {
+        participantFilter.push({ companyId: userCompanyId, isActive: true })
+      }
+
       return ctx.prisma.contract.findMany({
         where: {
           tenantId: ctx.tenantId,
-          participants: { some: { userId, isActive: true } },
+          participants: { some: { OR: participantFilter } },
         },
         include: {
           participants: {

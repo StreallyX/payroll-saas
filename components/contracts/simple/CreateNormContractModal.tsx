@@ -28,6 +28,7 @@ import {
   FileText,
   Info,
   Calendar,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,10 +39,6 @@ import { UserBankSelect } from "../shared/UserBankSelect";
 import { CountrySelect } from "../shared/CountrySelect";
 import { CycleSelect } from "../shared/CycleSelect";
 import { CurrencySelect } from "../shared/CurrencySelect";
-import {
-  ParticipantPreSelector,
-  type ParticipantPreSelection,
-} from "../shared/ParticipantPreSelector";
 import { useNormContract } from "@/hooks/contracts/useNormContract";
 import { api } from "@/lib/trpc";
 
@@ -62,6 +59,7 @@ export function CreateNormContractModal({
   const { data: session } = useSession();
   const { createNormContract, isCreating } = useNormContract();
   const { data: currencies } = api.currency.getAll.useQuery();
+  const { data: onboardingTemplates } = api.onboardingTemplate.list.useQuery();
 
   // Check if user is agency or contractor for auto-fill
   const userRole = session?.user?.roleName?.toLowerCase();
@@ -71,9 +69,6 @@ export function CreateNormContractModal({
 
   // Form State
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [additionalParticipants, setAdditionalParticipants] = useState<
-    ParticipantPreSelection[]
-  >([]);
 
   const [formData, setFormData] = useState({
     companyTenantId: "",
@@ -109,6 +104,7 @@ export function CreateNormContractModal({
     contractVatRate: "",
     contractCountryId: "",
     clientAgencySignDate: "",
+    onboardingTemplateId: "",
   });
 
   const updateField = (field: string, value: any) =>
@@ -163,7 +159,7 @@ export function CreateNormContractModal({
         formData.salaryType === "payroll_we_pay") &&
       !formData.payrollUserId
     ) {
-      errors.push("Missing: Payroll user (Payroll type)");
+      errors.push("Missing: Payroll Partner (Payroll type)");
     }
 
     if (formData.salaryType === "split" && formData.userBankIds.length === 0) {
@@ -254,14 +250,9 @@ export function CreateNormContractModal({
           formData.clientAgencySignDate
         );
 
-      // Extra participants
-      if (additionalParticipants.length > 0) {
-        payload.additionalParticipants = additionalParticipants.map((p) => ({
-          userId: p.userId,
-          companyId: p.companyId,
-          role: p.role,
-        }));
-      }
+      // Onboarding template
+      if (formData.onboardingTemplateId)
+        payload.onboardingTemplateId = formData.onboardingTemplateId;
 
       const result = await createNormContract.mutateAsync(payload);
 
@@ -279,7 +270,6 @@ export function CreateNormContractModal({
   const handleClose = () => {
     if (isCreating) return;
     setPdfFile(null);
-    setAdditionalParticipants([]);
 
     setFormData({
       companyTenantId: "",
@@ -305,6 +295,7 @@ export function CreateNormContractModal({
       contractVatRate: "",
       contractCountryId: "",
       clientAgencySignDate: "",
+      onboardingTemplateId: "",
     });
 
     onOpenChange(false);
@@ -445,12 +436,13 @@ export function CreateNormContractModal({
             {(formData.salaryType === "payroll" ||
               formData.salaryType === "payroll_we_pay") && (
               <>
-                <UserSelect
+                <CompanySelect
                   value={formData.payrollUserId}
                   onChange={(v) => updateField("payrollUserId", v)}
-                  label="Payroll User"
+                  label="Payroll Partner"
                   required
-                  roleFilter="payroll"
+                  companyTypeFilter="payroll_partner"
+                  placeholder="Select a payroll partner..."
                 />
                 {formData.salaryType === "payroll_we_pay" && (
                   <Alert>
@@ -616,16 +608,29 @@ export function CreateNormContractModal({
                 placeholder="Additional notes..."
               />
             </div>
-          </div>
 
-          {/* Extra participants */}
-          <Separator />
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Additional Participants</h3>
-            <ParticipantPreSelector
-              participants={additionalParticipants}
-              onChange={setAdditionalParticipants}
-            />
+            {/* Onboarding Template */}
+            <div className="space-y-2">
+              <Label>
+                <ClipboardList className="h-4 w-4 inline mr-1" />
+                Onboarding Template
+              </Label>
+              <Select
+                value={formData.onboardingTemplateId}
+                onValueChange={(v) => updateField("onboardingTemplateId", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select onboarding template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {onboardingTemplates?.filter((t: any) => t.isActive).map((template: any) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 

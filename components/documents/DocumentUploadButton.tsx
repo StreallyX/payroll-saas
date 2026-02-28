@@ -15,15 +15,34 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { UploadCloud, FileIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+// Document type categories for contractors
+const DOCUMENT_CATEGORIES = [
+  { value: "passport", label: "Passport" },
+  { value: "utility_bill", label: "Utility Bill" },
+  { value: "drivers_license", label: "Drivers License" },
+  { value: "residence_card", label: "Residence Card" },
+  { value: "medical_insurance", label: "Medical Insurance Certificate" },
+  { value: "other", label: "Other" },
+];
 
 interface DocumentUploadButtonProps {
   entityType?: string;
   entityId?: string;
   parentDocumentId?: string; // for updateVersion
   onUploaded?: () => void;
+  showCategorySelector?: boolean; // Show document type dropdown
 }
 
 export function DocumentUploadButton({
@@ -31,9 +50,12 @@ export function DocumentUploadButton({
   entityId,
   parentDocumentId,
   onUploaded,
+  showCategorySelector = true,
 }: DocumentUploadButtonProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [category, setCategory] = useState<string>("");
+  const [comments, setComments] = useState<string>("");
 
   const uploadMutation = api.document.upload.useMutation();
   const updateVersionMutation = api.document.updateVersion.useMutation();
@@ -45,6 +67,12 @@ export function DocumentUploadButton({
     if (isUploading) return;
     if (!file) {
       toast.error("Please select a file.");
+      return;
+    }
+
+    // Require document type selection for new uploads (not version updates)
+    if (!parentDocumentId && showCategorySelector && !category) {
+      toast.error("Please select a document type.");
       return;
     }
 
@@ -72,6 +100,8 @@ export function DocumentUploadButton({
           mimeType: file.type,
           fileSize: file.size,
           buffer: base64,
+          category: category || undefined,
+          description: comments || undefined,
         });
       }
 
@@ -79,6 +109,8 @@ export function DocumentUploadButton({
 
       setOpen(false);
       setFile(null);
+      setCategory("");
+      setComments("");
       onUploaded?.();
     } catch (err: any) {
       console.error(err);
@@ -123,6 +155,44 @@ export function DocumentUploadButton({
             disabled={isUploading}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
+
+          {/* Document Type Selector - Only for new uploads, not version updates */}
+          {!parentDocumentId && showCategorySelector && (
+            <div className="space-y-2">
+              <Label htmlFor="doc-category">Document Type *</Label>
+              <Select
+                value={category}
+                onValueChange={setCategory}
+                disabled={isUploading}
+              >
+                <SelectTrigger id="doc-category">
+                  <SelectValue placeholder="Select document type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Comments Field - Only for new uploads */}
+          {!parentDocumentId && showCategorySelector && (
+            <div className="space-y-2">
+              <Label htmlFor="doc-comments">Comments</Label>
+              <Textarea
+                id="doc-comments"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                disabled={isUploading}
+                placeholder="Add any notes about this document..."
+                rows={3}
+              />
+            </div>
+          )}
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>

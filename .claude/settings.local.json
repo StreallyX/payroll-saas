@@ -5,7 +5,22 @@
       "Bash(npx tsx:*)",
       "Bash(npx prisma db push:*)",
       "Bash(yarn seed)",
-      "Bash(npx prisma studio)"
+      "Bash(npx prisma studio)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo:*)",
+      "Bash(node -e:*)",
+      "Bash(ls:*)",
+      "Bash(yarn build:*)",
+      "Bash(npx next lint:*)",
+      "Bash(yarn lint)",
+      "Bash(npx next build:*)"
     ]
   }
 }

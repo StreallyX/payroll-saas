@@ -374,6 +374,11 @@ const normContractBaseFields = {
     .or(z.date())
     .transform((val) => (typeof val === "string" ? new Date(val) : val))
     .optional(),
+
+  // Onboarding template
+  onboardingTemplateId: z.string()
+    .cuid("Onboarding template ID must be a valid CUID")
+    .optional(),
 };
 
 /**

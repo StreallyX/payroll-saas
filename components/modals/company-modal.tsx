@@ -34,6 +34,7 @@ type CompanyFormValues = {
   bankId?: string;
 
   ownerType: "tenant" | "user";
+  companyType: "client" | "payroll_partner";
 
   contactPerson?: string;
   contactEmail?: string;
@@ -74,6 +75,10 @@ type CompanyModalProps = {
   onSuccess?: () => void;
   /** When true, hides the tenant toggle and forces ownerType to "user" (agency/client only) */
   agencyMode?: boolean;
+  /** When true, hides the tenant toggle and forces ownerType to "user" (payroll partner only) */
+  payrollPartnerMode?: boolean;
+  /** Custom title override for the modal */
+  customTitle?: string;
 };
 
 export function CompanyModal({
@@ -82,12 +87,20 @@ export function CompanyModal({
   company,
   onSuccess,
   agencyMode = false,
+  payrollPartnerMode = false,
+  customTitle,
 }: CompanyModalProps) {
+  // Combined mode flag - either agency or payroll partner mode
+  const isPartnerMode = agencyMode || payrollPartnerMode;
+  // Determine default companyType based on mode
+  const defaultCompanyType = payrollPartnerMode ? "payroll_partner" : "client";
+
   const initialState: CompanyFormValues = {
     name: "",
     bankId: undefined,
 
     ownerType: "user",
+    companyType: defaultCompanyType,
 
     contactPerson: undefined,
     contactEmail: undefined,
@@ -164,6 +177,7 @@ export function CompanyModal({
         bankId: company.bankId ?? undefined,
 
         ownerType: company.ownerType ?? "user",
+        companyType: company.companyType ?? defaultCompanyType,
 
         contactPerson: company.contactPerson ?? undefined,
         contactEmail: company.contactEmail ?? undefined,
@@ -208,14 +222,21 @@ export function CompanyModal({
 
     const sanitized = sanitizeForm(formData);
 
-    // In agency mode when CREATING (not editing), force ownerType to "user"
+    // In partner mode when CREATING (not editing), force ownerType to "user"
     // When editing, allow changing ownerType if user has permission
-    if (agencyMode && !company) {
+    if (isPartnerMode && !company) {
       sanitized.ownerType = "user";
     }
     // Security: only users with permission can set ownerType to "tenant"
     else if (!canAssignTenantCompany && sanitized.ownerType === "tenant") {
       sanitized.ownerType = "user";
+    }
+
+    // Set companyType based on mode when creating
+    if (payrollPartnerMode && !company) {
+      sanitized.companyType = "payroll_partner";
+    } else if (agencyMode && !company) {
+      sanitized.companyType = "client";
     }
 
     if (company) {
@@ -233,9 +254,11 @@ export function CompanyModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{company ? "Edit Company" : "Add Company"}</DialogTitle>
+          <DialogTitle>
+            {company ? "Edit Company" : customTitle || "Add Company"}
+          </DialogTitle>
           <DialogDescription>
-            Only the company name and tenant status are required. All other fields are optional.
+            Only the company name is required. All other fields are optional.
           </DialogDescription>
         </DialogHeader>
 
@@ -250,10 +273,10 @@ export function CompanyModal({
             />
 
             {/* Show tenant toggle when user has permission AND either:
-                - Not in agencyMode (creating from Settings > Companies)
-                - OR editing an existing company (even from Agencies page)
+                - Not in partner mode (creating from Settings > Companies)
+                - OR editing an existing company (even from Agencies/Partners page)
             */}
-            {canAssignTenantCompany && (!agencyMode || company) && (
+            {canAssignTenantCompany && (!isPartnerMode || company) && (
               <div className={`p-4 rounded-lg border-2 transition-all ${
                 formData.ownerType === "tenant"
                   ? "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300"
@@ -308,7 +331,7 @@ export function CompanyModal({
               </div>
             )}
 
-            {!agencyMode && !canAssignTenantCompany && company && (
+            {!isPartnerMode && !canAssignTenantCompany && company && (
               <div className={`p-4 rounded-lg border ${
                 company.ownerType === "tenant"
                   ? "bg-indigo-50 border-indigo-200"

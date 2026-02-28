@@ -31,6 +31,7 @@ type AddContactModalProps = {
   onOpenChange: (open: boolean) => void
   companyId: string
   companyName?: string
+  companyType?: "client" | "payroll_partner"
   onSuccess?: () => void
 }
 
@@ -39,8 +40,11 @@ export function AddContactModal({
   onOpenChange,
   companyId,
   companyName,
+  companyType = "client",
   onSuccess,
 }: AddContactModalProps) {
+  const isPayrollPartner = companyType === "payroll_partner"
+  const roleLabel = isPayrollPartner ? "Payroll" : "Agency"
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -154,7 +158,7 @@ export function AddContactModal({
           {formData.accessType === "user" && (
             <div className="flex items-center gap-2 p-2 rounded bg-blue-50 border border-blue-200 text-xs text-blue-700">
               <Info className="h-3 w-3 flex-shrink-0" />
-              <span>User will have <strong>Agency</strong> role and receive an invitation email.</span>
+              <span>User will have <strong>{roleLabel}</strong> role and receive an invitation email.</span>
             </div>
           )}
 

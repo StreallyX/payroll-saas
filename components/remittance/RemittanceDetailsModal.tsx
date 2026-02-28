@@ -12,8 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/contractor/status-badge";
+import { api } from "@/lib/trpc";
+import { DocumentList } from "@/components/documents/DocumentList";
 
-import { X, Trash2, CheckCircle2, Save, Pencil } from "lucide-react";
+import { X, Trash2, CheckCircle2, Save, Pencil, FileText } from "lucide-react";
 
 type Props = {
   remit: any | null;
@@ -21,6 +23,7 @@ type Props = {
   onOpenChange: (v: boolean) => void;
 
   mode: "view" | "edit";
+  onModeChange?: (mode: "view" | "edit") => void;
 
   canUpdate?: boolean;
   canDelete?: boolean;
@@ -40,6 +43,7 @@ export function RemittanceModal({
   open,
   onOpenChange,
   mode,
+  onModeChange,
   canUpdate = false,
   canDelete = false,
   canMarkPaid = false,
@@ -190,6 +194,18 @@ export function RemittanceModal({
               />
             )}
           </div>
+
+          {/* DOCUMENTS */}
+          <div>
+            <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Documents
+            </p>
+            <DocumentList
+              entityType="remittance"
+              entityId={remit.id}
+            />
+          </div>
         </div>
 
         {/* FOOTER */}
@@ -199,9 +215,7 @@ export function RemittanceModal({
           {isView && canUpdate && (
             <Button
               variant="default"
-              onClick={() =>
-                onUpdate?.({ status })
-              }
+              onClick={() => onModeChange?.("edit")}
               className="flex items-center gap-2"
             >
               <Pencil className="h-4 w-4" />

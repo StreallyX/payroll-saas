@@ -204,6 +204,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     buildPermissionKey(Resource.CONTRACT, Action.ACCESS, PermissionScope.PAGE),
     buildPermissionKey(Resource.CONTRACT, Action.READ, PermissionScope.OWN),
 
+    // COMPANY (own - to view their own company)
+    buildPermissionKey(Resource.COMPANY, Action.ACCESS, PermissionScope.PAGE),
+    buildPermissionKey(Resource.COMPANY, Action.LIST, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.READ, PermissionScope.OWN),
+    buildPermissionKey(Resource.COMPANY, Action.UPDATE, PermissionScope.OWN),
+
     buildPermissionKey(Resource.FEATURE_REQUEST, Action.LIST, PermissionScope.GLOBAL),
     buildPermissionKey(Resource.FEATURE_REQUEST, Action.CREATE, PermissionScope.OWN),
   ],

@@ -1449,6 +1449,15 @@ export const ALL_PERMISSIONS: Permission[] = [
     PermissionCategory.FINANCIAL
   ),
 
+  createPermission(
+    Resource.REMITTANCE,
+    Action.CREATE,
+    PermissionScope.GLOBAL,
+    "Create a transfer for any user",
+    "Create remittance payments for contractors",
+    PermissionCategory.FINANCIAL
+  ),
+
 
   // ================================================================
   // REFERRALS

@@ -198,6 +198,7 @@ export const companyRouter = createTRPCRouter({
         }),
 
         status: z.enum(["active", "inactive"]).default("active"),
+        companyType: z.enum(["client", "payroll_partner"]).default("client"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -312,6 +313,7 @@ export const companyRouter = createTRPCRouter({
 
 
         status: z.enum(["active", "inactive"]).optional(),
+        companyType: z.enum(["client", "payroll_partner"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -449,20 +451,26 @@ export const companyRouter = createTRPCRouter({
       })
 
       if (!contactUser) {
-        // Find the best role for agency users
-        // Priority: AGENCY > agency > Agency > any role with "agency" in name > any non-admin role
+        // Determine the appropriate role based on company type
+        const isPayrollPartner = company.companyType === "payroll_partner"
+        const targetRoleName = isPayrollPartner ? "PAYROLL" : "AGENCY"
+        const targetRoleVariants = isPayrollPartner
+          ? ["PAYROLL", "payroll", "Payroll"]
+          : ["AGENCY", "agency", "Agency"]
+
+        // Find the best role for this company type
         let userRole = await ctx.prisma.role.findFirst({
-          where: { tenantId, name: { in: ["AGENCY", "agency", "Agency"] } },
+          where: { tenantId, name: { in: targetRoleVariants } },
         })
 
         if (!userRole) {
-          // Try to find any role with "agency" in the name (case insensitive)
+          // Try to find any role with the target name in it (case insensitive)
           userRole = await ctx.prisma.role.findFirst({
             where: {
               tenantId,
               OR: [
-                { name: { contains: "agency", mode: "insensitive" } },
-                { displayName: { contains: "agency", mode: "insensitive" } },
+                { name: { contains: targetRoleName.toLowerCase(), mode: "insensitive" } },
+                { displayName: { contains: targetRoleName.toLowerCase(), mode: "insensitive" } },
               ]
             },
           })
@@ -481,7 +489,7 @@ export const companyRouter = createTRPCRouter({
         if (!userRole) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "No suitable role found for agency users. Please create a role first."
+            message: `No suitable role found for ${isPayrollPartner ? "payroll partner" : "agency"} users. Please create a role first.`
           })
         }
 

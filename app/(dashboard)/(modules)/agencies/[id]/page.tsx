@@ -420,6 +420,7 @@ export default function AgencyDetailPage() {
         onOpenChange={setIsAddContactOpen}
         companyId={companyId}
         companyName={company.name}
+        companyType={(company.companyType as "client" | "payroll_partner") || "client"}
         onSuccess={() => {
           refetch()
           utils.company.getAll.invalidate()

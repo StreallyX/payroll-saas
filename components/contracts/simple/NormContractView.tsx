@@ -181,7 +181,7 @@ export function NormContractView({
   const contractor = participants.find(
     (p) => p.role === "contractor"
   );
-  const payrollUser = participants.find(
+  const payrollPartner = participants.find(
     (p) => p.role === "payroll"
   );
 
@@ -387,16 +387,16 @@ export function NormContractView({
                 </div>
               </div>
 
-              {payrollUser && (
+              {payrollPartner && (
                 <div className="flex items-start gap-3 p-3 rounded-lg border">
-                  <User className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">
-                      Payroll user
+                      Payroll Partner
                     </p>
                     <p className="font-medium">
-                      {payrollUser.user?.name ||
-                        payrollUser.user?.email ||
+                      {payrollPartner.company?.name ||
+                        payrollPartner.user?.name ||
                         "-"}
                     </p>
                   </div>
@@ -484,15 +484,15 @@ export function NormContractView({
               {(contract.salaryType === "payroll" ||
                 contract.salaryType ===
                   "payroll_we_pay") &&
-                payrollUser && (
+                payrollPartner && (
                   <div className="pt-3 border-t">
                     <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Payroll user
+                      <Building2 className="h-4 w-4" />
+                      Payroll Partner
                     </p>
                     <p className="font-medium mt-1">
-                      {payrollUser.user?.name ||
-                        payrollUser.user?.email ||
+                      {payrollPartner.company?.name ||
+                        payrollPartner.user?.name ||
                         "-"}
                     </p>
                     {contract.salaryType ===
