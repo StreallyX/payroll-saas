@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye } from "lucide-react";
 
 import { api } from "@/lib/trpc";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -73,6 +73,7 @@ export default function PayslipsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPayslip, setEditingPayslip] = useState<any>(null);
+  const [modalMode, setModalMode] = useState<"view" | "edit">("view");
 
   // ---------------------------------------------------------
   // DELETE
@@ -163,13 +164,28 @@ export default function PayslipsPage() {
           </div>
 
           <div className="flex gap-2 pt-2">
+            {/* VIEW BUTTON */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingPayslip(p);
+                setModalMode("view");
+                setModalOpen(true);
+              }}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              View
+            </Button>
+
+            {/* EDIT BUTTON */}
             {canUpdate && (
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
                 onClick={() => {
                   setEditingPayslip(p);
+                  setModalMode("edit");
                   setModalOpen(true);
                 }}
               >
@@ -206,6 +222,7 @@ export default function PayslipsPage() {
           <Button
             onClick={() => {
               setEditingPayslip(null);
+              setModalMode("edit");
               setModalOpen(true);
             }}
           >
@@ -266,6 +283,7 @@ export default function PayslipsPage() {
           actionLabel={canCreate ? "Create a payslip" : undefined}
           onAction={() => {
             setEditingPayslip(null);
+            setModalMode("edit");
             setModalOpen(true);
           }}
         />
@@ -277,7 +295,7 @@ export default function PayslipsPage() {
         </div>
       )}
 
-      {/* MODAL EDIT/CREATE */}
+      {/* MODAL VIEW/EDIT/CREATE */}
       <PayslipModal
         open={modalOpen}
         onOpenChange={(o) => {
@@ -286,6 +304,8 @@ export default function PayslipsPage() {
         }}
         payslip={editingPayslip}
         onSuccess={() => refetch()}
+        mode={editingPayslip ? modalMode : "edit"}
+        onModeChange={canUpdate ? setModalMode : undefined}
       />
 
       {/* DELETE DIALOG */}
