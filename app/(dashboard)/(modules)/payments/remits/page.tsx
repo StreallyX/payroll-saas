@@ -41,6 +41,8 @@ import { RouteGuard } from "@/components/guards/RouteGuard";
 import { useSession } from "next-auth/react";
 
 import { RemittanceModal } from "@/components/remittance/RemittanceDetailsModal";
+import { AddRemittanceModal } from "@/components/remittance/AddRemittanceModal";
+import { Plus } from "lucide-react";
 
 export default function RemittancePage() {
   const { toast } = useToast();
@@ -58,6 +60,9 @@ export default function RemittancePage() {
 
   // NEW : view | edit
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
+
+  // Add remittance modal
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   // Load remittances
   const {
@@ -192,7 +197,14 @@ export default function RemittancePage() {
           description={
             isAdmin ? "Manage contractor payouts" : "Your payout confirmations"
           }
-        />
+        >
+          {isAdmin && (
+            <Button onClick={() => setAddModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Remittance
+            </Button>
+          )}
+        </PageHeader>
 
         {/* STATS */}
         <div className="grid gap-4 md:grid-cols-4">
@@ -337,6 +349,7 @@ export default function RemittancePage() {
           open={modalOpen}
           onOpenChange={setModalOpen}
           mode={modalMode}
+          onModeChange={setModalMode}
 
           // permissions PRO
           canUpdate={session?.user?.permissions?.includes("remittance.update.global")}
@@ -353,6 +366,13 @@ export default function RemittancePage() {
               notes
             })
           }
+        />
+
+        {/* ADD REMITTANCE MODAL */}
+        <AddRemittanceModal
+          open={addModalOpen}
+          onOpenChange={setAddModalOpen}
+          onSuccess={() => refetch()}
         />
       </div>
     </RouteGuard>
