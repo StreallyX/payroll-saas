@@ -1568,6 +1568,8 @@ export const simpleContractRouter = createTRPCRouter({
         contractCountryId,
         clientAgencySignDate,
 
+        onboardingTemplateId,
+
         additionalParticipants,
       } = input;
 
@@ -1634,6 +1636,9 @@ export const simpleContractRouter = createTRPCRouter({
             contractVatRate,
             contractCountryId,
             signedAt: clientAgencySignDate,
+
+            // Onboarding
+            onboardingTemplateId,
           },
         });
 
@@ -1692,11 +1697,11 @@ export const simpleContractRouter = createTRPCRouter({
           isPrimary: false,
         });
 
-        // Payroll User (optional)
+        // Payroll Partner (optional) - now stores company ID instead of user ID
         if ((salaryType === "payroll" || salaryType === "payroll_we_pay") && payrollUserId) {
           await createMinimalParticipant(ctx.prisma, {
             contractId: contract.id,
-            userId: payrollUserId,
+            companyId: payrollUserId, // payrollUserId now contains the payroll partner company ID
             role: "payroll",
             isPrimary: false,
           });
@@ -1857,7 +1862,7 @@ export const simpleContractRouter = createTRPCRouter({
           },
         });
 
-        // 5b. Handle payroll participant update if necessary
+        // 5b. Handle payroll partner update if necessary
         if (updateData.payrollUserId !== undefined) {
           // Delete old payroll participant
           await ctx.prisma.contractParticipant.deleteMany({
@@ -1867,11 +1872,11 @@ export const simpleContractRouter = createTRPCRouter({
             },
           });
 
-          // Create new payroll participant if payrollUserId is provided
+          // Create new payroll participant if payrollUserId (company ID) is provided
           if (updateData.payrollUserId && (updated.salaryType === "payroll" || updated.salaryType === "payroll_we_pay")) {
             await createMinimalParticipant(ctx.prisma, {
               contractId,
-              userId: updateData.payrollUserId,
+              companyId: updateData.payrollUserId, // payrollUserId now contains the payroll partner company ID
               role: "payroll",
               isPrimary: false,
             });

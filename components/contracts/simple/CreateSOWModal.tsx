@@ -29,10 +29,6 @@ import {
 import { api } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PDFUploadZone } from "../shared/PDFUploadZone";
-import {
-  ParticipantPreSelector,
-  type ParticipantPreSelection,
-} from "../shared/ParticipantPreSelector";
 
 interface CreateSOWModalProps {
   open: boolean;
@@ -61,8 +57,6 @@ export function CreateSOWModal({
   const [parentMSAId, setParentMSAId] = useState<string>(
     preselectedMSAId || ""
   );
-  const [additionalParticipants, setAdditionalParticipants] =
-    useState<ParticipantPreSelection[]>([]);
 
   // Reset parentMSAId when modal opens with a preselected value
   useEffect(() => {
@@ -119,21 +113,12 @@ export function CreateSOWModal({
       const buffer = await pdfFile.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
 
-      // Prepare participants (remove temporary fields)
-      const participants = additionalParticipants.map((p) => ({
-        userId: p.userId,
-        companyId: p.companyId,
-        role: p.role,
-      }));
-
       createMutation.mutate({
         parentMSAId,
         pdfBuffer: base64,
         fileName: pdfFile.name,
         mimeType: "application/pdf",
         fileSize: pdfFile.size,
-        additionalParticipants:
-          participants.length > 0 ? participants : undefined,
       });
     } catch (error) {
       console.error("[CreateSOWModal] Error:", error);
@@ -147,7 +132,6 @@ export function CreateSOWModal({
   const handleClose = () => {
     if (!createMutation.isPending) {
       setPdfFile(null);
-      setAdditionalParticipants([]);
       if (!preselectedMSAId) {
         setParentMSAId("");
       }
@@ -280,15 +264,6 @@ export function CreateSOWModal({
               </p>
             </div>
           )}
-
-          {/* Additional participants */}
-          <div className="border-t pt-4">
-            <ParticipantPreSelector
-              participants={additionalParticipants}
-              onChange={setAdditionalParticipants}
-              showAddButton={true}
-            />
-          </div>
         </div>
 
         {/* Actions */}

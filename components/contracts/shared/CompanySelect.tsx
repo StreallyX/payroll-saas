@@ -23,6 +23,8 @@ interface CompanySelectProps {
   disabled?: boolean;
   placeholder?: string;
   roleFilter?: "agency" | "client" | "tenant";
+  /** Filter by companyType (e.g., "payroll_partner", "client") */
+  companyTypeFilter?: "client" | "payroll_partner";
   className?: string;
   allowCreate?: boolean;
 }
@@ -42,6 +44,7 @@ export function CompanySelect({
   disabled = false,
   placeholder = "Select a company...",
   roleFilter,
+  companyTypeFilter,
   className,
   allowCreate = false,
 }: CompanySelectProps) {
@@ -54,18 +57,24 @@ export function CompanySelect({
       enabled: !disabled,
     });
 
-  // Filter by role if needed
+  // Filter by role and/or companyType if needed
   // Note: "agency" filter shows user-owned companies (agencies are user-owned companies)
   // "tenant" filter shows platform companies
-  const filteredCompanies = roleFilter
-    ? companies.filter((c: any) => {
-        if (roleFilter === "agency") {
-          // Agencies are user-owned companies
-          return c.ownerType === "user";
-        }
-        return c.ownerType === roleFilter;
-      })
-    : companies;
+  const filteredCompanies = companies.filter((c: any) => {
+    // Filter by roleFilter (ownerType)
+    if (roleFilter) {
+      if (roleFilter === "agency") {
+        if (c.ownerType !== "user") return false;
+      } else if (c.ownerType !== roleFilter) {
+        return false;
+      }
+    }
+    // Filter by companyTypeFilter
+    if (companyTypeFilter && c.companyType !== companyTypeFilter) {
+      return false;
+    }
+    return true;
+  });
 
   const handleCompanyCreated = (companyId: string) => {
     // Refresh company list and select the new company
@@ -75,6 +84,7 @@ export function CompanySelect({
   };
 
   const getTypeLabel = () => {
+    if (companyTypeFilter === "payroll_partner") return "Payroll Partner";
     if (roleFilter === "agency") return "Agency";
     if (roleFilter === "client") return "Client";
     if (roleFilter === "tenant") return "Company";
