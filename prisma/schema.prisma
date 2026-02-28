@@ -419,6 +419,9 @@ model Company {
 
   status String @default("active")
 
+  // Company type for categorization
+  companyType String @default("client") // "client" = agency/client, "payroll_partner" = payroll partner company
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -430,6 +433,7 @@ model Company {
   @@index([tenantId])
   @@index([createdBy])
   @@index([bankId]) // 👈 recommended
+  @@index([companyType])
   @@map("companies")
 }
 
@@ -504,6 +508,9 @@ model Contract {
   payrollUserId      String? // For Payroll and Payroll We Pay
   contractorSignedAt DateTime? // Contractor signature date
   userBankIds        String[]  @default([]) // For Split mode (multiple UserBanks/PaymentMethods)
+
+  // Onboarding
+  onboardingTemplateId String? // Onboarding template for the contractor
 
   contractReference String?  @unique
   contractCountryId String?

@@ -512,6 +512,7 @@ export default function MyCompanyPage() {
         onOpenChange={setIsAddContactOpen}
         companyId={companyId}
         companyName={company.name}
+        companyType={company.companyType as "client" | "payroll_partner"}
         onSuccess={() => {
           refetch()
         }}

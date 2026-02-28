@@ -119,6 +119,8 @@ export const documentRouter = createTRPCRouter({
         fileSize: z.number(),
         mimeType: z.string(),
         buffer: z.string(), // base64
+        category: z.string().optional(), // Document type (e.g., Passport, Utility Bill)
+        description: z.string().optional(), // Comments/notes about the document
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -142,6 +144,8 @@ export const documentRouter = createTRPCRouter({
           s3Key: fullKey,
           version: 1,
           isLatestVersion: true,
+          category: input.category,
+          description: input.description,
         },
       });
 

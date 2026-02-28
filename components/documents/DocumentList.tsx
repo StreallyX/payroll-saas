@@ -20,6 +20,19 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Helper to format category values for display
+function formatCategory(category: string): string {
+  const categoryMap: Record<string, string> = {
+    passport: "Passport",
+    utility_bill: "Utility Bill",
+    drivers_license: "Drivers License",
+    residence_card: "Residence Card",
+    medical_insurance: "Medical Insurance Certificate",
+    other: "Other",
+  };
+  return categoryMap[category] || category;
+}
+
 export function DocumentList({ entityType, entityId }: { entityType?: string; entityId?: string }) {
   const { data: documents, refetch, isLoading } = api.document.list.useQuery({
     entityType,
@@ -70,9 +83,10 @@ export function DocumentList({ entityType, entityId }: { entityType?: string; en
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Comments</TableHead>
             <TableHead>Version</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead>Uploaded By</TableHead>
             <TableHead>Date</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -82,9 +96,14 @@ export function DocumentList({ entityType, entityId }: { entityType?: string; en
           {documents?.map((doc) => (
             <TableRow key={doc.id}>
               <TableCell>{doc.fileName}</TableCell>
+              <TableCell>
+                {doc.category ? formatCategory(doc.category) : <span className="text-gray-400">-</span>}
+              </TableCell>
+              <TableCell className="max-w-[200px] truncate" title={doc.description || ""}>
+                {doc.description || <span className="text-gray-400">-</span>}
+              </TableCell>
               <TableCell>v{doc.version}</TableCell>
               <TableCell>{Math.round(doc.fileSize / 1024)} KB</TableCell>
-              <TableCell>{doc.uploadedBy}</TableCell>
               <TableCell>{new Date(doc.uploadedAt).toLocaleString()}</TableCell>
 
               <TableCell className="text-right space-x-2">

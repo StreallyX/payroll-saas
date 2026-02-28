@@ -259,6 +259,8 @@ export default function ContractorsPage() {
           setSelectedUser(null)
           utils.user.getByRoleType.invalidate()
         }}
+        roleType="CONTRACTOR"
+        customTitle="Contractor / Worker"
       />
 
       {/* Delete Confirmation */}
