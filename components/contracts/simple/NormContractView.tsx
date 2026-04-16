@@ -32,7 +32,6 @@ import { AdminReviewModal } from "./AdminReviewModal";
 import { UploadSignedModal } from "./UploadSignedModal";
 import { ModifyContractModal } from "./ModifyContractModal";
 import { ContractorSignatureSection } from "./ContractorSignatureSection";
-import { ParticipantSelector } from "../shared/ParticipantSelector";
 import { DocumentUploader } from "../shared/DocumentUploader";
 import { DocumentList } from "../shared/DocumentList";
 import { useSimpleContractWorkflow } from "@/hooks/contracts/useSimpleContractWorkflow";
@@ -404,14 +403,6 @@ export function NormContractView({
               )}
             </CardContent>
           </Card>
-
-          {/* All participants (including additional ones) */}
-          <ParticipantSelector
-            contractId={contract.id}
-            canModify={
-              permissions.canUpdate && !isActive
-            }
-          />
 
           {/* Dates and period */}
           <Card>
