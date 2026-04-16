@@ -17,13 +17,12 @@ export function useNormContract() {
   // Create NORM contract
   const createNormContract = api.simpleContract.createNormContract.useMutation({
     onSuccess: (data) => {
-      toast.success("NORM contract created successfully");
+      toast.success("Contract created successfully");
       // Invalidate queries to refresh data
       utils.simpleContract.listSimpleContracts.invalidate();
     },
-    onError: (error) => {
-      toast.error(error.message || "Failed to create NORM contract");
-    },
+    // onError handling happens in the caller (modal) so it can surface the exact backend
+    // message to the user; we keep this empty to avoid duplicate toasts.
   });
 
   // Update NORM contract

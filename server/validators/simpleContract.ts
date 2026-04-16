@@ -19,7 +19,7 @@ const ALLOWED_MIME_TYPES = ["application/pdf"];
 // ============================================================================
 
 /**
- * Schema for validating a base64 encoded PDF file
+ * Schema for validating a base64 encoded PDF file (required)
  */
 export const pdfFileSchema = z.object({
   pdfBuffer: z.string()
@@ -27,7 +27,6 @@ export const pdfFileSchema = z.object({
     .refine(
       (val) => {
         try {
-          // Verify it's valid base64
           const decoded = Buffer.from(val, "base64");
           return decoded.length > 0;
         } catch {
@@ -50,6 +49,42 @@ export const pdfFileSchema = z.object({
     .int("File size must be an integer")
     .positive("File size must be positive")
     .max(MAX_PDF_SIZE, `File is too large (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`),
+});
+
+/**
+ * Schema for validating an optional PDF file.
+ * All four fields must be provided together, or all omitted.
+ */
+export const optionalPdfFileSchema = z.object({
+  pdfBuffer: z.string()
+    .refine(
+      (val) => {
+        if (!val) return true;
+        try {
+          const decoded = Buffer.from(val, "base64");
+          return decoded.length > 0;
+        } catch {
+          return false;
+        }
+      },
+      { message: "PDF buffer must be valid base64 encoded" }
+    )
+    .optional(),
+  fileName: z.string()
+    .max(255, "Filename is too long (max 255 characters)")
+    .refine(
+      (val) => !val || val.toLowerCase().endsWith(".pdf"),
+      { message: "File must have .pdf extension" }
+    )
+    .optional(),
+  mimeType: z.enum(["application/pdf"], {
+    errorMap: () => ({ message: "Only PDF files are accepted" }),
+  }).optional(),
+  fileSize: z.number()
+    .int("File size must be an integer")
+    .positive("File size must be positive")
+    .max(MAX_PDF_SIZE, `File is too large (max ${MAX_PDF_SIZE / 1024 / 1024} MB)`)
+    .optional(),
 });
 
 /**
@@ -386,7 +421,7 @@ const normContractBaseFields = {
  * 
  * Creates a NORM contract with conditional validation based on salaryType
  */
-export const createNormContractSchema = pdfFileSchema
+export const createNormContractSchema = optionalPdfFileSchema
   .extend(normContractBaseFields)
   .extend({
     additionalParticipants: additionalParticipantsSchema,

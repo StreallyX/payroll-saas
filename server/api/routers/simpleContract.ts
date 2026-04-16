@@ -1573,11 +1573,15 @@ export const simpleContractRouter = createTRPCRouter({
         additionalParticipants,
       } = input;
 
+      const hasPdf = !!(pdfBuffer && fileName && mimeType && fileSize);
+
       try {
         // -------------------------------
-        // 1. Generate title from filename
+        // 1. Generate title (from filename or fallback)
         // -------------------------------
-        const title = generateContractTitle(fileName);
+        const title = hasPdf
+          ? generateContractTitle(fileName!)
+          : `Contract - ${new Date().toISOString().split("T")[0]}`;
 
         // -------------------------------
         // 2. Convert currency code → ID
@@ -1605,7 +1609,9 @@ export const simpleContractRouter = createTRPCRouter({
             workflowStatus: "draft",
             createdBy: ctx.session!.user.id,
             assignedTo: ctx.session!.user.id,
-            description: `NORM contract automatically created from ${fileName}`,
+            description: hasPdf
+              ? `NORM contract automatically created from ${fileName}`
+              : "NORM contract created without attached document",
 
             // Dates
             startDate,
@@ -1627,7 +1633,7 @@ export const simpleContractRouter = createTRPCRouter({
             marginType,
             marginPaidBy,
 
-            // 🔥 NEW: Invoice Due Term
+            // Invoice Due Term
             invoiceDueTerm,
 
             // Other fields
@@ -1643,31 +1649,43 @@ export const simpleContractRouter = createTRPCRouter({
         });
 
         // -------------------------------
-        // 4. Upload PDF to S3
+        // 4 & 5. Upload PDF to S3 and create document (only if provided)
         // -------------------------------
-        const buffer = Buffer.from(pdfBuffer, "base64");
-        const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
-        const s3Key = await uploadFile(buffer, s3FileName);
+        let document: { id: string } | null = null;
 
-        // -------------------------------
-        // 5. Create linked document
-        // -------------------------------
-        const document = await ctx.prisma.document.create({
-          data: {
-            tenantId: ctx.tenantId!,
-            entityType: "contract",
-            entityId: contract.id,
-            s3Key,
-            fileName,
-            mimeType,
-            fileSize,
-            uploadedBy: ctx.session!.user.id,
-            category: "main_contract",
-            version: 1,
-            isLatestVersion: true,
-            visibility: "private",
-          },
-        });
+        if (hasPdf) {
+          try {
+            const buffer = Buffer.from(pdfBuffer!, "base64");
+            const s3FileName = `tenant_${ctx.tenantId}/contract/${contract.id}/v1/${fileName}`;
+            const s3Key = await uploadFile(buffer, s3FileName);
+
+            document = await ctx.prisma.document.create({
+              data: {
+                tenantId: ctx.tenantId!,
+                entityType: "contract",
+                entityId: contract.id,
+                s3Key,
+                fileName: fileName!,
+                mimeType: mimeType!,
+                fileSize: fileSize!,
+                uploadedBy: ctx.session!.user.id,
+                category: "main_contract",
+                version: 1,
+                isLatestVersion: true,
+                visibility: "private",
+              },
+            });
+          } catch (uploadError) {
+            console.error("[createNormContract] PDF upload failed:", uploadError);
+            // Roll back the contract so the user can retry without orphan records
+            await ctx.prisma.contract.delete({ where: { id: contract.id } }).catch(() => {});
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message:
+                "Could not upload the PDF file. Please check your file and try again, or create the contract without a PDF.",
+            });
+          }
+        }
 
         // -------------------------------
         // 6. Create Participants
@@ -1726,10 +1744,11 @@ export const simpleContractRouter = createTRPCRouter({
           tenantId: ctx.tenantId!,
           metadata: {
             type: "norm",
-            fileName,
+            fileName: fileName ?? null,
             salaryType,
             system: "simple",
-            documentId: document.id,
+            documentId: document?.id ?? null,
+            hasPdf,
           },
         });
 
@@ -1763,9 +1782,15 @@ export const simpleContractRouter = createTRPCRouter({
         };
       } catch (error) {
         console.error("[createNormContract] Error:", error);
+        // Preserve specific TRPCErrors (e.g. upload failure above) as-is so the UI
+        // can show an actionable message rather than a generic one.
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create NORM contract",
+          message:
+            "We couldn't save this contract. Please check the required fields (parties, dates, salary type) and try again.",
           cause: error,
         });
       }

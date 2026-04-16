@@ -134,7 +134,6 @@ export function CreateNormContractModal({
   const validateForm = (): boolean => {
     const errors: string[] = [];
 
-    if (!pdfFile) errors.push("Missing: Contract PDF file");
     if (!formData.companyTenantId) errors.push("Missing: Aspirock Company");
     if (!formData.agencyId) errors.push("Missing: Agency / Client");
     if (!formData.contractorId) errors.push("Missing: Contractor");
@@ -184,15 +183,7 @@ export function CreateNormContractModal({
     if (!validateForm()) return;
 
     try {
-      const buffer = await pdfFile!.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString("base64");
-
       const payload: any = {
-        pdfBuffer: base64,
-        fileName: pdfFile!.name,
-        mimeType: pdfFile!.type,
-        fileSize: pdfFile!.size,
-
         companyTenantId: formData.companyTenantId,
         agencyId: formData.agencyId,
         contractorId: formData.contractorId,
@@ -200,6 +191,22 @@ export function CreateNormContractModal({
         endDate: new Date(formData.endDate),
         salaryType: formData.salaryType,
       };
+
+      // Only include PDF data if a file was selected (PDF is optional)
+      if (pdfFile) {
+        try {
+          const buffer = await pdfFile.arrayBuffer();
+          const base64 = Buffer.from(buffer).toString("base64");
+          payload.pdfBuffer = base64;
+          payload.fileName = pdfFile.name;
+          payload.mimeType = pdfFile.type;
+          payload.fileSize = pdfFile.size;
+        } catch (readError) {
+          console.error("PDF read error:", readError);
+          toast.error("We couldn't read the selected PDF file. Please try a different file or create the contract without a PDF.");
+          return;
+        }
+      }
 
       // SalaryType logic
       if (formData.salaryType === "gross" && formData.userBankId) {
@@ -261,9 +268,13 @@ export function CreateNormContractModal({
         handleClose();
         router.push(`/contracts/simple/${result.contract.id}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("CreateNormContractModal error:", err);
-      toast.error("Failed to create contract.");
+      const message =
+        err?.message ||
+        err?.data?.message ||
+        "Something went wrong while saving the contract. Please try again.";
+      toast.error(message, { duration: 6000 });
     }
   };
 
@@ -358,7 +369,10 @@ export function CreateNormContractModal({
 
           {/* DOCUMENT */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Contract Document *</h3>
+            <h3 className="font-semibold">Contract Document (optional)</h3>
+            <p className="text-sm text-muted-foreground">
+              You can attach a signed PDF now, or add it later from the contract page.
+            </p>
             <PDFUploadZone
               file={pdfFile}
               onChange={setPdfFile}
