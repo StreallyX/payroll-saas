@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MarginCalculationDisplay } from "@/components/workflow";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   Tooltip,
   TooltipContent,
@@ -69,7 +70,23 @@ export function TimesheetSubmissionFormModal({
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
   const utils = api.useUtils();
-  const { data: contracts = [] } = api.contract.getMyContracts.useQuery();
+  const { hasPermission } = usePermissions();
+
+  // Admins / agency users with global list permission see every contract in the
+  // tenant so they can submit timesheets on behalf of contractors. Other users
+  // (typically contractors) only see contracts they participate in.
+  const canSeeAllContracts = hasPermission("contract.list.global");
+
+  const myContractsQuery = api.contract.getMyContracts.useQuery(undefined, {
+    enabled: !canSeeAllContracts,
+  });
+  const allContractsQuery = api.contract.getAll.useQuery(undefined, {
+    enabled: canSeeAllContracts,
+  });
+
+  const contracts: any[] = canSeeAllContracts
+    ? allContractsQuery.data ?? []
+    : myContractsQuery.data ?? [];
 
   // Get selected contract details
   const selectedContract = useMemo(() => {
