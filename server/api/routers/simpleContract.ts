@@ -1699,21 +1699,25 @@ export const simpleContractRouter = createTRPCRouter({
           isPrimary: true,
         });
 
-        // Agency (now a Company, not a User)
-        await createMinimalParticipant(ctx.prisma, {
-          contractId: contract.id,
-          companyId: agencyId,
-          role: "agency",
-          isPrimary: false,
-        });
+        // Agency (optional)
+        if (agencyId) {
+          await createMinimalParticipant(ctx.prisma, {
+            contractId: contract.id,
+            companyId: agencyId,
+            role: "agency",
+            isPrimary: false,
+          });
+        }
 
-        // Contractor
-        await createMinimalParticipant(ctx.prisma, {
-          contractId: contract.id,
-          userId: contractorId,
-          role: "contractor",
-          isPrimary: false,
-        });
+        // Contractor (optional)
+        if (contractorId) {
+          await createMinimalParticipant(ctx.prisma, {
+            contractId: contract.id,
+            userId: contractorId,
+            role: "contractor",
+            isPrimary: false,
+          });
+        }
 
         // Payroll Partner (optional) - now stores company ID instead of user ID
         if ((salaryType === "payroll" || salaryType === "payroll_we_pay") && payrollUserId) {
