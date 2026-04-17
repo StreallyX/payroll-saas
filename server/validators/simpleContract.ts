@@ -317,51 +317,55 @@ export type DeleteDraftContractInput = z.infer<typeof deleteDraftContractSchema>
  * Base schema for common NORM contract fields
  */
 const normContractBaseFields = {
-  // Essential fields (parties)
+  // Parties (tenant required, others optional to allow flexible drafts)
   companyTenantId: z.string()
     .cuid("Tenant company ID must be a valid CUID"),
   agencyId: z.string()
-    .cuid("Agency ID must be a valid CUID"),
+    .cuid("Agency ID must be a valid CUID")
+    .optional(),
   contractorId: z.string()
-    .cuid("Contractor ID must be a valid CUID"),
-  
-  // Dates (essential)
+    .cuid("Contractor ID must be a valid CUID")
+    .optional(),
+
+  // Dates (optional — can be filled in later)
   startDate: z.string()
     .or(z.date())
-    .transform((val) => (typeof val === "string" ? new Date(val) : val)),
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(),
   endDate: z.string()
     .or(z.date())
-    .transform((val) => (typeof val === "string" ? new Date(val) : val)),
-  
-  // Salary Type (essential)
+    .transform((val) => (typeof val === "string" ? new Date(val) : val))
+    .optional(),
+
+  // Salary Type (optional at creation)
   salaryType: z.enum(["gross", "payroll", "payroll_we_pay", "split"], {
-    errorMap: () => ({ 
-      message: "Salary type must be: gross, payroll, payroll_we_pay or split" 
+    errorMap: () => ({
+      message: "Salary type must be: gross, payroll, payroll_we_pay or split"
     }),
-  }),
-  
+  }).optional(),
+
   // Conditional fields based on salaryType
-  userBankId: z.string().cuid().optional(), // For Gross
-  payrollUserId: z.string().cuid().optional(), // For Payroll and Payroll We Pay
-  userBankIds: z.array(z.string().cuid()).optional(), // For Split
+  userBankId: z.string().cuid().optional(),
+  payrollUserId: z.string().cuid().optional(),
+  userBankIds: z.array(z.string().cuid()).optional(),
 
   // Optional fields - Pricing
   rateAmount: z.number()
-    .positive("Rate amount must be positive")
+    .nonnegative("Rate amount cannot be negative")
     .optional(),
   rateCurrency: z.string()
     .min(3, "Currency must contain at least 3 characters")
     .max(3, "Currency must contain 3 characters")
     .optional(),
   rateCycle: z.enum(["daily", "weekly", "monthly", "yearly", "hourly"], {
-    errorMap: () => ({ 
-      message: "Cycle must be: daily, weekly, monthly, yearly or hourly" 
+    errorMap: () => ({
+      message: "Cycle must be: daily, weekly, monthly, yearly or hourly"
     }),
   }).optional(),
-  
+
   // Optional fields - Margin
   marginAmount: z.number()
-    .positive("Margin amount must be positive")
+    .nonnegative("Margin amount cannot be negative")
     .optional(),
   marginCurrency: z.string()
     .min(3, "Currency must contain at least 3 characters")
@@ -370,8 +374,8 @@ const normContractBaseFields = {
   marginType: z.enum(["fixed", "percentage"], {
     errorMap: () => ({ message: "Margin type must be: fixed or percentage" }),
   }).optional(),
-  marginPaidBy: z.enum(["client", "agency"], {
-    errorMap: () => ({ message: "Margin must be paid by: client or agency" }),
+  marginPaidBy: z.enum(["client", "agency", "contractor"], {
+    errorMap: () => ({ message: "Margin must be paid by: client, agency or contractor" }),
   }).optional(),
 
   invoiceDueTerm: z.enum([
@@ -428,8 +432,8 @@ export const createNormContractSchema = optionalPdfFileSchema
   })
   .refine(
     (data) => {
-      // Date validation
-      if (data.startDate >= data.endDate) {
+      // Date validation only when both dates are provided
+      if (data.startDate && data.endDate && data.startDate >= data.endDate) {
         return false;
       }
       return true;
@@ -437,25 +441,6 @@ export const createNormContractSchema = optionalPdfFileSchema
     {
       message: "Start date must be before end date",
       path: ["endDate"],
-    }
-  )
-  .refine(
-    (data) => {
-      // Conditional validation based on salaryType
-      if (data.salaryType === "gross") {
-        return true;
-      }
-      if (data.salaryType === "payroll" || data.salaryType === "payroll_we_pay") {
-        return !!data.payrollUserId;
-      }
-      if (data.salaryType === "split") {
-        return true;
-      }
-      return true;
-    },
-    {
-      message: "Field required based on selected salary type",
-      path: ["salaryType"],
     }
   );
 
@@ -496,7 +481,7 @@ export const updateNormContractSchema = z.object({
   marginAmount: z.number().positive().optional(),
   marginCurrency: z.string().min(3).max(3).optional(),
   marginType: z.enum(["fixed", "percentage"]).optional(),
-  marginPaidBy: z.enum(["client", "agency"]).optional(),
+  marginPaidBy: z.enum(["client", "agency", "contractor"]).optional(),
   
   invoiceDueDays: z.number().int().positive().max(365).optional(),
   notes: z.string().max(5000).optional(),
